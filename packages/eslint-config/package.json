@@ -6,7 +6,12 @@
   "exports": {
     "./base": "./base.js",
     "./next-js": "./next.js",
-    "./react-internal": "./react-internal.js"
+    "./react-internal": "./react-internal.js",
+    "./node": "./node.js"
+  },
+  "scripts": {
+    "clean": "rimraf dist .turbo",
+    "clean:reset": "pnpm clean && rimraf node_modules"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

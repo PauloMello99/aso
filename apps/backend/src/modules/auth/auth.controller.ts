@@ -1,0 +1,78 @@
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UseGuards,
+} from "@nestjs/common";
+import { CurrentUser } from "./decorators/current-user.decorator";
+import { ForgotPasswordDto } from "./dto/forgot-password.dto";
+import { RefreshTokenDto } from "./dto/refresh-token.dto";
+import { ResetPasswordDto } from "./dto/reset-password.dto";
+import { SignInDto } from "./dto/sign-in.dto";
+import { SignUpDto } from "./dto/sign-up.dto";
+import { AuthGuard } from "./guards/auth.guard";
+import { AuthUser } from "./application/ports/auth-provider.interface";
+import { ForgotPasswordUseCase } from "./use-cases/forgot-password.use-case";
+import { RefreshTokenUseCase } from "./use-cases/refresh-token.use-case";
+import { ResetPasswordUseCase } from "./use-cases/reset-password.use-case";
+import { SignInUseCase } from "./use-cases/sign-in.use-case";
+import { SignOutUseCase } from "./use-cases/sign-out.use-case";
+import { SignUpUseCase } from "./use-cases/sign-up.use-case";
+import { GetMeUseCase } from "../user/application/use-cases/get-me.use-case";
+
+@Controller("auth")
+export class AuthController {
+  constructor(
+    private readonly signUpUseCase: SignUpUseCase,
+    private readonly signInUseCase: SignInUseCase,
+    private readonly signOutUseCase: SignOutUseCase,
+    private readonly refreshTokenUseCase: RefreshTokenUseCase,
+    private readonly forgotPasswordUseCase: ForgotPasswordUseCase,
+    private readonly resetPasswordUseCase: ResetPasswordUseCase,
+    private readonly getMeUseCase: GetMeUseCase,
+  ) {}
+
+  @Post("sign-up")
+  signUp(@Body() dto: SignUpDto) {
+    return this.signUpUseCase.execute(dto.email, dto.password, dto.name);
+  }
+
+  @Post("sign-in")
+  signIn(@Body() dto: SignInDto) {
+    return this.signInUseCase.execute(dto.email, dto.password);
+  }
+
+  @Post("sign-out")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(AuthGuard)
+  signOut(@Headers("authorization") auth: string) {
+    return this.signOutUseCase.execute(auth.slice(7));
+  }
+
+  @Post("refresh-token")
+  refreshToken(@Body() dto: RefreshTokenDto) {
+    return this.refreshTokenUseCase.execute(dto.refreshToken);
+  }
+
+  @Post("forgot-password")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.forgotPasswordUseCase.execute(dto.email);
+  }
+
+  @Post("reset-password")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.resetPasswordUseCase.execute(dto.accessToken, dto.newPassword);
+  }
+
+  @Get("me")
+  @UseGuards(AuthGuard)
+  getMe(@CurrentUser() user: AuthUser) {
+    return this.getMeUseCase.execute(user);
+  }
+}

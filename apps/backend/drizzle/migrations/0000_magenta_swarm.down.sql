@@ -1,0 +1,94 @@
+-- Reverse of 0000_magenta_swarm.sql
+-- Drop RLS policies
+DROP POLICY IF EXISTS "audit_logs_insert" ON public.audit_logs;
+DROP POLICY IF EXISTS "audit_logs_select" ON public.audit_logs;
+DROP POLICY IF EXISTS "calendar_events_delete" ON public.calendar_events;
+DROP POLICY IF EXISTS "calendar_events_update" ON public.calendar_events;
+DROP POLICY IF EXISTS "calendar_events_insert" ON public.calendar_events;
+DROP POLICY IF EXISTS "calendar_events_select" ON public.calendar_events;
+DROP POLICY IF EXISTS "service_materials_delete" ON public.service_materials;
+DROP POLICY IF EXISTS "service_materials_update" ON public.service_materials;
+DROP POLICY IF EXISTS "service_materials_insert" ON public.service_materials;
+DROP POLICY IF EXISTS "service_materials_select" ON public.service_materials;
+DROP POLICY IF EXISTS "services_delete" ON public.services;
+DROP POLICY IF EXISTS "services_update" ON public.services;
+DROP POLICY IF EXISTS "services_insert" ON public.services;
+DROP POLICY IF EXISTS "services_select" ON public.services;
+DROP POLICY IF EXISTS "transactions_delete" ON public.transactions;
+DROP POLICY IF EXISTS "transactions_update" ON public.transactions;
+DROP POLICY IF EXISTS "transactions_insert" ON public.transactions;
+DROP POLICY IF EXISTS "transactions_select" ON public.transactions;
+DROP POLICY IF EXISTS "materials_delete" ON public.materials;
+DROP POLICY IF EXISTS "materials_update" ON public.materials;
+DROP POLICY IF EXISTS "materials_insert" ON public.materials;
+DROP POLICY IF EXISTS "materials_select" ON public.materials;
+DROP POLICY IF EXISTS "customers_delete" ON public.customers;
+DROP POLICY IF EXISTS "customers_update" ON public.customers;
+DROP POLICY IF EXISTS "customers_insert" ON public.customers;
+DROP POLICY IF EXISTS "customers_select" ON public.customers;
+DROP POLICY IF EXISTS "customer_origins_delete" ON public.customer_origins;
+DROP POLICY IF EXISTS "customer_origins_update" ON public.customer_origins;
+DROP POLICY IF EXISTS "customer_origins_insert" ON public.customer_origins;
+DROP POLICY IF EXISTS "customer_origins_select" ON public.customer_origins;
+DROP POLICY IF EXISTS "material_categories_delete" ON public.material_categories;
+DROP POLICY IF EXISTS "material_categories_update" ON public.material_categories;
+DROP POLICY IF EXISTS "material_categories_insert" ON public.material_categories;
+DROP POLICY IF EXISTS "material_categories_select" ON public.material_categories;
+DROP POLICY IF EXISTS "service_types_delete" ON public.service_types;
+DROP POLICY IF EXISTS "service_types_update" ON public.service_types;
+DROP POLICY IF EXISTS "service_types_insert" ON public.service_types;
+DROP POLICY IF EXISTS "service_types_select" ON public.service_types;
+DROP POLICY IF EXISTS "subscriptions_delete" ON public.subscriptions;
+DROP POLICY IF EXISTS "subscriptions_update" ON public.subscriptions;
+DROP POLICY IF EXISTS "subscriptions_insert" ON public.subscriptions;
+DROP POLICY IF EXISTS "subscriptions_select" ON public.subscriptions;
+DROP POLICY IF EXISTS "org_invitations_delete" ON public.org_invitations;
+DROP POLICY IF EXISTS "org_invitations_update" ON public.org_invitations;
+DROP POLICY IF EXISTS "org_invitations_insert" ON public.org_invitations;
+DROP POLICY IF EXISTS "org_invitations_select" ON public.org_invitations;
+DROP POLICY IF EXISTS "org_memberships_delete" ON public.org_memberships;
+DROP POLICY IF EXISTS "org_memberships_update" ON public.org_memberships;
+DROP POLICY IF EXISTS "org_memberships_insert" ON public.org_memberships;
+DROP POLICY IF EXISTS "org_memberships_select" ON public.org_memberships;
+DROP POLICY IF EXISTS "organizations_delete" ON public.organizations;
+DROP POLICY IF EXISTS "organizations_update" ON public.organizations;
+DROP POLICY IF EXISTS "organizations_insert" ON public.organizations;
+DROP POLICY IF EXISTS "organizations_select" ON public.organizations;
+DROP POLICY IF EXISTS "users_delete" ON public.users;
+DROP POLICY IF EXISTS "users_update" ON public.users;
+DROP POLICY IF EXISTS "users_insert" ON public.users;
+DROP POLICY IF EXISTS "users_select" ON public.users;
+
+-- Drop helper functions
+DROP FUNCTION IF EXISTS public.is_org_owner(uuid);
+DROP FUNCTION IF EXISTS public.is_org_member(uuid);
+DROP FUNCTION IF EXISTS public.is_super_admin();
+
+-- Drop tables in reverse dependency order (CASCADE handles FK constraints)
+DROP TABLE IF EXISTS "audit_logs" CASCADE;
+DROP TABLE IF EXISTS "calendar_events" CASCADE;
+DROP TABLE IF EXISTS "service_materials" CASCADE;
+DROP TABLE IF EXISTS "services" CASCADE;
+DROP TABLE IF EXISTS "transactions" CASCADE;
+DROP TABLE IF EXISTS "materials" CASCADE;
+DROP TABLE IF EXISTS "customers" CASCADE;
+DROP TABLE IF EXISTS "service_types" CASCADE;
+DROP TABLE IF EXISTS "material_categories" CASCADE;
+DROP TABLE IF EXISTS "customer_origins" CASCADE;
+DROP TABLE IF EXISTS "subscriptions" CASCADE;
+DROP TABLE IF EXISTS "org_invitations" CASCADE;
+DROP TABLE IF EXISTS "org_memberships" CASCADE;
+DROP TABLE IF EXISTS "organizations" CASCADE;
+DROP TABLE IF EXISTS "users" CASCADE;
+
+-- Drop enums
+DROP TYPE IF EXISTS "public"."audit_action";
+DROP TYPE IF EXISTS "public"."billing_interval";
+DROP TYPE IF EXISTS "public"."gender";
+DROP TYPE IF EXISTS "public"."invitation_status";
+DROP TYPE IF EXISTS "public"."org_role";
+DROP TYPE IF EXISTS "public"."payment_method";
+DROP TYPE IF EXISTS "public"."platform_role";
+DROP TYPE IF EXISTS "public"."subscription_status";
+DROP TYPE IF EXISTS "public"."subscription_type";
+DROP TYPE IF EXISTS "public"."transaction_type";

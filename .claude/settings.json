@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "qdrant": {
+      "command": "uvx",
+      "args": ["mcp-server-qdrant"],
+      "env": {
+        "QDRANT_URL": "http://localhost:6333",
+        "COLLECTION_NAME": "ink_ops_memory",
+        "EMBEDDING_PROVIDER": "ollama",
+        "EMBEDDING_MODEL": "nomic-embed-text",
+        "OLLAMA_URL": "http://localhost:11434"
+      }
+    }
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -Command \"if ($env:TOOL_INPUT_FILE_PATH -like '*\\.memory\\*') { wsl bash bin/scripts/rag/reindex.sh }\""
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -36,3 +36,15 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+
+# Prevent compiled files in source
+packages/*/src/*.js
+packages/*/src/*.d.ts
+packages/*/src/*.js.map
+packages/*/src/*.ts.map
+
+# RAG / Memory
+docker-compose.rag.yml
+bin/scripts/rag/
+.rag/
+.memory/sessions/

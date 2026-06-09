@@ -1,0 +1,327 @@
+"use client"
+
+import { useState } from "react"
+import { MoreHorizontal, UserMinus, ShieldCheck } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select"
+import { Button } from "@/shared/components/ui/button"
+import { Label } from "@/shared/components/ui/label"
+import type { Member, Invitation, OrgRole } from "../types"
+
+const ROLE_LABEL: Record<OrgRole, string> = {
+  owner: "Proprietário",
+  employee: "Funcionário",
+}
+
+interface MemberListProps {
+  members: Member[]
+  invitations: Invitation[]
+  currentUserEmail: string
+  isOwner: boolean
+  onUpdateRole: (memberId: string, role: OrgRole) => Promise<void>
+  onRemove: (memberId: string) => Promise<void>
+  onCancelInvitation: (invitationId: string) => Promise<void>
+}
+
+export function MemberList({
+  members,
+  invitations,
+  currentUserEmail,
+  isOwner,
+  onUpdateRole,
+  onRemove,
+  onCancelInvitation,
+}: MemberListProps) {
+  const [roleDialog, setRoleDialog] = useState<{ member: Member; role: OrgRole } | null>(null)
+  const [removeDialog, setRemoveDialog] = useState<Member | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  async function confirmRoleChange() {
+    if (!roleDialog) return
+    setLoading(true)
+    try {
+      await onUpdateRole(roleDialog.member.memberId, roleDialog.role)
+      setRoleDialog(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function confirmRemove() {
+    if (!removeDialog) return
+    setLoading(true)
+    try {
+      await onRemove(removeDialog.memberId)
+      setRemoveDialog(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="grid gap-6">
+      {/* Members section */}
+      <section>
+        <h3 className="mb-3 text-sm font-medium text-white/50 uppercase tracking-wide">
+          Membros ({members.length})
+        </h3>
+
+        {/* Desktop table */}
+        <div className="hidden sm:block overflow-hidden rounded-lg border border-white/10">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-white/10 bg-white/[0.02]">
+                <th className="px-4 py-3 text-left font-medium text-white/50">Nome</th>
+                <th className="px-4 py-3 text-left font-medium text-white/50">E-mail</th>
+                <th className="px-4 py-3 text-left font-medium text-white/50">Função</th>
+                <th className="w-12 px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {members.map((member) => {
+                const isSelf = member.userEmail === currentUserEmail
+                return (
+                  <tr key={member.memberId} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-semibold uppercase">
+                          {member.userName.charAt(0)}
+                        </div>
+                        <span className="font-medium">
+                          {member.userName}
+                          {isSelf && (
+                            <span className="ml-2 text-xs text-white/30">(você)</span>
+                          )}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-white/60">{member.userEmail}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={
+                          member.role === "owner"
+                            ? "inline-flex items-center rounded-md bg-orange-500/10 px-2 py-0.5 text-xs font-medium text-orange-400"
+                            : "inline-flex items-center rounded-md bg-white/5 px-2 py-0.5 text-xs font-medium text-white/50"
+                        }
+                      >
+                        {ROLE_LABEL[member.role]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {isOwner && !isSelf && (
+                        <MemberActions
+                          member={member}
+                          onChangeRole={(role) => setRoleDialog({ member, role })}
+                          onRemove={() => setRemoveDialog(member)}
+                        />
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile cards */}
+        <div className="grid gap-2 sm:hidden">
+          {members.map((member) => {
+            const isSelf = member.userEmail === currentUserEmail
+            return (
+              <div
+                key={member.memberId}
+                className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.02] p-3"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm font-semibold uppercase">
+                  {member.userName.charAt(0)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">
+                    {member.userName}
+                    {isSelf && <span className="ml-1 text-xs text-white/30">(você)</span>}
+                  </p>
+                  <p className="truncate text-xs text-white/50">{member.userEmail}</p>
+                </div>
+                <span
+                  className={
+                    member.role === "owner"
+                      ? "shrink-0 rounded-md bg-orange-500/10 px-2 py-0.5 text-xs font-medium text-orange-400"
+                      : "shrink-0 rounded-md bg-white/5 px-2 py-0.5 text-xs font-medium text-white/50"
+                  }
+                >
+                  {ROLE_LABEL[member.role]}
+                </span>
+                {isOwner && !isSelf && (
+                  <MemberActions
+                    member={member}
+                    onChangeRole={(role) => setRoleDialog({ member, role })}
+                    onRemove={() => setRemoveDialog(member)}
+                  />
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* Pending invitations */}
+      {invitations.length > 0 && (
+        <section>
+          <h3 className="mb-3 text-sm font-medium text-white/50 uppercase tracking-wide">
+            Convites pendentes ({invitations.length})
+          </h3>
+          <div className="grid gap-2">
+            {invitations.map((inv) => (
+              <div
+                key={inv.id}
+                className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.02] p-3"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-dashed border-white/20 text-white/30">
+                  ?
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm">{inv.email}</p>
+                  <p className="text-xs text-white/40">
+                    {ROLE_LABEL[inv.role]} · expira{" "}
+                    {new Date(inv.expiresAt).toLocaleDateString("pt-BR", {
+                      day: "2-digit",
+                      month: "short",
+                    })}
+                  </p>
+                </div>
+                {isOwner && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 text-red-400 hover:text-red-300"
+                    onClick={() => onCancelInvitation(inv.id)}
+                  >
+                    Cancelar
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Change role dialog */}
+      <Dialog open={!!roleDialog} onOpenChange={(v) => !v && setRoleDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Alterar função</DialogTitle>
+            <DialogDescription>
+              Altere a função de{" "}
+              <span className="font-medium text-white">{roleDialog?.member.userName}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            <Label>Nova função</Label>
+            <Select
+              value={roleDialog?.role}
+              onValueChange={(v) =>
+                roleDialog && setRoleDialog({ ...roleDialog, role: v as OrgRole })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="employee">Funcionário</SelectItem>
+                <SelectItem value="owner">Proprietário</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button
+              disabled={loading}
+              onClick={confirmRoleChange}
+              className="w-full sm:w-auto"
+            >
+              {loading ? "Salvando…" : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove member dialog */}
+      <Dialog open={!!removeDialog} onOpenChange={(v) => !v && setRemoveDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remover membro</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja remover{" "}
+              <span className="font-medium text-white">{removeDialog?.userName}</span> da
+              organização?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="destructive"
+              disabled={loading}
+              onClick={confirmRemove}
+              className="w-full sm:w-auto"
+            >
+              {loading ? "Removendo…" : "Remover"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+function MemberActions({
+  member,
+  onChangeRole,
+  onRemove,
+}: {
+  member: Member
+  onChangeRole: (role: OrgRole) => void
+  onRemove: () => void
+}) {
+  const nextRole: OrgRole = member.role === "owner" ? "employee" : "owner"
+  const nextRoleLabel = nextRole === "owner" ? "Tornar proprietário" : "Tornar funcionário"
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => onChangeRole(nextRole)}>
+          <ShieldCheck className="mr-2 h-4 w-4" />
+          {nextRoleLabel}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="text-red-400 focus:text-red-400"
+          onClick={onRemove}
+        >
+          <UserMinus className="mr-2 h-4 w-4" />
+          Remover
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
