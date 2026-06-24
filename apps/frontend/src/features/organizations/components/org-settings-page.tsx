@@ -24,7 +24,7 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
   const { org, loading, isOwner, notFound } = useOrg(orgId)
   const { updateOrg, deleteOrg } = useOrgMutations(orgId)
   const { user } = useAuth()
-  const { members, invitations, inviteMember, updateMemberRole, removeMember, setMemberStatus, cancelInvitation } =
+  const { members, invitations, inviteMember, updateMemberRole, removeMember, setMemberStatus, updateMemberPermissions, cancelInvitation } =
     useMembers(orgId)
   const [inviteOpen, setInviteOpen] = useState(false)
 
@@ -112,6 +112,9 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
           onRemove={removeMember}
           onToggleStatus={async (memberId, enabled) => {
             await setMemberStatus(memberId, enabled)
+          }}
+          onUpdatePermissions={async (memberId, permissions) => {
+            await updateMemberPermissions(memberId, permissions)
           }}
           onCancelInvitation={cancelInvitation}
         />

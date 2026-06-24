@@ -27,8 +27,24 @@ export function MembersPage() {
     updateMemberRole: updateMemberRoleFn,
     removeMember,
     setMemberStatus,
+    updateMemberPermissions,
     cancelInvitation,
   } = useMembers(orgId)
+
+  async function handleUpdatePermissions(
+    memberId: string,
+    permissions: string[],
+  ): Promise<void> {
+    try {
+      await updateMemberPermissions(memberId, permissions)
+    } catch (err) {
+      alert(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível atualizar as permissões.",
+      )
+    }
+  }
 
   async function updateMemberRole(memberId: string, role: OrgRole): Promise<void> {
     await updateMemberRoleFn(memberId, role)
@@ -119,6 +135,7 @@ export function MembersPage() {
         onUpdateRole={updateMemberRole}
         onRemove={removeMember}
         onToggleStatus={toggleStatus}
+        onUpdatePermissions={handleUpdatePermissions}
         onCancelInvitation={cancelInvitation}
       />
 

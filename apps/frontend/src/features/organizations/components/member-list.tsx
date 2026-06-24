@@ -1,7 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { MoreHorizontal, UserMinus, ShieldCheck, Power } from "lucide-react"
+import {
+  MoreHorizontal,
+  UserMinus,
+  ShieldCheck,
+  Power,
+  SlidersHorizontal,
+} from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,11 +39,21 @@ import {
 } from "@/shared/components/ui/table"
 import { Button } from "@/shared/components/ui/button"
 import { Label } from "@/shared/components/ui/label"
+import { Switch } from "@/shared/components/ui/switch"
+import { MODULE_KEYS, type ModuleKey } from "@/features/dashboard/lib/nav"
 import type { Member, Invitation, OrgRole } from "../types"
 
 const ROLE_LABEL: Record<OrgRole, string> = {
   owner: "Proprietário",
   employee: "Funcionário",
+}
+
+const MODULE_LABEL: Record<ModuleKey, string> = {
+  services: "Serviços",
+  clients: "Clientes",
+  schedule: "Agenda",
+  stock: "Estoque",
+  cashier: "Caixa",
 }
 
 interface MemberListProps {
@@ -48,6 +64,7 @@ interface MemberListProps {
   onUpdateRole: (memberId: string, role: OrgRole) => Promise<void>
   onRemove: (memberId: string) => Promise<void>
   onToggleStatus: (memberId: string, enabled: boolean) => Promise<void>
+  onUpdatePermissions: (memberId: string, permissions: string[]) => Promise<void>
   onCancelInvitation: (invitationId: string) => Promise<void>
 }
 
@@ -59,11 +76,36 @@ export function MemberList({
   onUpdateRole,
   onRemove,
   onToggleStatus,
+  onUpdatePermissions,
   onCancelInvitation,
 }: MemberListProps) {
   const [roleDialog, setRoleDialog] = useState<{ member: Member; role: OrgRole } | null>(null)
   const [removeDialog, setRemoveDialog] = useState<Member | null>(null)
+  const [permsDialog, setPermsDialog] = useState<Member | null>(null)
+  const [permsDraft, setPermsDraft] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
+
+  function openPerms(member: Member) {
+    setPermsDraft(member.permissions ?? [])
+    setPermsDialog(member)
+  }
+
+  function togglePerm(module: ModuleKey, on: boolean) {
+    setPermsDraft((prev) =>
+      on ? [...new Set([...prev, module])] : prev.filter((m) => m !== module),
+    )
+  }
+
+  async function confirmPerms() {
+    if (!permsDialog) return
+    setLoading(true)
+    try {
+      await onUpdatePermissions(permsDialog.memberId, permsDraft)
+      setPermsDialog(null)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   async function confirmRoleChange() {
     if (!roleDialog) return
@@ -145,6 +187,7 @@ export function MemberList({
                           onToggleStatus={() =>
                             onToggleStatus(member.memberId, !member.enabled)
                           }
+                          onPermissions={() => openPerms(member)}
                         />
                       )}
                     </TableCell>
@@ -191,6 +234,7 @@ export function MemberList({
                     onToggleStatus={() =>
                       onToggleStatus(member.memberId, !member.enabled)
                     }
+                    onPermissions={() => openPerms(member)}
                   />
                 )}
               </div>
@@ -279,6 +323,49 @@ export function MemberList({
         </DialogContent>
       </Dialog>
 
+      {/* Permissions dialog (employee module access) */}
+      <Dialog open={!!permsDialog} onOpenChange={(v) => !v && setPermsDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Permissões do funcionário</DialogTitle>
+            <DialogDescription>
+              Escolha os módulos que{" "}
+              <span className="font-medium text-white">
+                {permsDialog?.userName}
+              </span>{" "}
+              pode acessar. Em cada módulo, o funcionário vê apenas os próprios
+              registros.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-1">
+            {MODULE_KEYS.map((module) => {
+              const on = permsDraft.includes(module)
+              return (
+                <label
+                  key={module}
+                  className="flex items-center justify-between gap-4 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5"
+                >
+                  <span className="text-sm text-white">{MODULE_LABEL[module]}</span>
+                  <Switch
+                    checked={on}
+                    onCheckedChange={(v) => togglePerm(module, v)}
+                  />
+                </label>
+              )
+            })}
+          </div>
+          <DialogFooter>
+            <Button
+              disabled={loading}
+              onClick={confirmPerms}
+              className="w-full sm:w-auto"
+            >
+              {loading ? "Salvando…" : "Salvar permissões"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Remove member dialog */}
       <Dialog open={!!removeDialog} onOpenChange={(v) => !v && setRemoveDialog(null)}>
         <DialogContent>
@@ -311,11 +398,13 @@ function MemberActions({
   onChangeRole,
   onRemove,
   onToggleStatus,
+  onPermissions,
 }: {
   member: Member
   onChangeRole: (role: OrgRole) => void
   onRemove: () => void
   onToggleStatus: () => void
+  onPermissions: () => void
 }) {
   const nextRole: OrgRole = member.role === "owner" ? "employee" : "owner"
   const nextRoleLabel = nextRole === "owner" ? "Tornar proprietário" : "Tornar funcionário"
@@ -328,6 +417,12 @@ function MemberActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        {member.role === "employee" && (
+          <DropdownMenuItem onClick={onPermissions}>
+            <SlidersHorizontal className="mr-2 h-4 w-4" />
+            Permissões
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={() => onChangeRole(nextRole)}>
           <ShieldCheck className="mr-2 h-4 w-4" />
           {nextRoleLabel}

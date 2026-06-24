@@ -6,7 +6,7 @@ import { useRouter } from "next/router"
 import { PanelLeftClose, PanelLeftOpen, X } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { Tooltip } from "@/shared/components/ui/tooltip"
-import { ORG_NAV_SECTIONS } from "@/features/dashboard/lib/nav"
+import { ORG_NAV_SECTIONS, canAccessModule } from "@/features/dashboard/lib/nav"
 import type { OrgSummary } from "@/features/dashboard/hooks/use-orgs"
 
 interface OrgSidebarProps {
@@ -106,7 +106,9 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
         <nav className="flex-1 overflow-y-auto px-2 py-3">
           {ORG_NAV_SECTIONS.map((section, sIdx) => {
             const visibleItems = section.items.filter(
-              (item) => !item.roles || item.roles.includes(org.role),
+              (item) =>
+                (!item.roles || item.roles.includes(org.role)) &&
+                canAccessModule(org.role, org.permissions, item.module),
             )
             if (visibleItems.length === 0) return null
             return (

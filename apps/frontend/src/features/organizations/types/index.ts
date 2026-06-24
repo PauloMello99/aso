@@ -7,6 +7,8 @@ export interface Member {
   userId: string
   role: OrgRole
   enabled: boolean
+  /** Módulos liberados ao funcionário (owner = acesso total, ignora). */
+  permissions: string[]
   userName: string
   userEmail: string
   joinedAt: string

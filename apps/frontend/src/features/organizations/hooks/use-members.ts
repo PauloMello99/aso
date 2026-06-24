@@ -49,6 +49,25 @@ export function useMembers(orgId: string) {
     },
   })
 
+  const updateMemberPermissionsMutation = useMutation({
+    mutationFn: ({
+      memberId,
+      permissions,
+    }: {
+      memberId: string
+      permissions: string[]
+    }) =>
+      apiRequest<Member>(`/orgs/${orgId}/members/${memberId}/permissions`, {
+        method: "PATCH",
+        body: JSON.stringify({ permissions }),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.members.list(orgId) })
+      // permissões afetam o nav/escopo do próprio funcionário → invalida orgs também.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.orgs.all })
+    },
+  })
+
   const setMemberStatusMutation = useMutation({
     mutationFn: ({ memberId, enabled }: { memberId: string; enabled: boolean }) =>
       apiRequest<Member>(`/orgs/${orgId}/members/${memberId}/status`, {
@@ -97,6 +116,13 @@ export function useMembers(orgId: string) {
     return setMemberStatusMutation.mutateAsync({ memberId, enabled })
   }
 
+  async function updateMemberPermissions(
+    memberId: string,
+    permissions: string[],
+  ): Promise<Member> {
+    return updateMemberPermissionsMutation.mutateAsync({ memberId, permissions })
+  }
+
   async function cancelInvitation(invitationId: string): Promise<void> {
     return cancelInvitationMutation.mutateAsync(invitationId)
   }
@@ -112,6 +138,7 @@ export function useMembers(orgId: string) {
     updateMemberRole,
     removeMember,
     setMemberStatus,
+    updateMemberPermissions,
     cancelInvitation,
   }
 }

@@ -10,6 +10,30 @@ import {
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
+/** Módulos com permissão por funcionário (espelha o backend member-permissions). */
+export const MODULE_KEYS = [
+  "services",
+  "clients",
+  "schedule",
+  "stock",
+  "cashier",
+] as const
+export type ModuleKey = (typeof MODULE_KEYS)[number]
+
+export function isModuleKey(value: string): value is ModuleKey {
+  return (MODULE_KEYS as readonly string[]).includes(value)
+}
+
+/** Owner vê tudo; funcionário precisa do módulo. Itens sem módulo são livres. */
+export function canAccessModule(
+  role: "owner" | "employee",
+  permissions: readonly string[],
+  module?: ModuleKey,
+): boolean {
+  if (!module) return true
+  return role === "owner" || permissions.includes(module)
+}
+
 export interface NavItem {
   /** Label displayed in sidebar and used in breadcrumbs */
   label: string
@@ -18,6 +42,8 @@ export interface NavItem {
   icon: LucideIcon
   /** When set, only users with one of these roles see this item. Omit = visible to all. */
   roles?: Array<"owner" | "employee">
+  /** When set, the employee needs this module permission (owner ignores). */
+  module?: ModuleKey
 }
 
 export interface NavSection {
@@ -31,11 +57,11 @@ export const ORG_NAV_SECTIONS: NavSection[] = [
   {
     items: [
       { label: "Overview", href: "overview", icon: LayoutGrid },
-      { label: "Serviços", href: "services", icon: Package },
-      { label: "Clientes", href: "clients", icon: Users },
-      { label: "Agenda", href: "schedule", icon: CalendarDays },
-      { label: "Estoque", href: "stock", icon: Archive },
-      { label: "Caixa", href: "cashier", icon: Wallet },
+      { label: "Serviços", href: "services", icon: Package, module: "services" },
+      { label: "Clientes", href: "clients", icon: Users, module: "clients" },
+      { label: "Agenda", href: "schedule", icon: CalendarDays, module: "schedule" },
+      { label: "Estoque", href: "stock", icon: Archive, module: "stock" },
+      { label: "Caixa", href: "cashier", icon: Wallet, module: "cashier" },
     ],
   },
   {

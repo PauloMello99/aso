@@ -7,7 +7,12 @@ import { OrgSidebar } from "@/features/dashboard/components/org-sidebar"
 import { OrgSwitcher } from "@/features/dashboard/components/org-switcher"
 import { OrgProvider } from "@/features/dashboard/components/org-context"
 import { useOrgs } from "@/features/dashboard/hooks/use-orgs"
-import { PAGE_LABELS, isOwnerOnlyPath } from "@/features/dashboard/lib/nav"
+import {
+  PAGE_LABELS,
+  isOwnerOnlyPath,
+  isModuleKey,
+  canAccessModule,
+} from "@/features/dashboard/lib/nav"
 import type { OrgSummary } from "@/features/dashboard/hooks/use-orgs"
 import type { BreadcrumbItem } from "@/features/dashboard/components/top-header"
 
@@ -66,7 +71,12 @@ export function OrgLayout({ children }: OrgLayoutProps) {
   // settings/agenda fica de fora (funcionário configura a própria agenda).
   const currentSubpath = router.pathname.split("/[orgSlug]/")[1] ?? ""
   React.useEffect(() => {
-    if (org && org.role !== "owner" && isOwnerOnlyPath(currentSubpath)) {
+    if (!org || org.role === "owner") return
+    const seg = currentSubpath.split("/")[0] ?? ""
+    // Funcionário sem permissão no módulo (ou rota owner-only) → volta p/ overview.
+    const lacksModule =
+      isModuleKey(seg) && !canAccessModule(org.role, org.permissions, seg)
+    if (isOwnerOnlyPath(currentSubpath) || lacksModule) {
       void router.replace(`/dashboard/org/${org.slug}/overview`)
     }
   }, [org, currentSubpath, router])
