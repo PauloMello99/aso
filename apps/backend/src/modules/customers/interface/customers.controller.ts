@@ -22,6 +22,8 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import type { Response } from "express";
 import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
+import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
+import { RequireModule } from "../../auth/decorators/require-module.decorator";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { CreateCustomerUseCase } from "../application/use-cases/create-customer.use-case";
@@ -46,7 +48,8 @@ interface UploadedDoc {
 }
 
 @Controller("orgs/:orgId/customers")
-@UseGuards(AuthGuard, OrgMembershipGuard)
+@UseGuards(AuthGuard, OrgMembershipGuard, OrgModuleGuard)
+@RequireModule("clients")
 export class CustomersController {
   constructor(
     private readonly listCustomers: ListCustomersUseCase,

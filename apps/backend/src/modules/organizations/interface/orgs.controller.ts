@@ -24,6 +24,7 @@ import { DeleteOrgUseCase } from "../application/use-cases/delete-org.use-case";
 import { ListMembersUseCase } from "../application/use-cases/list-members.use-case";
 import { InviteMemberUseCase } from "../application/use-cases/invite-member.use-case";
 import { UpdateMemberRoleUseCase } from "../application/use-cases/update-member-role.use-case";
+import { UpdateMemberPermissionsUseCase } from "../application/use-cases/update-member-permissions.use-case";
 import { SetMemberStatusUseCase } from "../application/use-cases/set-member-status.use-case";
 import { RemoveMemberUseCase } from "../application/use-cases/remove-member.use-case";
 import { ListInvitationsUseCase } from "../application/use-cases/list-invitations.use-case";
@@ -32,6 +33,7 @@ import { CreateOrgDto } from "./dto/create-org.dto";
 import { UpdateOrgDto } from "./dto/update-org.dto";
 import { InviteMemberDto } from "./dto/invite-member.dto";
 import { UpdateMemberRoleDto } from "./dto/update-member-role.dto";
+import { UpdateMemberPermissionsDto } from "./dto/update-member-permissions.dto";
 import { SetMemberStatusDto } from "./dto/set-member-status.dto";
 
 @Controller("orgs")
@@ -47,6 +49,7 @@ export class OrgsController {
     private readonly listMembers: ListMembersUseCase,
     private readonly inviteMember: InviteMemberUseCase,
     private readonly updateMemberRole: UpdateMemberRoleUseCase,
+    private readonly updateMemberPermissions: UpdateMemberPermissionsUseCase,
     private readonly setMemberStatus: SetMemberStatusUseCase,
     private readonly removeMember: RemoveMemberUseCase,
     private readonly listInvitations: ListInvitationsUseCase,
@@ -123,6 +126,21 @@ export class OrgsController {
     @Body() dto: UpdateMemberRoleDto,
   ) {
     return this.updateMemberRole.execute(orgId, memberId, user.id, dto.role);
+  }
+
+  @Patch(":orgId/members/:memberId/permissions")
+  updatePermissions(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("memberId", ParseUUIDPipe) memberId: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: UpdateMemberPermissionsDto,
+  ) {
+    return this.updateMemberPermissions.execute(
+      orgId,
+      memberId,
+      user.id,
+      dto.permissions,
+    );
   }
 
   @Patch(":orgId/members/:memberId/status")

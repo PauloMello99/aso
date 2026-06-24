@@ -34,6 +34,9 @@ export const orgMemberships = pgTable(
       .references(() => organizations.id, { onDelete: "cascade" }),
     userId: uuid("user_id").notNull(),
     role: orgRoleEnum("role").notNull().default("employee"),
+    // Módulos liberados ao funcionário (on/off). Owner ignora (acesso total).
+    // Ver modules/organizations/domain/member-permissions.ts.
+    permissions: text("permissions").array().notNull().default([]),
     // Membro inativo perde acesso à org (OrgMembershipGuard exige enabled).
     enabled: boolean("enabled").notNull().default(true),
     joinedAt: timestamp("joined_at", { withTimezone: true })

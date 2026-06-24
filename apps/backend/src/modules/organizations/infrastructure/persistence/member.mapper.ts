@@ -7,6 +7,7 @@ interface MemberRow {
   userId: string;
   role: string;
   enabled: boolean;
+  permissions: string[] | null;
   userName: string;
   userEmail: string;
   joinedAt: Date;
@@ -20,6 +21,7 @@ export class MemberMapper {
       userId: row.userId,
       role: row.role as OrgRole,
       enabled: row.enabled,
+      permissions: row.permissions ?? [],
       userName: row.userName,
       userEmail: row.userEmail,
       joinedAt: row.joinedAt,

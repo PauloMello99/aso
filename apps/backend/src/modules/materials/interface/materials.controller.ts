@@ -15,6 +15,8 @@
 } from "@nestjs/common";
 import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
+import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
+import { RequireModule } from "../../auth/decorators/require-module.decorator";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { AdjustStockUseCase } from "../application/use-cases/adjust-stock.use-case";
@@ -39,7 +41,8 @@ import { RestockMaterialDto } from "./dto/restock-material.dto";
 import { UpdateMaterialDto } from "./dto/update-material.dto";
 
 @Controller("orgs/:orgId/materials")
-@UseGuards(AuthGuard, OrgMembershipGuard)
+@UseGuards(AuthGuard, OrgMembershipGuard, OrgModuleGuard)
+@RequireModule("stock")
 export class MaterialsController {
   constructor(
     private readonly listMaterials: ListMaterialsUseCase,

@@ -17,6 +17,7 @@ import { InvitationNotPendingException } from "../../domain/exceptions/invitatio
 import { InvitationExpiredException } from "../../domain/exceptions/invitation-expired.exception";
 import { InvitationEmailMismatchException } from "../../domain/exceptions/invitation-email-mismatch.exception";
 import { UserNotFoundException } from "../../../user/domain/exceptions/user-not-found.exception";
+import { DEFAULT_EMPLOYEE_PERMISSIONS } from "../../domain/member-permissions";
 
 export interface AcceptInvitationInput {
   authUser: AuthUser;
@@ -63,6 +64,9 @@ export class AcceptInvitationUseCase {
       orgId: invitation.orgId,
       userId: user.id,
       role: invitation.role,
+      // Funcionário começa restrito (só o essencial); owner libera o resto.
+      permissions:
+        invitation.role === "employee" ? DEFAULT_EMPLOYEE_PERMISSIONS : [],
     });
     await this.invitationRepo.markAccepted(invitation.id);
 

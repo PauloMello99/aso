@@ -15,6 +15,8 @@ import {
 } from "@nestjs/common";
 import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
+import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
+import { RequireModule } from "../../auth/decorators/require-module.decorator";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { ListCalendarEventsUseCase } from "../application/use-cases/list-calendar-events.use-case";
@@ -34,7 +36,8 @@ function parseDate(value: string | undefined, field: string): Date {
 }
 
 @Controller("orgs/:orgId/calendar")
-@UseGuards(AuthGuard, OrgMembershipGuard)
+@UseGuards(AuthGuard, OrgMembershipGuard, OrgModuleGuard)
+@RequireModule("schedule")
 export class CalendarController {
   constructor(
     private readonly listEvents: ListCalendarEventsUseCase,

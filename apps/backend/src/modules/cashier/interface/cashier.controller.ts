@@ -12,6 +12,8 @@ import {
 import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { OrgOwnerGuard } from "../../auth/guards/org-owner.guard";
+import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
+import { RequireModule } from "../../auth/decorators/require-module.decorator";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { ListTransactionsUseCase } from "../application/use-cases/list-transactions.use-case";
@@ -44,7 +46,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // lança em nome de. Operações sensíveis (taxas, transferência, estorno, correção,
 // criar categoria) seguem owner-only via OrgOwnerGuard a nível de método.
 @Controller("orgs/:orgId/cashier")
-@UseGuards(AuthGuard, OrgMembershipGuard)
+@UseGuards(AuthGuard, OrgMembershipGuard, OrgModuleGuard)
+@RequireModule("cashier")
 export class CashierController {
   constructor(
     private readonly listTransactions: ListTransactionsUseCase,

@@ -16,6 +16,7 @@ const ORG_SELECT = {
   slug: schema.organizations.slug,
   logoUrl: schema.organizations.logoUrl,
   role: schema.orgMemberships.role,
+  permissions: schema.orgMemberships.permissions,
   createdAt: schema.organizations.createdAt,
   updatedAt: schema.organizations.updatedAt,
 } as const;

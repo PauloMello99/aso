@@ -29,12 +29,44 @@ export class DrizzleMemberRepository implements IMemberRepository {
         orgId: data.orgId,
         userId: data.userId,
         role: data.role,
+        permissions: data.permissions ?? [],
         enabled: true,
       })
       .onConflictDoUpdate({
         target: [schema.orgMemberships.orgId, schema.orgMemberships.userId],
+        // Re-aceite preserva as permissões já configuradas (só reativa).
         set: { role: data.role, enabled: true },
       });
+  }
+
+  async updatePermissions(
+    memberId: string,
+    permissions: string[],
+  ): Promise<MemberEntity> {
+    await this.db
+      .update(schema.orgMemberships)
+      .set({ permissions })
+      .where(eq(schema.orgMemberships.id, memberId));
+
+    const [row] = await this.db
+      .select({
+        memberId: schema.orgMemberships.id,
+        orgId: schema.orgMemberships.orgId,
+        userId: schema.orgMemberships.userId,
+        role: schema.orgMemberships.role,
+        enabled: schema.orgMemberships.enabled,
+        permissions: schema.orgMemberships.permissions,
+        userName: schema.users.name,
+        userEmail: schema.users.email,
+        joinedAt: schema.orgMemberships.joinedAt,
+      })
+      .from(schema.orgMemberships)
+      .innerJoin(schema.users, eq(schema.users.id, schema.orgMemberships.userId))
+      .where(eq(schema.orgMemberships.id, memberId))
+      .limit(1);
+
+    if (!row) throw new Error("Member not found after update");
+    return MemberMapper.toDomain(row);
   }
 
   async findAllByOrg(orgId: string): Promise<MemberEntity[]> {
@@ -45,6 +77,7 @@ export class DrizzleMemberRepository implements IMemberRepository {
         userId: schema.orgMemberships.userId,
         role: schema.orgMemberships.role,
         enabled: schema.orgMemberships.enabled,
+        permissions: schema.orgMemberships.permissions,
         userName: schema.users.name,
         userEmail: schema.users.email,
         joinedAt: schema.orgMemberships.joinedAt,
@@ -64,6 +97,7 @@ export class DrizzleMemberRepository implements IMemberRepository {
         userId: schema.orgMemberships.userId,
         role: schema.orgMemberships.role,
         enabled: schema.orgMemberships.enabled,
+        permissions: schema.orgMemberships.permissions,
         userName: schema.users.name,
         userEmail: schema.users.email,
         joinedAt: schema.orgMemberships.joinedAt,
@@ -92,6 +126,7 @@ export class DrizzleMemberRepository implements IMemberRepository {
         userId: schema.orgMemberships.userId,
         role: schema.orgMemberships.role,
         enabled: schema.orgMemberships.enabled,
+        permissions: schema.orgMemberships.permissions,
         userName: schema.users.name,
         userEmail: schema.users.email,
         joinedAt: schema.orgMemberships.joinedAt,
@@ -122,6 +157,7 @@ export class DrizzleMemberRepository implements IMemberRepository {
         userId: schema.orgMemberships.userId,
         role: schema.orgMemberships.role,
         enabled: schema.orgMemberships.enabled,
+        permissions: schema.orgMemberships.permissions,
         userName: schema.users.name,
         userEmail: schema.users.email,
         joinedAt: schema.orgMemberships.joinedAt,
@@ -148,6 +184,7 @@ export class DrizzleMemberRepository implements IMemberRepository {
         userId: schema.orgMemberships.userId,
         role: schema.orgMemberships.role,
         enabled: schema.orgMemberships.enabled,
+        permissions: schema.orgMemberships.permissions,
         userName: schema.users.name,
         userEmail: schema.users.email,
         joinedAt: schema.orgMemberships.joinedAt,
