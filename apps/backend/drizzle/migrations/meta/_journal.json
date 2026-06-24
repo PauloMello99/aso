@@ -127,6 +127,13 @@
       "when": 1782000700000,
       "tag": "0017_member_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1782000800000,
+      "tag": "0018_backfill_created_by_userid",
+      "breakpoints": true
     }
   ]
 }
