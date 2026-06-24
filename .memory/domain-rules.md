@@ -155,6 +155,10 @@ um funcionário. Estado por módulo (2026-06-21):
   correção e o seletor "Em nome de" p/ funcionário; mostra "Seus lançamentos" no subtítulo.
   Verificado por teste de 3 contas (dono + func A + func B) em
   `docs/testing/employee-visibility-tests.md`.
+  - **Errata preserva autoria (TX-1, 2026-06-22):** `correct-transaction` lê o
+    `created_by` do lançamento original e repassa via `trustedCreatedBy` (campo interno
+    de `create-transaction` que pula `resolveActor`/`resolveCreatedBy`) — assim o
+    corrigido **continua pertencendo ao funcionário**, não migra para o owner que corrige.
 
 **Navegação por papel (multi-org/multi-papel) — frontend.** Um usuário pode ser `owner`
 de N orgs e `employee` de outras N ao mesmo tempo. `GET /orgs` retorna `role` por org;
