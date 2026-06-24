@@ -59,6 +59,11 @@ export class DrizzleUserRepository implements IUserRepository {
     return UserMapper.toDomain(row!);
   }
 
+  async delete(authId: string): Promise<void> {
+    // Exclusão de conta roda fora de contexto multi-tenant → conexão admin.
+    await this.admin.delete(schema.users).where(eq(schema.users.authId, authId));
+  }
+
   async update(authId: string, data: UpdateUserData): Promise<UserEntity> {
     const [row] = await this.db
       .update(schema.users)

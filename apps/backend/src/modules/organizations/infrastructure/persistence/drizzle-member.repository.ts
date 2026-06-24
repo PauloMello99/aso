@@ -213,6 +213,26 @@ export class DrizzleMemberRepository implements IMemberRepository {
     return rows.length;
   }
 
+  /** Orgs em que o usuário é proprietário (qualquer status). */
+  async countOwnedOrgs(userId: string): Promise<number> {
+    const rows = await this.admin
+      .select({ id: schema.orgMemberships.id })
+      .from(schema.orgMemberships)
+      .where(
+        and(
+          eq(schema.orgMemberships.userId, userId),
+          eq(schema.orgMemberships.role, "owner"),
+        ),
+      );
+    return rows.length;
+  }
+
+  async removeAllByUserId(userId: string): Promise<void> {
+    await this.admin
+      .delete(schema.orgMemberships)
+      .where(eq(schema.orgMemberships.userId, userId));
+  }
+
   async transferOwnership(
     orgId: string,
     newOwnerMemberId: string,

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { useRouter } from "next/router"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -10,10 +11,13 @@ import {
   MailCheck,
   Palette,
   ShieldCheck,
+  Trash2,
   Upload,
 } from "lucide-react"
 import { useMe } from "@/features/auth"
 import { useAuth } from "@/features/auth"
+import { clearSession } from "@/features/auth/lib/session"
+import { apiRequest } from "@/infrastructure/api/client"
 import {
   Form,
   FormControl,
@@ -23,8 +27,18 @@ import {
   FormLabel,
   FormMessage,
 } from "@/shared/components/ui/form"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/shared/components/ui/dialog"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
+import { Label } from "@/shared/components/ui/label"
 
 function SectionHeader({
   title,
@@ -312,6 +326,34 @@ export function AppearanceSection() {
 /* ── Zona de perigo ─────────────────────────────────────────────── */
 
 export function DangerSection() {
+  const router = useRouter()
+  const { user } = useAuth()
+  const [open, setOpen] = useState(false)
+  const [confirmation, setConfirmation] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const email = user?.email ?? ""
+  const isConfirmed = confirmation.trim().toLowerCase() === email.toLowerCase()
+
+  async function handleDelete() {
+    if (!isConfirmed) return
+    setLoading(true)
+    setError(null)
+    try {
+      await apiRequest<void>("/auth/me", { method: "DELETE" })
+      clearSession()
+      await router.replace("/auth/login")
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível excluir a conta.",
+      )
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="grid gap-6">
       <SectionHeader
@@ -330,17 +372,67 @@ export function DangerSection() {
           <div>
             <p className="text-sm font-medium">Excluir minha conta</p>
             <p className="text-xs text-white/40">
-              Você precisa sair de todas as organizações como proprietário antes
-              de excluir sua conta.
+              Você precisa transferir ou excluir as organizações das quais é
+              proprietário antes de excluir sua conta.
             </p>
           </div>
-          <button
-            type="button"
-            disabled
-            className="w-full cursor-not-allowed rounded-md border border-red-500/30 bg-red-500/5 px-4 py-2 text-sm font-medium text-red-400/50 sm:w-auto"
+
+          <Dialog
+            open={open}
+            onOpenChange={(v) => {
+              setOpen(v)
+              if (!v) {
+                setConfirmation("")
+                setError(null)
+              }
+            }}
           >
-            Apagar conta
-          </button>
+            <DialogTrigger asChild>
+              <Button variant="destructive" size="sm" className="w-full sm:w-auto">
+                <Trash2 className="h-4 w-4" />
+                Apagar conta
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Excluir minha conta</DialogTitle>
+                <DialogDescription>
+                  Esta ação é{" "}
+                  <span className="font-semibold text-red-400">irreversível</span>.
+                  Seus dados pessoais serão permanentemente removidos. Se você
+                  ainda for proprietário de alguma organização, a exclusão será
+                  bloqueada.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="grid gap-3">
+                <Label htmlFor="delete-account-confirm">
+                  Digite seu e-mail{" "}
+                  <span className="font-mono text-white/80">{email}</span> para
+                  confirmar:
+                </Label>
+                <Input
+                  id="delete-account-confirm"
+                  value={confirmation}
+                  onChange={(e) => setConfirmation(e.target.value)}
+                  placeholder={email}
+                  autoComplete="off"
+                />
+                {error && <p className="text-sm text-red-400">{error}</p>}
+              </div>
+
+              <DialogFooter>
+                <Button
+                  variant="destructive"
+                  disabled={!isConfirmed || loading}
+                  onClick={handleDelete}
+                  className="w-full sm:w-auto"
+                >
+                  {loading ? "Excluindo…" : "Excluir permanentemente"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </section>
     </div>

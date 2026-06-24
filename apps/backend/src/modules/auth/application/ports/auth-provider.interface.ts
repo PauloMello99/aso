@@ -27,4 +27,6 @@ export interface IAuthProvider {
   verifyToken(accessToken: string): Promise<AuthUser>;
   /** Atualiza o e-mail de login (identidade) do usuário no provedor. */
   updateEmail(authId: string, email: string): Promise<void>;
+  /** Remove a identidade do usuário no provedor (exclusão de conta). */
+  deleteUser(authId: string): Promise<void>;
 }

@@ -107,6 +107,11 @@ export class SupabaseAuthProvider implements IAuthProvider {
     if (error) throw new InvalidCredentialsException(error.message);
   }
 
+  async deleteUser(authId: string): Promise<void> {
+    const { error } = await this.admin.auth.admin.deleteUser(authId);
+    if (error) throw new InvalidCredentialsException(error.message);
+  }
+
   async verifyToken(accessToken: string): Promise<AuthUser> {
     const { data, error } = await this.admin.auth.getUser(accessToken);
     if (error || !data.user) {

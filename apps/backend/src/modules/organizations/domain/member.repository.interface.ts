@@ -24,6 +24,10 @@ export interface IMemberRepository {
   setEnabled(memberId: string, enabled: boolean): Promise<MemberEntity>;
   /** Owners ativos da org. */
   countActiveOwners(orgId: string): Promise<number>;
+  /** Quantas orgs o usuário possui como proprietário (bloqueia exclusão de conta). */
+  countOwnedOrgs(userId: string): Promise<number>;
+  /** Remove todas as associações do usuário (exclusão de conta). Bypassa RLS. */
+  removeAllByUserId(userId: string): Promise<void>;
   /**
    * Transfere a titularidade atomicamente: o novo membro vira owner e o antigo
    * proprietário vira funcionário (recebendo `demotedPermissions` para não

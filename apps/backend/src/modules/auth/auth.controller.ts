@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   HttpCode,
@@ -31,6 +32,7 @@ import { SignOutUseCase } from "./use-cases/sign-out.use-case";
 import { SignUpUseCase } from "./use-cases/sign-up.use-case";
 import { UpdateMeUseCase } from "./use-cases/update-me.use-case";
 import { UploadAvatarUseCase } from "./use-cases/upload-avatar.use-case";
+import { DeleteAccountUseCase } from "./use-cases/delete-account.use-case";
 import { UpdateMeDto } from "./dto/update-me.dto";
 import { GetMeUseCase } from "../user/application/use-cases/get-me.use-case";
 
@@ -54,6 +56,7 @@ export class AuthController {
     private readonly getMeUseCase: GetMeUseCase,
     private readonly updateMeUseCase: UpdateMeUseCase,
     private readonly uploadAvatarUseCase: UploadAvatarUseCase,
+    private readonly deleteAccountUseCase: DeleteAccountUseCase,
   ) {}
 
   @Post("sign-up")
@@ -104,6 +107,13 @@ export class AuthController {
   @UseGuards(AuthGuard)
   updateMe(@CurrentUser() user: AuthUser, @Body() dto: UpdateMeDto) {
     return this.updateMeUseCase.execute(user, dto);
+  }
+
+  @Delete("me")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(AuthGuard)
+  async deleteMe(@CurrentUser() user: AuthUser) {
+    await this.deleteAccountUseCase.execute(user);
   }
 
   @Post("me/avatar")
