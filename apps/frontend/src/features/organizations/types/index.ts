@@ -6,6 +6,7 @@ export interface Member {
   orgId: string
   userId: string
   role: OrgRole
+  enabled: boolean
   userName: string
   userEmail: string
   joinedAt: string
@@ -20,4 +21,10 @@ export interface Invitation {
   status: InvitationStatus
   expiresAt: string
   createdAt: string
+}
+
+/** Resposta do convite: a invitation + o link de aceite (exposto p/ teste em dev). */
+export interface InviteResult {
+  invitation: Invitation
+  acceptUrl: string
 }

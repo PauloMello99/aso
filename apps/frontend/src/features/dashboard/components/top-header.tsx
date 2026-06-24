@@ -2,6 +2,7 @@ import * as React from "react"
 import Link from "next/link"
 import { ChevronRight, Menu } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
+import { NotificationBell } from "@/features/notifications"
 import { UserMenu } from "./user-menu"
 
 export interface BreadcrumbItem {
@@ -100,7 +101,8 @@ export function TopHeader({ breadcrumbs, onMobileMenuToggle }: TopHeaderProps) {
         {/* Spacer when no breadcrumb */}
         {breadcrumbs.length === 0 && <div className="flex-1" />}
 
-        {/* User menu */}
+        {/* Notificações + usuário */}
+        <NotificationBell />
         <UserMenu />
       </div>
     </header>

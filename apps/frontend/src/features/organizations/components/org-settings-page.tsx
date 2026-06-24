@@ -1,12 +1,19 @@
 "use client"
 
+import { useState } from "react"
 import { useRouter } from "next/router"
-import { Loader2, AlertCircle } from "lucide-react"
+import { Loader2, AlertCircle, UserPlus, ArrowLeftRight } from "lucide-react"
 import { useOrg } from "@/features/dashboard/hooks/use-orgs"
+import { useAuth } from "@/features/auth/hooks/use-auth"
+import { Button } from "@/shared/components/ui/button"
 import { useOrgMutations } from "../hooks/use-org-mutations"
+import { useMembers } from "../hooks/use-members"
 import { EditOrgForm } from "./edit-org-form"
 import { DeleteOrgDialog } from "./delete-org-dialog"
-import type { UpdateOrgFormValues } from "../schemas/org.schemas"
+import { MemberList } from "./member-list"
+import { InviteMemberForm } from "./invite-member-form"
+import type { UpdateOrgFormValues, InviteFormValues } from "../schemas/org.schemas"
+import type { OrgRole } from "../types"
 
 interface OrgSettingsPageProps {
   orgId: string
@@ -16,6 +23,10 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
   const router = useRouter()
   const { org, loading, isOwner, notFound } = useOrg(orgId)
   const { updateOrg, deleteOrg } = useOrgMutations(orgId)
+  const { user } = useAuth()
+  const { members, invitations, inviteMember, updateMemberRole, removeMember, setMemberStatus, cancelInvitation } =
+    useMembers(orgId)
+  const [inviteOpen, setInviteOpen] = useState(false)
 
   if (loading) {
     return (
@@ -44,9 +55,13 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
     await router.push("/dashboard/organizations")
   }
 
+  async function handleInvite(values: InviteFormValues) {
+    await inviteMember(values.email, values.role as OrgRole)
+  }
+
   return (
-    <div className="grid gap-8">
-      {/* General info section */}
+    <div className="grid gap-10">
+      {/* General info */}
       <section>
         <div className="mb-4">
           <h2 className="text-lg font-semibold">Informações gerais</h2>
@@ -54,11 +69,11 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
         </div>
 
         {isOwner ? (
-          <div className="max-w-lg">
+          <div>
             <EditOrgForm org={org} onSubmit={handleUpdate} />
           </div>
         ) : (
-          <div className="grid gap-3 max-w-lg">
+          <div className="grid max-w-lg gap-3">
             <div className="grid gap-1">
               <span className="text-xs text-white/40">Nome</span>
               <span className="font-medium">{org.name}</span>
@@ -71,15 +86,75 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
         )}
       </section>
 
+      {/* Members */}
+      <section>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Membros</h2>
+            <p className="text-sm text-white/50">Gerencie quem tem acesso a esta organização.</p>
+          </div>
+          {isOwner && (
+            <Button size="sm" className="w-full sm:w-auto" onClick={() => setInviteOpen(true)}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Convidar
+            </Button>
+          )}
+        </div>
+
+        <MemberList
+          members={members}
+          invitations={invitations}
+          currentUserEmail={user?.email ?? ""}
+          isOwner={isOwner}
+          onUpdateRole={async (memberId, role) => {
+            await updateMemberRole(memberId, role)
+          }}
+          onRemove={removeMember}
+          onToggleStatus={async (memberId, enabled) => {
+            await setMemberStatus(memberId, enabled)
+          }}
+          onCancelInvitation={cancelInvitation}
+        />
+
+        <InviteMemberForm
+          open={inviteOpen}
+          onOpenChange={setInviteOpen}
+          onSubmit={handleInvite}
+        />
+      </section>
+
+      {/* Transfer organization — owner only, placeholder */}
+      {isOwner && (
+        <section>
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold">Transferir Organização</h2>
+            <p className="text-sm text-white/50">
+              Transfira a propriedade desta organização para outro membro.
+            </p>
+          </div>
+          <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-5">
+            <div className="flex items-center gap-2">
+              <ArrowLeftRight className="h-4 w-4 text-white/40" />
+              <span className="text-sm font-medium">Transferir para outro membro</span>
+              <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/40">
+                Em breve
+              </span>
+            </div>
+            <p className="mt-2 text-sm text-white/50">
+              Permite transferir a titularidade da organização para um membro existente. O atual
+              proprietário passará a ter função de funcionário.
+            </p>
+          </div>
+        </section>
+      )}
+
       {/* Danger zone — owner only */}
       {isOwner && (
         <section>
           <div className="rounded-lg border border-red-500/20 p-4 sm:p-6">
             <div className="mb-4">
               <h3 className="font-semibold text-red-400">Zona de perigo</h3>
-              <p className="mt-1 text-sm text-white/50">
-                Ações irreversíveis. Prossiga com cautela.
-              </p>
+              <p className="mt-1 text-sm text-white/50">Ações irreversíveis. Prossiga com cautela.</p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>

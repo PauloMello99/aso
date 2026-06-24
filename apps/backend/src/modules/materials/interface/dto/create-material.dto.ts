@@ -1,4 +1,5 @@
 ﻿import {
+  IsBoolean,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -17,9 +18,9 @@ export class CreateMaterialDto {
   @IsOptional()
   categoryId?: string | null;
 
-  @IsString()
+  @IsBoolean()
   @IsOptional()
-  unit?: string | null;
+  shareable?: boolean;
 
   @IsString()
   @Matches(NUMERIC_PATTERN, { message: "minimumQuantity must be a positive number" })

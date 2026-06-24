@@ -27,7 +27,14 @@ export const customers = pgTable("customers", {
   phone: text("phone"),
   birthDate: date("birth_date"),
   gender: genderEnum("gender"),
+  // Endereço internacional genérico (decisão 2026-06-14):
+  // `address` = linha 1 (logradouro/número). Demais campos estruturados abaixo.
   address: text("address"),
+  addressLine2: text("address_line2"),
+  city: text("city"),
+  state: text("state"),
+  postalCode: text("postal_code"),
+  country: text("country"),
   notes: text("notes"),
   enabled: boolean("enabled").notNull().default(true),
   // creditBalanceCents: integer("credit_balance_cents").notNull().default(0), -- PENDENTE

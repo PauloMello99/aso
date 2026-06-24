@@ -23,28 +23,48 @@ import {
   type LoginFormValues,
 } from "@/features/auth/schemas/auth.schemas"
 
+function queryParam(value: string | string[] | undefined): string {
+  return typeof value === "string" ? value : ""
+}
+
 export function LoginForm() {
   const { signIn } = useAuth()
   const router = useRouter()
+  const inviteToken = queryParam(router.query.invite)
+  const invitedEmail = queryParam(router.query.email)
 
   const {
     register,
     handleSubmit,
     setError,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
   })
 
+  // Prefill do e-mail quando vier de um convite (router.query só fica pronto após hidratação).
+  React.useEffect(() => {
+    if (invitedEmail) reset({ email: invitedEmail, password: "" })
+  }, [invitedEmail, reset])
+
   const onSubmit = async (data: LoginFormValues) => {
     try {
       await signIn(data.email, data.password)
-      await router.push("/dashboard/organizations")
+      await router.push(
+        inviteToken
+          ? `/invite/accept?token=${encodeURIComponent(inviteToken)}`
+          : "/dashboard/organizations",
+      )
     } catch {
       setError("root", { message: "E-mail ou senha inválidos" })
     }
   }
+
+  const signupHref = inviteToken
+    ? `/auth/signup?invite=${encodeURIComponent(inviteToken)}${invitedEmail ? `&email=${encodeURIComponent(invitedEmail)}` : ""}`
+    : "/auth/signup"
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -118,7 +138,7 @@ export function LoginForm() {
             <p className="text-center text-sm text-white/40">
               Não tem conta?{" "}
               <Link
-                href="/auth/signup"
+                href={signupHref}
                 className="text-orange-400 hover:text-orange-300"
               >
                 Criar conta

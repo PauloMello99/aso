@@ -12,6 +12,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { AuthGuard } from "../../auth/guards/auth.guard";
+import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import type { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { GetMeUseCase } from "../../user/application/use-cases/get-me.use-case";
@@ -23,6 +24,7 @@ import { DeleteOrgUseCase } from "../application/use-cases/delete-org.use-case";
 import { ListMembersUseCase } from "../application/use-cases/list-members.use-case";
 import { InviteMemberUseCase } from "../application/use-cases/invite-member.use-case";
 import { UpdateMemberRoleUseCase } from "../application/use-cases/update-member-role.use-case";
+import { SetMemberStatusUseCase } from "../application/use-cases/set-member-status.use-case";
 import { RemoveMemberUseCase } from "../application/use-cases/remove-member.use-case";
 import { ListInvitationsUseCase } from "../application/use-cases/list-invitations.use-case";
 import { CancelInvitationUseCase } from "../application/use-cases/cancel-invitation.use-case";
@@ -30,6 +32,7 @@ import { CreateOrgDto } from "./dto/create-org.dto";
 import { UpdateOrgDto } from "./dto/update-org.dto";
 import { InviteMemberDto } from "./dto/invite-member.dto";
 import { UpdateMemberRoleDto } from "./dto/update-member-role.dto";
+import { SetMemberStatusDto } from "./dto/set-member-status.dto";
 
 @Controller("orgs")
 @UseGuards(AuthGuard)
@@ -44,6 +47,7 @@ export class OrgsController {
     private readonly listMembers: ListMembersUseCase,
     private readonly inviteMember: InviteMemberUseCase,
     private readonly updateMemberRole: UpdateMemberRoleUseCase,
+    private readonly setMemberStatus: SetMemberStatusUseCase,
     private readonly removeMember: RemoveMemberUseCase,
     private readonly listInvitations: ListInvitationsUseCase,
     private readonly cancelInvitation: CancelInvitationUseCase,
@@ -90,6 +94,7 @@ export class OrgsController {
   /* ─── Members ───────────────────────────────────────────────── */
 
   @Get(":orgId/members")
+  @UseGuards(OrgMembershipGuard)
   getMembers(@Param("orgId", ParseUUIDPipe) orgId: string) {
     return this.listMembers.execute(orgId);
   }
@@ -118,6 +123,16 @@ export class OrgsController {
     @Body() dto: UpdateMemberRoleDto,
   ) {
     return this.updateMemberRole.execute(orgId, memberId, user.id, dto.role);
+  }
+
+  @Patch(":orgId/members/:memberId/status")
+  setStatus(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("memberId", ParseUUIDPipe) memberId: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: SetMemberStatusDto,
+  ) {
+    return this.setMemberStatus.execute(orgId, memberId, user.id, dto.enabled);
   }
 
   @Delete(":orgId/members/:memberId")

@@ -1,4 +1,7 @@
 import type { MaterialsFilter } from "@/features/stock/types"
+import type { CustomersFilter } from "@/features/clients/types"
+import type { TransactionsFilter } from "@/features/cashier/types"
+import type { ServicesFilter } from "@/features/services/types"
 
 /**
  * Centralised query key factory.
@@ -10,6 +13,9 @@ import type { MaterialsFilter } from "@/features/stock/types"
  *   queryClient.invalidateQueries({ queryKey: queryKeys.materials.all(orgId) })
  */
 export const queryKeys = {
+  // ─── Current user ─────────────────────────────────────────────────────────
+  me: ["me"] as const,
+
   // ─── Organizations ────────────────────────────────────────────────────────
   orgs: {
     /** Matches every orgs key (list + all detail entries) */
@@ -40,5 +46,44 @@ export const queryKeys = {
     /** Stock movements for a specific material */
     movements: (orgId: string, materialId: string) =>
       ["materials", orgId, "movements", materialId] as const,
+  },
+
+  // ─── Customers (Clients) ───────────────────────────────────────────────────
+  customers: {
+    /** Matches all customer keys for an org */
+    all: (orgId: string) => ["customers", orgId] as const,
+    /** Customer list, optionally scoped by filter */
+    list: (orgId: string, filter?: CustomersFilter) =>
+      ["customers", orgId, "list", filter ?? {}] as const,
+  },
+
+  // ─── Cashier (Caixa) ───────────────────────────────────────────────────────
+  cashier: {
+    /** Matches every cashier key for an org (transactions + balance + fees) */
+    all: (orgId: string) => ["cashier", orgId] as const,
+    /** Transaction list, optionally scoped by filter */
+    list: (orgId: string, filter?: TransactionsFilter) =>
+      ["cashier", orgId, "list", filter ?? {}] as const,
+    /** Current balance snapshot */
+    balance: (orgId: string) => ["cashier", orgId, "balance"] as const,
+    /** Daily balance history within a range */
+    history: (orgId: string, from?: string, to?: string) =>
+      ["cashier", orgId, "history", from ?? "", to ?? ""] as const,
+    /** Payment fee configuration */
+    fees: (orgId: string) => ["cashier", orgId, "fees"] as const,
+  },
+
+  // ─── Services (Atendimentos) ───────────────────────────────────────────────
+  services: {
+    /** Matches every service key for an org (list + types + detail) */
+    all: (orgId: string) => ["services", orgId] as const,
+    /** Service list, optionally scoped by filter */
+    list: (orgId: string, filter?: ServicesFilter) =>
+      ["services", orgId, "list", filter ?? {}] as const,
+    /** Single service detail */
+    detail: (orgId: string, id: string) =>
+      ["services", orgId, "detail", id] as const,
+    /** Configurable service types */
+    types: (orgId: string) => ["services", orgId, "types"] as const,
   },
 } as const

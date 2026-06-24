@@ -1,11 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/router"
 import { UserPlus, Loader2, AlertCircle } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { useAuth } from "@/features/auth/hooks/use-auth"
-import { useOrg } from "@/features/dashboard/hooks/use-orgs"
+import { useCurrentOrg } from "@/features/dashboard"
 import { useMembers } from "../hooks/use-members"
 import { MemberList } from "./member-list"
 import { InviteMemberForm } from "./invite-member-form"
@@ -13,12 +12,12 @@ import type { InviteFormValues } from "../schemas/org.schemas"
 import type { OrgRole } from "../types"
 
 export function MembersPage() {
-  const router = useRouter()
-  const { orgId } = router.query as { orgId?: string }
+  const { org, orgId } = useCurrentOrg()
+  const isOwner = org.role === "owner"
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null)
 
   const { user } = useAuth()
-  const { isOwner } = useOrg(orgId ?? "")
   const {
     members,
     invitations,
@@ -27,18 +26,30 @@ export function MembersPage() {
     inviteMember,
     updateMemberRole: updateMemberRoleFn,
     removeMember,
+    setMemberStatus,
     cancelInvitation,
-  } = useMembers(orgId ?? "")
+  } = useMembers(orgId)
 
   async function updateMemberRole(memberId: string, role: OrgRole): Promise<void> {
     await updateMemberRoleFn(memberId, role)
   }
 
-  async function handleInvite(values: InviteFormValues) {
-    await inviteMember(values.email, values.role as OrgRole)
+  async function toggleStatus(memberId: string, enabled: boolean): Promise<void> {
+    try {
+      await setMemberStatus(memberId, enabled)
+    } catch (err) {
+      alert(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível alterar o status do membro.",
+      )
+    }
   }
 
-  if (!orgId) return null
+  async function handleInvite(values: InviteFormValues) {
+    const result = await inviteMember(values.email, values.role as OrgRole)
+    setLastInviteUrl(result.acceptUrl)
+  }
 
   if (loading) {
     return (
@@ -77,6 +88,29 @@ export function MembersPage() {
         )}
       </div>
 
+      {lastInviteUrl && (
+        <div className="flex flex-col gap-2 rounded-lg border border-orange-500/20 bg-orange-500/5 p-3 text-sm">
+          <span className="text-white/70">
+            Convite criado. Link de aceite (dev — copie para testar):
+          </span>
+          <div className="flex items-center gap-2">
+            <input
+              readOnly
+              value={lastInviteUrl}
+              onFocus={(e) => e.currentTarget.select()}
+              className="min-w-0 flex-1 rounded-md border border-white/[0.08] bg-white/[0.04] px-2 py-1 text-xs text-white/80"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void navigator.clipboard?.writeText(lastInviteUrl)}
+            >
+              Copiar
+            </Button>
+          </div>
+        </div>
+      )}
+
       <MemberList
         members={members}
         invitations={invitations}
@@ -84,6 +118,7 @@ export function MembersPage() {
         isOwner={isOwner}
         onUpdateRole={updateMemberRole}
         onRemove={removeMember}
+        onToggleStatus={toggleStatus}
         onCancelInvitation={cancelInvitation}
       />
 

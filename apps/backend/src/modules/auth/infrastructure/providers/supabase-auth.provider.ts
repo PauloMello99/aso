@@ -78,17 +78,32 @@ export class SupabaseAuthProvider implements IAuthProvider {
     if (error) throw new InvalidCredentialsException(error.message);
   }
 
-  async resetPassword(accessToken: string, newPassword: string): Promise<void> {
+  async resetPassword(
+    accessToken: string,
+    newPassword: string,
+    refreshToken?: string,
+  ): Promise<void> {
     const url = this.config.getOrThrow<string>("SUPABASE_URL");
     const anonKey = this.config.getOrThrow<string>("SUPABASE_ANON_KEY");
     const client = createClient(url, anonKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
-    await client.auth.setSession({
+    const { error: sessionError } = await client.auth.setSession({
       access_token: accessToken,
-      refresh_token: "",
+      refresh_token: refreshToken ?? "",
     });
+    if (sessionError) throw new InvalidCredentialsException(sessionError.message);
     const { error } = await client.auth.updateUser({ password: newPassword });
+    if (error) throw new InvalidCredentialsException(error.message);
+  }
+
+  async updateEmail(authId: string, email: string): Promise<void> {
+    // email_confirm: true → aplica o e-mail imediatamente (sem fluxo de
+    // reconfirmação), coerente com o createUser do sign-up.
+    const { error } = await this.admin.auth.admin.updateUserById(authId, {
+      email,
+      email_confirm: true,
+    });
     if (error) throw new InvalidCredentialsException(error.message);
   }
 

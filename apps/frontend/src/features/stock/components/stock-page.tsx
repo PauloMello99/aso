@@ -1,8 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { Package, AlertTriangle, Plus, RefreshCw } from "lucide-react"
+import { Package, AlertTriangle, Plus, RefreshCw, Search } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 import { useMaterials, isLowStock } from "../hooks/use-materials"
 import { MaterialList } from "./material-list"
 import { MaterialForm } from "./material-form"
@@ -24,6 +25,8 @@ interface DialogState {
 }
 
 export function StockPage({ orgId }: StockPageProps) {
+  const [search, setSearch] = useState("")
+  const [showArchived, setShowArchived] = useState(false)
   const {
     materials,
     loading,
@@ -34,7 +37,11 @@ export function StockPage({ orgId }: StockPageProps) {
     deleteMaterial,
     restockMaterial,
     adjustStock,
-  } = useMaterials(orgId)
+    archiveMaterial,
+  } = useMaterials(orgId, {
+    name: search || undefined,
+    archived: showArchived || undefined,
+  })
 
   const [dialogs, setDialogs] = useState<DialogState>({
     materialForm: false,
@@ -60,7 +67,7 @@ export function StockPage({ orgId }: StockPageProps) {
   async function handleMaterialSubmit(values: MaterialFormValues) {
     const body = {
       name: values.name,
-      unit: values.unit || null,
+      shareable: values.shareable ?? false,
       minimumQuantity: values.minimumQuantity || undefined,
       costPerUnit: values.costPerUnit || null,
     }
@@ -78,17 +85,34 @@ export function StockPage({ orgId }: StockPageProps) {
 
   async function handleAdjust(values: AdjustStockFormValues) {
     if (!activeMaterial) return
-    await adjustStock(activeMaterial.id, values.quantityDelta, values.note || null)
+    // O schema separa direção (+/−) e quantidade só-número; montamos o delta com sinal.
+    const delta =
+      values.direction === "remove" ? `-${values.quantity}` : values.quantity
+    await adjustStock(activeMaterial.id, delta, values.note || null)
   }
 
   async function handleDelete(material: Material) {
     if (!confirm(`Excluir "${material.name}"? Esta ação não pode ser desfeita.`)) return
-    await deleteMaterial(material.id)
+    try {
+      await deleteMaterial(material.id)
+    } catch (err) {
+      // ex.: material vinculado a serviço → 409 MATERIAL_IN_USE_BY_SERVICES.
+      // Sugere arquivar em vez de excluir.
+      const msg =
+        err instanceof Error ? err.message : "Não foi possível excluir o material."
+      if (confirm(`${msg}\n\nDeseja arquivar "${material.name}" em vez disso?`)) {
+        await archiveMaterial(material.id, true)
+      }
+    }
+  }
+
+  async function handleArchive(material: Material) {
+    await archiveMaterial(material.id, !material.archivedAt)
   }
 
   /* ─── Render ────────────────────────────────────────────────── */
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -116,6 +140,26 @@ export function StockPage({ orgId }: StockPageProps) {
             Novo material
           </Button>
         </div>
+      </div>
+
+      {/* Search + filters */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+          <Input
+            placeholder="Buscar material por nome…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Button
+          variant={showArchived ? "default" : "outline"}
+          onClick={() => setShowArchived((v) => !v)}
+          className="shrink-0"
+        >
+          {showArchived ? "Ver ativos" : "Ver arquivados"}
+        </Button>
       </div>
 
       {/* Summary cards */}
@@ -156,6 +200,7 @@ export function StockPage({ orgId }: StockPageProps) {
           onAdjust={(m) => openDialog("adjustForm", m)}
           onHistory={(m) => openDialog("movementsPanel", m)}
           onDelete={handleDelete}
+          onArchive={handleArchive}
         />
       )}
 

@@ -16,6 +16,8 @@ export function useMaterials(orgId: string, filter?: MaterialsFilter) {
       const params = new URLSearchParams()
       if (filter?.categoryId) params.set("categoryId", filter.categoryId)
       if (filter?.lowStockOnly) params.set("lowStock", "true")
+      if (filter?.name) params.set("q", filter.name)
+      if (filter?.archived) params.set("archived", "true")
       const query = params.toString() ? `?${params.toString()}` : ""
       return apiRequest<Material[]>(`/orgs/${orgId}/materials${query}`)
     },
@@ -26,7 +28,7 @@ export function useMaterials(orgId: string, filter?: MaterialsFilter) {
 
   type CreateBody = {
     name: string
-    unit?: string | null
+    shareable?: boolean
     minimumQuantity?: string
     costPerUnit?: string | null
   }
@@ -103,6 +105,17 @@ export function useMaterials(orgId: string, filter?: MaterialsFilter) {
     },
   })
 
+  const archiveMaterialMutation = useMutation({
+    mutationFn: ({ id, archived }: { id: string; archived: boolean }) =>
+      apiRequest<Material>(
+        `/orgs/${orgId}/materials/${id}/${archived ? "archive" : "unarchive"}`,
+        { method: "POST" },
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.materials.all(orgId) })
+    },
+  })
+
   // ── Stable wrappers (unchanged call signature for consumers) ───────────────
 
   async function createMaterial(body: CreateBody): Promise<Material> {
@@ -143,6 +156,8 @@ export function useMaterials(orgId: string, filter?: MaterialsFilter) {
     deleteMaterial,
     restockMaterial,
     adjustStock,
+    archiveMaterial: (id: string, archived: boolean) =>
+      archiveMaterialMutation.mutateAsync({ id, archived }),
   }
 }
 

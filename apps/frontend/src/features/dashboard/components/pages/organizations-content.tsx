@@ -63,7 +63,7 @@ export function OrganizationsContent() {
           {orgs.map((org) => (
             <li key={org.id}>
               <Link
-                href={`/dashboard/org/${org.id}/overview`}
+                href={`/dashboard/org/${org.slug}/overview`}
                 className="group flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3.5 transition-all hover:border-white/10 hover:bg-white/[0.05] sm:px-5 sm:py-4"
               >
                 <div className="flex items-center gap-3 sm:gap-4">

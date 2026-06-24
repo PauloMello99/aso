@@ -1,0 +1,1 @@
+ALTER TABLE "materials" ADD COLUMN "shareable" boolean DEFAULT false NOT NULL;

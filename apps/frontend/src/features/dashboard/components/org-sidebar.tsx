@@ -21,10 +21,18 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
   const router = useRouter()
   const [collapsed, setCollapsed] = React.useState(false)
 
-  const basePath = `/dashboard/org/${org.id}`
+  const basePath = `/dashboard/org/${org.slug}`
 
-  /** Returns true when the nav item's href matches the current route */
-  const isActive = (href: string) => router.pathname.endsWith("/" + href)
+  // Primeiro segmento da rota após [orgSlug] — ex.: "settings/cashier" → "settings".
+  const afterOrg = router.pathname.split("/[orgSlug]/")[1] ?? ""
+  const currentBase = afterOrg.split("/")[0]
+
+  /**
+   * Ativo por SEGMENTO BASE, não pelo fim da rota. Assim `settings/general`
+   * marca "Configurações" para qualquer `settings/*` (incl. settings/cashier),
+   * e a rota `settings/cashier` não acende o item "Caixa" (href "cashier").
+   */
+  const isActive = (href: string) => currentBase === href.split("/")[0]
 
   return (
     <>
@@ -60,15 +68,7 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
             <X className="h-4 w-4" />
           </button>
 
-          {collapsed ? (
-            /* Collapsed desktop: org avatar centered */
-            <Tooltip content={org.name} side="right">
-              <span className="mx-auto flex h-7 w-7 cursor-default items-center justify-center rounded bg-orange-500/20 text-xs font-bold text-orange-400">
-                {org.name.charAt(0).toUpperCase()}
-              </span>
-            </Tooltip>
-          ) : (
-            /* Expanded: avatar + org name */
+          {!collapsed && (
             <div className="flex min-w-0 flex-1 items-center gap-2.5">
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-orange-500/20 text-xs font-bold text-orange-400">
                 {org.name.charAt(0).toUpperCase()}
@@ -102,9 +102,14 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
           </Tooltip>
         </div>
 
-        {/* Nav sections */}
+        {/* Nav sections — items filtrados por papel (org.role) via visibleItems */}
         <nav className="flex-1 overflow-y-auto px-2 py-3">
-          {ORG_NAV_SECTIONS.map((section, sIdx) => (
+          {ORG_NAV_SECTIONS.map((section, sIdx) => {
+            const visibleItems = section.items.filter(
+              (item) => !item.roles || item.roles.includes(org.role),
+            )
+            if (visibleItems.length === 0) return null
+            return (
             <div key={sIdx} className={sIdx > 0 ? "mt-4" : undefined}>
               {/* Section label — hidden when collapsed on desktop */}
               {section.label && (
@@ -123,7 +128,7 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
               )}
 
               <ul className="space-y-0.5">
-                {section.items.map((item) => {
+                {visibleItems.map((item) => {
                   const Icon = item.icon
                   const active = isActive(item.href)
 
@@ -166,7 +171,8 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
                 })}
               </ul>
             </div>
-          ))}
+            )
+          })}
         </nav>
       </aside>
     </>

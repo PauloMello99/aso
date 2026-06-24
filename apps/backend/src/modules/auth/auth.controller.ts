@@ -5,9 +5,16 @@ import {
   Headers,
   HttpCode,
   HttpStatus,
+  FileTypeValidator,
+  MaxFileSizeValidator,
+  ParseFilePipe,
+  Patch,
   Post,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { CurrentUser } from "./decorators/current-user.decorator";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
@@ -22,7 +29,18 @@ import { ResetPasswordUseCase } from "./use-cases/reset-password.use-case";
 import { SignInUseCase } from "./use-cases/sign-in.use-case";
 import { SignOutUseCase } from "./use-cases/sign-out.use-case";
 import { SignUpUseCase } from "./use-cases/sign-up.use-case";
+import { UpdateMeUseCase } from "./use-cases/update-me.use-case";
+import { UploadAvatarUseCase } from "./use-cases/upload-avatar.use-case";
+import { UpdateMeDto } from "./dto/update-me.dto";
 import { GetMeUseCase } from "../user/application/use-cases/get-me.use-case";
+
+/** Subconjunto do arquivo multer que usamos (evita depender de @types/multer). */
+interface UploadedImage {
+  buffer: Buffer;
+  mimetype: string;
+  originalname: string;
+  size: number;
+}
 
 @Controller("auth")
 export class AuthController {
@@ -34,6 +52,8 @@ export class AuthController {
     private readonly forgotPasswordUseCase: ForgotPasswordUseCase,
     private readonly resetPasswordUseCase: ResetPasswordUseCase,
     private readonly getMeUseCase: GetMeUseCase,
+    private readonly updateMeUseCase: UpdateMeUseCase,
+    private readonly uploadAvatarUseCase: UploadAvatarUseCase,
   ) {}
 
   @Post("sign-up")
@@ -67,12 +87,40 @@ export class AuthController {
   @Post("reset-password")
   @HttpCode(HttpStatus.NO_CONTENT)
   resetPassword(@Body() dto: ResetPasswordDto) {
-    return this.resetPasswordUseCase.execute(dto.accessToken, dto.newPassword);
+    return this.resetPasswordUseCase.execute(
+      dto.accessToken,
+      dto.newPassword,
+      dto.refreshToken,
+    );
   }
 
   @Get("me")
   @UseGuards(AuthGuard)
   getMe(@CurrentUser() user: AuthUser) {
     return this.getMeUseCase.execute(user);
+  }
+
+  @Patch("me")
+  @UseGuards(AuthGuard)
+  updateMe(@CurrentUser() user: AuthUser, @Body() dto: UpdateMeDto) {
+    return this.updateMeUseCase.execute(user, dto);
+  }
+
+  @Post("me/avatar")
+  @UseGuards(AuthGuard)
+  @UseInterceptors(FileInterceptor("file"))
+  uploadAvatar(
+    @CurrentUser() user: AuthUser,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }),
+          new FileTypeValidator({ fileType: /^image\/(png|jpe?g|webp|gif)$/ }),
+        ],
+      }),
+    )
+    file: UploadedImage,
+  ) {
+    return this.uploadAvatarUseCase.execute(user, file.buffer, file.mimetype);
   }
 }

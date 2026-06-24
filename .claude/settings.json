@@ -1,18 +1,15 @@
 {
-  "mcpServers": {
-    "qdrant": {
-      "command": "uvx",
-      "args": ["mcp-server-qdrant"],
-      "env": {
-        "QDRANT_URL": "http://localhost:6333",
-        "COLLECTION_NAME": "ink_ops_memory",
-        "EMBEDDING_PROVIDER": "ollama",
-        "EMBEDDING_MODEL": "nomic-embed-text",
-        "OLLAMA_URL": "http://localhost:11434"
-      }
-    }
-  },
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -Command \"Write-Output 'RAG obrigatorio: para perguntas onde/como funciona X, chame a MCP tool memory_search (ink-memory) ANTES de ler o codigo-fonte. Se este chat estabelecer uma decisao/convencao/gotcha duravel, registre em .memory/ (ou um novo ADR) antes de encerrar.'\""
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit",

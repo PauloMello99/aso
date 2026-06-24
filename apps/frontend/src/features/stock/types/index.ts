@@ -13,7 +13,9 @@ export interface Material {
   stockQuantity: string
   minimumQuantity: string
   costPerUnit: string | null
-  unit: string | null
+  shareable: boolean
+  lastUsedAt: string | null
+  archivedAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -38,4 +40,6 @@ export interface StockMovement {
 export interface MaterialsFilter {
   categoryId?: string
   lowStockOnly?: boolean
+  name?: string
+  archived?: boolean
 }

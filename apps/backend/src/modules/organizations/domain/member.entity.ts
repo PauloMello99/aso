@@ -5,6 +5,7 @@ export interface MemberEntityProps {
   orgId: string;
   userId: string;
   role: OrgRole;
+  enabled: boolean;
   userName: string;
   userEmail: string;
   joinedAt: Date;
@@ -15,6 +16,7 @@ export class MemberEntity {
   readonly orgId: string;
   readonly userId: string;
   readonly role: OrgRole;
+  readonly enabled: boolean;
   readonly userName: string;
   readonly userEmail: string;
   readonly joinedAt: Date;
@@ -24,6 +26,7 @@ export class MemberEntity {
     this.orgId = props.orgId;
     this.userId = props.userId;
     this.role = props.role;
+    this.enabled = props.enabled;
     this.userName = props.userName;
     this.userEmail = props.userEmail;
     this.joinedAt = props.joinedAt;

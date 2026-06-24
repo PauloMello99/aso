@@ -19,6 +19,12 @@ export interface IAuthProvider {
   signOut(accessToken: string): Promise<void>;
   refreshToken(refreshToken: string): Promise<AuthSession>;
   forgotPassword(email: string): Promise<void>;
-  resetPassword(accessToken: string, newPassword: string): Promise<void>;
+  resetPassword(
+    accessToken: string,
+    newPassword: string,
+    refreshToken?: string,
+  ): Promise<void>;
   verifyToken(accessToken: string): Promise<AuthUser>;
+  /** Atualiza o e-mail de login (identidade) do usuário no provedor. */
+  updateEmail(authId: string, email: string): Promise<void>;
 }

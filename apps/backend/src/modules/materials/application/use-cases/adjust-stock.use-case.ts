@@ -44,6 +44,11 @@ export class AdjustStockUseCase {
       createdBy: input.createdBy ?? null,
     });
 
+    // Baixa (delta negativo) conta como "uso" para ordenar por mais recentes.
+    if (input.quantityDelta.trim().startsWith("-")) {
+      await this.materialRepo.touchLastUsed(input.materialId);
+    }
+
     return this.materialRepo.updateStockQuantity(
       input.materialId,
       input.quantityDelta,

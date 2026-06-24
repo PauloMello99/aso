@@ -9,13 +9,24 @@
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from "@nestjs/common";
 import { AuthGuard } from "../../auth/guards/auth.guard";
+import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { AdjustStockUseCase } from "../application/use-cases/adjust-stock.use-case";
+import { SetMaterialArchivedUseCase } from "../application/use-cases/set-material-archived.use-case";
+import { GetStockSettingsUseCase } from "../application/use-cases/get-stock-settings.use-case";
+import { SetStockIntervalUseCase } from "../application/use-cases/set-stock-interval.use-case";
+import { CreateStockVerificationUseCase } from "../application/use-cases/create-stock-verification.use-case";
+import { ListStockVerificationsUseCase } from "../application/use-cases/list-stock-verifications.use-case";
+import {
+  CreateVerificationDto,
+  SetStockIntervalDto,
+} from "./dto/stock-verification.dto";
 import { CreateMaterialUseCase } from "../application/use-cases/create-material.use-case";
 import { DeleteMaterialUseCase } from "../application/use-cases/delete-material.use-case";
 import { ListMaterialsUseCase } from "../application/use-cases/list-materials.use-case";
@@ -28,7 +39,7 @@ import { RestockMaterialDto } from "./dto/restock-material.dto";
 import { UpdateMaterialDto } from "./dto/update-material.dto";
 
 @Controller("orgs/:orgId/materials")
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, OrgMembershipGuard)
 export class MaterialsController {
   constructor(
     private readonly listMaterials: ListMaterialsUseCase,
@@ -37,18 +48,65 @@ export class MaterialsController {
     private readonly deleteMaterial: DeleteMaterialUseCase,
     private readonly restockMaterial: RestockMaterialUseCase,
     private readonly adjustStock: AdjustStockUseCase,
+    private readonly setArchived: SetMaterialArchivedUseCase,
     private readonly listMovements: ListStockMovementsUseCase,
+    private readonly getStockSettings: GetStockSettingsUseCase,
+    private readonly setStockInterval: SetStockIntervalUseCase,
+    private readonly createVerification: CreateStockVerificationUseCase,
+    private readonly listVerifications: ListStockVerificationsUseCase,
   ) {}
+
+  /* ─── Conferência periódica de estoque ──────────────────────── */
+
+  @Get("stock-settings")
+  async stockSettings(@Param("orgId", ParseUUIDPipe) orgId: string) {
+    return this.getStockSettings.execute(orgId);
+  }
+
+  @Put("stock-settings")
+  async saveStockSettings(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Body() dto: SetStockIntervalDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.setStockInterval.execute(orgId, user.id, dto.intervalDays ?? null);
+  }
+
+  @Get("verifications")
+  async verifications(@Param("orgId", ParseUUIDPipe) orgId: string) {
+    return this.listVerifications.execute(orgId);
+  }
+
+  @Post("verifications")
+  async addVerification(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Body() dto: CreateVerificationDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.createVerification.execute({
+      orgId,
+      performedBy: user.id,
+      note: dto.note ?? null,
+      reconcile: dto.reconcile ?? false,
+      items: dto.items,
+    });
+  }
 
   @Get()
   async list(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Query("categoryId") categoryId?: string,
     @Query("lowStock") lowStock?: string,
+    @Query("q") q?: string,
+    @Query("archived") archived?: string,
+    @Query("sortBy") sortBy?: string,
   ) {
     return this.listMaterials.execute(orgId, {
       categoryId,
       lowStockOnly: lowStock === "true",
+      name: q || undefined,
+      archived: archived === "true",
+      sortBy: sortBy === "name" ? "name" : "lastUsed",
     });
   }
 
@@ -108,6 +166,22 @@ export class MaterialsController {
       note: dto.note,
       createdBy: user.id,
     });
+  }
+
+  @Post(":id/archive")
+  async archive(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.setArchived.execute(id, orgId, true);
+  }
+
+  @Post(":id/unarchive")
+  async unarchive(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.setArchived.execute(id, orgId, false);
   }
 
   @Get(":id/movements")
