@@ -8,6 +8,7 @@ import { GetOrgUseCase } from "./application/use-cases/get-org.use-case";
 import { CreateOrgUseCase } from "./application/use-cases/create-org.use-case";
 import { UpdateOrgUseCase } from "./application/use-cases/update-org.use-case";
 import { DeleteOrgUseCase } from "./application/use-cases/delete-org.use-case";
+import { TransferOwnershipUseCase } from "./application/use-cases/transfer-ownership.use-case";
 import { ListMembersUseCase } from "./application/use-cases/list-members.use-case";
 import { InviteMemberUseCase } from "./application/use-cases/invite-member.use-case";
 import { UpdateMemberRoleUseCase } from "./application/use-cases/update-member-role.use-case";
@@ -36,6 +37,7 @@ import { InvitationsController } from "./interface/invitations.controller";
     CreateOrgUseCase,
     UpdateOrgUseCase,
     DeleteOrgUseCase,
+    TransferOwnershipUseCase,
     ListMembersUseCase,
     InviteMemberUseCase,
     UpdateMemberRoleUseCase,

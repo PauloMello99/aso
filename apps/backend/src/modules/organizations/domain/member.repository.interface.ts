@@ -24,5 +24,16 @@ export interface IMemberRepository {
   setEnabled(memberId: string, enabled: boolean): Promise<MemberEntity>;
   /** Owners ativos da org. */
   countActiveOwners(orgId: string): Promise<number>;
+  /**
+   * Transfere a titularidade atomicamente: o novo membro vira owner e o antigo
+   * proprietário vira funcionário (recebendo `demotedPermissions` para não
+   * perder acesso aos módulos). Ambas as atualizações ocorrem na mesma transação.
+   */
+  transferOwnership(
+    orgId: string,
+    newOwnerMemberId: string,
+    currentOwnerMemberId: string,
+    demotedPermissions: string[],
+  ): Promise<void>;
   remove(memberId: string): Promise<void>;
 }

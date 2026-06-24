@@ -213,6 +213,36 @@ export class DrizzleMemberRepository implements IMemberRepository {
     return rows.length;
   }
 
+  async transferOwnership(
+    orgId: string,
+    newOwnerMemberId: string,
+    currentOwnerMemberId: string,
+    demotedPermissions: string[],
+  ): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      // Antigo dono → funcionário (mantém acesso via permissions).
+      await tx
+        .update(schema.orgMemberships)
+        .set({ role: "employee", permissions: demotedPermissions })
+        .where(
+          and(
+            eq(schema.orgMemberships.id, currentOwnerMemberId),
+            eq(schema.orgMemberships.orgId, orgId),
+          ),
+        );
+      // Novo dono → owner (garante ativo).
+      await tx
+        .update(schema.orgMemberships)
+        .set({ role: "owner", enabled: true })
+        .where(
+          and(
+            eq(schema.orgMemberships.id, newOwnerMemberId),
+            eq(schema.orgMemberships.orgId, orgId),
+          ),
+        );
+    });
+  }
+
   async remove(memberId: string): Promise<void> {
     await this.db
       .delete(schema.orgMemberships)

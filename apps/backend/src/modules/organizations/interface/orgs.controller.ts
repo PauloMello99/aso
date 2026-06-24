@@ -21,6 +21,7 @@ import { GetOrgUseCase } from "../application/use-cases/get-org.use-case";
 import { CreateOrgUseCase } from "../application/use-cases/create-org.use-case";
 import { UpdateOrgUseCase } from "../application/use-cases/update-org.use-case";
 import { DeleteOrgUseCase } from "../application/use-cases/delete-org.use-case";
+import { TransferOwnershipUseCase } from "../application/use-cases/transfer-ownership.use-case";
 import { ListMembersUseCase } from "../application/use-cases/list-members.use-case";
 import { InviteMemberUseCase } from "../application/use-cases/invite-member.use-case";
 import { UpdateMemberRoleUseCase } from "../application/use-cases/update-member-role.use-case";
@@ -35,6 +36,7 @@ import { InviteMemberDto } from "./dto/invite-member.dto";
 import { UpdateMemberRoleDto } from "./dto/update-member-role.dto";
 import { UpdateMemberPermissionsDto } from "./dto/update-member-permissions.dto";
 import { SetMemberStatusDto } from "./dto/set-member-status.dto";
+import { TransferOwnershipDto } from "./dto/transfer-ownership.dto";
 
 @Controller("orgs")
 @UseGuards(AuthGuard)
@@ -46,6 +48,7 @@ export class OrgsController {
     private readonly createOrg: CreateOrgUseCase,
     private readonly updateOrg: UpdateOrgUseCase,
     private readonly deleteOrg: DeleteOrgUseCase,
+    private readonly transferOwnership: TransferOwnershipUseCase,
     private readonly listMembers: ListMembersUseCase,
     private readonly inviteMember: InviteMemberUseCase,
     private readonly updateMemberRole: UpdateMemberRoleUseCase,
@@ -92,6 +95,16 @@ export class OrgsController {
     @CurrentUser() user: AuthUser,
   ) {
     await this.deleteOrg.execute(orgId, user.id);
+  }
+
+  @Post(":orgId/transfer-ownership")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async transfer(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: TransferOwnershipDto,
+  ) {
+    await this.transferOwnership.execute(orgId, dto.memberId, user.id);
   }
 
   /* ─── Members ───────────────────────────────────────────────── */

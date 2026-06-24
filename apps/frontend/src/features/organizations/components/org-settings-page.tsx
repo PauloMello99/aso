@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/router"
-import { Loader2, AlertCircle, UserPlus, ArrowLeftRight } from "lucide-react"
+import { Loader2, AlertCircle, UserPlus } from "lucide-react"
 import { useOrg } from "@/features/dashboard/hooks/use-orgs"
 import { useAuth } from "@/features/auth/hooks/use-auth"
 import { Button } from "@/shared/components/ui/button"
@@ -10,6 +10,7 @@ import { useOrgMutations } from "../hooks/use-org-mutations"
 import { useMembers } from "../hooks/use-members"
 import { EditOrgForm } from "./edit-org-form"
 import { DeleteOrgDialog } from "./delete-org-dialog"
+import { TransferOrgDialog } from "./transfer-org-dialog"
 import { MemberList } from "./member-list"
 import { InviteMemberForm } from "./invite-member-form"
 import type { UpdateOrgFormValues, InviteFormValues } from "../schemas/org.schemas"
@@ -22,7 +23,7 @@ interface OrgSettingsPageProps {
 export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
   const router = useRouter()
   const { org, loading, isOwner, notFound } = useOrg(orgId)
-  const { updateOrg, deleteOrg } = useOrgMutations(orgId)
+  const { updateOrg, deleteOrg, transferOwnership } = useOrgMutations(orgId)
   const { user } = useAuth()
   const { members, invitations, inviteMember, updateMemberRole, removeMember, setMemberStatus, updateMemberPermissions, cancelInvitation } =
     useMembers(orgId)
@@ -126,7 +127,7 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
         />
       </section>
 
-      {/* Transfer organization — owner only, placeholder */}
+      {/* Transfer organization — owner only */}
       {isOwner && (
         <section>
           <div className="mb-4">
@@ -136,17 +137,19 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
             </p>
           </div>
           <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-5">
-            <div className="flex items-center gap-2">
-              <ArrowLeftRight className="h-4 w-4 text-white/40" />
-              <span className="text-sm font-medium">Transferir para outro membro</span>
-              <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/40">
-                Em breve
-              </span>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-white/50">
+                A titularidade passa para o membro escolhido. Você se torna
+                funcionário com acesso total aos módulos.
+              </p>
+              <TransferOrgDialog
+                members={members}
+                currentUserEmail={user?.email ?? ""}
+                onConfirm={async (memberId) => {
+                  await transferOwnership(memberId)
+                }}
+              />
             </div>
-            <p className="mt-2 text-sm text-white/50">
-              Permite transferir a titularidade da organização para um membro existente. O atual
-              proprietário passará a ter função de funcionário.
-            </p>
           </div>
         </section>
       )}
