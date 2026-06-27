@@ -7,8 +7,10 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from "@nestjs/common";
+import type { Response } from "express";
 import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
@@ -16,7 +18,9 @@ import { RequireModule } from "../../auth/decorators/require-module.decorator";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { ListServicesUseCase } from "../application/use-cases/list-services.use-case";
+import { ExportServicesUseCase } from "../application/use-cases/export-services.use-case";
 import { GetServiceUseCase } from "../application/use-cases/get-service.use-case";
+import { parseFields } from "../../../common/csv/csv.util";
 import { CreateServiceUseCase } from "../application/use-cases/create-service.use-case";
 import { UpdateServiceUseCase } from "../application/use-cases/update-service.use-case";
 import { CancelServiceUseCase } from "../application/use-cases/cancel-service.use-case";
@@ -53,6 +57,7 @@ function startOfCurrentMonth(): Date {
 export class ServicesController {
   constructor(
     private readonly listServices: ListServicesUseCase,
+    private readonly exportServices: ExportServicesUseCase,
     private readonly getService: GetServiceUseCase,
     private readonly createService: CreateServiceUseCase,
     private readonly updateService: UpdateServiceUseCase,
@@ -120,6 +125,55 @@ export class ServicesController {
         q: q || undefined,
       },
     });
+  }
+
+  @Get("export")
+  async export(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @CurrentUser() user: AuthUser,
+    @Res() res: Response,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("serviceTypeId") serviceTypeId?: string,
+    @Query("customerId") customerId?: string,
+    @Query("performedBy") performedBy?: string,
+    @Query("status") status?: string,
+    @Query("paymentMethod") paymentMethod?: string,
+    @Query("minCents") minCents?: string,
+    @Query("maxCents") maxCents?: string,
+    @Query("q") q?: string,
+    @Query("fields") fields?: string,
+  ) {
+    const csv = await this.exportServices.execute(
+      orgId,
+      user.id,
+      {
+        from: from ? new Date(from) : startOfCurrentMonth(),
+        to: to ? new Date(to) : undefined,
+        serviceTypeId: serviceTypeId || undefined,
+        customerId: customerId || undefined,
+        performedBy: performedBy || undefined,
+        status: STATUS_VALUES.includes(status as ServiceStatusFilter)
+          ? (status as ServiceStatusFilter)
+          : undefined,
+        paymentMethod: SERVICE_PAYMENT_METHODS.includes(
+          paymentMethod as (typeof SERVICE_PAYMENT_METHODS)[number],
+        )
+          ? (paymentMethod as PaymentMethod)
+          : undefined,
+        minCents: parseCents(minCents),
+        maxCents: parseCents(maxCents),
+        q: q || undefined,
+      },
+      parseFields(fields),
+    );
+    const date = new Date().toISOString().slice(0, 10);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="servicos-${date}.csv"`,
+    );
+    res.send(csv);
   }
 
   @Get(":id")

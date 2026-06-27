@@ -17,6 +17,8 @@ import {
   FilterField,
   RangeInputs,
 } from "@/shared/components/ui/filter-popover"
+import { ExportMenu } from "@/shared/components/ui/export-menu"
+import { downloadCsv } from "@/shared/lib/download-csv"
 import { useCurrentOrg } from "@/features/dashboard"
 import { useMembers } from "@/features/organizations/hooks/use-members"
 import { useTransactions } from "../hooks/use-transactions"
@@ -52,6 +54,18 @@ const METHOD_ORDER: PaymentMethod[] = [
   "credit_card",
   "debit_card",
   "credits",
+]
+
+/** Colunas exportáveis (chaves espelham o backend). */
+const EXPORT_COLUMNS = [
+  { key: "date", label: "Data" },
+  { key: "description", label: "Descrição" },
+  { key: "type", label: "Tipo" },
+  { key: "paymentMethod", label: "Método" },
+  { key: "gross", label: "Bruto (R$)" },
+  { key: "fee", label: "Taxa (R$)" },
+  { key: "net", label: "Líquido (R$)" },
+  { key: "reversal", label: "Estorno" },
 ]
 
 function toApiBody(values: TransactionFormValues | CorrectionFormValues) {
@@ -107,6 +121,25 @@ export function CashierPage({ orgId }: CashierPageProps) {
       minCents: undefined,
       maxCents: undefined,
     }))
+  }
+
+  async function handleExport(fields: string[]) {
+    await downloadCsv(
+      `/orgs/${orgId}/cashier/transactions/export`,
+      `caixa-${new Date().toISOString().slice(0, 10)}.csv`,
+      {
+        from: filter.from,
+        to: filter.to,
+        type: filter.type,
+        paymentMethod: filter.paymentMethod,
+        categoryId: filter.categoryId,
+        minCents: filter.minCents,
+        maxCents: filter.maxCents,
+        createdBy: filter.createdBy,
+        q: filter.q,
+        fields: fields.join(","),
+      },
+    )
   }
 
   const {
@@ -176,6 +209,7 @@ export function CashierPage({ orgId }: CashierPageProps) {
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
+          <ExportMenu columns={EXPORT_COLUMNS} onExport={handleExport} />
           {isOwner && (
             <Button
               variant="outline"

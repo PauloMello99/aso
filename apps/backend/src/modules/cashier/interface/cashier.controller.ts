@@ -7,8 +7,10 @@ import {
   Post,
   Put,
   Query,
+  Res,
   UseGuards,
 } from "@nestjs/common";
+import type { Response } from "express";
 import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { OrgOwnerGuard } from "../../auth/guards/org-owner.guard";
@@ -17,6 +19,8 @@ import { RequireModule } from "../../auth/decorators/require-module.decorator";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { ListTransactionsUseCase } from "../application/use-cases/list-transactions.use-case";
+import { ExportTransactionsUseCase } from "../application/use-cases/export-transactions.use-case";
+import { parseFields } from "../../../common/csv/csv.util";
 import { CreateTransactionUseCase } from "../application/use-cases/create-transaction.use-case";
 import { ReverseTransactionUseCase } from "../application/use-cases/reverse-transaction.use-case";
 import { CorrectTransactionUseCase } from "../application/use-cases/correct-transaction.use-case";
@@ -58,6 +62,7 @@ function parseCents(value?: string): number | undefined {
 export class CashierController {
   constructor(
     private readonly listTransactions: ListTransactionsUseCase,
+    private readonly exportTransactions: ExportTransactionsUseCase,
     private readonly createTransaction: CreateTransactionUseCase,
     private readonly reverseTransaction: ReverseTransactionUseCase,
     private readonly correctTransaction: CorrectTransactionUseCase,
@@ -104,6 +109,51 @@ export class CashierController {
         q: q || undefined,
       },
     });
+  }
+
+  @Get("transactions/export")
+  async export(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @CurrentUser() user: AuthUser,
+    @Res() res: Response,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("type") type?: string,
+    @Query("paymentMethod") paymentMethod?: string,
+    @Query("categoryId") categoryId?: string,
+    @Query("minCents") minCents?: string,
+    @Query("maxCents") maxCents?: string,
+    @Query("createdBy") createdBy?: string,
+    @Query("q") q?: string,
+    @Query("fields") fields?: string,
+  ) {
+    const csv = await this.exportTransactions.execute(
+      orgId,
+      user.id,
+      {
+        from: from ? new Date(from) : undefined,
+        to: to ? new Date(to) : undefined,
+        type: TRANSACTION_TYPES.includes(type as TransactionType)
+          ? (type as TransactionType)
+          : undefined,
+        paymentMethod: PAYMENT_METHODS.includes(paymentMethod as PaymentMethod)
+          ? (paymentMethod as PaymentMethod)
+          : undefined,
+        categoryId: categoryId || undefined,
+        minCents: parseCents(minCents),
+        maxCents: parseCents(maxCents),
+        createdBy: createdBy || undefined,
+        q: q || undefined,
+      },
+      parseFields(fields),
+    );
+    const date = new Date().toISOString().slice(0, 10);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="caixa-${date}.csv"`,
+    );
+    res.send(csv);
   }
 
   @Post("transactions")

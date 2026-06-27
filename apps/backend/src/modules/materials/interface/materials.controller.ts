@@ -11,8 +11,10 @@
   Post,
   Put,
   Query,
+  Res,
   UseGuards,
 } from "@nestjs/common";
+import type { Response } from "express";
 import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
@@ -32,6 +34,8 @@ import {
 import { CreateMaterialUseCase } from "../application/use-cases/create-material.use-case";
 import { DeleteMaterialUseCase } from "../application/use-cases/delete-material.use-case";
 import { ListMaterialsUseCase } from "../application/use-cases/list-materials.use-case";
+import { ExportMaterialsUseCase } from "../application/use-cases/export-materials.use-case";
+import { parseFields } from "../../../common/csv/csv.util";
 import { ListStockMovementsUseCase } from "../application/use-cases/list-stock-movements.use-case";
 import { RestockMaterialUseCase } from "../application/use-cases/restock-material.use-case";
 import { UpdateMaterialUseCase } from "../application/use-cases/update-material.use-case";
@@ -46,6 +50,7 @@ import { UpdateMaterialDto } from "./dto/update-material.dto";
 export class MaterialsController {
   constructor(
     private readonly listMaterials: ListMaterialsUseCase,
+    private readonly exportMaterials: ExportMaterialsUseCase,
     private readonly createMaterial: CreateMaterialUseCase,
     private readonly updateMaterial: UpdateMaterialUseCase,
     private readonly deleteMaterial: DeleteMaterialUseCase,
@@ -118,6 +123,46 @@ export class MaterialsController {
       maxCost: maxCost || undefined,
       sortBy: sortBy === "name" ? "name" : "lastUsed",
     });
+  }
+
+  @Get("export")
+  async export(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Res() res: Response,
+    @Query("categoryId") categoryId?: string,
+    @Query("lowStock") lowStock?: string,
+    @Query("q") q?: string,
+    @Query("archived") archived?: string,
+    @Query("shareable") shareable?: string,
+    @Query("minCost") minCost?: string,
+    @Query("maxCost") maxCost?: string,
+    @Query("fields") fields?: string,
+  ) {
+    const csv = await this.exportMaterials.execute(
+      orgId,
+      {
+        categoryId: categoryId || undefined,
+        lowStockOnly: lowStock === "true",
+        name: q || undefined,
+        archived: archived === "true",
+        shareable:
+          shareable === "true"
+            ? true
+            : shareable === "false"
+              ? false
+              : undefined,
+        minCost: minCost || undefined,
+        maxCost: maxCost || undefined,
+      },
+      parseFields(fields),
+    );
+    const date = new Date().toISOString().slice(0, 10);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="estoque-${date}.csv"`,
+    );
+    res.send(csv);
   }
 
   @Post()

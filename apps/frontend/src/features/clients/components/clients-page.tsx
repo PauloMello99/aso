@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Users, UserCheck, Plus, RefreshCw, Search, Download } from "lucide-react"
+import { Users, UserCheck, Plus, RefreshCw, Search } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import {
@@ -16,7 +16,8 @@ import {
   FilterPopover,
   FilterField,
 } from "@/shared/components/ui/filter-popover"
-import { getSession } from "@/features/auth/lib/session"
+import { ExportMenu } from "@/shared/components/ui/export-menu"
+import { downloadCsv } from "@/shared/lib/download-csv"
 import { useCustomers } from "../hooks/use-customers"
 import { useCustomerOrigins } from "../hooks/use-customer-origins"
 import { CustomerList } from "./customer-list"
@@ -27,6 +28,20 @@ import type { CustomerFormValues } from "../schemas/client.schemas"
 interface ClientsPageProps {
   orgId: string
 }
+
+/** Colunas exportáveis (chaves espelham o backend). */
+const EXPORT_COLUMNS = [
+  { key: "name", label: "Nome" },
+  { key: "email", label: "E-mail" },
+  { key: "phone", label: "Telefone" },
+  { key: "gender", label: "Gênero" },
+  { key: "birthDate", label: "Nascimento" },
+  { key: "city", label: "Cidade" },
+  { key: "state", label: "Estado" },
+  { key: "country", label: "País" },
+  { key: "status", label: "Status" },
+  { key: "createdAt", label: "Cadastro" },
+]
 
 export function ClientsPage({ orgId }: ClientsPageProps) {
   const [searchInput, setSearchInput] = useState("")
@@ -125,28 +140,20 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
     await deleteCustomer(customer.id)
   }
 
-  async function handleExport() {
-    const api = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"
-    const token = getSession()?.accessToken
-    const params = new URLSearchParams()
-    if (search) params.set("search", search)
-    if (advanced.status) params.set("status", advanced.status)
-    if (advanced.originId) params.set("originId", advanced.originId)
-    if (advanced.gender) params.set("gender", advanced.gender)
-    if (advanced.from) params.set("from", advanced.from)
-    if (advanced.to) params.set("to", advanced.to)
-    const res = await fetch(
-      `${api}/orgs/${orgId}/customers/export?${params.toString()}`,
-      { headers: token ? { Authorization: `Bearer ${token}` } : undefined },
+  async function handleExport(fields: string[]) {
+    await downloadCsv(
+      `/orgs/${orgId}/customers/export`,
+      `clientes-${new Date().toISOString().slice(0, 10)}.csv`,
+      {
+        search,
+        status: advanced.status,
+        originId: advanced.originId,
+        gender: advanced.gender,
+        from: advanced.from,
+        to: advanced.to,
+        fields: fields.join(","),
+      },
     )
-    if (!res.ok) return
-    const blob = await res.blob()
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `clientes-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
   }
 
   return (
@@ -170,15 +177,7 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => void handleExport()}
-            className="shrink-0"
-            title="Exportar CSV"
-          >
-            <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">Exportar</span>
-          </Button>
+          <ExportMenu columns={EXPORT_COLUMNS} onExport={handleExport} />
           <Button onClick={openCreate} className="flex-1 sm:flex-none">
             <Plus className="h-4 w-4" />
             Novo cliente

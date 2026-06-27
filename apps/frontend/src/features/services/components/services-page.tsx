@@ -17,6 +17,8 @@ import {
   FilterField,
   RangeInputs,
 } from "@/shared/components/ui/filter-popover"
+import { ExportMenu } from "@/shared/components/ui/export-menu"
+import { downloadCsv } from "@/shared/lib/download-csv"
 import { useCurrentOrg } from "@/features/dashboard"
 import { useCustomers } from "@/features/clients/hooks/use-customers"
 import { useMembers } from "@/features/organizations/hooks/use-members"
@@ -43,6 +45,18 @@ interface ServicesPageProps {
 }
 
 const STATUS_VALUES: ServiceStatus[] = ["pending", "paid", "canceled"]
+
+/** Colunas exportáveis (chaves espelham o backend). */
+const EXPORT_COLUMNS = [
+  { key: "date", label: "Data" },
+  { key: "customer", label: "Cliente" },
+  { key: "type", label: "Tipo" },
+  { key: "professional", label: "Profissional" },
+  { key: "description", label: "Descrição" },
+  { key: "amount", label: "Valor (R$)" },
+  { key: "paymentMethod", label: "Método" },
+  { key: "status", label: "Status" },
+]
 
 function toCreateBody(values: ServiceFormValues) {
   return {
@@ -192,6 +206,26 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
     setFilter((f) => ({ ...f, q: search || undefined }))
   }
 
+  async function handleExport(fields: string[]) {
+    await downloadCsv(
+      `/orgs/${orgId}/services/export`,
+      `servicos-${new Date().toISOString().slice(0, 10)}.csv`,
+      {
+        from: filter.from,
+        to: filter.to,
+        serviceTypeId: filter.serviceTypeId,
+        customerId: filter.customerId,
+        performedBy: filter.performedBy,
+        status: filter.status,
+        paymentMethod: filter.paymentMethod,
+        minCents: filter.minCents,
+        maxCents: filter.maxCents,
+        q: filter.q,
+        fields: fields.join(","),
+      },
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -213,6 +247,7 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
+          <ExportMenu columns={EXPORT_COLUMNS} onExport={handleExport} />
           <Button onClick={openCreate} className="flex-1 sm:flex-none">
             <Plus className="h-4 w-4" />
             Novo serviço

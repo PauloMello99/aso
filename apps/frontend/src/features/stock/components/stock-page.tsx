@@ -16,6 +16,8 @@ import {
   FilterField,
   RangeInputs,
 } from "@/shared/components/ui/filter-popover"
+import { ExportMenu } from "@/shared/components/ui/export-menu"
+import { downloadCsv } from "@/shared/lib/download-csv"
 import { useMaterials, isLowStock } from "../hooks/use-materials"
 import { MaterialList } from "./material-list"
 import { MaterialForm } from "./material-form"
@@ -28,6 +30,18 @@ import type { MaterialFormValues, RestockFormValues, AdjustStockFormValues } fro
 interface StockPageProps {
   orgId: string
 }
+
+/** Colunas exportáveis (chaves espelham o backend). */
+const EXPORT_COLUMNS = [
+  { key: "name", label: "Material" },
+  { key: "stock", label: "Estoque" },
+  { key: "minimum", label: "Mínimo" },
+  { key: "cost", label: "Custo unitário (R$)" },
+  { key: "shareable", label: "Compartilhável" },
+  { key: "lowStock", label: "Estoque baixo" },
+  { key: "status", label: "Status" },
+  { key: "lastUsed", label: "Último uso" },
+]
 
 interface DialogState {
   materialForm: boolean
@@ -52,6 +66,28 @@ export function StockPage({ orgId }: StockPageProps) {
 
   function clearAdvanced() {
     setAdvanced({ minCost: "", maxCost: "" })
+  }
+
+  async function handleExport(fields: string[]) {
+    await downloadCsv(
+      `/orgs/${orgId}/materials/export`,
+      `estoque-${new Date().toISOString().slice(0, 10)}.csv`,
+      {
+        q: search || undefined,
+        archived: showArchived ? "true" : undefined,
+        shareable:
+          advanced.shareable === undefined
+            ? undefined
+            : String(advanced.shareable),
+        minCost: advanced.minCost.trim()
+          ? advanced.minCost.replace(",", ".")
+          : undefined,
+        maxCost: advanced.maxCost.trim()
+          ? advanced.maxCost.replace(",", ".")
+          : undefined,
+        fields: fields.join(","),
+      },
+    )
   }
 
   const {
@@ -166,6 +202,7 @@ export function StockPage({ orgId }: StockPageProps) {
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
+          <ExportMenu columns={EXPORT_COLUMNS} onExport={handleExport} />
           <Button
             onClick={() => openDialog("materialForm")}
             className="flex-1 sm:flex-none"
