@@ -42,6 +42,13 @@ type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** Converte um query param numérico (centavos) em inteiro, ou undefined. */
+function parseCents(value?: string): number | undefined {
+  if (value === undefined || value === "") return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.round(n) : undefined;
+}
+
 // Caixa aberto a membros: funcionário lança e vê só os próprios; owner vê tudo e
 // lança em nome de. Operações sensíveis (taxas, transferência, estorno, correção,
 // criar categoria) seguem owner-only via OrgOwnerGuard a nível de método.
@@ -71,6 +78,10 @@ export class CashierController {
     @Query("to") to?: string,
     @Query("type") type?: string,
     @Query("paymentMethod") paymentMethod?: string,
+    @Query("categoryId") categoryId?: string,
+    @Query("minCents") minCents?: string,
+    @Query("maxCents") maxCents?: string,
+    @Query("createdBy") createdBy?: string,
     @Query("q") q?: string,
   ) {
     return this.listTransactions.execute({
@@ -85,6 +96,11 @@ export class CashierController {
         paymentMethod: PAYMENT_METHODS.includes(paymentMethod as PaymentMethod)
           ? (paymentMethod as PaymentMethod)
           : undefined,
+        categoryId: categoryId || undefined,
+        minCents: parseCents(minCents),
+        maxCents: parseCents(maxCents),
+        // Owner pode filtrar por membro; para funcionário o use-case força o próprio id.
+        createdBy: createdBy || undefined,
         q: q || undefined,
       },
     });

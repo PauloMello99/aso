@@ -23,12 +23,23 @@ import { CancelServiceUseCase } from "../application/use-cases/cancel-service.us
 import { RegisterPaymentUseCase } from "../application/use-cases/register-payment.use-case";
 import { ListServiceTypesUseCase } from "../application/use-cases/list-service-types.use-case";
 import { CreateServiceTypeUseCase } from "../application/use-cases/create-service-type.use-case";
-import { CreateServiceDto } from "./dto/create-service.dto";
+import {
+  CreateServiceDto,
+  SERVICE_PAYMENT_METHODS,
+} from "./dto/create-service.dto";
 import { UpdateServiceDto } from "./dto/update-service.dto";
 import { CreateServiceTypeDto } from "./dto/create-service-type.dto";
 import type { ServiceStatusFilter } from "../domain/service.repository.interface";
+import type { PaymentMethod } from "../domain/service.entity";
 
 const STATUS_VALUES: ServiceStatusFilter[] = ["pending", "paid", "canceled"];
+
+/** Converte um query param numérico (centavos) em inteiro, ou undefined. */
+function parseCents(value?: string): number | undefined {
+  if (value === undefined || value === "") return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.round(n) : undefined;
+}
 
 /** Primeiro dia do mês vigente (filtro default da listagem). */
 function startOfCurrentMonth(): Date {
@@ -78,6 +89,9 @@ export class ServicesController {
     @Query("customerId") customerId?: string,
     @Query("performedBy") performedBy?: string,
     @Query("status") status?: string,
+    @Query("paymentMethod") paymentMethod?: string,
+    @Query("minCents") minCents?: string,
+    @Query("maxCents") maxCents?: string,
     @Query("q") q?: string,
   ) {
     // Default = mês vigente (1º do mês → agora), não "hoje − 30 dias".
@@ -96,6 +110,13 @@ export class ServicesController {
         status: STATUS_VALUES.includes(status as ServiceStatusFilter)
           ? (status as ServiceStatusFilter)
           : undefined,
+        paymentMethod: SERVICE_PAYMENT_METHODS.includes(
+          paymentMethod as (typeof SERVICE_PAYMENT_METHODS)[number],
+        )
+          ? (paymentMethod as PaymentMethod)
+          : undefined,
+        minCents: parseCents(minCents),
+        maxCents: parseCents(maxCents),
         q: q || undefined,
       },
     });

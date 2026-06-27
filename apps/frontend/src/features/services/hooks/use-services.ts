@@ -44,6 +44,12 @@ export function useServices(orgId: string, filter?: ServicesFilter) {
       if (filter?.customerId) params.set("customerId", filter.customerId)
       if (filter?.performedBy) params.set("performedBy", filter.performedBy)
       if (filter?.status) params.set("status", filter.status)
+      if (filter?.paymentMethod)
+        params.set("paymentMethod", filter.paymentMethod)
+      if (filter?.minCents !== undefined)
+        params.set("minCents", String(filter.minCents))
+      if (filter?.maxCents !== undefined)
+        params.set("maxCents", String(filter.maxCents))
       if (filter?.q) params.set("q", filter.q)
       const query = params.toString() ? `?${params.toString()}` : ""
       return apiRequest<Service[]>(`/orgs/${orgId}/services${query}`)

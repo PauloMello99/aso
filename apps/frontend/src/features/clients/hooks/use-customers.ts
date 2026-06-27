@@ -16,6 +16,11 @@ export function useCustomers(orgId: string, filter?: CustomersFilter) {
       const params = new URLSearchParams()
       if (filter?.search) params.set("search", filter.search)
       if (filter?.enabledOnly) params.set("enabled", "true")
+      if (filter?.status) params.set("status", filter.status)
+      if (filter?.originId) params.set("originId", filter.originId)
+      if (filter?.gender) params.set("gender", filter.gender)
+      if (filter?.from) params.set("from", filter.from)
+      if (filter?.to) params.set("to", filter.to)
       const query = params.toString() ? `?${params.toString()}` : ""
       return apiRequest<Customer[]>(`/orgs/${orgId}/customers${query}`)
     },

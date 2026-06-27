@@ -12,6 +12,12 @@ export interface ListTransactionsFilter {
   to?: Date;
   type?: TransactionType;
   paymentMethod?: PaymentMethod;
+  /** Categoria do lançamento. */
+  categoryId?: string;
+  /** Faixa de valor líquido (centavos): mínimo inclusivo. */
+  minCents?: number;
+  /** Faixa de valor líquido (centavos): máximo inclusivo. */
+  maxCents?: number;
   /** Busca textual na descrição. */
   q?: string;
   /** users.id — restringe aos lançamentos do membro (funcionário vê só os seus). */

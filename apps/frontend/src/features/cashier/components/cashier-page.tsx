@@ -11,6 +11,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/components/ui/select"
+import { DatePicker } from "@/shared/components/ui/date-picker"
+import {
+  FilterPopover,
+  FilterField,
+  RangeInputs,
+} from "@/shared/components/ui/filter-popover"
 import { useCurrentOrg } from "@/features/dashboard"
 import { useMembers } from "@/features/organizations/hooks/use-members"
 import { useTransactions } from "../hooks/use-transactions"
@@ -69,6 +75,39 @@ export function CashierPage({ orgId }: CashierPageProps) {
 
   const [filter, setFilter] = useState<TransactionsFilter>({})
   const [search, setSearch] = useState("")
+  const [amount, setAmount] = useState({ min: "", max: "" })
+
+  const advancedCount =
+    (filter.from ? 1 : 0) +
+    (filter.to ? 1 : 0) +
+    (filter.categoryId ? 1 : 0) +
+    (filter.createdBy ? 1 : 0) +
+    (filter.minCents !== undefined ? 1 : 0) +
+    (filter.maxCents !== undefined ? 1 : 0)
+
+  function setAmountFilter(which: "min" | "max", raw: string) {
+    setAmount((a) => ({ ...a, [which]: raw }))
+    const cents = raw.trim() ? parseReaisToCents(raw) : Number.NaN
+    setFilter((f) => ({
+      ...f,
+      [which === "min" ? "minCents" : "maxCents"]: Number.isNaN(cents)
+        ? undefined
+        : cents,
+    }))
+  }
+
+  function clearAdvanced() {
+    setAmount({ min: "", max: "" })
+    setFilter((f) => ({
+      ...f,
+      from: undefined,
+      to: undefined,
+      categoryId: undefined,
+      createdBy: undefined,
+      minCents: undefined,
+      maxCents: undefined,
+    }))
+  }
 
   const {
     transactions,
@@ -209,6 +248,86 @@ export function CashierPage({ orgId }: CashierPageProps) {
             ))}
           </SelectContent>
         </Select>
+        <FilterPopover activeCount={advancedCount} onClear={clearAdvanced}>
+          <div className="grid grid-cols-2 gap-2">
+            <FilterField label="De">
+              <DatePicker
+                value={filter.from ?? ""}
+                onChange={(v) =>
+                  setFilter((f) => ({ ...f, from: v || undefined }))
+                }
+                placeholder="Início"
+              />
+            </FilterField>
+            <FilterField label="Até">
+              <DatePicker
+                value={filter.to ?? ""}
+                onChange={(v) =>
+                  setFilter((f) => ({ ...f, to: v || undefined }))
+                }
+                placeholder="Fim"
+              />
+            </FilterField>
+          </div>
+          <FilterField label="Categoria">
+            <Select
+              value={filter.categoryId ?? "all"}
+              onValueChange={(v) =>
+                setFilter((f) => ({
+                  ...f,
+                  categoryId: v === "all" ? undefined : v,
+                }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as categorias</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterField>
+          {isOwner && (
+            <FilterField label="Membro">
+              <Select
+                value={filter.createdBy ?? "all"}
+                onValueChange={(v) =>
+                  setFilter((f) => ({
+                    ...f,
+                    createdBy: v === "all" ? undefined : v,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Membro" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os membros</SelectItem>
+                  {members
+                    .filter((m) => m.enabled)
+                    .map((m) => (
+                      <SelectItem key={m.userId} value={m.userId}>
+                        {m.userName}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </FilterField>
+          )}
+          <FilterField label="Valor (R$)">
+            <RangeInputs
+              minValue={amount.min}
+              maxValue={amount.max}
+              onMinChange={(v) => setAmountFilter("min", v)}
+              onMaxChange={(v) => setAmountFilter("max", v)}
+            />
+          </FilterField>
+        </FilterPopover>
       </div>
 
       {/* Error */}

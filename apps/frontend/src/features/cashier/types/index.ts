@@ -66,6 +66,11 @@ export interface TransactionsFilter {
   to?: string
   type?: TransactionType
   paymentMethod?: PaymentMethod
+  categoryId?: string
+  minCents?: number
+  maxCents?: number
+  /** users.id — filtro de membro (só owner). */
+  createdBy?: string
   q?: string
 }
 

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, eq, ilike, or } from "drizzle-orm";
+import { and, eq, gte, ilike, lte, or } from "drizzle-orm";
 import { DRIZZLE, DrizzleDB } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
 import {
@@ -34,8 +34,27 @@ export class DrizzleCustomerRepository implements ICustomerRepository {
   ): Promise<CustomerEntity[]> {
     const conditions = [eq(schema.customers.orgId, orgId)];
 
-    if (filter?.enabledOnly) {
+    if (filter?.status === "active") {
       conditions.push(eq(schema.customers.enabled, true));
+    } else if (filter?.status === "inactive") {
+      conditions.push(eq(schema.customers.enabled, false));
+    } else if (filter?.enabledOnly) {
+      conditions.push(eq(schema.customers.enabled, true));
+    }
+
+    if (filter?.originId) {
+      conditions.push(eq(schema.customers.originId, filter.originId));
+    }
+
+    if (filter?.gender) {
+      conditions.push(eq(schema.customers.gender, filter.gender));
+    }
+
+    if (filter?.from) {
+      conditions.push(gte(schema.customers.createdAt, filter.from));
+    }
+    if (filter?.to) {
+      conditions.push(lte(schema.customers.createdAt, filter.to));
     }
 
     if (filter?.search) {

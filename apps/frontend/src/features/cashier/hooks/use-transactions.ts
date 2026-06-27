@@ -44,6 +44,12 @@ export function useTransactions(orgId: string, filter?: TransactionsFilter) {
       if (filter?.to) params.set("to", filter.to)
       if (filter?.type) params.set("type", filter.type)
       if (filter?.paymentMethod) params.set("paymentMethod", filter.paymentMethod)
+      if (filter?.categoryId) params.set("categoryId", filter.categoryId)
+      if (filter?.minCents !== undefined)
+        params.set("minCents", String(filter.minCents))
+      if (filter?.maxCents !== undefined)
+        params.set("maxCents", String(filter.maxCents))
+      if (filter?.createdBy) params.set("createdBy", filter.createdBy)
       if (filter?.q) params.set("q", filter.q)
       const query = params.toString() ? `?${params.toString()}` : ""
       return apiRequest<TransactionView[]>(

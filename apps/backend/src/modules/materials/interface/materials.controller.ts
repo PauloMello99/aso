@@ -102,6 +102,9 @@ export class MaterialsController {
     @Query("lowStock") lowStock?: string,
     @Query("q") q?: string,
     @Query("archived") archived?: string,
+    @Query("shareable") shareable?: string,
+    @Query("minCost") minCost?: string,
+    @Query("maxCost") maxCost?: string,
     @Query("sortBy") sortBy?: string,
   ) {
     return this.listMaterials.execute(orgId, {
@@ -109,6 +112,10 @@ export class MaterialsController {
       lowStockOnly: lowStock === "true",
       name: q || undefined,
       archived: archived === "true",
+      shareable:
+        shareable === "true" ? true : shareable === "false" ? false : undefined,
+      minCost: minCost || undefined,
+      maxCost: maxCost || undefined,
       sortBy: sortBy === "name" ? "name" : "lastUsed",
     });
   }

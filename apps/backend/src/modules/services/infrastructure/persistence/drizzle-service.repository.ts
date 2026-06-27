@@ -143,6 +143,15 @@ export class DrizzleServiceRepository implements IServiceRepository {
     if (filter?.performedBy) {
       conditions.push(eq(schema.services.performedBy, filter.performedBy));
     }
+    if (filter?.paymentMethod) {
+      conditions.push(eq(schema.services.paymentMethod, filter.paymentMethod));
+    }
+    if (filter?.minCents !== undefined) {
+      conditions.push(gte(schema.services.amountCents, filter.minCents));
+    }
+    if (filter?.maxCents !== undefined) {
+      conditions.push(lte(schema.services.amountCents, filter.maxCents));
+    }
     if (filter?.status === "canceled") {
       conditions.push(isNotNull(schema.services.canceledAt));
     } else if (filter?.status === "paid") {

@@ -42,4 +42,8 @@ export interface MaterialsFilter {
   lowStockOnly?: boolean
   name?: string
   archived?: boolean
+  shareable?: boolean
+  /** Custo unitário (reais, string decimal). */
+  minCost?: string
+  maxCost?: string
 }

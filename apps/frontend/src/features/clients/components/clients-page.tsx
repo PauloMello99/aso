@@ -4,12 +4,24 @@ import { useEffect, useMemo, useState } from "react"
 import { Users, UserCheck, Plus, RefreshCw, Search, Download } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select"
+import { DatePicker } from "@/shared/components/ui/date-picker"
+import {
+  FilterPopover,
+  FilterField,
+} from "@/shared/components/ui/filter-popover"
 import { getSession } from "@/features/auth/lib/session"
 import { useCustomers } from "../hooks/use-customers"
 import { useCustomerOrigins } from "../hooks/use-customer-origins"
 import { CustomerList } from "./customer-list"
 import { CustomerForm } from "./customer-form"
-import type { Customer, Gender } from "../types"
+import type { Customer, CustomersFilter, Gender } from "../types"
 import type { CustomerFormValues } from "../schemas/client.schemas"
 
 interface ClientsPageProps {
@@ -26,10 +38,30 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
     return () => clearTimeout(t)
   }, [searchInput])
 
-  const filter = useMemo(
-    () => (search ? { search } : undefined),
-    [search],
-  )
+  const [advanced, setAdvanced] = useState<{
+    status?: "active" | "inactive"
+    originId?: string
+    gender?: Gender
+    from?: string
+    to?: string
+  }>({})
+
+  const advancedCount =
+    (advanced.status ? 1 : 0) +
+    (advanced.originId ? 1 : 0) +
+    (advanced.gender ? 1 : 0) +
+    (advanced.from ? 1 : 0) +
+    (advanced.to ? 1 : 0)
+
+  function clearAdvanced() {
+    setAdvanced({})
+  }
+
+  const filter = useMemo<CustomersFilter | undefined>(() => {
+    const f: CustomersFilter = { ...advanced }
+    if (search) f.search = search
+    return Object.keys(f).length ? f : undefined
+  }, [search, advanced])
 
   const {
     customers,
@@ -98,6 +130,11 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
     const token = getSession()?.accessToken
     const params = new URLSearchParams()
     if (search) params.set("search", search)
+    if (advanced.status) params.set("status", advanced.status)
+    if (advanced.originId) params.set("originId", advanced.originId)
+    if (advanced.gender) params.set("gender", advanced.gender)
+    if (advanced.from) params.set("from", advanced.from)
+    if (advanced.to) params.set("to", advanced.to)
     const res = await fetch(
       `${api}/orgs/${orgId}/customers/export?${params.toString()}`,
       { headers: token ? { Authorization: `Bearer ${token}` } : undefined },
@@ -165,16 +202,105 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
         />
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/30" />
-        <Input
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="Buscar por nome, e-mail ou telefone…"
-          className="pl-9"
-          autoComplete="off"
-        />
+      {/* Search + filters */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/30" />
+          <Input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Buscar por nome, e-mail ou telefone…"
+            className="pl-9"
+            autoComplete="off"
+          />
+        </div>
+        <FilterPopover activeCount={advancedCount} onClear={clearAdvanced}>
+          <FilterField label="Status">
+            <Select
+              value={advanced.status ?? "all"}
+              onValueChange={(v) =>
+                setAdvanced((a) => ({
+                  ...a,
+                  status:
+                    v === "all" ? undefined : (v as "active" | "inactive"),
+                }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="active">Ativos</SelectItem>
+                <SelectItem value="inactive">Inativos</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterField>
+          <FilterField label="Origem">
+            <Select
+              value={advanced.originId ?? "all"}
+              onValueChange={(v) =>
+                setAdvanced((a) => ({
+                  ...a,
+                  originId: v === "all" ? undefined : v,
+                }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Origem" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as origens</SelectItem>
+                {origins.map((o) => (
+                  <SelectItem key={o.id} value={o.id}>
+                    {o.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterField>
+          <FilterField label="Gênero">
+            <Select
+              value={advanced.gender ?? "all"}
+              onValueChange={(v) =>
+                setAdvanced((a) => ({
+                  ...a,
+                  gender: v === "all" ? undefined : (v as Gender),
+                }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Gênero" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="female">Feminino</SelectItem>
+                <SelectItem value="male">Masculino</SelectItem>
+                <SelectItem value="other">Outro</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterField>
+          <div className="grid grid-cols-2 gap-2">
+            <FilterField label="Cadastro de">
+              <DatePicker
+                value={advanced.from ?? ""}
+                onChange={(v) =>
+                  setAdvanced((a) => ({ ...a, from: v || undefined }))
+                }
+                placeholder="Início"
+              />
+            </FilterField>
+            <FilterField label="Até">
+              <DatePicker
+                value={advanced.to ?? ""}
+                onChange={(v) =>
+                  setAdvanced((a) => ({ ...a, to: v || undefined }))
+                }
+                placeholder="Fim"
+              />
+            </FilterField>
+          </div>
+        </FilterPopover>
       </div>
 
       {/* Error */}

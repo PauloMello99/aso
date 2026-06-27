@@ -26,4 +26,10 @@ export interface Customer {
 export interface CustomersFilter {
   search?: string
   enabledOnly?: boolean
+  status?: "active" | "inactive"
+  originId?: string
+  gender?: Gender
+  /** Faixa de data de cadastro (YYYY-MM-DD). */
+  from?: string
+  to?: string
 }

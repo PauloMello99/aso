@@ -78,6 +78,15 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
         eq(schema.transactions.paymentMethod, filter.paymentMethod),
       );
     }
+    if (filter?.categoryId) {
+      conditions.push(eq(schema.transactions.categoryId, filter.categoryId));
+    }
+    if (filter?.minCents !== undefined) {
+      conditions.push(gte(schema.transactions.amountCents, filter.minCents));
+    }
+    if (filter?.maxCents !== undefined) {
+      conditions.push(lte(schema.transactions.amountCents, filter.maxCents));
+    }
     if (filter?.q) {
       conditions.push(ilike(schema.transactions.description, `%${filter.q}%`));
     }

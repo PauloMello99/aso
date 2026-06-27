@@ -39,12 +39,39 @@ import {
 } from "../application/use-cases/customer-attachments.use-cases";
 import { CreateCustomerDto } from "./dto/create-customer.dto";
 import { UpdateCustomerDto } from "./dto/update-customer.dto";
+import type { ListCustomersFilter } from "../domain/customer.repository.interface";
 
 interface UploadedDoc {
   buffer: Buffer;
   mimetype: string;
   originalname: string;
   size: number;
+}
+
+const GENDERS = ["male", "female", "other"] as const;
+
+/** Monta o filtro de listagem/export a partir dos query params (compartilhado). */
+function buildCustomersFilter(q: {
+  search?: string;
+  enabled?: string;
+  status?: string;
+  originId?: string;
+  gender?: string;
+  from?: string;
+  to?: string;
+}): ListCustomersFilter {
+  return {
+    search: q.search?.trim() || undefined,
+    enabledOnly: q.enabled === "true",
+    status:
+      q.status === "active" || q.status === "inactive" ? q.status : undefined,
+    originId: q.originId || undefined,
+    gender: GENDERS.includes(q.gender as (typeof GENDERS)[number])
+      ? (q.gender as (typeof GENDERS)[number])
+      : undefined,
+    from: q.from ? new Date(q.from) : undefined,
+    to: q.to ? new Date(q.to) : undefined,
+  };
 }
 
 @Controller("orgs/:orgId/customers")
@@ -68,11 +95,16 @@ export class CustomersController {
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Query("search") search?: string,
     @Query("enabled") enabled?: string,
+    @Query("status") status?: string,
+    @Query("originId") originId?: string,
+    @Query("gender") gender?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
   ) {
-    return this.listCustomers.execute(orgId, {
-      search: search?.trim() || undefined,
-      enabledOnly: enabled === "true",
-    });
+    return this.listCustomers.execute(
+      orgId,
+      buildCustomersFilter({ search, enabled, status, originId, gender, from, to }),
+    );
   }
 
   @Get("origins")
@@ -86,11 +118,16 @@ export class CustomersController {
     @Res() res: Response,
     @Query("search") search?: string,
     @Query("enabled") enabled?: string,
+    @Query("status") status?: string,
+    @Query("originId") originId?: string,
+    @Query("gender") gender?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
   ) {
-    const csv = await this.exportCustomers.execute(orgId, {
-      search: search?.trim() || undefined,
-      enabledOnly: enabled === "true",
-    });
+    const csv = await this.exportCustomers.execute(
+      orgId,
+      buildCustomersFilter({ search, enabled, status, originId, gender, from, to }),
+    );
     const date = new Date().toISOString().slice(0, 10);
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader(

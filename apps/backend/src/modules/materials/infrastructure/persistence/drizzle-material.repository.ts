@@ -1,5 +1,5 @@
 ﻿import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, eq, ilike, isNotNull, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, ilike, isNotNull, isNull, lte, sql } from "drizzle-orm";
 import { DRIZZLE, DrizzleDB } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
 import {
@@ -54,6 +54,21 @@ export class DrizzleMaterialRepository implements IMaterialRepository {
       conditions.push(
         lte(schema.materials.stockQuantity, schema.materials.minimumQuantity),
         lte(sql`'0'::numeric`, schema.materials.minimumQuantity),
+      );
+    }
+
+    if (filter?.shareable !== undefined) {
+      conditions.push(eq(schema.materials.shareable, filter.shareable));
+    }
+
+    if (filter?.minCost !== undefined) {
+      conditions.push(
+        gte(schema.materials.costPerUnit, sql`${filter.minCost}::numeric`),
+      );
+    }
+    if (filter?.maxCost !== undefined) {
+      conditions.push(
+        lte(schema.materials.costPerUnit, sql`${filter.maxCost}::numeric`),
       );
     }
 

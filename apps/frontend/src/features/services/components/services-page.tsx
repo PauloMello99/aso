@@ -11,6 +11,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/components/ui/select"
+import { DatePicker } from "@/shared/components/ui/date-picker"
+import {
+  FilterPopover,
+  FilterField,
+  RangeInputs,
+} from "@/shared/components/ui/filter-popover"
 import { useCurrentOrg } from "@/features/dashboard"
 import { useCustomers } from "@/features/clients/hooks/use-customers"
 import { useMembers } from "@/features/organizations/hooks/use-members"
@@ -24,7 +30,10 @@ import { ServiceForm } from "./service-form"
 import type { ServiceFormValues } from "../schemas/services.schemas"
 import {
   SERVICE_STATUS_LABELS,
+  SERVICE_PAYMENT_METHODS,
+  SERVICE_PAYMENT_METHOD_LABELS,
   type Service,
+  type ServicePaymentMethod,
   type ServicesFilter,
   type ServiceStatus,
 } from "../types"
@@ -78,6 +87,41 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
 
   const [filter, setFilter] = useState<ServicesFilter>({})
   const [search, setSearch] = useState("")
+  const [amount, setAmount] = useState({ min: "", max: "" })
+
+  const advancedCount =
+    (filter.from ? 1 : 0) +
+    (filter.to ? 1 : 0) +
+    (filter.serviceTypeId ? 1 : 0) +
+    (filter.customerId ? 1 : 0) +
+    (filter.paymentMethod ? 1 : 0) +
+    (filter.minCents !== undefined ? 1 : 0) +
+    (filter.maxCents !== undefined ? 1 : 0)
+
+  function setAmountFilter(which: "min" | "max", raw: string) {
+    setAmount((a) => ({ ...a, [which]: raw }))
+    const cents = raw.trim() ? parseReaisToCents(raw) : Number.NaN
+    setFilter((f) => ({
+      ...f,
+      [which === "min" ? "minCents" : "maxCents"]: Number.isNaN(cents)
+        ? undefined
+        : cents,
+    }))
+  }
+
+  function clearAdvanced() {
+    setAmount({ min: "", max: "" })
+    setFilter((f) => ({
+      ...f,
+      from: undefined,
+      to: undefined,
+      serviceTypeId: undefined,
+      customerId: undefined,
+      paymentMethod: undefined,
+      minCents: undefined,
+      maxCents: undefined,
+    }))
+  }
 
   const {
     services,
@@ -235,6 +279,106 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
             </SelectContent>
           </Select>
         )}
+        <FilterPopover activeCount={advancedCount} onClear={clearAdvanced}>
+          <div className="grid grid-cols-2 gap-2">
+            <FilterField label="De">
+              <DatePicker
+                value={filter.from ?? ""}
+                onChange={(v) =>
+                  setFilter((f) => ({ ...f, from: v || undefined }))
+                }
+                placeholder="Início"
+              />
+            </FilterField>
+            <FilterField label="Até">
+              <DatePicker
+                value={filter.to ?? ""}
+                onChange={(v) =>
+                  setFilter((f) => ({ ...f, to: v || undefined }))
+                }
+                placeholder="Fim"
+              />
+            </FilterField>
+          </div>
+          <FilterField label="Tipo de serviço">
+            <Select
+              value={filter.serviceTypeId ?? "all"}
+              onValueChange={(v) =>
+                setFilter((f) => ({
+                  ...f,
+                  serviceTypeId: v === "all" ? undefined : v,
+                }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os tipos</SelectItem>
+                {serviceTypes.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterField>
+          <FilterField label="Cliente">
+            <Select
+              value={filter.customerId ?? "all"}
+              onValueChange={(v) =>
+                setFilter((f) => ({
+                  ...f,
+                  customerId: v === "all" ? undefined : v,
+                }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Cliente" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os clientes</SelectItem>
+                {customers.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterField>
+          <FilterField label="Método de pagamento">
+            <Select
+              value={filter.paymentMethod ?? "all"}
+              onValueChange={(v) =>
+                setFilter((f) => ({
+                  ...f,
+                  paymentMethod:
+                    v === "all" ? undefined : (v as ServicePaymentMethod),
+                }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Método" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os métodos</SelectItem>
+                {SERVICE_PAYMENT_METHODS.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {SERVICE_PAYMENT_METHOD_LABELS[m]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterField>
+          <FilterField label="Valor (R$)">
+            <RangeInputs
+              minValue={amount.min}
+              maxValue={amount.max}
+              onMinChange={(v) => setAmountFilter("min", v)}
+              onMaxChange={(v) => setAmountFilter("max", v)}
+            />
+          </FilterField>
+        </FilterPopover>
       </div>
 
       {/* Error */}

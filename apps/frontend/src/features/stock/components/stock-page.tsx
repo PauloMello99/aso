@@ -4,6 +4,18 @@ import { useState } from "react"
 import { Package, AlertTriangle, Plus, RefreshCw, Search } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select"
+import {
+  FilterPopover,
+  FilterField,
+  RangeInputs,
+} from "@/shared/components/ui/filter-popover"
 import { useMaterials, isLowStock } from "../hooks/use-materials"
 import { MaterialList } from "./material-list"
 import { MaterialForm } from "./material-form"
@@ -27,6 +39,21 @@ interface DialogState {
 export function StockPage({ orgId }: StockPageProps) {
   const [search, setSearch] = useState("")
   const [showArchived, setShowArchived] = useState(false)
+  const [advanced, setAdvanced] = useState<{
+    shareable?: boolean
+    minCost: string
+    maxCost: string
+  }>({ minCost: "", maxCost: "" })
+
+  const advancedCount =
+    (advanced.shareable !== undefined ? 1 : 0) +
+    (advanced.minCost.trim() ? 1 : 0) +
+    (advanced.maxCost.trim() ? 1 : 0)
+
+  function clearAdvanced() {
+    setAdvanced({ minCost: "", maxCost: "" })
+  }
+
   const {
     materials,
     loading,
@@ -41,6 +68,13 @@ export function StockPage({ orgId }: StockPageProps) {
   } = useMaterials(orgId, {
     name: search || undefined,
     archived: showArchived || undefined,
+    shareable: advanced.shareable,
+    minCost: advanced.minCost.trim()
+      ? advanced.minCost.replace(",", ".")
+      : undefined,
+    maxCost: advanced.maxCost.trim()
+      ? advanced.maxCost.replace(",", ".")
+      : undefined,
   })
 
   const [dialogs, setDialogs] = useState<DialogState>({
@@ -160,6 +194,43 @@ export function StockPage({ orgId }: StockPageProps) {
         >
           {showArchived ? "Ver ativos" : "Ver arquivados"}
         </Button>
+        <FilterPopover activeCount={advancedCount} onClear={clearAdvanced}>
+          <FilterField label="Tipo de material">
+            <Select
+              value={
+                advanced.shareable === undefined
+                  ? "all"
+                  : advanced.shareable
+                    ? "shared"
+                    : "consumable"
+              }
+              onValueChange={(v) =>
+                setAdvanced((a) => ({
+                  ...a,
+                  shareable:
+                    v === "all" ? undefined : v === "shared" ? true : false,
+                }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="consumable">Consumível</SelectItem>
+                <SelectItem value="shared">Compartilhável</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterField>
+          <FilterField label="Custo unitário (R$)">
+            <RangeInputs
+              minValue={advanced.minCost}
+              maxValue={advanced.maxCost}
+              onMinChange={(v) => setAdvanced((a) => ({ ...a, minCost: v }))}
+              onMaxChange={(v) => setAdvanced((a) => ({ ...a, maxCost: v }))}
+            />
+          </FilterField>
+        </FilterPopover>
       </div>
 
       {/* Summary cards */}

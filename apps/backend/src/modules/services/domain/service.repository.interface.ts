@@ -37,6 +37,11 @@ export interface ListServicesFilter {
   /** Restringe ao profissional (funcionário vê só os próprios). */
   performedBy?: string;
   status?: ServiceStatusFilter;
+  paymentMethod?: PaymentMethod;
+  /** Faixa de valor (centavos): mínimo inclusivo. */
+  minCents?: number;
+  /** Faixa de valor (centavos): máximo inclusivo. */
+  maxCents?: number;
   /** Busca textual (descrição / nome do cliente). */
   q?: string;
 }

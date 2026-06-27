@@ -50,6 +50,9 @@ export interface ServicesFilter {
   customerId?: string
   performedBy?: string
   status?: ServiceStatus
+  paymentMethod?: ServicePaymentMethod
+  minCents?: number
+  maxCents?: number
   q?: string
 }
 

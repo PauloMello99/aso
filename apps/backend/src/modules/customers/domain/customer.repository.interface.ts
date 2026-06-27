@@ -11,6 +11,16 @@ export interface ListCustomersFilter {
   search?: string;
   /** When true, only enabled (active) customers are returned */
   enabledOnly?: boolean;
+  /** Filtra por origem do cliente. */
+  originId?: string;
+  /** Filtra por gênero. */
+  gender?: "male" | "female" | "other";
+  /** Filtra por status (ativo/inativo); ignora enabledOnly quando definido. */
+  status?: "active" | "inactive";
+  /** Faixa de data de cadastro: início inclusivo. */
+  from?: Date;
+  /** Faixa de data de cadastro: fim inclusivo. */
+  to?: Date;
 }
 
 export interface ICustomerRepository {

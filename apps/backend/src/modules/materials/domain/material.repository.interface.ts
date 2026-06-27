@@ -13,6 +13,12 @@ export interface ListMaterialsFilter {
   name?: string;
   /** true = lista só arquivados; default/false = só ativos. */
   archived?: boolean;
+  /** Filtra por compartilhável (ex.: luvas) quando definido. */
+  shareable?: boolean;
+  /** Faixa de custo unitário (reais, numeric string): mínimo inclusivo. */
+  minCost?: string;
+  /** Faixa de custo unitário (reais, numeric string): máximo inclusivo. */
+  maxCost?: string;
   /** Ordenação: padrão = último usado primeiro. */
   sortBy?: "lastUsed" | "name";
 }

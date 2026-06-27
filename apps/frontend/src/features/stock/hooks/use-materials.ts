@@ -18,6 +18,10 @@ export function useMaterials(orgId: string, filter?: MaterialsFilter) {
       if (filter?.lowStockOnly) params.set("lowStock", "true")
       if (filter?.name) params.set("q", filter.name)
       if (filter?.archived) params.set("archived", "true")
+      if (filter?.shareable !== undefined)
+        params.set("shareable", String(filter.shareable))
+      if (filter?.minCost) params.set("minCost", filter.minCost)
+      if (filter?.maxCost) params.set("maxCost", filter.maxCost)
       const query = params.toString() ? `?${params.toString()}` : ""
       return apiRequest<Material[]>(`/orgs/${orgId}/materials${query}`)
     },
