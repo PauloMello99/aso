@@ -54,9 +54,9 @@ export function ReverseDialog({
         </DialogHeader>
 
         {transaction && (
-          <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 text-sm">
-            <p className="truncate text-white/70">{transaction.description}</p>
-            <p className="mt-0.5 tabular-nums text-white/40">
+          <div className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3 text-sm">
+            <p className="truncate text-foreground/70">{transaction.description}</p>
+            <p className="mt-0.5 tabular-nums text-foreground/40">
               {TRANSACTION_TYPE_LABELS[transaction.type]} ·{" "}
               {formatBRL(transaction.netCents)} ·{" "}
               {PAYMENT_METHOD_LABELS[transaction.paymentMethod]}

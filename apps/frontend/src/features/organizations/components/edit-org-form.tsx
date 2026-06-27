@@ -54,13 +54,13 @@ export function EditOrgForm({ org, onSubmit }: EditOrgFormProps) {
 
         {/* Slug is auto-generated and read-only */}
         <div className="grid gap-1.5">
-          <span className="text-sm font-medium leading-none text-white/70">
+          <span className="text-sm font-medium leading-none text-foreground/70">
             Identificador (slug)
           </span>
-          <div className="flex h-9 items-center rounded-md border border-white/10 bg-white/[0.03] px-3 font-mono text-sm text-white/40 select-all">
+          <div className="flex h-9 items-center rounded-md border border-foreground/10 bg-foreground/[0.03] px-3 font-mono text-sm text-foreground/40 select-all">
             {org.slug}
           </div>
-          <p className="text-xs text-white/30">
+          <p className="text-xs text-foreground/30">
             Gerado automaticamente — não pode ser alterado.
           </p>
         </div>

@@ -69,7 +69,7 @@ export function AccountPage() {
       <button
         type="button"
         onClick={handleBack}
-        className="flex items-center gap-1.5 text-sm text-white/50 transition-colors hover:text-white"
+        className="flex items-center gap-1.5 text-sm text-foreground/50 transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         Voltar
@@ -77,7 +77,7 @@ export function AccountPage() {
 
       <div className="flex min-h-full flex-col gap-6 md:flex-row md:gap-8">
         {/* Mobile: barra de âncoras horizontal */}
-        <nav className="flex gap-1 overflow-x-auto border-b border-white/[0.06] pb-3 md:hidden">
+        <nav className="flex gap-1 overflow-x-auto border-b border-foreground/[0.06] pb-3 md:hidden">
           {SECTIONS.map(({ id, label }) => {
             const isDanger = id === "danger"
             const isActive = active === id
@@ -90,10 +90,10 @@ export function AccountPage() {
                   isActive
                     ? isDanger
                       ? "bg-red-500/10 text-red-400"
-                      : "bg-white/[0.08] text-white"
+                      : "bg-foreground/[0.08] text-foreground"
                     : isDanger
                       ? "text-red-400/60 hover:text-red-400"
-                      : "text-white/50 hover:bg-white/[0.04] hover:text-white",
+                      : "text-foreground/50 hover:bg-foreground/[0.04] hover:text-foreground",
                 )}
               >
                 {label}
@@ -105,7 +105,7 @@ export function AccountPage() {
         {/* Desktop: submenu de âncoras fixo à esquerda (sticky) */}
         <aside className="hidden w-48 shrink-0 md:block">
           <div className="sticky top-6">
-            <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-white/25">
+            <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-foreground/25">
               Minha Conta
             </p>
             <ul className="space-y-0.5">
@@ -121,10 +121,10 @@ export function AccountPage() {
                         isActive
                           ? isDanger
                             ? "bg-red-500/10 text-red-400"
-                            : "bg-white/[0.08] text-white"
+                            : "bg-foreground/[0.08] text-foreground"
                           : isDanger
                             ? "text-red-400/60 hover:bg-red-500/5 hover:text-red-400"
-                            : "text-white/50 hover:bg-white/[0.04] hover:text-white",
+                            : "text-foreground/50 hover:bg-foreground/[0.04] hover:text-foreground",
                       )}
                     >
                       <Icon
@@ -136,7 +136,7 @@ export function AccountPage() {
                               : "text-orange-400"
                             : isDanger
                               ? "text-red-400/60"
-                              : "text-white/40",
+                              : "text-foreground/40",
                         )}
                       />
                       {label}

@@ -70,13 +70,13 @@ export function ResetPasswordForm() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-sm border-white/5 bg-white/[0.03]">
+      <Card className="w-full max-w-sm border-foreground/5 bg-foreground/[0.03]">
         <CardHeader className="text-center">
           <div className="mb-2 text-xl font-bold">
             ink<span className="text-orange-500">ops</span>
           </div>
           <CardTitle className="text-xl">Nova senha</CardTitle>
-          <CardDescription className="text-white/40">
+          <CardDescription className="text-foreground/40">
             Defina uma nova senha para sua conta
           </CardDescription>
         </CardHeader>
@@ -86,7 +86,7 @@ export function ResetPasswordForm() {
             <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               Link inválido ou expirado. Solicite um novo link de recuperação.
             </p>
-            <Button asChild variant="outline" className="w-full border-white/10">
+            <Button asChild variant="outline" className="w-full border-foreground/10">
               <Link href="/auth/recover">Solicitar novo link</Link>
             </Button>
           </CardContent>
@@ -95,7 +95,7 @@ export function ResetPasswordForm() {
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-orange-500/10">
               <CheckCircle2 className="h-6 w-6 text-orange-400" />
             </div>
-            <p className="text-sm text-white/50">
+            <p className="text-sm text-foreground/50">
               Sua senha foi redefinida com sucesso. Você já pode fazer login com a nova senha.
             </p>
             <Button asChild className="w-full bg-orange-500 text-white hover:bg-orange-600">
@@ -153,8 +153,8 @@ export function ResetPasswordForm() {
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Redefinir senha
               </Button>
-              <p className="text-center text-sm text-white/40">
-                <Link href="/auth/login" className="hover:text-white">
+              <p className="text-center text-sm text-foreground/40">
+                <Link href="/auth/login" className="hover:text-foreground">
                   ← Voltar ao login
                 </Link>
               </p>

@@ -144,7 +144,7 @@ export function MaterialForm({
                   control={form.control}
                   name="shareable"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between gap-4 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+                    <FormItem className="flex flex-row items-center justify-between gap-4 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3">
                       <div className="space-y-0.5">
                         <FormLabel>Material compartilhável</FormLabel>
                         <FormDescription>
@@ -170,13 +170,13 @@ export function MaterialForm({
                     <FormItem>
                       <FormLabel>
                         Custo por unidade{" "}
-                        <span className="text-xs text-white/30">
+                        <span className="text-xs text-foreground/30">
                           (opcional)
                         </span>
                       </FormLabel>
                       <FormControl>
                         <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-white/40">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-foreground/40">
                             R$
                           </span>
                           <Input

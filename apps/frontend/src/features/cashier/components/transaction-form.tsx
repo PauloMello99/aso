@@ -193,7 +193,7 @@ export function TransactionForm({
                     </FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-white/40">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-foreground/40">
                           R$
                         </span>
                         <Input
@@ -245,7 +245,7 @@ export function TransactionForm({
                   <FormItem>
                     <FormLabel>
                       Categoria{" "}
-                      <span className="text-xs text-white/30">(opcional)</span>
+                      <span className="text-xs text-foreground/30">(opcional)</span>
                     </FormLabel>
                     <Select
                       value={field.value || CATEGORY_NONE}
@@ -281,7 +281,7 @@ export function TransactionForm({
                     <FormItem>
                       <FormLabel>
                         Em nome de{" "}
-                        <span className="text-xs text-white/30">(opcional)</span>
+                        <span className="text-xs text-foreground/30">(opcional)</span>
                       </FormLabel>
                       <Select
                         value={field.value || CREATED_BY_SELF}
@@ -316,7 +316,7 @@ export function TransactionForm({
                   <FormItem>
                     <FormLabel>
                       Data{" "}
-                      <span className="text-xs text-white/30">(opcional)</span>
+                      <span className="text-xs text-foreground/30">(opcional)</span>
                     </FormLabel>
                     <FormControl>
                       <DatePicker
@@ -332,14 +332,14 @@ export function TransactionForm({
 
               {/* Preview de taxa de cartão → líquido no caixa */}
               {preview?.hasFee && (
-                <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 text-sm">
-                  <div className="flex items-center justify-between text-white/50">
+                <div className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3 text-sm">
+                  <div className="flex items-center justify-between text-foreground/50">
                     <span>Taxa estimada</span>
                     <span className="tabular-nums text-red-400">
                       − {formatBRL(preview.feeCents)}
                     </span>
                   </div>
-                  <div className="mt-1 flex items-center justify-between font-medium text-white">
+                  <div className="mt-1 flex items-center justify-between font-medium text-foreground">
                     <span>Líquido no caixa</span>
                     <span className="tabular-nums">
                       {formatBRL(preview.netCents)}

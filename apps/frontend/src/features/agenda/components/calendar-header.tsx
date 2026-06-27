@@ -48,7 +48,7 @@ export function CalendarHeader({ onNew, filterSlot }: CalendarHeaderProps) {
         <Button variant="ghost" size="icon" onClick={goNext} title="Próximo">
           <ChevronRight className="h-4 w-4" />
         </Button>
-        <span className="ml-1 text-sm font-medium capitalize text-white">
+        <span className="ml-1 text-sm font-medium capitalize text-foreground">
           {periodLabel(view, range.start, range.end, current)}
         </span>
       </div>

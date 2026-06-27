@@ -116,7 +116,7 @@ export function PhoneInput({
           <SelectValue>
             <span className="flex items-center gap-1.5">
               <span className="text-base leading-none">{flagEmoji(country)}</span>
-              <span className="text-white/60">
+              <span className="text-foreground/60">
                 +{getCountryCallingCode(country)}
               </span>
             </span>
@@ -128,7 +128,7 @@ export function PhoneInput({
               <span className="flex items-center gap-2">
                 <span className="text-base leading-none">{flagEmoji(c)}</span>
                 <span>{c}</span>
-                <span className="text-white/40">+{getCountryCallingCode(c)}</span>
+                <span className="text-foreground/40">+{getCountryCallingCode(c)}</span>
               </span>
             </SelectItem>
           ))}

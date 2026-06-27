@@ -37,10 +37,10 @@ export function OrgSwitcher({ org }: OrgSwitcherProps) {
         <Button
           variant="ghost"
           size="sm"
-          className="h-auto gap-1.5 px-2 py-1 text-sm font-medium text-white hover:bg-white/[0.06]"
+          className="h-auto gap-1.5 px-2 py-1 text-sm font-medium text-foreground hover:bg-foreground/[0.06]"
         >
           {org.name}
-          <ChevronsUpDown className="h-3.5 w-3.5 text-white/40" />
+          <ChevronsUpDown className="h-3.5 w-3.5 text-foreground/40" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-[200px]">
@@ -54,7 +54,7 @@ export function OrgSwitcher({ org }: OrgSwitcherProps) {
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden">
               <span className="truncate">{o.name}</span>
-              <span className="text-[10px] text-white/30">
+              <span className="text-[10px] text-foreground/30">
                 {o.role === "owner" ? "Proprietário" : "Funcionário"}
               </span>
             </span>
@@ -67,7 +67,7 @@ export function OrgSwitcher({ org }: OrgSwitcherProps) {
         <DropdownMenuItem
           onClick={() => void router.push("/dashboard/organizations")}
         >
-          <Building2 className="h-3.5 w-3.5 shrink-0 text-white/40" />
+          <Building2 className="h-3.5 w-3.5 shrink-0 text-foreground/40" />
           <span className="flex-1">Ver todas as organizações</span>
         </DropdownMenuItem>
       </DropdownMenuContent>

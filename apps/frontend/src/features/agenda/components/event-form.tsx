@@ -208,7 +208,7 @@ export function EventForm({
                     <FormItem>
                       <FormLabel>
                         Para o membro{" "}
-                        <span className="text-xs text-white/30">(opcional)</span>
+                        <span className="text-xs text-foreground/30">(opcional)</span>
                       </FormLabel>
                       <Select
                         value={field.value || ASSIGNEE_SELF}
@@ -315,7 +315,7 @@ export function EventForm({
                 control={form.control}
                 name="allDay"
                 render={({ field }) => (
-                  <FormItem className="flex items-center justify-between gap-4 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+                  <FormItem className="flex items-center justify-between gap-4 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3">
                     <FormLabel>Dia inteiro</FormLabel>
                     <FormControl>
                       <Switch
@@ -365,7 +365,7 @@ export function EventForm({
                   <FormItem>
                     <FormLabel>
                       Observações{" "}
-                      <span className="text-xs text-white/30">(opcional)</span>
+                      <span className="text-xs text-foreground/30">(opcional)</span>
                     </FormLabel>
                     <FormControl>
                       <Textarea rows={2} {...field} />
@@ -393,7 +393,7 @@ export function EventForm({
                     <Button
                       type="button"
                       variant="ghost"
-                      className="text-white/60 hover:text-white"
+                      className="text-foreground/60 hover:text-foreground"
                       onClick={async () => {
                         if (!event) return
                         await onSetStatus(

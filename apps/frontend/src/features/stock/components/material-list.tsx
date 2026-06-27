@@ -136,13 +136,13 @@ function MaterialCard({
         "flex items-start justify-between gap-3 rounded-xl border p-4 transition-colors",
         low
           ? "border-orange-500/25 bg-orange-500/[0.04]"
-          : "border-white/[0.06] bg-white/[0.02]",
+          : "border-foreground/[0.06] bg-foreground/[0.02]",
       )}
     >
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           {low && <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-orange-400" />}
-          <span className="truncate font-medium text-white">{material.name}</span>
+          <span className="truncate font-medium text-foreground">{material.name}</span>
           {material.shareable && (
             <span className="inline-flex items-center rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-300">
               Compartilhável
@@ -150,11 +150,11 @@ function MaterialCard({
           )}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-          <span className={cn("font-semibold tabular-nums", low ? "text-orange-400" : "text-white")}>
+          <span className={cn("font-semibold tabular-nums", low ? "text-orange-400" : "text-foreground")}>
             {qty.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
           </span>
           {parseFloat(material.minimumQuantity) > 0 && (
-            <span className="text-white/30">
+            <span className="text-foreground/30">
               mín.{" "}
               {parseFloat(material.minimumQuantity).toLocaleString("pt-BR", {
                 minimumFractionDigits: 0,
@@ -214,7 +214,7 @@ function MaterialRow({
       <TableCell className="pl-4">
         <div className="flex items-center gap-2">
           {low && <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-orange-400" />}
-          <span className="font-medium text-white">{material.name}</span>
+          <span className="font-medium text-foreground">{material.name}</span>
         </div>
       </TableCell>
       <TableCell>
@@ -223,31 +223,31 @@ function MaterialRow({
             Compartilhável
           </span>
         ) : (
-          <span className="text-white/20">—</span>
+          <span className="text-foreground/20">—</span>
         )}
       </TableCell>
       <TableCell className="text-right">
         <span
           className={cn(
             "font-semibold tabular-nums",
-            low ? "text-orange-400" : "text-white",
+            low ? "text-orange-400" : "text-foreground",
           )}
         >
           {qty.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
         </span>
       </TableCell>
-      <TableCell className="text-right text-white/40">
+      <TableCell className="text-right text-foreground/40">
         {minQty > 0 ? (
           minQty.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })
         ) : (
-          <span className="text-white/20">—</span>
+          <span className="text-foreground/20">—</span>
         )}
       </TableCell>
-      <TableCell className="text-white/40">
+      <TableCell className="text-foreground/40">
         {material.costPerUnit ? (
           `R$ ${parseFloat(material.costPerUnit).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         ) : (
-          <span className="text-white/20">—</span>
+          <span className="text-foreground/20">—</span>
         )}
       </TableCell>
       <TableCell className="pr-4">
@@ -289,9 +289,9 @@ export function MaterialList({
 }: MaterialListProps) {
   if (materials.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-white/[0.08] py-16 text-center">
-        <p className="text-sm text-white/30">Nenhum material cadastrado ainda.</p>
-        <p className="mt-1 text-xs text-white/20">
+      <div className="rounded-xl border border-dashed border-foreground/[0.08] py-16 text-center">
+        <p className="text-sm text-foreground/30">Nenhum material cadastrado ainda.</p>
+        <p className="mt-1 text-xs text-foreground/20">
           Clique em &quot;Novo material&quot; para adicionar.
         </p>
       </div>
@@ -317,7 +317,7 @@ export function MaterialList({
       </div>
 
       {/* Desktop: table */}
-      <div className="hidden rounded-xl border border-white/[0.06] sm:block">
+      <div className="hidden rounded-xl border border-foreground/[0.06] sm:block">
         <Table className="min-w-[600px]">
           <TableHeader>
             <TableRow className="hover:bg-transparent">

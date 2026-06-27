@@ -41,7 +41,7 @@ export function AttachmentsSection({ orgId, customerId }: AttachmentsSectionProp
   return (
     <div className="grid gap-2">
       <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-sm font-medium text-white/70">
+        <span className="flex items-center gap-1.5 text-sm font-medium text-foreground/70">
           <Paperclip className="h-3.5 w-3.5" /> Anexos
         </span>
         <input
@@ -70,9 +70,9 @@ export function AttachmentsSection({ orgId, customerId }: AttachmentsSectionProp
       {error && <p className="text-xs text-red-400">{error}</p>}
 
       {loading ? (
-        <p className="text-xs text-white/30">Carregando…</p>
+        <p className="text-xs text-foreground/30">Carregando…</p>
       ) : attachments.length === 0 ? (
-        <p className="text-xs text-white/30">
+        <p className="text-xs text-foreground/30">
           Nenhum anexo. Imagens ou PDF até 10 MB (ex.: ficha de anamnese).
         </p>
       ) : (
@@ -80,21 +80,21 @@ export function AttachmentsSection({ orgId, customerId }: AttachmentsSectionProp
           {attachments.map((a) => (
             <li
               key={a.id}
-              className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2"
+              className="flex items-center gap-2 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] px-3 py-2"
             >
-              <FileText className="h-4 w-4 shrink-0 text-white/40" />
+              <FileText className="h-4 w-4 shrink-0 text-foreground/40" />
               <a
                 href={a.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="min-w-0 flex-1 truncate text-sm text-white/70 hover:text-white hover:underline"
+                className="min-w-0 flex-1 truncate text-sm text-foreground/70 hover:text-foreground hover:underline"
               >
                 {a.fileName}
               </a>
               <button
                 type="button"
                 onClick={() => deleteAttachment(a.id)}
-                className="shrink-0 text-white/30 hover:text-red-400"
+                className="shrink-0 text-foreground/30 hover:text-red-400"
                 title="Remover"
               >
                 <Trash2 className="h-3.5 w-3.5" />

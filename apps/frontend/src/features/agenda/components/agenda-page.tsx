@@ -112,8 +112,8 @@ function AgendaInner() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-white">Agenda</h1>
-          <p className="mt-0.5 text-sm text-white/40">
+          <h1 className="text-xl font-semibold text-foreground">Agenda</h1>
+          <p className="mt-0.5 text-sm text-foreground/40">
             Seus atendimentos e bloqueios de horário em {org.name}.
           </p>
         </div>

@@ -56,7 +56,7 @@ export function MaterialLines({
   return (
     <div className="flex flex-col gap-3">
       {fields.length === 0 && (
-        <p className="text-xs text-white/30">
+        <p className="text-xs text-foreground/30">
           Nenhum material adicionado (opcional).
         </p>
       )}
@@ -66,10 +66,10 @@ export function MaterialLines({
         return (
           <div
             key={field.id}
-            className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2.5"
+            className="flex items-center gap-2 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-2.5"
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm text-white">
+              <p className="truncate text-sm text-foreground">
                 {mat?.name ?? "Material"}
               </p>
               {field.shareable ? (
@@ -77,7 +77,7 @@ export function MaterialLines({
                   control={control}
                   name={`materials.${index}.finished`}
                   render={({ field: f }) => (
-                    <label className="mt-1 flex items-center gap-2 text-xs text-white/50">
+                    <label className="mt-1 flex items-center gap-2 text-xs text-foreground/50">
                       <Switch
                         checked={!!f.value}
                         onCheckedChange={f.onChange}
@@ -87,7 +87,7 @@ export function MaterialLines({
                   )}
                 />
               ) : (
-                <p className="mt-0.5 text-xs text-white/30">
+                <p className="mt-0.5 text-xs text-foreground/30">
                   Em estoque: {mat?.stockQuantity ?? "—"}
                 </p>
               )}
@@ -121,7 +121,7 @@ export function MaterialLines({
         {available.length > 0 && (
           <Select value="" onValueChange={addMaterial}>
             <SelectTrigger className="w-full">
-              <span className="flex items-center gap-2 text-white/60">
+              <span className="flex items-center gap-2 text-foreground/60">
                 <Plus className="h-4 w-4" />
                 <SelectValue placeholder="Adicionar material" />
               </span>

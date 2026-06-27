@@ -116,8 +116,8 @@ export function StockPage({ orgId }: StockPageProps) {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-white">Estoque</h1>
-          <p className="mt-0.5 text-sm text-white/40">
+          <h1 className="text-xl font-semibold text-foreground">Estoque</h1>
+          <p className="mt-0.5 text-sm text-foreground/40">
             Gerencie os materiais usados nos atendimentos.
           </p>
         </div>
@@ -145,7 +145,7 @@ export function StockPage({ orgId }: StockPageProps) {
       {/* Search + filters */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/30" />
           <Input
             placeholder="Buscar material por nome…"
             value={search}
@@ -165,7 +165,7 @@ export function StockPage({ orgId }: StockPageProps) {
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <SummaryCard
-          icon={<Package className="h-4 w-4 text-white/40" />}
+          icon={<Package className="h-4 w-4 text-foreground/40" />}
           label="Total de materiais"
           value={String(materials.length)}
           loading={loading}
@@ -188,7 +188,7 @@ export function StockPage({ orgId }: StockPageProps) {
 
       {/* List */}
       {loading && materials.length === 0 ? (
-        <div className="flex items-center justify-center py-16 text-white/30">
+        <div className="flex items-center justify-center py-16 text-foreground/30">
           <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
           Carregando materiais…
         </div>
@@ -248,15 +248,15 @@ function SummaryCard({
   loading?: boolean
 }) {
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+    <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4">
       <div className="flex items-center gap-2">
         {icon}
-        <span className="text-xs text-white/40">{label}</span>
+        <span className="text-xs text-foreground/40">{label}</span>
       </div>
       {loading ? (
-        <div className="mt-2 h-7 w-12 animate-pulse rounded bg-white/[0.06]" />
+        <div className="mt-2 h-7 w-12 animate-pulse rounded bg-foreground/[0.06]" />
       ) : (
-        <p className={`mt-2 text-2xl font-semibold tabular-nums ${valueClass ?? "text-white"}`}>
+        <p className={`mt-2 text-2xl font-semibold tabular-nums ${valueClass ?? "text-foreground"}`}>
           {value}
         </p>
       )}

@@ -52,7 +52,7 @@ function fmtTime(iso: string): string {
 const STATUS_VARIANT: Record<ServiceStatus, string> = {
   paid: "bg-emerald-500/15 text-emerald-400",
   pending: "bg-amber-500/15 text-amber-300",
-  canceled: "bg-white/[0.06] text-white/40 line-through",
+  canceled: "bg-foreground/[0.06] text-foreground/40 line-through",
 }
 
 function SectionCard({
@@ -71,19 +71,19 @@ function SectionCard({
   return (
     <div
       className={cn(
-        "flex flex-col rounded-xl border border-white/[0.06] bg-white/[0.02] p-5",
+        "flex flex-col rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-5",
         className,
       )}
     >
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4 text-orange-400" />
-          <h2 className="text-sm font-semibold text-white">{title}</h2>
+          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         </div>
         {href && (
           <Link
             href={href}
-            className="text-xs text-white/40 transition-colors hover:text-white"
+            className="text-xs text-foreground/40 transition-colors hover:text-foreground"
           >
             Ver todos
           </Link>
@@ -95,19 +95,19 @@ function SectionCard({
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="py-8 text-center text-sm text-white/30">{children}</p>
+  return <p className="py-8 text-center text-sm text-foreground/30">{children}</p>
 }
 
 function Loading() {
   return (
-    <div className="flex items-center justify-center py-8 text-white/30">
+    <div className="flex items-center justify-center py-8 text-foreground/30">
       <Loader2 className="h-4 w-4 animate-spin" />
     </div>
   )
 }
 
 function Rows({ children }: { children: React.ReactNode }) {
-  return <ul className="divide-y divide-white/[0.05]">{children}</ul>
+  return <ul className="divide-y divide-foreground/[0.05]">{children}</ul>
 }
 
 /* ── Serviços recentes ───────────────────────────────────────────── */
@@ -144,13 +144,13 @@ function RecentServicesSection({
                 className="flex items-center gap-3 py-2.5 text-sm"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-white">
+                  <p className="truncate text-foreground">
                     {s.typeName ?? "Serviço"}
                     {s.customerName ? (
-                      <span className="text-white/40"> · {s.customerName}</span>
+                      <span className="text-foreground/40"> · {s.customerName}</span>
                     ) : null}
                   </p>
-                  <p className="mt-0.5 truncate text-xs text-white/40">
+                  <p className="mt-0.5 truncate text-xs text-foreground/40">
                     {showProfessional && s.employeeName
                       ? `${s.employeeName} · `
                       : ""}
@@ -165,7 +165,7 @@ function RecentServicesSection({
                 >
                   {SERVICE_STATUS_LABELS[status]}
                 </span>
-                <span className="w-24 shrink-0 text-right font-medium text-white">
+                <span className="w-24 shrink-0 text-right font-medium text-foreground">
                   {formatBRL(s.amountCents)}
                 </span>
               </li>
@@ -231,8 +231,8 @@ function RecentTransactionsSection({
                   )}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-white">{t.description}</p>
-                  <p className="mt-0.5 truncate text-xs text-white/40">
+                  <p className="truncate text-foreground">{t.description}</p>
+                  <p className="mt-0.5 truncate text-xs text-foreground/40">
                     {TRANSACTION_TYPE_LABELS[t.type]}
                     {cat ? ` · ${cat}` : ""} · {fmtDate(t.transactedAt)}
                   </p>
@@ -277,8 +277,8 @@ function LowStockSection({
           {materials.map((m) => (
             <li key={m.id} className="flex items-center gap-3 py-2.5 text-sm">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-white">{m.name}</p>
-                <p className="mt-0.5 text-xs text-white/40">
+                <p className="truncate text-foreground">{m.name}</p>
+                <p className="mt-0.5 text-xs text-foreground/40">
                   {m.stockQuantity} em estoque · mín. {m.minimumQuantity}
                 </p>
               </div>
@@ -322,8 +322,8 @@ function UpcomingEventsSection({
           {events.map((e) => (
             <li key={e.id} className="flex items-center gap-3 py-2.5 text-sm">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-white">{e.title}</p>
-                <p className="mt-0.5 truncate text-xs text-white/40">
+                <p className="truncate text-foreground">{e.title}</p>
+                <p className="mt-0.5 truncate text-xs text-foreground/40">
                   {e.type === "appointment" ? "Agendamento" : "Bloqueio"} ·{" "}
                   {fmtDate(e.startsAt)}
                   {!e.allDay && ` · ${fmtTime(e.startsAt)}–${fmtTime(e.endsAt)}`}
@@ -367,12 +367,12 @@ function RecentCustomersSection({
                 {c.name.charAt(0).toUpperCase()}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-white">{c.name}</p>
-                <p className="mt-0.5 truncate text-xs text-white/40">
+                <p className="truncate text-foreground">{c.name}</p>
+                <p className="mt-0.5 truncate text-xs text-foreground/40">
                   {c.phone ?? c.email ?? "—"}
                 </p>
               </div>
-              <span className="shrink-0 text-xs text-white/40">
+              <span className="shrink-0 text-xs text-foreground/40">
                 {fmtDate(c.createdAt)}
               </span>
             </li>
@@ -396,8 +396,8 @@ export function OverviewPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-white">Overview</h1>
-        <p className="mt-0.5 text-sm text-white/40">
+        <h1 className="text-xl font-semibold text-foreground">Overview</h1>
+        <p className="mt-0.5 text-sm text-foreground/40">
           {isOwner
             ? "Resumo geral do estúdio."
             : "Resumo dos seus atendimentos e agenda."}

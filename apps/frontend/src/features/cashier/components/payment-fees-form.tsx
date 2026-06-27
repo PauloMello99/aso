@@ -75,7 +75,7 @@ export function PaymentFeesForm({ orgId }: PaymentFeesFormProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12 text-white/40">
+      <div className="flex items-center justify-center py-12 text-foreground/40">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         Carregando…
       </div>
@@ -85,7 +85,7 @@ export function PaymentFeesForm({ orgId }: PaymentFeesFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={handleSubmit} className="grid max-w-lg gap-6">
-        <p className="text-sm text-white/50">
+        <p className="text-sm text-foreground/50">
           Ao lançar uma <strong>entrada em cartão</strong>, o sistema desconta a
           taxa e registra o valor líquido no caixa. Líquido = bruto −
           (bruto × percentual + valor fixo).
@@ -94,11 +94,11 @@ export function PaymentFeesForm({ orgId }: PaymentFeesFormProps) {
         {FEE_ELIGIBLE_METHODS.map((method, idx) => (
           <div
             key={method}
-            className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4"
+            className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-4"
           >
             <div className="mb-3 flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-orange-400" />
-              <h3 className="text-sm font-medium text-white">
+              <h3 className="text-sm font-medium text-foreground">
                 {PAYMENT_METHOD_LABELS[method]}
               </h3>
             </div>
@@ -118,7 +118,7 @@ export function PaymentFeesForm({ orgId }: PaymentFeesFormProps) {
                           className="pr-7"
                           {...field}
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-white/40">
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-foreground/40">
                           %
                         </span>
                       </div>
@@ -135,7 +135,7 @@ export function PaymentFeesForm({ orgId }: PaymentFeesFormProps) {
                     <FormLabel>Valor fixo</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-white/40">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-foreground/40">
                           R$
                         </span>
                         <Input

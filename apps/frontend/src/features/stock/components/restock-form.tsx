@@ -68,11 +68,11 @@ export function RestockForm({
                 {material ? (
                   <>
                     Adicionar quantidade a{" "}
-                    <span className="font-medium text-white">
+                    <span className="font-medium text-foreground">
                       {material.name}
                     </span>
                     . Estoque atual:{" "}
-                    <span className="font-medium text-white">
+                    <span className="font-medium text-foreground">
                       {parseFloat(material.stockQuantity).toLocaleString(
                         "pt-BR",
                       )}
@@ -118,7 +118,7 @@ export function RestockForm({
                     <FormItem>
                       <FormLabel>
                         Observação{" "}
-                        <span className="text-xs text-white/30">
+                        <span className="text-xs text-foreground/30">
                           (opcional)
                         </span>
                       </FormLabel>

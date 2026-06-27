@@ -247,8 +247,8 @@ export function CustomerForm({
                 </div>
               </div>
 
-              <Separator className="bg-white/[0.06]" />
-              <p className="-mb-1 text-xs font-medium uppercase tracking-wider text-white/30">
+              <Separator className="bg-foreground/[0.06]" />
+              <p className="-mb-1 text-xs font-medium uppercase tracking-wider text-foreground/30">
                 Endereço <span className="lowercase">(opcional)</span>
               </p>
 
@@ -367,7 +367,7 @@ export function CustomerForm({
                 />
               </div>
 
-              <Separator className="bg-white/[0.06]" />
+              <Separator className="bg-foreground/[0.06]" />
 
               <FormField
                 control={form.control}
@@ -376,7 +376,7 @@ export function CustomerForm({
                   <FormItem>
                     <FormLabel>
                       Origem{" "}
-                      <span className="text-xs text-white/30">(opcional)</span>
+                      <span className="text-xs text-foreground/30">(opcional)</span>
                     </FormLabel>
                     <Select
                       value={field.value || ORIGIN_NONE}
@@ -410,7 +410,7 @@ export function CustomerForm({
                   <FormItem>
                     <FormLabel>
                       Observações{" "}
-                      <span className="text-xs text-white/30">(opcional)</span>
+                      <span className="text-xs text-foreground/30">(opcional)</span>
                     </FormLabel>
                     <FormControl>
                       <Textarea
@@ -425,7 +425,7 @@ export function CustomerForm({
 
               {isEditing && customer && (
                 <>
-                  <Separator className="bg-white/[0.06]" />
+                  <Separator className="bg-foreground/[0.06]" />
                   <AttachmentsSection orgId={orgId} customerId={customer.id} />
                 </>
               )}

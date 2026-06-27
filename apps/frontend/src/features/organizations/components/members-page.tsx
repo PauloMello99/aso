@@ -69,7 +69,7 @@ export function MembersPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16 text-white/40">
+      <div className="flex items-center justify-center py-16 text-foreground/40">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         Carregando membros…
       </div>
@@ -90,7 +90,7 @@ export function MembersPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold">Membros</h2>
-          <p className="text-sm text-white/50">Gerencie quem tem acesso a esta organização.</p>
+          <p className="text-sm text-foreground/50">Gerencie quem tem acesso a esta organização.</p>
         </div>
         {isOwner && (
           <Button
@@ -106,7 +106,7 @@ export function MembersPage() {
 
       {lastInviteUrl && (
         <div className="flex flex-col gap-2 rounded-lg border border-orange-500/20 bg-orange-500/5 p-3 text-sm">
-          <span className="text-white/70">
+          <span className="text-foreground/70">
             Convite criado. Link de aceite (dev — copie para testar):
           </span>
           <div className="flex items-center gap-2">
@@ -114,7 +114,7 @@ export function MembersPage() {
               readOnly
               value={lastInviteUrl}
               onFocus={(e) => e.currentTarget.select()}
-              className="min-w-0 flex-1 rounded-md border border-white/[0.08] bg-white/[0.04] px-2 py-1 text-xs text-white/80"
+              className="min-w-0 flex-1 rounded-md border border-foreground/[0.08] bg-foreground/[0.04] px-2 py-1 text-xs text-foreground/80"
             />
             <Button
               size="sm"

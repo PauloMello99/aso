@@ -9,11 +9,15 @@ import {
   KeyRound,
   Loader2,
   MailCheck,
+  Monitor,
+  Moon,
   Palette,
   ShieldCheck,
+  Sun,
   Trash2,
   Upload,
 } from "lucide-react"
+import { useTheme } from "next-themes"
 import { useMe } from "@/features/auth"
 import { useAuth } from "@/features/auth"
 import { clearSession } from "@/features/auth/lib/session"
@@ -39,6 +43,7 @@ import {
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
+import { cn } from "@/shared/lib/utils"
 
 function SectionHeader({
   title,
@@ -50,7 +55,7 @@ function SectionHeader({
   return (
     <div>
       <h2 className="text-lg font-semibold">{title}</h2>
-      <p className="mt-0.5 text-sm text-white/50">{description}</p>
+      <p className="mt-0.5 text-sm text-foreground/50">{description}</p>
     </div>
   )
 }
@@ -128,7 +133,7 @@ export function ProfileSection() {
         description="Gerencie seu nome, e-mail e foto de perfil."
       />
       {loading ? (
-        <div className="flex items-center justify-center py-12 text-white/40">
+        <div className="flex items-center justify-center py-12 text-foreground/40">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           Carregando…
         </div>
@@ -172,7 +177,7 @@ export function ProfileSection() {
               {avatarError ? (
                 <span className="text-xs text-red-400">{avatarError}</span>
               ) : (
-                <span className="text-xs text-white/30">
+                <span className="text-xs text-foreground/30">
                   PNG, JPG, WEBP ou GIF · até 5 MB.
                 </span>
               )}
@@ -207,7 +212,7 @@ export function ProfileSection() {
                     <FormControl>
                       <Input type="email" autoComplete="email" {...field} />
                     </FormControl>
-                    <FormDescription className="flex items-center gap-1 text-white/30">
+                    <FormDescription className="flex items-center gap-1 text-foreground/30">
                       <ShieldCheck className="h-3 w-3" />
                       Alterar o e-mail muda também seu login.
                     </FormDescription>
@@ -262,7 +267,7 @@ export function AccessSection() {
         title="Acesso"
         description="Gerencie sua senha e segurança de acesso."
       />
-      <section className="max-w-lg rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+      <section className="max-w-lg rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-5">
         <div className="flex items-center gap-2">
           <KeyRound className="h-4 w-4 text-orange-400" />
           <h3 className="text-sm font-medium">Alterar senha</h3>
@@ -270,7 +275,7 @@ export function AccessSection() {
         {sent ? (
           <div className="mt-4 flex items-start gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4">
             <MailCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
-            <div className="text-sm text-white/70">
+            <div className="text-sm text-foreground/70">
               Enviamos um link para <strong>{user?.email}</strong>. Abra-o para
               definir uma nova senha — a sessão é recuperada com segurança pelo
               próprio link do e-mail.
@@ -278,7 +283,7 @@ export function AccessSection() {
           </div>
         ) : (
           <>
-            <p className="mt-2 text-sm text-white/50">
+            <p className="mt-2 text-sm text-foreground/50">
               Por segurança, a troca de senha é feita por um link enviado ao seu
               e-mail. Ao clicar no link, você abre a tela de nova senha com a
               sessão recuperada automaticamente.
@@ -299,25 +304,60 @@ export function AccessSection() {
 
 /* ── Tema / Aparência ───────────────────────────────────────────── */
 
+const THEME_OPTIONS = [
+  { value: "light", label: "Claro", icon: Sun },
+  { value: "dark", label: "Escuro", icon: Moon },
+  { value: "system", label: "Sistema", icon: Monitor },
+] as const
+
 export function AppearanceSection() {
+  const { theme, setTheme } = useTheme()
+  // next-themes só resolve no cliente; evita mismatch de hidratação.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  const current = mounted ? (theme ?? "system") : undefined
+
   return (
     <div className="grid gap-6">
       <SectionHeader
         title="Tema"
         description="Personalize a aparência do painel."
       />
-      <section className="max-w-lg rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+      <section className="max-w-lg rounded-xl border border-border bg-foreground/[0.02] p-5">
         <div className="flex items-center gap-2">
           <Palette className="h-4 w-4 text-orange-400" />
           <h3 className="text-sm font-medium">Tema</h3>
-          <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/40">
-            Em breve
-          </span>
         </div>
-        <p className="mt-2 text-sm text-white/50">
-          Escolha entre tema escuro, claro ou automático (sistema). A opção de
-          tema estará disponível em breve.
+        <p className="mt-2 text-sm text-muted-foreground">
+          Escolha entre claro, escuro ou automático (segue o sistema).
         </p>
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          {THEME_OPTIONS.map(({ value, label, icon: Icon }) => {
+            const active = current === value
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setTheme(value)}
+                aria-pressed={active}
+                className={cn(
+                  "flex flex-col items-center gap-1.5 rounded-lg border p-3 text-xs transition-colors",
+                  active
+                    ? "border-primary/60 bg-primary/10 text-foreground"
+                    : "border-border text-muted-foreground hover:bg-foreground/[0.03] hover:text-foreground",
+                )}
+              >
+                <Icon
+                  className={cn(
+                    "h-5 w-5",
+                    active ? "text-orange-400" : "text-muted-foreground",
+                  )}
+                />
+                {label}
+              </button>
+            )
+          })}
+        </div>
       </section>
     </div>
   )
@@ -363,7 +403,7 @@ export function DangerSection() {
       <section className="rounded-lg border border-red-500/20 p-4 sm:p-6">
         <div className="mb-4">
           <h3 className="font-semibold text-red-400">Apagar conta</h3>
-          <p className="mt-1 text-sm text-white/50">
+          <p className="mt-1 text-sm text-foreground/50">
             A exclusão permanente da conta removerá todos os seus dados
             pessoais. Esta ação é irreversível.
           </p>
@@ -371,7 +411,7 @@ export function DangerSection() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-medium">Excluir minha conta</p>
-            <p className="text-xs text-white/40">
+            <p className="text-xs text-foreground/40">
               Você precisa transferir ou excluir as organizações das quais é
               proprietário antes de excluir sua conta.
             </p>
@@ -408,7 +448,7 @@ export function DangerSection() {
               <div className="grid gap-3">
                 <Label htmlFor="delete-account-confirm">
                   Digite seu e-mail{" "}
-                  <span className="font-mono text-white/80">{email}</span> para
+                  <span className="font-mono text-foreground/80">{email}</span> para
                   confirmar:
                 </Label>
                 <Input

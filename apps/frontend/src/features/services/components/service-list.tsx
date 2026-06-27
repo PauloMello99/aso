@@ -119,8 +119,8 @@ function MobileCard({
       className={cn(
         "flex items-start justify-between gap-3 rounded-xl border p-4",
         struck
-          ? "border-white/[0.04] bg-white/[0.01]"
-          : "border-white/[0.06] bg-white/[0.02]",
+          ? "border-foreground/[0.04] bg-foreground/[0.01]"
+          : "border-foreground/[0.06] bg-foreground/[0.02]",
       )}
     >
       <div className="min-w-0 flex-1">
@@ -128,19 +128,19 @@ function MobileCard({
           <span
             className={cn(
               "truncate font-medium",
-              struck ? "text-white/40 line-through" : "text-white",
+              struck ? "text-foreground/40 line-through" : "text-foreground",
             )}
           >
             {service.customerName ?? "Cliente removido"}
           </span>
           <StatusBadge status={status} />
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-white/40">
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-foreground/40">
           {service.typeName && <span>{service.typeName}</span>}
           <span>{formatDate(service.performedAt)}</span>
           {service.employeeName && <span>{service.employeeName}</span>}
         </div>
-        <div className="mt-2 font-semibold tabular-nums text-white">
+        <div className="mt-2 font-semibold tabular-nums text-foreground">
           {formatBRL(service.amountCents)}
         </div>
       </div>
@@ -162,9 +162,9 @@ export function ServiceList({
 }: ServiceListProps) {
   if (services.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-white/[0.08] py-16 text-center">
-        <p className="text-sm text-white/30">Nenhum serviço no período.</p>
-        <p className="mt-1 text-xs text-white/20">
+      <div className="rounded-xl border border-dashed border-foreground/[0.08] py-16 text-center">
+        <p className="text-sm text-foreground/30">Nenhum serviço no período.</p>
+        <p className="mt-1 text-xs text-foreground/20">
           Clique em &quot;Novo serviço&quot; para registrar um atendimento.
         </p>
       </div>
@@ -187,7 +187,7 @@ export function ServiceList({
       </div>
 
       {/* Desktop: table */}
-      <div className="hidden rounded-xl border border-white/[0.06] sm:block">
+      <div className="hidden rounded-xl border border-foreground/[0.06] sm:block">
         <Table className="min-w-[680px]">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -205,30 +205,30 @@ export function ServiceList({
               const status = serviceStatus(s)
               const struck = status === "canceled"
               return (
-                <TableRow key={s.id} className={cn(struck && "bg-white/[0.01]")}>
+                <TableRow key={s.id} className={cn(struck && "bg-foreground/[0.01]")}>
                   <TableCell className="pl-4">
                     <span
                       className={cn(
                         "font-medium",
-                        struck ? "text-white/40 line-through" : "text-white",
+                        struck ? "text-foreground/40 line-through" : "text-foreground",
                       )}
                     >
                       {s.customerName ?? "Cliente removido"}
                     </span>
                   </TableCell>
-                  <TableCell className="text-white/50">
+                  <TableCell className="text-foreground/50">
                     {s.typeName ?? "—"}
                   </TableCell>
-                  <TableCell className="text-white/50">
+                  <TableCell className="text-foreground/50">
                     {s.employeeName ?? "—"}
                   </TableCell>
-                  <TableCell className="text-white/40">
+                  <TableCell className="text-foreground/40">
                     {formatDate(s.performedAt)}
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={status} />
                   </TableCell>
-                  <TableCell className="text-right font-semibold tabular-nums text-white">
+                  <TableCell className="text-right font-semibold tabular-nums text-foreground">
                     {formatBRL(s.amountCents)}
                   </TableCell>
                   <TableCell className="pr-4">

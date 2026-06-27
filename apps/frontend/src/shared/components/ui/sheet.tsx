@@ -61,8 +61,8 @@ function SheetContent({
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
-          "fixed z-50 flex flex-col gap-4 bg-[#1a1a1d] shadow-2xl transition ease-in-out outline-none",
-          "border-white/[0.08] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-300",
+          "fixed z-50 flex flex-col gap-4 bg-popover shadow-2xl transition ease-in-out outline-none",
+          "border-foreground/[0.08] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-300",
           side === "right" &&
             "inset-y-0 right-0 h-full w-full border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-md",
           side === "left" &&
@@ -77,7 +77,7 @@ function SheetContent({
       >
         {children}
         {showCloseButton && (
-          <SheetPrimitive.Close className="absolute top-4 right-4 rounded-md p-1 text-white/40 opacity-70 transition-opacity hover:text-white hover:opacity-100 focus:outline-none disabled:pointer-events-none">
+          <SheetPrimitive.Close className="absolute top-4 right-4 rounded-md p-1 text-foreground/40 opacity-70 transition-opacity hover:text-foreground hover:opacity-100 focus:outline-none disabled:pointer-events-none">
             <XIcon className="h-4 w-4" />
             <span className="sr-only">Fechar</span>
           </SheetPrimitive.Close>
@@ -92,7 +92,7 @@ function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sheet-header"
       className={cn(
-        "flex flex-col gap-1.5 border-b border-white/[0.06] p-6",
+        "flex flex-col gap-1.5 border-b border-foreground/[0.06] p-6",
         className,
       )}
       {...props}
@@ -105,7 +105,7 @@ function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sheet-footer"
       className={cn(
-        "mt-auto flex flex-col-reverse gap-2 border-t border-white/[0.06] p-6 sm:flex-row sm:justify-end",
+        "mt-auto flex flex-col-reverse gap-2 border-t border-foreground/[0.06] p-6 sm:flex-row sm:justify-end",
         className,
       )}
       {...props}
@@ -120,7 +120,7 @@ function SheetTitle({
   return (
     <SheetPrimitive.Title
       data-slot="sheet-title"
-      className={cn("text-base font-semibold text-white", className)}
+      className={cn("text-base font-semibold text-foreground", className)}
       {...props}
     />
   )
@@ -133,7 +133,7 @@ function SheetDescription({
   return (
     <SheetPrimitive.Description
       data-slot="sheet-description"
-      className={cn("text-sm text-white/50", className)}
+      className={cn("text-sm text-foreground/50", className)}
       {...props}
     />
   )

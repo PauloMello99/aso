@@ -28,7 +28,7 @@ const ROLE_LABELS: Record<OrgRole, string> = {
 function Centered({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-sm border-white/5 bg-white/[0.03]">{children}</Card>
+      <Card className="w-full max-w-sm border-foreground/5 bg-foreground/[0.03]">{children}</Card>
     </div>
   )
 }
@@ -36,7 +36,7 @@ function Centered({ children }: { children: React.ReactNode }) {
 function Spinner() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
-      <Loader2 className="h-6 w-6 animate-spin text-white/30" />
+      <Loader2 className="h-6 w-6 animate-spin text-foreground/30" />
     </div>
   )
 }
@@ -70,7 +70,7 @@ export function AcceptInvitationPage() {
       <Centered>
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Convite inválido</CardTitle>
-          <CardDescription className="text-white/40">
+          <CardDescription className="text-foreground/40">
             Este link de convite não é válido.
           </CardDescription>
         </CardHeader>
@@ -89,7 +89,7 @@ export function AcceptInvitationPage() {
       <Centered>
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Convite indisponível</CardTitle>
-          <CardDescription className="text-white/40">{reason}</CardDescription>
+          <CardDescription className="text-foreground/40">{reason}</CardDescription>
         </CardHeader>
         <CardFooter>
           <Button
@@ -152,9 +152,9 @@ export function AcceptInvitationPage() {
           ink<span className="text-orange-500">ops</span>
         </div>
         <CardTitle className="text-xl">Convite para {invite.orgName}</CardTitle>
-        <CardDescription className="text-white/40">
+        <CardDescription className="text-foreground/40">
           Você foi convidado como{" "}
-          <span className="text-white/70">{ROLE_LABELS[invite.role]}</span>.
+          <span className="text-foreground/70">{ROLE_LABELS[invite.role]}</span>.
         </CardDescription>
       </CardHeader>
 
@@ -171,8 +171,8 @@ export function AcceptInvitationPage() {
             para aceitar.
           </div>
         ) : (
-          <p className="text-center text-sm text-white/50">
-            Aceitando como <span className="text-white/80">{user.email}</span>.
+          <p className="text-center text-sm text-foreground/50">
+            Aceitando como <span className="text-foreground/80">{user.email}</span>.
           </p>
         )}
       </CardContent>
@@ -197,7 +197,7 @@ export function AcceptInvitationPage() {
             </Button>
             <Button
               variant="ghost"
-              className="w-full text-white/50 hover:text-white"
+              className="w-full text-foreground/50 hover:text-foreground"
               disabled={accepting || declining}
               onClick={() => void handleDecline()}
             >

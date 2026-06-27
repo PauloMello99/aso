@@ -31,7 +31,7 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16 text-white/40">
+      <div className="flex items-center justify-center py-16 text-foreground/40">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         Carregando…
       </div>
@@ -66,7 +66,7 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
       <section>
         <div className="mb-4">
           <h2 className="text-lg font-semibold">Informações gerais</h2>
-          <p className="text-sm text-white/50">Nome e identificador público da organização.</p>
+          <p className="text-sm text-foreground/50">Nome e identificador público da organização.</p>
         </div>
 
         {isOwner ? (
@@ -76,12 +76,12 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
         ) : (
           <div className="grid max-w-lg gap-3">
             <div className="grid gap-1">
-              <span className="text-xs text-white/40">Nome</span>
+              <span className="text-xs text-foreground/40">Nome</span>
               <span className="font-medium">{org.name}</span>
             </div>
             <div className="grid gap-1">
-              <span className="text-xs text-white/40">Slug</span>
-              <span className="font-mono text-sm text-white/70">/{org.slug}</span>
+              <span className="text-xs text-foreground/40">Slug</span>
+              <span className="font-mono text-sm text-foreground/70">/{org.slug}</span>
             </div>
           </div>
         )}
@@ -92,7 +92,7 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold">Membros</h2>
-            <p className="text-sm text-white/50">Gerencie quem tem acesso a esta organização.</p>
+            <p className="text-sm text-foreground/50">Gerencie quem tem acesso a esta organização.</p>
           </div>
           {isOwner && (
             <Button size="sm" className="w-full sm:w-auto" onClick={() => setInviteOpen(true)}>
@@ -132,13 +132,13 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
         <section>
           <div className="mb-4">
             <h2 className="text-lg font-semibold">Transferir Organização</h2>
-            <p className="text-sm text-white/50">
+            <p className="text-sm text-foreground/50">
               Transfira a propriedade desta organização para outro membro.
             </p>
           </div>
-          <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-5">
+          <div className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-white/50">
+              <p className="text-sm text-foreground/50">
                 A titularidade passa para o membro escolhido. Você se torna
                 funcionário com acesso total aos módulos.
               </p>
@@ -160,12 +160,12 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
           <div className="rounded-lg border border-red-500/20 p-4 sm:p-6">
             <div className="mb-4">
               <h3 className="font-semibold text-red-400">Zona de perigo</h3>
-              <p className="mt-1 text-sm text-white/50">Ações irreversíveis. Prossiga com cautela.</p>
+              <p className="mt-1 text-sm text-foreground/50">Ações irreversíveis. Prossiga com cautela.</p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-medium">Excluir organização</p>
-                <p className="text-xs text-white/40">
+                <p className="text-xs text-foreground/40">
                   Remove permanentemente todos os dados desta organização.
                 </p>
               </div>

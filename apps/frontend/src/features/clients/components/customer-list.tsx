@@ -35,7 +35,7 @@ function StatusBadge({ enabled }: { enabled: boolean }) {
         "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
         enabled
           ? "bg-emerald-500/10 text-emerald-400"
-          : "bg-white/[0.06] text-white/40",
+          : "bg-foreground/[0.06] text-foreground/40",
       )}
     >
       {enabled ? "Ativo" : "Inativo"}
@@ -88,13 +88,13 @@ function CustomerCard({
   onDelete,
 }: { customer: Customer } & RowActions) {
   return (
-    <div className="flex items-start justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+    <div className="flex items-start justify-between gap-3 rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="truncate font-medium text-white">{customer.name}</span>
+          <span className="truncate font-medium text-foreground">{customer.name}</span>
           <StatusBadge enabled={customer.enabled} />
         </div>
-        <div className="mt-1 flex flex-col gap-1 text-sm text-white/40">
+        <div className="mt-1 flex flex-col gap-1 text-sm text-foreground/40">
           {customer.email && (
             <span className="flex items-center gap-1.5 truncate">
               <Mail className="h-3 w-3 shrink-0" /> {customer.email}
@@ -111,7 +111,7 @@ function CustomerCard({
             </span>
           )}
           {!customer.email && !customer.phone && (
-            <span className="text-white/20">Sem contato</span>
+            <span className="text-foreground/20">Sem contato</span>
           )}
         </div>
       </div>
@@ -134,17 +134,17 @@ function CustomerRow({
 }: { customer: Customer } & RowActions) {
   return (
     <TableRow>
-      <TableCell className="pl-4 font-medium text-white">
+      <TableCell className="pl-4 font-medium text-foreground">
         {customer.name}
       </TableCell>
-      <TableCell className="text-white/40">
-        {customer.email ?? <span className="text-white/20">—</span>}
+      <TableCell className="text-foreground/40">
+        {customer.email ?? <span className="text-foreground/20">—</span>}
       </TableCell>
-      <TableCell className="text-white/40">
-        {customer.phone ?? <span className="text-white/20">—</span>}
+      <TableCell className="text-foreground/40">
+        {customer.phone ?? <span className="text-foreground/20">—</span>}
       </TableCell>
-      <TableCell className="text-white/40">
-        {customer.city ?? <span className="text-white/20">—</span>}
+      <TableCell className="text-foreground/40">
+        {customer.city ?? <span className="text-foreground/20">—</span>}
       </TableCell>
       <TableCell>
         <StatusBadge enabled={customer.enabled} />
@@ -170,9 +170,9 @@ export function CustomerList({
 }: CustomerListProps) {
   if (customers.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-white/[0.08] py-16 text-center">
-        <p className="text-sm text-white/30">Nenhum cliente cadastrado ainda.</p>
-        <p className="mt-1 text-xs text-white/20">
+      <div className="rounded-xl border border-dashed border-foreground/[0.08] py-16 text-center">
+        <p className="text-sm text-foreground/30">Nenhum cliente cadastrado ainda.</p>
+        <p className="mt-1 text-xs text-foreground/20">
           Clique em &quot;Novo cliente&quot; para adicionar.
         </p>
       </div>
@@ -195,7 +195,7 @@ export function CustomerList({
       </div>
 
       {/* Desktop: table */}
-      <div className="hidden rounded-xl border border-white/[0.06] sm:block">
+      <div className="hidden rounded-xl border border-foreground/[0.06] sm:block">
         <Table className="min-w-[600px]">
           <TableHeader>
             <TableRow className="hover:bg-transparent">

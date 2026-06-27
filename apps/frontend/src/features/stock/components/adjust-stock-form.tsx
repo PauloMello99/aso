@@ -83,11 +83,11 @@ export function AdjustStockForm({
                 {material ? (
                   <>
                     Corrija a quantidade de{" "}
-                    <span className="font-medium text-white">
+                    <span className="font-medium text-foreground">
                       {material.name}
                     </span>
                     . Estoque atual:{" "}
-                    <span className="font-medium text-white">
+                    <span className="font-medium text-foreground">
                       {parseFloat(material.stockQuantity).toLocaleString(
                         "pt-BR",
                       )}
@@ -160,7 +160,7 @@ export function AdjustStockForm({
                     <FormItem>
                       <FormLabel>
                         Motivo{" "}
-                        <span className="text-xs text-white/30">
+                        <span className="text-xs text-foreground/30">
                           (recomendado)
                         </span>
                       </FormLabel>

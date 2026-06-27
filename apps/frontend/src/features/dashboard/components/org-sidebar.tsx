@@ -47,7 +47,7 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
 
       <aside
         className={cn(
-          "flex shrink-0 flex-col border-r border-white/[0.06] bg-background",
+          "flex shrink-0 flex-col border-r border-foreground/[0.06] bg-background",
           // Mobile: fixed drawer — slides in/out
           "fixed bottom-0 top-0 z-50 w-64",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
@@ -58,11 +58,11 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
         )}
       >
         {/* Header row: org avatar + name + toggle */}
-        <div className="flex h-14 shrink-0 items-center border-b border-white/[0.06] px-3">
+        <div className="flex h-14 shrink-0 items-center border-b border-foreground/[0.06] px-3">
           {/* Mobile close button */}
           <button
             onClick={onMobileClose}
-            className="mr-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white/30 hover:bg-white/[0.06] hover:text-white md:hidden"
+            className="mr-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-foreground/30 hover:bg-foreground/[0.06] hover:text-foreground md:hidden"
             aria-label="Fechar menu"
           >
             <X className="h-4 w-4" />
@@ -73,7 +73,7 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-orange-500/20 text-xs font-bold text-orange-400">
                 {org.name.charAt(0).toUpperCase()}
               </span>
-              <span className="truncate text-sm font-medium text-white">
+              <span className="truncate text-sm font-medium text-foreground">
                 {org.name}
               </span>
             </div>
@@ -88,7 +88,7 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
             <button
               onClick={() => setCollapsed((v) => !v)}
               className={cn(
-                "hidden h-7 w-7 shrink-0 items-center justify-center rounded-md text-white/30 transition-colors hover:bg-white/[0.06] hover:text-white md:flex",
+                "hidden h-7 w-7 shrink-0 items-center justify-center rounded-md text-foreground/30 transition-colors hover:bg-foreground/[0.06] hover:text-foreground md:flex",
                 collapsed && "mx-auto",
               )}
               aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
@@ -117,7 +117,7 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
               {section.label && (
                 <p
                   className={cn(
-                    "mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-white/25",
+                    "mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-foreground/25",
                     collapsed && "md:hidden",
                   )}
                 >
@@ -126,7 +126,7 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
               )}
               {/* Divider when collapsed + not first section */}
               {section.label && collapsed && sIdx > 0 && (
-                <div className="mx-1 mb-2 hidden h-px bg-white/[0.06] md:block" />
+                <div className="mx-1 mb-2 hidden h-px bg-foreground/[0.06] md:block" />
               )}
 
               <ul className="space-y-0.5">
@@ -152,14 +152,14 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
                             "gap-3 px-3 md:gap-0 md:px-0",
                             collapsed ? "md:px-2" : "md:gap-3 md:px-3",
                             active
-                              ? "bg-white/[0.08] text-white"
-                              : "text-white/50 hover:bg-white/[0.04] hover:text-white",
+                              ? "bg-foreground/[0.08] text-foreground"
+                              : "text-foreground/50 hover:bg-foreground/[0.04] hover:text-foreground",
                           )}
                         >
                           <Icon
                             className={cn(
                               "h-4 w-4 shrink-0",
-                              active ? "text-orange-400" : "text-white/40",
+                              active ? "text-orange-400" : "text-foreground/40",
                             )}
                           />
                           {/* Label: always visible on mobile, hidden when collapsed on desktop */}

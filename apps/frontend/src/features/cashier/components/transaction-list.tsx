@@ -92,7 +92,7 @@ function ActionMenu({
 function StatusBadge({ view }: { view: TransactionView }) {
   if (view.entity.reversesTransactionId) {
     return (
-      <span className="inline-flex items-center rounded-full bg-white/[0.06] px-2 py-0.5 text-xs font-medium text-white/50">
+      <span className="inline-flex items-center rounded-full bg-foreground/[0.06] px-2 py-0.5 text-xs font-medium text-foreground/50">
         Estorno
       </span>
     )
@@ -113,7 +113,7 @@ function AmountCell({ t, struck }: { t: Transaction; struck: boolean }) {
     <span
       className={cn(
         "font-semibold tabular-nums",
-        struck && "text-white/30 line-through",
+        struck && "text-foreground/30 line-through",
         !struck && (isIncome ? "text-emerald-400" : "text-red-400"),
       )}
     >
@@ -141,8 +141,8 @@ function MobileCard({
       className={cn(
         "flex items-start justify-between gap-3 rounded-xl border p-4",
         struck
-          ? "border-white/[0.04] bg-white/[0.01]"
-          : "border-white/[0.06] bg-white/[0.02]",
+          ? "border-foreground/[0.04] bg-foreground/[0.01]"
+          : "border-foreground/[0.06] bg-foreground/[0.02]",
       )}
     >
       <div className="min-w-0 flex-1">
@@ -155,14 +155,14 @@ function MobileCard({
           <span
             className={cn(
               "truncate font-medium",
-              struck ? "text-white/40 line-through" : "text-white",
+              struck ? "text-foreground/40 line-through" : "text-foreground",
             )}
           >
             {t.description}
           </span>
           <StatusBadge view={view} />
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-white/40">
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-foreground/40">
           <span>{PAYMENT_METHOD_LABELS[t.paymentMethod]}</span>
           <span>{formatDate(t.transactedAt)}</span>
           {t.feeCents > 0 && <span>taxa {formatBRL(t.feeCents)}</span>}
@@ -186,9 +186,9 @@ export function TransactionList({
 }: TransactionListProps) {
   if (transactions.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-white/[0.08] py-16 text-center">
-        <p className="text-sm text-white/30">Nenhum lançamento ainda.</p>
-        <p className="mt-1 text-xs text-white/20">
+      <div className="rounded-xl border border-dashed border-foreground/[0.08] py-16 text-center">
+        <p className="text-sm text-foreground/30">Nenhum lançamento ainda.</p>
+        <p className="mt-1 text-xs text-foreground/20">
           Clique em &quot;Novo lançamento&quot; para registrar uma entrada ou
           saída.
         </p>
@@ -212,7 +212,7 @@ export function TransactionList({
       </div>
 
       {/* Desktop: table */}
-      <div className="hidden rounded-xl border border-white/[0.06] sm:block">
+      <div className="hidden rounded-xl border border-foreground/[0.06] sm:block">
         <Table className="min-w-[640px]">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -228,7 +228,7 @@ export function TransactionList({
               const t = v.entity
               const struck = v.reversed
               return (
-                <TableRow key={t.id} className={cn(struck && "bg-white/[0.01]")}>
+                <TableRow key={t.id} className={cn(struck && "bg-foreground/[0.01]")}>
                   <TableCell className="pl-4">
                     <div className="flex items-center gap-2">
                       {t.type === "income" ? (
@@ -239,7 +239,7 @@ export function TransactionList({
                       <span
                         className={cn(
                           "font-medium",
-                          struck ? "text-white/40 line-through" : "text-white",
+                          struck ? "text-foreground/40 line-through" : "text-foreground",
                         )}
                       >
                         {t.description}
@@ -247,16 +247,16 @@ export function TransactionList({
                       <StatusBadge view={v} />
                     </div>
                   </TableCell>
-                  <TableCell className="text-white/50">
+                  <TableCell className="text-foreground/50">
                     {PAYMENT_METHOD_LABELS[t.paymentMethod]}
                   </TableCell>
-                  <TableCell className="text-white/40">
+                  <TableCell className="text-foreground/40">
                     {formatDate(t.transactedAt)}
                   </TableCell>
                   <TableCell className="text-right">
                     <AmountCell t={t} struck={struck} />
                     {t.feeCents > 0 && (
-                      <div className="text-xs text-white/30">
+                      <div className="text-xs text-foreground/30">
                         taxa {formatBRL(t.feeCents)}
                       </div>
                     )}

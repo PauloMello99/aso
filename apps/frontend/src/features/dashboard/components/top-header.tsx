@@ -24,13 +24,13 @@ export function TopHeader({ breadcrumbs, onMobileMenuToggle }: TopHeaderProps) {
     // the OrgSwitcher dropdown (absolute, z-50 within this context) paints on top.
     // backdrop-filter (backdrop-blur-sm) creates a stacking context but without a
     // z-index it loses to siblings that come later in the DOM.
-    <header className="relative z-10 flex h-14 shrink-0 items-center border-b border-white/[0.06] bg-background/95 backdrop-blur-sm">
+    <header className="relative z-10 flex h-14 shrink-0 items-center border-b border-foreground/[0.06] bg-background/95 backdrop-blur-sm">
       <div className="mx-auto flex w-full max-w-7xl items-center gap-3 px-4 sm:px-6">
         {/* Hamburger — mobile only, shown when a sidebar exists */}
         {onMobileMenuToggle && (
           <button
             onClick={onMobileMenuToggle}
-            className="flex h-8 w-8 items-center justify-center rounded-md text-white/50 transition-colors hover:bg-white/[0.06] hover:text-white md:hidden"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-foreground/50 transition-colors hover:bg-foreground/[0.06] hover:text-foreground md:hidden"
             aria-label="Abrir menu"
           >
             <Menu className="h-5 w-5" />
@@ -49,7 +49,7 @@ export function TopHeader({ breadcrumbs, onMobileMenuToggle }: TopHeaderProps) {
         {breadcrumbs.length > 0 && (
           <>
             {/* Logo → breadcrumb separator — always visible */}
-            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-white/20" />
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-foreground/20" />
             <nav aria-label="Breadcrumb" className="min-w-0 flex-1">
               <ol className="flex items-center gap-1.5">
                 {breadcrumbs.map((item, i) => {
@@ -60,7 +60,7 @@ export function TopHeader({ breadcrumbs, onMobileMenuToggle }: TopHeaderProps) {
                           On mobile only i===0 (OrgSwitcher) is visible, so
                           separators between items would be orphaned. */}
                       {i > 0 && (
-                        <ChevronRight className="hidden h-3 w-3 shrink-0 text-white/20 sm:block" />
+                        <ChevronRight className="hidden h-3 w-3 shrink-0 text-foreground/20 sm:block" />
                       )}
 
                       {/* Visibility:
@@ -73,7 +73,7 @@ export function TopHeader({ breadcrumbs, onMobileMenuToggle }: TopHeaderProps) {
                         ) : item.href && !isLast ? (
                           <Link
                             href={item.href}
-                            className="block truncate text-sm text-white/50 transition-colors hover:text-white"
+                            className="block truncate text-sm text-foreground/50 transition-colors hover:text-foreground"
                           >
                             {item.label}
                           </Link>
@@ -82,8 +82,8 @@ export function TopHeader({ breadcrumbs, onMobileMenuToggle }: TopHeaderProps) {
                             className={cn(
                               "block truncate text-sm",
                               isLast
-                                ? "font-medium text-white"
-                                : "text-white/50",
+                                ? "font-medium text-foreground"
+                                : "text-foreground/50",
                             )}
                           >
                             {item.label}

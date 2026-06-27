@@ -119,8 +119,8 @@ export function CashierPage({ orgId }: CashierPageProps) {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-white">Caixa</h1>
-          <p className="mt-0.5 text-sm text-white/40">
+          <h1 className="text-xl font-semibold text-foreground">Caixa</h1>
+          <p className="mt-0.5 text-sm text-foreground/40">
             {isOwner
               ? "Entradas, saídas e saldo do estúdio."
               : "Seus lançamentos e saldo."}
@@ -160,7 +160,7 @@ export function CashierPage({ orgId }: CashierPageProps) {
       {/* Filters */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/30" />
           <Input
             placeholder="Buscar por descrição…"
             value={search}
@@ -220,7 +220,7 @@ export function CashierPage({ orgId }: CashierPageProps) {
 
       {/* List */}
       {loading && transactions.length === 0 ? (
-        <div className="flex items-center justify-center py-16 text-white/30">
+        <div className="flex items-center justify-center py-16 text-foreground/30">
           <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
           Carregando lançamentos…
         </div>

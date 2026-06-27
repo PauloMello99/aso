@@ -72,7 +72,7 @@ export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
     <div className="grid gap-8">
       <div>
         <h2 className="text-lg font-semibold">Conferência de estoque</h2>
-        <p className="mt-0.5 text-sm text-white/50">
+        <p className="mt-0.5 text-sm text-foreground/50">
           Lembrete periódico + registro da contagem física vs. o sistema.
         </p>
       </div>
@@ -94,7 +94,7 @@ export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
         </div>
         {savedInterval && <p className="text-xs text-emerald-400">Salvo.</p>}
         {settings.lastVerificationAt && (
-          <p className="text-xs text-white/40">
+          <p className="text-xs text-foreground/40">
             Última conferência:{" "}
             {new Date(settings.lastVerificationAt).toLocaleDateString("pt-BR")}
           </p>
@@ -111,26 +111,26 @@ export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
 
       {/* History */}
       <section className="grid gap-2">
-        <h3 className="flex items-center gap-1.5 text-sm font-medium text-white/70">
+        <h3 className="flex items-center gap-1.5 text-sm font-medium text-foreground/70">
           <History className="h-3.5 w-3.5" /> Histórico
         </h3>
         {verifications.length === 0 ? (
-          <p className="text-xs text-white/30">Nenhuma conferência registrada.</p>
+          <p className="text-xs text-foreground/30">Nenhuma conferência registrada.</p>
         ) : (
           <ul className="grid gap-1.5">
             {verifications.map((v) => (
               <li
                 key={v.id}
-                className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-sm"
+                className="flex items-center justify-between rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] px-3 py-2 text-sm"
               >
-                <span className="text-white/70">
+                <span className="text-foreground/70">
                   {new Date(v.createdAt).toLocaleString("pt-BR")}
                 </span>
-                <span className="text-white/40">
+                <span className="text-foreground/40">
                   {v.itemCount} itens ·{" "}
                   <span
                     className={
-                      v.discrepancyCount > 0 ? "text-orange-400" : "text-white/40"
+                      v.discrepancyCount > 0 ? "text-orange-400" : "text-foreground/40"
                     }
                   >
                     {v.discrepancyCount} divergência(s)
@@ -153,7 +153,7 @@ export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
           </SheetHeader>
           <SheetBody className="flex flex-col gap-3 py-6">
             {materials.length === 0 && (
-              <p className="text-sm text-white/30">Nenhum material ativo.</p>
+              <p className="text-sm text-foreground/30">Nenhum material ativo.</p>
             )}
             {materials.map((m) => {
               const physical = counts[m.id] ?? m.stockQuantity
@@ -163,8 +163,8 @@ export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
               return (
                 <div key={m.id} className="grid gap-1">
                   <div className="flex items-center justify-between">
-                    <span className="truncate text-sm text-white/80">{m.name}</span>
-                    <span className="text-xs text-white/30">
+                    <span className="truncate text-sm text-foreground/80">{m.name}</span>
+                    <span className="text-xs text-foreground/30">
                       sistema: {m.stockQuantity}
                     </span>
                   </div>
@@ -190,8 +190,8 @@ export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
                 </div>
               )
             })}
-            <label className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
-              <span className="text-sm text-white/70">
+            <label className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3">
+              <span className="text-sm text-foreground/70">
                 Reconciliar (ajustar o estoque às divergências)
               </span>
               <Switch checked={reconcile} onCheckedChange={setReconcile} />

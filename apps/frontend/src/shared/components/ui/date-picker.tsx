@@ -45,11 +45,11 @@ export function DatePicker({
           variant="outline"
           className={cn(
             "w-full justify-start gap-2 font-normal",
-            !selected && "text-white/40",
+            !selected && "text-foreground/40",
             className,
           )}
         >
-          <CalendarIcon className="h-4 w-4 shrink-0 text-white/40" />
+          <CalendarIcon className="h-4 w-4 shrink-0 text-foreground/40" />
           {selected
             ? format(selected, "dd/MM/yyyy", { locale: ptBR })
             : placeholder}

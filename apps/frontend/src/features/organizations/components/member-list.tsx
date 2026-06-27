@@ -133,18 +133,18 @@ export function MemberList({
     <div className="grid gap-6">
       {/* Members section */}
       <section>
-        <h3 className="mb-3 text-sm font-medium text-white/50 uppercase tracking-wide">
+        <h3 className="mb-3 text-sm font-medium text-foreground/50 uppercase tracking-wide">
           Membros ({members.length})
         </h3>
 
         {/* Desktop table */}
-        <div className="hidden sm:block overflow-hidden rounded-lg border border-white/10">
+        <div className="hidden sm:block overflow-hidden rounded-lg border border-foreground/10">
           <Table>
             <TableHeader>
-              <TableRow className="bg-white/[0.02] hover:bg-transparent">
-                <TableHead className="px-4 text-white/50 normal-case tracking-normal">Nome</TableHead>
-                <TableHead className="px-4 text-white/50 normal-case tracking-normal">E-mail</TableHead>
-                <TableHead className="px-4 text-white/50 normal-case tracking-normal">Função</TableHead>
+              <TableRow className="bg-foreground/[0.02] hover:bg-transparent">
+                <TableHead className="px-4 text-foreground/50 normal-case tracking-normal">Nome</TableHead>
+                <TableHead className="px-4 text-foreground/50 normal-case tracking-normal">E-mail</TableHead>
+                <TableHead className="px-4 text-foreground/50 normal-case tracking-normal">Função</TableHead>
                 <TableHead className="w-12 px-4" />
               </TableRow>
             </TableHeader>
@@ -155,24 +155,24 @@ export function MemberList({
                   <TableRow key={member.memberId}>
                     <TableCell className="px-4">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-semibold uppercase">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-xs font-semibold uppercase">
                           {member.userName.charAt(0)}
                         </div>
                         <span className="font-medium">
                           {member.userName}
                           {isSelf && (
-                            <span className="ml-2 text-xs text-white/30">(você)</span>
+                            <span className="ml-2 text-xs text-foreground/30">(você)</span>
                           )}
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className="px-4 text-white/60">{member.userEmail}</TableCell>
+                    <TableCell className="px-4 text-foreground/60">{member.userEmail}</TableCell>
                     <TableCell className="px-4">
                       <span
                         className={
                           member.role === "owner"
                             ? "inline-flex items-center rounded-md bg-orange-500/10 px-2 py-0.5 text-xs font-medium text-orange-400"
-                            : "inline-flex items-center rounded-md bg-white/5 px-2 py-0.5 text-xs font-medium text-white/50"
+                            : "inline-flex items-center rounded-md bg-foreground/5 px-2 py-0.5 text-xs font-medium text-foreground/50"
                         }
                       >
                         {ROLE_LABEL[member.role]}
@@ -205,23 +205,23 @@ export function MemberList({
             return (
               <div
                 key={member.memberId}
-                className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.02] p-3"
+                className="flex items-center gap-3 rounded-lg border border-foreground/10 bg-foreground/[0.02] p-3"
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm font-semibold uppercase">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-sm font-semibold uppercase">
                   {member.userName.charAt(0)}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">
                     {member.userName}
-                    {isSelf && <span className="ml-1 text-xs text-white/30">(você)</span>}
+                    {isSelf && <span className="ml-1 text-xs text-foreground/30">(você)</span>}
                   </p>
-                  <p className="truncate text-xs text-white/50">{member.userEmail}</p>
+                  <p className="truncate text-xs text-foreground/50">{member.userEmail}</p>
                 </div>
                 <span
                   className={
                     member.role === "owner"
                       ? "shrink-0 rounded-md bg-orange-500/10 px-2 py-0.5 text-xs font-medium text-orange-400"
-                      : "shrink-0 rounded-md bg-white/5 px-2 py-0.5 text-xs font-medium text-white/50"
+                      : "shrink-0 rounded-md bg-foreground/5 px-2 py-0.5 text-xs font-medium text-foreground/50"
                   }
                 >
                   {ROLE_LABEL[member.role]}
@@ -246,21 +246,21 @@ export function MemberList({
       {/* Pending invitations */}
       {invitations.length > 0 && (
         <section>
-          <h3 className="mb-3 text-sm font-medium text-white/50 uppercase tracking-wide">
+          <h3 className="mb-3 text-sm font-medium text-foreground/50 uppercase tracking-wide">
             Convites pendentes ({invitations.length})
           </h3>
           <div className="grid gap-2">
             {invitations.map((inv) => (
               <div
                 key={inv.id}
-                className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.02] p-3"
+                className="flex items-center gap-3 rounded-lg border border-foreground/10 bg-foreground/[0.02] p-3"
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-dashed border-white/20 text-white/30">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-dashed border-foreground/20 text-foreground/30">
                   ?
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm">{inv.email}</p>
-                  <p className="text-xs text-white/40">
+                  <p className="text-xs text-foreground/40">
                     {ROLE_LABEL[inv.role]} · expira{" "}
                     {new Date(inv.expiresAt).toLocaleDateString("pt-BR", {
                       day: "2-digit",
@@ -291,7 +291,7 @@ export function MemberList({
             <DialogTitle>Alterar função</DialogTitle>
             <DialogDescription>
               Altere a função de{" "}
-              <span className="font-medium text-white">{roleDialog?.member.userName}</span>.
+              <span className="font-medium text-foreground">{roleDialog?.member.userName}</span>.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">
@@ -330,7 +330,7 @@ export function MemberList({
             <DialogTitle>Permissões do funcionário</DialogTitle>
             <DialogDescription>
               Escolha os módulos que{" "}
-              <span className="font-medium text-white">
+              <span className="font-medium text-foreground">
                 {permsDialog?.userName}
               </span>{" "}
               pode acessar. Em cada módulo, o funcionário vê apenas os próprios
@@ -343,9 +343,9 @@ export function MemberList({
               return (
                 <label
                   key={module}
-                  className="flex items-center justify-between gap-4 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5"
+                  className="flex items-center justify-between gap-4 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] px-3 py-2.5"
                 >
-                  <span className="text-sm text-white">{MODULE_LABEL[module]}</span>
+                  <span className="text-sm text-foreground">{MODULE_LABEL[module]}</span>
                   <Switch
                     checked={on}
                     onCheckedChange={(v) => togglePerm(module, v)}
@@ -373,7 +373,7 @@ export function MemberList({
             <DialogTitle>Remover membro</DialogTitle>
             <DialogDescription>
               Tem certeza que deseja remover{" "}
-              <span className="font-medium text-white">{removeDialog?.userName}</span> da
+              <span className="font-medium text-foreground">{removeDialog?.userName}</span> da
               organização?
             </DialogDescription>
           </DialogHeader>

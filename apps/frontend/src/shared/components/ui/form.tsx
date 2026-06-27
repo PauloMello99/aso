@@ -120,7 +120,7 @@ function FormDescription({
   return (
     <p
       id={formDescriptionId}
-      className={cn("text-xs text-white/30", className)}
+      className={cn("text-xs text-foreground/30", className)}
       {...props}
     />
   )

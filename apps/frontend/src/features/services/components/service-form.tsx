@@ -147,7 +147,7 @@ export function ServiceForm({
             <SheetBody className="flex flex-col gap-6 py-6">
               {/* ── Seção: Dados do serviço ───────────────────────── */}
               <section className="flex flex-col gap-4">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-white/40">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/40">
                   Dados
                 </h3>
 
@@ -216,7 +216,7 @@ export function ServiceForm({
                     <FormItem>
                       <FormLabel>
                         Tipo de serviço{" "}
-                        <span className="text-xs text-white/30">(opcional)</span>
+                        <span className="text-xs text-foreground/30">(opcional)</span>
                       </FormLabel>
                       <Select
                         value={field.value || TYPE_NONE}
@@ -263,7 +263,7 @@ export function ServiceForm({
                     <FormItem>
                       <FormLabel>
                         Descrição{" "}
-                        <span className="text-xs text-white/30">(opcional)</span>
+                        <span className="text-xs text-foreground/30">(opcional)</span>
                       </FormLabel>
                       <FormControl>
                         <Textarea
@@ -283,7 +283,7 @@ export function ServiceForm({
                     <FormItem>
                       <FormLabel>
                         Data de execução{" "}
-                        <span className="text-xs text-white/30">(opcional)</span>
+                        <span className="text-xs text-foreground/30">(opcional)</span>
                       </FormLabel>
                       <FormControl>
                         <DatePicker
@@ -301,7 +301,7 @@ export function ServiceForm({
               {/* ── Seção: Materiais (só no lançamento) ───────────── */}
               {!isEdit && (
                 <section className="flex flex-col gap-4">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-white/40">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/40">
                     Materiais consumidos
                   </h3>
                   <MaterialLines
@@ -314,7 +314,7 @@ export function ServiceForm({
               {/* ── Seção: Pagamento (só no lançamento) ───────────── */}
               {!isEdit && (
                 <section className="flex flex-col gap-4">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-white/40">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/40">
                     Pagamento
                   </h3>
 
@@ -328,7 +328,7 @@ export function ServiceForm({
                         </FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-white/40">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-foreground/40">
                               R$
                             </span>
                             <Input

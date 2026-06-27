@@ -36,12 +36,12 @@ export function MonthView({
   const today = new Date()
 
   return (
-    <div className="overflow-hidden rounded-xl border border-white/[0.06]">
-      <div className="grid grid-cols-7 border-b border-white/[0.06]">
+    <div className="overflow-hidden rounded-xl border border-foreground/[0.06]">
+      <div className="grid grid-cols-7 border-b border-foreground/[0.06]">
         {WEEKDAYS.map((w) => (
           <div
             key={w}
-            className="py-2 text-center text-[11px] uppercase text-white/40"
+            className="py-2 text-center text-[11px] uppercase text-foreground/40"
           >
             {w}
           </div>
@@ -60,8 +60,8 @@ export function MonthView({
               type="button"
               onClick={() => onDayClick(format(day, "yyyy-MM-dd"))}
               className={cn(
-                "flex min-h-[92px] aspect-square flex-col gap-1 border-b border-l border-white/[0.04] p-1.5 text-left align-top transition-colors hover:bg-white/[0.02]",
-                !inMonth && "bg-white/[0.01]",
+                "flex min-h-[92px] aspect-square flex-col gap-1 border-b border-l border-foreground/[0.04] p-1.5 text-left align-top transition-colors hover:bg-foreground/[0.02]",
+                !inMonth && "bg-foreground/[0.01]",
               )}
             >
               <span
@@ -70,8 +70,8 @@ export function MonthView({
                   isToday
                     ? "bg-orange-500 font-semibold text-white"
                     : inMonth
-                      ? "text-white/70"
-                      : "text-white/25",
+                      ? "text-foreground/70"
+                      : "text-foreground/25",
                 )}
               >
                 {format(day, "d")}
@@ -89,7 +89,7 @@ export function MonthView({
                     className={cn(
                       "truncate rounded px-1 py-0.5 text-[10px] leading-tight",
                       ev.type === "unavailability"
-                        ? "bg-white/[0.06] text-white/50"
+                        ? "bg-foreground/[0.06] text-foreground/50"
                         : "bg-orange-500/15 text-orange-200",
                       ev.status === "canceled" && "line-through opacity-40",
                     )}
@@ -99,7 +99,7 @@ export function MonthView({
                   </span>
                 ))}
                 {dayEvents.length > 3 && (
-                  <span className="px-1 text-[10px] text-white/30">
+                  <span className="px-1 text-[10px] text-foreground/30">
                     +{dayEvents.length - 3}
                   </span>
                 )}

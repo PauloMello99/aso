@@ -55,25 +55,25 @@ export function WeekView({
   }
 
   return (
-    <div className="overflow-x-auto overflow-y-hidden rounded-xl border border-white/[0.06]">
+    <div className="overflow-x-auto overflow-y-hidden rounded-xl border border-foreground/[0.06]">
       <div className="min-w-[680px]">
         {/* Header com os dias */}
-        <div className="grid grid-cols-[56px_repeat(7,1fr)] border-b border-white/[0.06]">
+        <div className="grid grid-cols-[56px_repeat(7,1fr)] border-b border-foreground/[0.06]">
           <div />
           {days.map((d) => {
             const isToday = isSameDay(d, today)
             return (
               <div
                 key={d.toISOString()}
-                className="border-l border-white/[0.06] py-2 text-center"
+                className="border-l border-foreground/[0.06] py-2 text-center"
               >
-                <div className="text-[11px] uppercase text-white/40">
+                <div className="text-[11px] uppercase text-foreground/40">
                   {format(d, "EEE", { locale: ptBR })}
                 </div>
                 <div
                   className={cn(
                     "mx-auto mt-0.5 flex h-7 w-7 items-center justify-center rounded-full text-sm",
-                    isToday ? "bg-orange-500 font-semibold text-white" : "text-white/80",
+                    isToday ? "bg-orange-500 font-semibold text-white" : "text-foreground/80",
                   )}
                 >
                   {format(d, "d")}
@@ -84,8 +84,8 @@ export function WeekView({
         </div>
 
         {/* Linha de eventos de dia inteiro (separada do grid de horários) */}
-        <div className="grid grid-cols-[56px_repeat(7,1fr)] border-b border-white/[0.06]">
-          <div className="flex items-center justify-end pr-2 text-[10px] uppercase text-white/30">
+        <div className="grid grid-cols-[56px_repeat(7,1fr)] border-b border-foreground/[0.06]">
+          <div className="flex items-center justify-end pr-2 text-[10px] uppercase text-foreground/30">
             Dia todo
           </div>
           {days.map((day) => {
@@ -95,7 +95,7 @@ export function WeekView({
             return (
               <div
                 key={day.toISOString()}
-                className="min-h-[30px] space-y-1 border-l border-white/[0.06] p-1"
+                className="min-h-[30px] space-y-1 border-l border-foreground/[0.06] p-1"
               >
                 {allDay.map((ev) => (
                   <button
@@ -105,7 +105,7 @@ export function WeekView({
                     className={cn(
                       "block w-full truncate rounded px-1.5 py-0.5 text-left text-[11px] leading-tight transition-colors",
                       ev.type === "unavailability"
-                        ? "bg-white/[0.06] text-white/50 [background-image:repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(255,255,255,0.04)_5px,rgba(255,255,255,0.04)_10px)]"
+                        ? "bg-foreground/[0.06] text-foreground/50 [background-image:repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(255,255,255,0.04)_5px,rgba(255,255,255,0.04)_10px)]"
                         : "bg-orange-500/15 text-orange-200 hover:bg-orange-500/25",
                       ev.status === "canceled" && "line-through opacity-40",
                     )}
@@ -126,7 +126,7 @@ export function WeekView({
               <div
                 key={h}
                 style={{ height: HOUR_PX }}
-                className="relative -top-2 pr-2 text-right text-[11px] text-white/30"
+                className="relative -top-2 pr-2 text-right text-[11px] text-foreground/30"
               >
                 {String(h).padStart(2, "0")}h
               </div>
@@ -142,7 +142,7 @@ export function WeekView({
             return (
               <div
                 key={day.toISOString()}
-                className="relative border-l border-white/[0.06]"
+                className="relative border-l border-foreground/[0.06]"
                 style={{ height: HOURS.length * HOUR_PX }}
                 onClick={(e) => handleColumnClick(day, e)}
               >
@@ -151,7 +151,7 @@ export function WeekView({
                   <div
                     key={h}
                     style={{ height: HOUR_PX }}
-                    className="border-b border-white/[0.04]"
+                    className="border-b border-foreground/[0.04]"
                   />
                 ))}
                 {/* eventos */}
@@ -174,7 +174,7 @@ export function WeekView({
                       className={cn(
                         "absolute left-1 right-1 overflow-hidden rounded-md border px-1.5 py-0.5 text-left text-[11px] leading-tight transition-colors",
                         isBusy
-                          ? "border-white/10 bg-white/[0.06] text-white/50 [background-image:repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(255,255,255,0.04)_5px,rgba(255,255,255,0.04)_10px)]"
+                          ? "border-foreground/10 bg-foreground/[0.06] text-foreground/50 [background-image:repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(255,255,255,0.04)_5px,rgba(255,255,255,0.04)_10px)]"
                           : "border-orange-500/30 bg-orange-500/15 text-orange-200 hover:bg-orange-500/25",
                         ev.status === "canceled" && "line-through opacity-40",
                       )}

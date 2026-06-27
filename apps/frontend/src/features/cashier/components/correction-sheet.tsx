@@ -108,14 +108,14 @@ export function CorrectionSheet({
             <SheetBody className="flex flex-col gap-4 py-6">
               {/* Original (somente leitura) */}
               {transaction && (
-                <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 text-sm">
-                  <p className="text-xs uppercase tracking-wide text-white/30">
+                <div className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3 text-sm">
+                  <p className="text-xs uppercase tracking-wide text-foreground/30">
                     Original
                   </p>
-                  <p className="mt-1 truncate text-white/70">
+                  <p className="mt-1 truncate text-foreground/70">
                     {transaction.description}
                   </p>
-                  <p className="mt-0.5 tabular-nums text-white/40">
+                  <p className="mt-0.5 tabular-nums text-foreground/40">
                     {TRANSACTION_TYPE_LABELS[transaction.type]} ·{" "}
                     {formatBRL(transaction.grossCents)} ·{" "}
                     {PAYMENT_METHOD_LABELS[transaction.paymentMethod]}
@@ -175,7 +175,7 @@ export function CorrectionSheet({
                     </FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-white/40">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-foreground/40">
                           R$
                         </span>
                         <Input
@@ -224,7 +224,7 @@ export function CorrectionSheet({
                   <FormItem>
                     <FormLabel>
                       Data{" "}
-                      <span className="text-xs text-white/30">(opcional)</span>
+                      <span className="text-xs text-foreground/30">(opcional)</span>
                     </FormLabel>
                     <FormControl>
                       <DatePicker

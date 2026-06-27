@@ -106,7 +106,7 @@ export function TransferDialog({ open, onOpenChange, onSubmit }: TransferDialogP
           <div className="grid gap-1.5">
             <Label>Valor</Label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-white/40">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-foreground/40">
                 R$
               </span>
               <Input

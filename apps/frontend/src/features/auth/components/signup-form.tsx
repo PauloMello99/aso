@@ -69,13 +69,13 @@ export function SignupForm() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-sm border-white/5 bg-white/[0.03]">
+      <Card className="w-full max-w-sm border-foreground/5 bg-foreground/[0.03]">
         <CardHeader className="text-center">
           <div className="mb-2 text-xl font-bold">
             ink<span className="text-orange-500">ops</span>
           </div>
           <CardTitle className="text-xl">Criar conta</CardTitle>
-          <CardDescription className="text-white/40">
+          <CardDescription className="text-foreground/40">
             Comece a gerenciar seu estúdio gratuitamente
           </CardDescription>
         </CardHeader>
@@ -160,7 +160,7 @@ export function SignupForm() {
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Criar conta
             </Button>
-            <p className="text-center text-sm text-white/40">
+            <p className="text-center text-sm text-foreground/40">
               Já tem conta?{" "}
               <Link
                 href={loginHref}

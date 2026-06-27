@@ -12,7 +12,7 @@ const SettingsStockPage: NextPageWithLayout = () => {
   return isOwner ? (
     <StockVerificationPage orgId={orgId} />
   ) : (
-    <div className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] p-4 text-sm text-white/50">
+    <div className="flex items-center gap-2 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-4 text-sm text-foreground/50">
       <Lock className="h-4 w-4 shrink-0" />
       Apenas proprietários gerenciam a conferência de estoque.
     </div>

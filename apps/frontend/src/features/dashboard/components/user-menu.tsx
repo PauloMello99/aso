@@ -30,7 +30,7 @@ export function UserMenu() {
         <Button
           variant="ghost"
           size="sm"
-          className="h-auto gap-2 px-2 py-1.5 text-white/60 hover:text-white"
+          className="h-auto gap-2 px-2 py-1.5 text-foreground/60 hover:text-foreground"
         >
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-500/20 text-xs font-medium text-orange-400">
             {initials}
@@ -39,7 +39,7 @@ export function UserMenu() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="truncate font-normal text-white/40">
+        <DropdownMenuLabel className="truncate font-normal text-foreground/40">
           {user?.email}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
