@@ -75,7 +75,7 @@ export function AccountPage() {
         Voltar
       </button>
 
-      <div className="flex min-h-full flex-col gap-4 md:flex-row md:gap-0">
+      <div className="flex min-h-full flex-col gap-6 md:flex-row md:gap-8">
         {/* Mobile: barra de âncoras horizontal */}
         <nav className="flex gap-1 overflow-x-auto border-b border-white/[0.06] pb-3 md:hidden">
           {SECTIONS.map(({ id, label }) => {
@@ -102,8 +102,8 @@ export function AccountPage() {
           })}
         </nav>
 
-        {/* Desktop: sidebar de âncoras (sticky) */}
-        <aside className="hidden w-44 shrink-0 border-r border-white/[0.06] pr-2 md:block">
+        {/* Desktop: submenu de âncoras fixo à esquerda (sticky) */}
+        <aside className="hidden w-48 shrink-0 md:block">
           <div className="sticky top-6">
             <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-white/25">
               Minha Conta
@@ -148,9 +148,9 @@ export function AccountPage() {
           </div>
         </aside>
 
-        {/* Sections empilhadas */}
-        <div className="min-w-0 flex-1 md:pl-6">
-          <div className="space-y-12">
+        {/* Sections empilhadas — conteúdo centralizado, com largura máxima */}
+        <div className="min-w-0 flex-1">
+          <div className="mx-auto max-w-3xl space-y-12">
             {SECTIONS.map(({ id, Section }) => (
               <section key={id} id={id} className="scroll-mt-20">
                 <Section />
