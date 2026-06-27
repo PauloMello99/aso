@@ -11,33 +11,73 @@ export interface DailyBalancePoint {
   totalCents: number
 }
 
-/** KPIs + série temporal do estúdio (owner-only). PERF-3. */
-export interface OverviewAnalytics {
-  from: string
-  to: string
-  receitaCents: number
-  despesaCents: number
-  resultadoCents: number
-  servicesCount: number
-  avgTicketCents: number
-  newCustomersCount: number
-  /** Receita de serviços não cancelados no período (RPT-3). */
-  serviceRevenueCents: number
-  /** Custo dos materiais consumidos por esses serviços. */
-  materialCostCents: number
-  /** Lucro estimado = receita de serviços − custo de material. */
-  profitCents: number
-  /** Margem (0–100). */
-  marginPercent: number
-  series: DailyBalancePoint[]
+export interface KpiWithDelta {
+  current: number
+  previous: number
+  /** Variação % vs período anterior; null quando não há base. */
+  deltaPercent: number | null
 }
 
-export function useOverviewAnalytics(orgId: string, enabled: boolean) {
+export interface ServiceGroupRow {
+  name: string
+  count: number
+  revenueCents: number
+}
+
+export interface PaymentMethodTotal {
+  paymentMethod: "cash" | "bank_transfer" | "credit_card" | "debit_card" | "credits"
+  netCents: number
+}
+
+export interface IncomeExpensePoint {
+  day: string
+  incomeCents: number
+  expenseCents: number
+}
+
+/** KPIs + séries do overview (role-aware). PERF-3 + redesenho. */
+export interface OverviewAnalytics {
+  role: "owner" | "employee"
+  from: string
+  to: string
+  servicesCount: KpiWithDelta
+  serviceRevenueCents: KpiWithDelta
+  avgTicketCents: KpiWithDelta
+  receitaCents?: KpiWithDelta
+  despesaCents?: KpiWithDelta
+  resultadoCents?: KpiWithDelta
+  newCustomersCount?: KpiWithDelta
+  margin?: {
+    serviceRevenueCents: number
+    materialCostCents: number
+    profitCents: number
+    marginPercent: number
+  }
+  series?: DailyBalancePoint[]
+  servicesByType?: ServiceGroupRow[]
+  revenueByProfessional?: ServiceGroupRow[]
+  paymentMethods?: PaymentMethodTotal[]
+  incomeExpenseSeries?: IncomeExpensePoint[]
+}
+
+export interface AnalyticsPeriod {
+  from?: string
+  to?: string
+}
+
+export function useOverviewAnalytics(orgId: string, period: AnalyticsPeriod) {
   const { data, isLoading, error } = useQuery({
-    queryKey: queryKeys.overview.analytics(orgId),
-    queryFn: () =>
-      apiRequest<OverviewAnalytics>(`/orgs/${orgId}/overview/analytics`),
-    enabled: !!orgId && enabled,
+    queryKey: queryKeys.overview.analytics(orgId, period.from, period.to),
+    queryFn: () => {
+      const params = new URLSearchParams()
+      if (period.from) params.set("from", period.from)
+      if (period.to) params.set("to", period.to)
+      const qs = params.toString() ? `?${params.toString()}` : ""
+      return apiRequest<OverviewAnalytics>(
+        `/orgs/${orgId}/overview/analytics${qs}`,
+      )
+    },
+    enabled: !!orgId,
   })
 
   return {

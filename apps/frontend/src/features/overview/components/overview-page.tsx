@@ -18,7 +18,12 @@ import { Badge } from "@/shared/components/ui/badge"
 import { useCurrentOrg } from "@/features/dashboard"
 import { useOverview } from "../hooks/use-overview"
 import { useOverviewAnalytics } from "../hooks/use-overview-analytics"
-import { AnalyticsSection } from "./analytics-section"
+import {
+  PerformanceSection,
+  EmployeePerformance,
+  periodRange,
+  type PeriodKey,
+} from "./performance-section"
 import { formatBRL } from "@/features/cashier/lib/money"
 import {
   serviceStatus,
@@ -96,8 +101,30 @@ function SectionCard({
   )
 }
 
-function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="py-8 text-center text-sm text-foreground/30">{children}</p>
+/** Estado vazio como convite: ícone + frase + ação opcional. */
+function EmptyState({
+  icon: Icon,
+  title,
+  action,
+}: {
+  icon: LucideIcon
+  title: string
+  action?: { label: string; href: string }
+}) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-2 py-8 text-center">
+      <Icon className="h-6 w-6 text-foreground/20" />
+      <p className="text-sm text-foreground/40">{title}</p>
+      {action && (
+        <Link
+          href={action.href}
+          className="text-sm font-medium text-orange-400 transition-colors hover:text-orange-300"
+        >
+          {action.label}
+        </Link>
+      )}
+    </div>
+  )
 }
 
 function Loading() {
@@ -135,7 +162,11 @@ function RecentServicesSection({
       {loading ? (
         <Loading />
       ) : services.length === 0 ? (
-        <Empty>Nenhum serviço realizado ainda.</Empty>
+        <EmptyState
+          icon={Package}
+          title="Nenhum serviço ainda"
+          action={{ label: "Registrar atendimento", href: `${basePath}/services` }}
+        />
       ) : (
         <Rows>
           {services.map((s) => {
@@ -207,7 +238,11 @@ function RecentTransactionsSection({
       {loading ? (
         <Loading />
       ) : transactions.length === 0 ? (
-        <Empty>Nenhuma transação registrada ainda.</Empty>
+        <EmptyState
+          icon={Wallet}
+          title="Nenhuma transação ainda"
+          action={{ label: "Abrir o caixa", href: `${basePath}/cashier` }}
+        />
       ) : (
         <Rows>
           {transactions.map(({ entity: t }) => {
@@ -304,7 +339,7 @@ function LowStockSection({
       {loading ? (
         <Loading />
       ) : materials.length === 0 ? (
-        <Empty>Nenhum material com estoque baixo. 🎉</Empty>
+        <EmptyState icon={Archive} title="Estoque saudável" />
       ) : (
         <>
           <Rows>
@@ -374,7 +409,11 @@ function UpcomingEventsSection({
       {loading ? (
         <Loading />
       ) : events.length === 0 ? (
-        <Empty>Nenhum evento próximo na agenda.</Empty>
+        <EmptyState
+          icon={CalendarDays}
+          title="Agenda livre"
+          action={{ label: "Agendar atendimento", href: `${basePath}/schedule` }}
+        />
       ) : (
         <Rows>
           {events.map((e) => (
@@ -416,7 +455,11 @@ function RecentCustomersSection({
       {loading ? (
         <Loading />
       ) : customers.length === 0 ? (
-        <Empty>Nenhum cliente cadastrado ainda.</Empty>
+        <EmptyState
+          icon={Users}
+          title="Nenhum cliente ainda"
+          action={{ label: "Cadastrar cliente", href: `${basePath}/clients` }}
+        />
       ) : (
         <Rows>
           {customers.map((c) => (
@@ -443,21 +486,35 @@ function RecentCustomersSection({
 
 /* ── Página ──────────────────────────────────────────────────────── */
 
+function BandLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-[11px] font-semibold uppercase tracking-widest text-foreground/30">
+        {children}
+      </span>
+      <span className="h-px flex-1 bg-foreground/[0.06]" />
+    </div>
+  )
+}
+
 export function OverviewPage() {
   const { org, orgId } = useCurrentOrg()
   const isOwner = org.role === "owner"
   const basePath = `/dashboard/org/${org.slug}`
 
+  const [periodKey, setPeriodKey] = React.useState<PeriodKey>("month")
+  const range = React.useMemo(() => periodRange(periodKey), [periodKey])
+
   // Um único request agregado (PERF-2) substitui os ~6 antigos.
   const { data, loading } = useOverview(orgId)
-  // KPIs + gráfico do mês (PERF-3), só para o dono.
+  // KPIs + gráficos do período (role-aware): owner vê tudo, funcionário só o seu.
   const { data: analytics, loading: analyticsLoading } = useOverviewAnalytics(
     orgId,
-    isOwner,
+    range,
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
         <h1 className="text-xl font-semibold text-foreground">Overview</h1>
         <p className="mt-0.5 text-sm text-foreground/40">
@@ -467,43 +524,60 @@ export function OverviewPage() {
         </p>
       </div>
 
-      {isOwner && (
-        <AnalyticsSection data={analytics} loading={analyticsLoading} />
-      )}
+      {/* Faixa 1 · Operações */}
+      <section className="space-y-3">
+        <BandLabel>Operações</BandLabel>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <RecentServicesSection
+            services={data?.recentServices ?? []}
+            loading={loading}
+            basePath={basePath}
+            showProfessional={isOwner}
+          />
+          <UpcomingEventsSection
+            events={data?.upcomingEvents ?? []}
+            loading={loading}
+            basePath={basePath}
+          />
+          <LowStockSection
+            materials={data?.lowStock ?? []}
+            loading={loading}
+            basePath={basePath}
+          />
+          {isOwner && (
+            <RecentTransactionsSection
+              transactions={data?.recentTransactions ?? []}
+              categories={data?.transactionCategories ?? []}
+              loading={loading}
+              basePath={basePath}
+            />
+          )}
+          {isOwner && (
+            <RecentCustomersSection
+              customers={data?.recentCustomers ?? []}
+              loading={loading}
+              basePath={basePath}
+            />
+          )}
+        </div>
+      </section>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <RecentServicesSection
-          services={data?.recentServices ?? []}
-          loading={loading}
-          basePath={basePath}
-          showProfessional={isOwner}
+      {/* Faixa 2 · Desempenho */}
+      {isOwner ? (
+        <PerformanceSection
+          data={analytics}
+          loading={analyticsLoading}
+          periodKey={periodKey}
+          onPeriodChange={setPeriodKey}
         />
-        <UpcomingEventsSection
-          events={data?.upcomingEvents ?? []}
-          loading={loading}
-          basePath={basePath}
+      ) : (
+        <EmployeePerformance
+          data={analytics}
+          loading={analyticsLoading}
+          periodKey={periodKey}
+          onPeriodChange={setPeriodKey}
         />
-        <LowStockSection
-          materials={data?.lowStock ?? []}
-          loading={loading}
-          basePath={basePath}
-        />
-        {isOwner && (
-          <RecentTransactionsSection
-            transactions={data?.recentTransactions ?? []}
-            categories={data?.transactionCategories ?? []}
-            loading={loading}
-            basePath={basePath}
-          />
-        )}
-        {isOwner && (
-          <RecentCustomersSection
-            customers={data?.recentCustomers ?? []}
-            loading={loading}
-            basePath={basePath}
-          />
-        )}
-      </div>
+      )}
     </div>
   )
 }
