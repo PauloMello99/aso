@@ -11,11 +11,13 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Loader2,
+  Landmark,
   type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { Badge } from "@/shared/components/ui/badge"
 import { useCurrentOrg } from "@/features/dashboard"
+import { useBalance } from "@/features/cashier/hooks/use-balance"
 import { useOverview } from "../hooks/use-overview"
 import { useOverviewAnalytics } from "../hooks/use-overview-analytics"
 import {
@@ -484,6 +486,45 @@ function RecentCustomersSection({
 
 /* ── Página ──────────────────────────────────────────────────────── */
 
+/* ── Saldo do caixa (owner) ──────────────────────────────────────── */
+
+function BalanceRow({ label, cents }: { label: string; cents: number }) {
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-foreground/50">{label}</span>
+      <span className="tabular-nums text-foreground">{formatBRL(cents)}</span>
+    </div>
+  )
+}
+
+function CashBalanceSection({
+  orgId,
+  basePath,
+}: {
+  orgId: string
+  basePath: string
+}) {
+  const { balance, loading } = useBalance(orgId)
+  return (
+    <SectionCard title="Saldo do caixa" icon={Landmark} href={`${basePath}/cashier`}>
+      {loading ? (
+        <Loading />
+      ) : (
+        <div className="flex h-full flex-col justify-center gap-3">
+          <BalanceRow label="Dinheiro" cents={balance.cashCents} />
+          <BalanceRow label="Digital" cents={balance.digitalCents} />
+          <div className="mt-1 flex items-center justify-between border-t border-foreground/[0.06] pt-3">
+            <span className="text-sm text-foreground/50">Total</span>
+            <span className="text-base font-semibold tabular-nums text-foreground">
+              {formatBRL(balance.totalCents)}
+            </span>
+          </div>
+        </div>
+      )}
+    </SectionCard>
+  )
+}
+
 function BandLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3">
@@ -556,6 +597,9 @@ export function OverviewPage() {
               loading={loading}
               basePath={basePath}
             />
+          )}
+          {isOwner && (
+            <CashBalanceSection orgId={orgId} basePath={basePath} />
           )}
         </div>
       </section>
