@@ -30,7 +30,9 @@ metadata:
 | Notificações (in-app + e-mail; lembrete agenda) | ✅ núcleo |
 | Permissões por módulo (owner configura on/off) | ✅ |
 | Excluir conta (bloqueio se owner) / Transferir org | ✅ |
-| Settings/Agenda externa, Tema, Billing/Stripe | ⏳ placeholder/parcial |
+| Tema claro/escuro/sistema (next-themes + tokens) | ✅ |
+| Overview analítico do dono (KPIs + gráfico) | ✅ |
+| Settings/Agenda externa, Billing/Stripe | ⏳ placeholder/parcial |
 
 Visibilidade por funcionário ("só vê o que é dele; owner vê tudo + lança em nome de"):
 **Serviços ✅, Agenda ✅, Caixa ✅** (teste de 3 contas em
@@ -65,10 +67,13 @@ Visibilidade por funcionário ("só vê o que é dele; owner vê tudo + lança e
 
 ## EPIC 3 — Temas & Acessibilidade
 
-- **THEME-1 — Tema claro/escuro/sistema** · _Planejar_
-  Implementar troca de tema (placeholder "em breve" em Conta → Tema). **Atenção a
-  acessibilidade**: garantir contraste suficiente (WCAG AA), validar que as cores não se
-  confundem nem dificultam a leitura; tokens de cor por tema, não cores hard-coded.
+- **THEME-1 — Tema claro/escuro/sistema** · _✅ done (2026-06-27)_
+  `next-themes` (attribute=class, default dark) + tokens light/dark em `globals.css`
+  (`:root` claro, `.dark` escuro). Switcher Claro/Escuro/Sistema em Conta → Tema.
+  Refatoração: ~529 cores hard-coded `white`→`foreground` em 70 arquivos (tints adaptam
+  porque `--foreground` inverte). Exceções claras: texto em botões/badges de cor sólida,
+  thumb do switch, overlays (popover/dialog/sheet/select/dropdown → tokens). Landing
+  preservada dark. Verificado claro+escuro; lint+types verdes.
 
 ## EPIC 4 — Qualidade & Testes
 
@@ -109,9 +114,11 @@ Visibilidade por funcionário ("só vê o que é dele; owner vê tudo + lança e
   `GET /orgs/:id/overview` (módulo `overview`) reusa os list use-cases (preserva scoping por
   funcionário; seções owner-only vazias p/ funcionário), ordena+fatia no servidor. Front:
   `useOverview` (1 request) substitui ~6 hooks. Verificado: página renderiza de 1 request.
-- **PERF-3 — Dashboard analítico (quanto mais info, melhor)** · _Planejar_
-  Cards de KPI (receita, ticket médio, ocupação, etc.) + séries temporais reaproveitando
-  `balance/history`; inspirado no bloco dashboard14. Trazer o máximo de informação útil.
+- **PERF-3 — Dashboard analítico (quanto mais info, melhor)** · _✅ done (2026-06-27)_
+  `GET /orgs/:id/overview/analytics` (owner-only, módulo `overview`) agrega KPIs do período
+  (receita, despesa, resultado, serviços, ticket médio, novos clientes) reusando os list
+  use-cases + `GetBalanceHistory`. Front: `AnalyticsSection` no topo do Overview (só dono):
+  6 KPI cards + gráfico de área (recharts) do saldo diário, tema-aware. Default = mês vigente.
 - **UX-1 — Auditoria mobile-first** · _✅ done (2026-06-26)_
   Overview, Conta e os dialogs novos (transferir org, excluir conta) validados em 375px:
   coluna única, hamburger, botões full-width, sem overflow. Sem correções necessárias.
