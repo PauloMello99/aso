@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, desc, eq, gte, isNotNull, isNull, lte } from "drizzle-orm";
+import { and, desc, eq, gte, isNotNull, isNull, lte, sql } from "drizzle-orm";
 import { DRIZZLE, DrizzleDB } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
 import {
@@ -245,6 +245,29 @@ export class DrizzleServiceRepository implements IServiceRepository {
       .limit(1);
     const fresh = await this.findById(id, row!.orgId);
     return fresh!;
+  }
+
+  async materialCostCentsByPeriod(
+    orgId: string,
+    from: Date,
+    to: Date,
+  ): Promise<number> {
+    // cost_per_unit é numeric (reais); ×100 → centavos. Serviços cancelados fora.
+    const { rows } = await this.db.execute<{ cost_cents: string }>(sql`
+      SELECT COALESCE(
+        ROUND(SUM(sm.quantity * m.cost_per_unit) * 100),
+        0
+      )::bigint AS cost_cents
+      FROM service_materials sm
+      JOIN services s ON s.id = sm.service_id
+      JOIN materials m ON m.id = sm.material_id
+      WHERE s.org_id = ${orgId}
+        AND s.canceled_at IS NULL
+        AND s.performed_at >= ${from}
+        AND s.performed_at <= ${to}
+        AND m.cost_per_unit IS NOT NULL
+    `);
+    return Number(rows[0]?.cost_cents ?? 0);
   }
 
   private async findMaterials(

@@ -21,6 +21,14 @@ export interface OverviewAnalytics {
   servicesCount: number
   avgTicketCents: number
   newCustomersCount: number
+  /** Receita de serviços não cancelados no período (RPT-3). */
+  serviceRevenueCents: number
+  /** Custo dos materiais consumidos por esses serviços. */
+  materialCostCents: number
+  /** Lucro estimado = receita de serviços − custo de material. */
+  profitCents: number
+  /** Margem (0–100). */
+  marginPercent: number
   series: DailyBalancePoint[]
 }
 

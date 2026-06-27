@@ -17,6 +17,9 @@ import {
   Receipt,
   UserPlus,
   Loader2,
+  Boxes,
+  PiggyBank,
+  Percent,
 } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { formatBRL } from "@/features/cashier/lib/money"
@@ -123,6 +126,46 @@ export function AnalyticsSection({
           value={String(data?.newCustomersCount ?? 0)}
           icon={UserPlus}
         />
+      </div>
+
+      {/* Custo & lucro por período (RPT-3) */}
+      <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-5">
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
+          <PiggyBank className="h-4 w-4 text-orange-400" />
+          Custo &amp; lucro dos serviços
+        </h2>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Kpi
+            label="Receita de serviços"
+            value={formatBRL(data?.serviceRevenueCents ?? 0)}
+            icon={Receipt}
+            tone="positive"
+          />
+          <Kpi
+            label="Custo de material"
+            value={formatBRL(data?.materialCostCents ?? 0)}
+            icon={Boxes}
+            tone="negative"
+          />
+          <Kpi
+            label="Lucro"
+            value={formatBRL(data?.profitCents ?? 0)}
+            icon={TrendingUp}
+            tone={(data?.profitCents ?? 0) >= 0 ? "positive" : "negative"}
+          />
+          <Kpi
+            label="Margem"
+            value={`${(data?.marginPercent ?? 0).toLocaleString("pt-BR", {
+              maximumFractionDigits: 1,
+            })}%`}
+            icon={Percent}
+            tone={(data?.marginPercent ?? 0) >= 0 ? "positive" : "negative"}
+          />
+        </div>
+        <p className="mt-3 text-xs text-foreground/40">
+          Lucro = receita dos serviços não cancelados − custo dos materiais
+          consumidos (materiais sem custo cadastrado não entram).
+        </p>
       </div>
 
       <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-5">

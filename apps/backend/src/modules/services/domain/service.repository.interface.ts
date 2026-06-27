@@ -60,4 +60,14 @@ export interface IServiceRepository {
   setPaymentTransaction(id: string, transactionId: string): Promise<void>;
   markCanceled(id: string): Promise<void>;
   update(id: string, data: UpdateServiceData): Promise<ServiceEntity>;
+  /**
+   * Custo total (em centavos) dos materiais consumidos pelos serviços não
+   * cancelados do período (Σ quantity × cost_per_unit). Ignora materiais sem
+   * custo cadastrado. Usado pelo dashboard de margem (RPT-3).
+   */
+  materialCostCentsByPeriod(
+    orgId: string,
+    from: Date,
+    to: Date,
+  ): Promise<number>;
 }

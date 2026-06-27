@@ -259,6 +259,35 @@ function RecentTransactionsSection({
 
 /* ── Estoque baixo ───────────────────────────────────────────────── */
 
+/** Quantidade a repor para voltar ao mínimo (nunca negativa). */
+function restockQty(m: Material): number {
+  const deficit = parseFloat(m.minimumQuantity) - parseFloat(m.stockQuantity)
+  return deficit > 0 ? deficit : 0
+}
+
+/** Custo estimado (centavos) para repor um material até o mínimo. */
+function restockCents(m: Material): number | null {
+  if (m.costPerUnit === null) return null
+  const cost = parseFloat(m.costPerUnit)
+  if (Number.isNaN(cost)) return null
+  return Math.round(restockQty(m) * cost * 100)
+}
+
+/** Soma a estimativa de reposição (RPT-3) e conta itens sem custo cadastrado. */
+function restockEstimate(materials: Material[]): {
+  totalCents: number
+  missingCost: number
+} {
+  let totalCents = 0
+  let missingCost = 0
+  for (const m of materials) {
+    const cents = restockCents(m)
+    if (cents === null) missingCost += 1
+    else totalCents += cents
+  }
+  return { totalCents, missingCost }
+}
+
 function LowStockSection({
   materials,
   loading,
@@ -268,6 +297,8 @@ function LowStockSection({
   loading: boolean
   basePath: string
 }) {
+  const { totalCents, missingCost } = restockEstimate(materials)
+
   return (
     <SectionCard title="Estoque baixo" icon={Archive} href={`${basePath}/stock`}>
       {loading ? (
@@ -275,24 +306,49 @@ function LowStockSection({
       ) : materials.length === 0 ? (
         <Empty>Nenhum material com estoque baixo. 🎉</Empty>
       ) : (
-        <Rows>
-          {materials.map((m) => (
-            <li key={m.id} className="flex items-center gap-3 py-2.5 text-sm">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-foreground">{m.name}</p>
-                <p className="mt-0.5 text-xs text-foreground/40">
-                  {m.stockQuantity} em estoque · mín. {m.minimumQuantity}
-                </p>
-              </div>
-              <Badge
-                variant="destructive"
-                className="shrink-0 bg-red-500/15 text-red-400"
-              >
-                Baixo
-              </Badge>
-            </li>
-          ))}
-        </Rows>
+        <>
+          <Rows>
+            {materials.map((m) => {
+              const cents = restockCents(m)
+              return (
+                <li
+                  key={m.id}
+                  className="flex items-center gap-3 py-2.5 text-sm"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-foreground">{m.name}</p>
+                    <p className="mt-0.5 text-xs text-foreground/40">
+                      {m.stockQuantity} em estoque · mín. {m.minimumQuantity}
+                      {cents !== null && cents > 0
+                        ? ` · repor ${formatBRL(cents)}`
+                        : ""}
+                    </p>
+                  </div>
+                  <Badge
+                    variant="destructive"
+                    className="shrink-0 bg-red-500/15 text-red-400"
+                  >
+                    Baixo
+                  </Badge>
+                </li>
+              )
+            })}
+          </Rows>
+          <div className="mt-3 flex items-center justify-between border-t border-foreground/[0.06] pt-3 text-sm">
+            <span className="text-foreground/50">Repor tudo (estimado)</span>
+            <span className="font-semibold text-foreground">
+              {formatBRL(totalCents)}
+            </span>
+          </div>
+          {missingCost > 0 && (
+            <p className="mt-1 text-xs text-foreground/30">
+              {missingCost}{" "}
+              {missingCost === 1
+                ? "item sem custo cadastrado não entra no total."
+                : "itens sem custo cadastrado não entram no total."}
+            </p>
+          )}
+        </>
       )}
     </SectionCard>
   )
