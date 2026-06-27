@@ -46,7 +46,7 @@ export class UploadCustomerAttachmentUseCase {
     );
     if (!customer) throw new CustomerNotFoundException(input.customerId);
 
-    const safeName = input.fileName.replace(/[^\w.\-]+/g, "_").slice(-80);
+    const safeName = input.fileName.replace(/[^\w.-]+/g, "_").slice(-80);
     const path = `${input.orgId}/${input.customerId}/${randomUUID()}_${safeName}`;
     await this.storage.uploadFile(
       CUSTOMER_FILES_BUCKET,

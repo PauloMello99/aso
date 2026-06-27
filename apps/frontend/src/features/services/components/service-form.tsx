@@ -36,7 +36,6 @@ import { DatePicker } from "@/shared/components/ui/date-picker"
 import type { Customer } from "@/features/clients/types"
 import type { Member } from "@/features/organizations/types"
 import type { Material } from "@/features/stock/types"
-import { MaterialForm } from "@/features/stock/components/material-form"
 import type { MaterialFormValues } from "@/features/stock/schemas/stock.schemas"
 import { serviceSchema, type ServiceFormValues } from "../schemas/services.schemas"
 import {

@@ -292,7 +292,7 @@ export function MaterialList({
       <div className="rounded-xl border border-dashed border-white/[0.08] py-16 text-center">
         <p className="text-sm text-white/30">Nenhum material cadastrado ainda.</p>
         <p className="mt-1 text-xs text-white/20">
-          Clique em "Novo material" para adicionar.
+          Clique em &quot;Novo material&quot; para adicionar.
         </p>
       </div>
     )

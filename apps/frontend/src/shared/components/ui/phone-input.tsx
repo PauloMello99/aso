@@ -93,7 +93,6 @@ export function PhoneInput({
     } catch {
       /* ignore */
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value])
 
   function emit(rawNational: string, forCountry: CountryCode) {

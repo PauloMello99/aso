@@ -5,7 +5,6 @@ import Link from "next/link"
 import { useRouter } from "next/router"
 import { ArrowLeft, User, KeyRound, Palette, Trash2 } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
-import { Button } from "@/shared/components/ui/button"
 import {
   AccessSection,
   AppearanceSection,

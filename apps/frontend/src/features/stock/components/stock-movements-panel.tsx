@@ -72,7 +72,9 @@ function MovementRow({ m }: { m: StockMovement }) {
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
           <span className="text-xs text-white/30">{dateStr}</span>
           {m.note && (
-            <span className="text-xs italic text-white/40">"{m.note}"</span>
+            <span className="text-xs italic text-white/40">
+              &quot;{m.note}&quot;
+            </span>
           )}
         </div>
       </div>

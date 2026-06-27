@@ -11,7 +11,6 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns"
-import { ptBR } from "date-fns/locale"
 import { cn } from "@/shared/lib/utils"
 import type { CalendarEvent } from "../types"
 

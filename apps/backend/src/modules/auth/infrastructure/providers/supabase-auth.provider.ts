@@ -1,6 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import {
+  createClient,
+  type Session,
+  SupabaseClient,
+  type User,
+} from "@supabase/supabase-js";
 import {
   AuthSession,
   AuthUser,
@@ -124,14 +129,14 @@ export class SupabaseAuthProvider implements IAuthProvider {
     };
   }
 
-  private mapSession(session: any, user: any): AuthSession {
+  private mapSession(session: Session, user: User): AuthSession {
     return {
       accessToken: session.access_token,
       refreshToken: session.refresh_token,
-      expiresAt: session.expires_at,
+      expiresAt: session.expires_at ?? 0,
       user: {
         id: user.id,
-        email: user.email,
+        email: user.email ?? "",
         emailVerified: !!user.email_confirmed_at,
       },
     };

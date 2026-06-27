@@ -1,5 +1,5 @@
 ﻿import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, desc, eq, ilike, isNotNull, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, eq, ilike, isNotNull, isNull, lte, sql } from "drizzle-orm";
 import { DRIZZLE, DrizzleDB } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
 import {
