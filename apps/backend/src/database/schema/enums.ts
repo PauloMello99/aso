@@ -59,6 +59,12 @@ export const calendarEventStatusEnum = pgEnum("calendar_event_status", [
   "canceled",
 ]);
 
+export const calendarProviderEnum = pgEnum("calendar_provider", [
+  "google",
+  "outlook",
+  "apple",
+]);
+
 export const notificationTypeEnum = pgEnum("notification_type", [
   "agenda_reminder",
   "member_unavailability",

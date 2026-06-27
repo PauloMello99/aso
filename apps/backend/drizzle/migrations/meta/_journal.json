@@ -148,6 +148,13 @@
       "when": 1782001000000,
       "tag": "0020_org_suspended_at",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1782001100000,
+      "tag": "0021_calendar_connections",
+      "breakpoints": true
     }
   ]
 }

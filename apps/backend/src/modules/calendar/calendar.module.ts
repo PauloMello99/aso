@@ -6,19 +6,24 @@ import { CreateCalendarEventUseCase } from "./application/use-cases/create-calen
 import { UpdateCalendarEventUseCase } from "./application/use-cases/update-calendar-event.use-case";
 import { DeleteCalendarEventUseCase } from "./application/use-cases/delete-calendar-event.use-case";
 import { SendAgendaRemindersUseCase } from "./application/use-cases/send-agenda-reminders.use-case";
+import { GetCalendarConnectionUseCase } from "./application/use-cases/get-calendar-connection.use-case";
+import { DisconnectCalendarUseCase } from "./application/use-cases/disconnect-calendar.use-case";
 import { CalendarInfrastructureModule } from "./infrastructure/calendar-infrastructure.module";
 import { CalendarController } from "./interface/calendar.controller";
+import { CalendarConnectionController } from "./interface/calendar-connection.controller";
 import { CronController } from "./interface/cron.controller";
 
 @Module({
   imports: [CalendarInfrastructureModule, AuthModule, NotificationsModule],
-  controllers: [CalendarController, CronController],
+  controllers: [CalendarController, CalendarConnectionController, CronController],
   providers: [
     ListCalendarEventsUseCase,
     CreateCalendarEventUseCase,
     UpdateCalendarEventUseCase,
     DeleteCalendarEventUseCase,
     SendAgendaRemindersUseCase,
+    GetCalendarConnectionUseCase,
+    DisconnectCalendarUseCase,
   ],
   exports: [CalendarInfrastructureModule],
 })
