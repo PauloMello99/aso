@@ -17,6 +17,8 @@ export const organizations = pgTable("organizations", {
   logoUrl: text("logo_url"),
   // Intervalo (em dias) para lembrar o admin de conferir o estoque. Null = sem lembrete.
   stockCheckIntervalDays: integer("stock_check_interval_days"),
+  // Suspensão pelo super_admin (PLAT-1): NULL = ativa; preenchido = acesso bloqueado.
+  suspendedAt: timestamp("suspended_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

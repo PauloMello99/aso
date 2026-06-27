@@ -81,6 +81,14 @@ export const queryKeys = {
     fees: (orgId: string) => ["cashier", orgId, "fees"] as const,
   },
 
+  // ─── Admin (plataforma / super_admin) ──────────────────────────────────────
+  admin: {
+    all: ["admin"] as const,
+    stats: () => ["admin", "stats"] as const,
+    orgs: () => ["admin", "orgs"] as const,
+    users: () => ["admin", "users"] as const,
+  },
+
   // ─── Services (Atendimentos) ───────────────────────────────────────────────
   services: {
     /** Matches every service key for an org (list + types + detail) */

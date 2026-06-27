@@ -1,8 +1,9 @@
 "use client"
 
 import { useRouter } from "next/router"
-import { Settings, LogOut, ChevronDown } from "lucide-react"
+import { Settings, LogOut, ChevronDown, ShieldCheck } from "lucide-react"
 import { useAuth } from "@/features/auth/hooks/use-auth"
+import { useMe } from "@/features/auth/hooks/use-me"
 import { Button } from "@/shared/components/ui/button"
 import {
   DropdownMenu,
@@ -15,7 +16,9 @@ import {
 
 export function UserMenu() {
   const { user, signOut } = useAuth()
+  const { me } = useMe()
   const router = useRouter()
+  const isSuperAdmin = me?.platformRole === "super_admin"
 
   const handleSignOut = async () => {
     await signOut()
@@ -47,6 +50,12 @@ export function UserMenu() {
           <Settings className="h-4 w-4" />
           Minha Conta
         </DropdownMenuItem>
+        {isSuperAdmin && (
+          <DropdownMenuItem onClick={() => void router.push("/admin")}>
+            <ShieldCheck className="h-4 w-4" />
+            Painel da plataforma
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut}>
           <LogOut className="h-4 w-4" />

@@ -141,6 +141,13 @@
       "when": 1782000900000,
       "tag": "0019_transactions_insert_creator_check",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1782001000000,
+      "tag": "0020_org_suspended_at",
+      "breakpoints": true
     }
   ]
 }

@@ -9,6 +9,7 @@ import { SupabaseStorageProvider } from "./infrastructure/providers/supabase-sto
 import { AuthGuard } from "./guards/auth.guard";
 import { OrgMembershipGuard } from "./guards/org-membership.guard";
 import { OrgOwnerGuard } from "./guards/org-owner.guard";
+import { PlatformAdminGuard } from "./guards/platform-admin.guard";
 import { ForgotPasswordUseCase } from "./use-cases/forgot-password.use-case";
 import { RefreshTokenUseCase } from "./use-cases/refresh-token.use-case";
 import { ResetPasswordUseCase } from "./use-cases/reset-password.use-case";
@@ -28,6 +29,7 @@ import { DeleteAccountUseCase } from "./use-cases/delete-account.use-case";
     AuthGuard,
     OrgMembershipGuard,
     OrgOwnerGuard,
+    PlatformAdminGuard,
     SignUpUseCase,
     SignInUseCase,
     SignOutUseCase,
@@ -44,6 +46,7 @@ import { DeleteAccountUseCase } from "./use-cases/delete-account.use-case";
     AuthGuard,
     OrgMembershipGuard,
     OrgOwnerGuard,
+    PlatformAdminGuard,
   ],
 })
 export class AuthModule {}

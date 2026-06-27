@@ -14,6 +14,7 @@ import { NotificationsModule } from "./modules/notifications/notifications.modul
 import { CashierModule } from "./modules/cashier/cashier.module";
 import { ServicesModule } from "./modules/services/services.module";
 import { OverviewModule } from "./modules/overview/overview.module";
+import { AdminModule } from "./modules/admin/admin.module";
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { OverviewModule } from "./modules/overview/overview.module";
     CashierModule,
     ServicesModule,
     OverviewModule,
+    AdminModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: RlsInterceptor },

@@ -43,11 +43,19 @@ export class OrgMembershipGuard implements CanActivate {
     }
 
     const [membership] = await this.db
-      .select({ id: schema.orgMemberships.id })
+      .select({
+        id: schema.orgMemberships.id,
+        platformRole: schema.users.platformRole,
+        suspendedAt: schema.organizations.suspendedAt,
+      })
       .from(schema.orgMemberships)
       .innerJoin(
         schema.users,
         eq(schema.users.id, schema.orgMemberships.userId),
+      )
+      .innerJoin(
+        schema.organizations,
+        eq(schema.organizations.id, schema.orgMemberships.orgId),
       )
       .where(
         and(
@@ -63,6 +71,14 @@ export class OrgMembershipGuard implements CanActivate {
       throw new ForbiddenException(
         "You do not have access to this organization",
       );
+    }
+
+    // Org suspensa pelo super_admin (PLAT-1): bloqueia todos menos super_admin.
+    if (
+      membership.suspendedAt !== null &&
+      membership.platformRole !== "super_admin"
+    ) {
+      throw new ForbiddenException("This organization is suspended");
     }
 
     return true;
