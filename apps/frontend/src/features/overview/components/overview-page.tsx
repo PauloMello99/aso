@@ -78,7 +78,7 @@ function SectionCard({
   return (
     <div
       className={cn(
-        "flex flex-col rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-5",
+        "flex min-h-[13rem] flex-col rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-5",
         className,
       )}
     >
@@ -157,7 +157,6 @@ function RecentServicesSection({
       title="Serviços recentes"
       icon={Package}
       href={`${basePath}/services`}
-      className="lg:col-span-2"
     >
       {loading ? (
         <Loading />
@@ -233,7 +232,6 @@ function RecentTransactionsSection({
       title="Transações recentes"
       icon={Wallet}
       href={`${basePath}/cashier`}
-      className="lg:col-span-2"
     >
       {loading ? (
         <Loading />
@@ -524,18 +522,18 @@ export function OverviewPage() {
         </p>
       </div>
 
-      {/* Faixa 1 · Operações */}
+      {/* Faixa 1 · Operações — grid uniforme (sm:2 / xl:3), linhas alinhadas */}
       <section className="space-y-3">
         <BandLabel>Operações</BandLabel>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <RecentServicesSection
-            services={data?.recentServices ?? []}
+            services={(data?.recentServices ?? []).slice(0, 5)}
             loading={loading}
             basePath={basePath}
             showProfessional={isOwner}
           />
           <UpcomingEventsSection
-            events={data?.upcomingEvents ?? []}
+            events={(data?.upcomingEvents ?? []).slice(0, 5)}
             loading={loading}
             basePath={basePath}
           />
@@ -546,7 +544,7 @@ export function OverviewPage() {
           />
           {isOwner && (
             <RecentTransactionsSection
-              transactions={data?.recentTransactions ?? []}
+              transactions={(data?.recentTransactions ?? []).slice(0, 5)}
               categories={data?.transactionCategories ?? []}
               loading={loading}
               basePath={basePath}
@@ -554,7 +552,7 @@ export function OverviewPage() {
           )}
           {isOwner && (
             <RecentCustomersSection
-              customers={data?.recentCustomers ?? []}
+              customers={(data?.recentCustomers ?? []).slice(0, 5)}
               loading={loading}
               basePath={basePath}
             />
