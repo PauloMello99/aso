@@ -28,7 +28,9 @@ metadata:
 | Conta (rota única com sections + voltar) | ✅ |
 | Settings (general/cashier-fees/stock) | ✅ |
 | Notificações (in-app + e-mail; lembrete agenda) | ✅ núcleo |
-| Settings/Agenda externa, Tema, Billing/Stripe, Excluir conta | ⏳ placeholder/parcial |
+| Permissões por módulo (owner configura on/off) | ✅ |
+| Excluir conta (bloqueio se owner) / Transferir org | ✅ |
+| Settings/Agenda externa, Tema, Billing/Stripe | ⏳ placeholder/parcial |
 
 Visibilidade por funcionário ("só vê o que é dele; owner vê tudo + lança em nome de"):
 **Serviços ✅, Agenda ✅, Caixa ✅** (teste de 3 contas em
@@ -38,25 +40,28 @@ Visibilidade por funcionário ("só vê o que é dele; owner vê tudo + lança e
 
 ## EPIC 1 — Modelo de funcionário & convites
 
-- **PERM-1 — Permissões granulares por funcionário** · _Planejar_
-  Hoje é tudo-ou-nada por papel (`owner`/`employee`). Evoluir para matriz de permissões por
-  feature, configurável pelo owner. Desbloqueia o restante do modelo de funcionário.
-  Impacto: guards/`roles` no back, `isOwnerOnlyPath`/nav no front.
-- **INV-1 — Recusar convite = apagar o convite** · _Planejar (pequeno)_
+- **PERM-1 — Permissões granulares por funcionário** · _✅ done (2026-06-26)_
+  Acesso **por módulo (on/off)** em `org_memberships.permissions text[]`. Back:
+  `OrgModuleGuard` + `@RequireModule(...)` + `member-permissions.ts`; default restrito
+  (`services`,`schedule`) no aceite. Front: `canAccessModule` filtra nav + dialog de
+  permissões (Switch) para o owner. Funcionário com acesso vê só os próprios dados.
+- **INV-1 — Recusar convite = apagar o convite** · _✅ done (2026-06-26)_
   Decline simplesmente **remove** a `org_invitation` (não cria status novo), permitindo
   **regenerar o fluxo** depois. Endpoint `DELETE`/`decline` por token (autenticado) + botão
   "Recusar" na tela de aceite → redireciona p/ `/dashboard/organizations`.
 
 ## EPIC 2 — Conta & Organização
 
-- **ORG-1 — Transferir/Excluir organização** · _Planejar_
-  Pré-requisito de ACC-1: o usuário não pode ter org em seu nome para excluir a conta.
-  Permitir **transferir a propriedade** da org a outro membro **ou apagá-la**.
-- **ACC-1 — Excluir conta** · _Planejar (depende de ORG-1)_
-  Habilitar o botão (hoje desabilitado). Exige que o usuário não seja owner de nenhuma org.
-- **TX-1 — Atribuição na correção de transação** · _Planejar_
-  A errata hoje atribui o lançamento corrigido ao owner; preservar o `created_by` original
-  (buscar do lançamento estornado) para manter a autoria real.
+- **ORG-1 — Transferir/Excluir organização** · _✅ done (2026-06-26)_
+  Transferência atômica (tx): novo membro vira owner, antigo vira funcionário com acesso
+  total. `POST /orgs/:id/transfer-ownership` (owner-only) + `TransferOrgDialog`. Delete já
+  existia.
+- **ACC-1 — Excluir conta** · _✅ done (2026-06-26)_
+  `DELETE /auth/me`: bloqueia se ainda owner de alguma org (`OwnsOrganizationException`),
+  remove memberships + `users` + identidade Supabase. Dialog de confirmação por e-mail.
+- **TX-1 — Atribuição na correção de transação** · _✅ done (2026-06-26)_
+  Errata preserva o `created_by` original via `trustedCreatedBy` (bypass de revalidação de
+  membro), buscando do lançamento estornado.
 
 ## EPIC 3 — Temas & Acessibilidade
 
@@ -76,44 +81,52 @@ Visibilidade por funcionário ("só vê o que é dele; owner vê tudo + lança e
 
 ## EPIC 5 — Segurança & Dados
 
-- **SEC-1 — Auditar RLS vs. acesso da Caixa** · _Planejar_
-  Garantir que as policies do Postgres acompanham a abertura da Caixa ao funcionário
-  (defesa em profundidade, não só no use-case). Revisar `transactions`/`org_memberships`.
-- **SEC-2 — Migração de `transactions.created_by`** · _Planejar_
-  Linhas antigas guardam `auth_id`; padronizar para `users.id` (app) via backfill, evitando
-  inconsistência latente (hoje inofensiva porque owners não são escopados).
+- **SEC-1 — Auditar RLS vs. acesso da Caixa** · _✅ done (2026-06-26)_
+  Auditoria: SELECT/INSERT = membro (necessário p/ saldo corrente); UPDATE/DELETE =
+  super_admin (append-only no DB); `org_payment_fees` SELECT = membro (taxa aplica p/
+  funcionário). Hardening (migration 0019): `transactions_insert` exige autoria
+  (funcionário só em nome próprio; owner em nome de qualquer). Visibilidade por funcionário
+  segue no use-case (RLS lê org-wide p/ saldo).
+- **SEC-2 — Migração de `transactions.created_by`** · _✅ done (2026-06-26)_
+  Migration 0018 fez backfill `auth_id`→`users.id` em transactions, customers,
+  stock_movements, services (guard `NOT EXISTS`). Verificado 0 legados / 0 órfãos.
 - **SEC-3 — Desacoplar do Supabase (auth + banco)** · _Planejar (estratégico)_
   Preocupação do time: reduzir acoplamento ao Supabase para uma **possível migração de banco
   futura**. Abstrair o provider de auth atrás de `IAuthProvider` (já existe parcialmente) e
   garantir que persistência não dependa de features específicas do Supabase. Inclui tornar o
   **sign-up atômico** (auth user + `public.users` numa saga/transação com rollback — hoje
   pode deixar auth user órfão). Mapear todos os pontos de acoplamento.
-- **SEC-4 — Rate-limiting** · _Planejar_
-  Limitar endpoints públicos (lookup de convite, sign-in, sign-up) contra brute force/abuso.
+- **SEC-4 — Rate-limiting** · _✅ done (2026-06-26)_
+  `@nestjs/throttler` global (120/min por IP via `APP_GUARD`); auth com tetos apertados:
+  sign-in/sign-up 10/min, forgot/reset-password 5/min. Verificado 429 na 11ª tentativa.
 
 ## EPIC 6 — Performance & UX
 
-- **PERF-1 — Notificações sem polling** · _Planejar_
-  Trocar o polling (30s, agressivo no preview) por SSE/WebSocket, ou ajustar cadência.
-- **PERF-2 — Endpoint agregado de Overview** · _Planejar_
-  Hoje o Overview faz N requests no cliente e fatia no front. Criar `GET /orgs/:id/overview`
-  agregado, com limites e scoping no servidor — menos round-trips, scoping num lugar só.
+- **PERF-1 — Notificações sem polling** · _✅ done (2026-06-26)_
+  Cadência ajustada (30s→60s) + `refetchIntervalInBackground:false` (pausa com aba oculta)
+  + `staleTime` 30s; mantém refetch on focus. (SSE/WebSocket fica para futuro se preciso.)
+- **PERF-2 — Endpoint agregado de Overview** · _✅ done (2026-06-26)_
+  `GET /orgs/:id/overview` (módulo `overview`) reusa os list use-cases (preserva scoping por
+  funcionário; seções owner-only vazias p/ funcionário), ordena+fatia no servidor. Front:
+  `useOverview` (1 request) substitui ~6 hooks. Verificado: página renderiza de 1 request.
 - **PERF-3 — Dashboard analítico (quanto mais info, melhor)** · _Planejar_
   Cards de KPI (receita, ticket médio, ocupação, etc.) + séries temporais reaproveitando
   `balance/history`; inspirado no bloco dashboard14. Trazer o máximo de informação útil.
-- **UX-1 — Auditoria mobile-first** · _Planejar_
-  Validar telas novas (Overview, Conta) em viewport estreito — regra obrigatória do projeto.
+- **UX-1 — Auditoria mobile-first** · _✅ done (2026-06-26)_
+  Overview, Conta e os dialogs novos (transferir org, excluir conta) validados em 375px:
+  coluna única, hamburger, botões full-width, sem overflow. Sem correções necessárias.
 
 ## EPIC 7 — DX & Infra
 
-- **DX-1 — Estabilidade Turbopack/HMR** · _Planejar_
-  Erros stale recorrentes (`service-form.tsx`). Script "reset dev" (`rm .next` + restart)
-  e/ou avaliar `next dev` sem Turbopack.
-- **DX-2 — Snapshots de migration** · _Planejar_
-  Migrations custom (0003+, 0016) sem snapshot Drizzle; documentar/regenerar p/
-  `drizzle-kit generate` não divergir.
-- **DX-3 — CI** · _Planejar_
-  Pipeline em PR: `check-types` + `lint` + suíte de testes (quando TEST-2 existir).
+- **DX-1 — Estabilidade Turbopack/HMR** · _✅ done parcial (2026-06-26)_
+  Script `dev:reset` (rm `.next` + `next dev`, cross-platform) no frontend. Avaliar `next
+  dev` sem Turbopack fica para futuro se o stale persistir.
+- **DX-2 — Snapshots de migration** · _✅ done (2026-06-26)_
+  `apps/backend/drizzle/migrations/README.md` documenta o migrator custom e por que **não**
+  rodar `drizzle-kit generate` (migrations 0003+ sem snapshot) + como adicionar migration.
+- **DX-3 — CI** · _✅ done (2026-06-26)_
+  `.github/workflows/ci.yml` roda `check-types` + `lint` em PR/push (Node 24, pnpm). Débito
+  de lint pré-existente zerado (lint e check-types 4/4 verdes). `pnpm test` quando TEST-2.
 
 ## EPIC 8 — Produto / Relatórios
 
