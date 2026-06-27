@@ -13,6 +13,7 @@ import { CalendarModule } from "./modules/calendar/calendar.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { CashierModule } from "./modules/cashier/cashier.module";
 import { ServicesModule } from "./modules/services/services.module";
+import { OverviewModule } from "./modules/overview/overview.module";
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { ServicesModule } from "./modules/services/services.module";
     NotificationsModule,
     CashierModule,
     ServicesModule,
+    OverviewModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: RlsInterceptor },

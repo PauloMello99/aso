@@ -26,6 +26,12 @@ export const queryKeys = {
     detail: (orgId: string) => ["orgs", "detail", orgId] as const,
   },
 
+  // ─── Overview (agregado) ───────────────────────────────────────────────────
+  overview: {
+    /** Resumo agregado da org (PERF-2) */
+    detail: (orgId: string) => ["overview", orgId] as const,
+  },
+
   // ─── Members & Invitations ─────────────────────────────────────────────────
   members: {
     /** Matches all member-related keys for an org */

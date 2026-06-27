@@ -16,23 +16,24 @@ import {
 import { cn } from "@/shared/lib/utils"
 import { Badge } from "@/shared/components/ui/badge"
 import { useCurrentOrg } from "@/features/dashboard"
-import { useServices } from "@/features/services/hooks/use-services"
-import { useTransactions } from "@/features/cashier/hooks/use-transactions"
-import { useTransactionCategories } from "@/features/cashier/hooks/use-transaction-categories"
-import { useMaterials } from "@/features/stock/hooks/use-materials"
-import { useCalendarEvents } from "@/features/agenda/hooks/use-calendar-events"
-import { useCustomers } from "@/features/clients/hooks/use-customers"
+import { useOverview } from "../hooks/use-overview"
 import { formatBRL } from "@/features/cashier/lib/money"
 import {
   serviceStatus,
   SERVICE_STATUS_LABELS,
+  type Service,
   type ServiceStatus,
 } from "@/features/services/types"
-import { TRANSACTION_TYPE_LABELS } from "@/features/cashier/types"
+import {
+  TRANSACTION_TYPE_LABELS,
+  type TransactionView,
+  type TransactionCategory,
+} from "@/features/cashier/types"
+import type { CalendarEvent } from "@/features/agenda/types"
+import type { Material } from "@/features/stock/types"
+import type { Customer } from "@/features/clients/types"
 
 /* ── helpers ─────────────────────────────────────────────────────── */
-
-const DAY_MS = 24 * 60 * 60 * 1000
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR", {
@@ -94,9 +95,7 @@ function SectionCard({
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="py-8 text-center text-sm text-white/30">{children}</p>
-  )
+  return <p className="py-8 text-center text-sm text-white/30">{children}</p>
 }
 
 function Loading() {
@@ -114,23 +113,16 @@ function Rows({ children }: { children: React.ReactNode }) {
 /* ── Serviços recentes ───────────────────────────────────────────── */
 
 function RecentServicesSection({
-  orgId,
+  services,
+  loading,
   basePath,
   showProfessional,
 }: {
-  orgId: string
+  services: Service[]
+  loading: boolean
   basePath: string
   showProfessional: boolean
 }) {
-  const { services, loading } = useServices(orgId)
-  const recent = React.useMemo(
-    () =>
-      [...services]
-        .sort((a, b) => +new Date(b.performedAt) - +new Date(a.performedAt))
-        .slice(0, 10),
-    [services],
-  )
-
   return (
     <SectionCard
       title="Serviços recentes"
@@ -140,11 +132,11 @@ function RecentServicesSection({
     >
       {loading ? (
         <Loading />
-      ) : recent.length === 0 ? (
+      ) : services.length === 0 ? (
         <Empty>Nenhum serviço realizado ainda.</Empty>
       ) : (
         <Rows>
-          {recent.map((s) => {
+          {services.map((s) => {
             const status = serviceStatus(s)
             return (
               <li
@@ -155,10 +147,7 @@ function RecentServicesSection({
                   <p className="truncate text-white">
                     {s.typeName ?? "Serviço"}
                     {s.customerName ? (
-                      <span className="text-white/40">
-                        {" "}
-                        · {s.customerName}
-                      </span>
+                      <span className="text-white/40"> · {s.customerName}</span>
                     ) : null}
                   </p>
                   <p className="mt-0.5 truncate text-xs text-white/40">
@@ -191,29 +180,20 @@ function RecentServicesSection({
 /* ── Transações recentes (owner) ─────────────────────────────────── */
 
 function RecentTransactionsSection({
-  orgId,
+  transactions,
+  categories,
+  loading,
   basePath,
 }: {
-  orgId: string
+  transactions: TransactionView[]
+  categories: TransactionCategory[]
+  loading: boolean
   basePath: string
 }) {
-  const { transactions, loading } = useTransactions(orgId)
-  const { categories } = useTransactionCategories(orgId)
   const categoryName = React.useMemo(() => {
     const map = new Map(categories.map((c) => [c.id, c.name]))
     return (id: string | null) => (id ? (map.get(id) ?? null) : null)
   }, [categories])
-
-  const recent = React.useMemo(
-    () =>
-      [...transactions]
-        .sort(
-          (a, b) =>
-            +new Date(b.entity.transactedAt) - +new Date(a.entity.transactedAt),
-        )
-        .slice(0, 10),
-    [transactions],
-  )
 
   return (
     <SectionCard
@@ -224,11 +204,11 @@ function RecentTransactionsSection({
     >
       {loading ? (
         <Loading />
-      ) : recent.length === 0 ? (
+      ) : transactions.length === 0 ? (
         <Empty>Nenhuma transação registrada ainda.</Empty>
       ) : (
         <Rows>
-          {recent.map(({ entity: t }) => {
+          {transactions.map(({ entity: t }) => {
             const isIncome = t.type === "income"
             const cat = categoryName(t.categoryId)
             return (
@@ -278,24 +258,23 @@ function RecentTransactionsSection({
 /* ── Estoque baixo ───────────────────────────────────────────────── */
 
 function LowStockSection({
-  orgId,
+  materials,
+  loading,
   basePath,
 }: {
-  orgId: string
+  materials: Material[]
+  loading: boolean
   basePath: string
 }) {
-  const { materials, loading } = useMaterials(orgId, { lowStockOnly: true })
-  const items = React.useMemo(() => materials.slice(0, 20), [materials])
-
   return (
     <SectionCard title="Estoque baixo" icon={Archive} href={`${basePath}/stock`}>
       {loading ? (
         <Loading />
-      ) : items.length === 0 ? (
+      ) : materials.length === 0 ? (
         <Empty>Nenhum material com estoque baixo. 🎉</Empty>
       ) : (
         <Rows>
-          {items.map((m) => (
+          {materials.map((m) => (
             <li key={m.id} className="flex items-center gap-3 py-2.5 text-sm">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-white">{m.name}</p>
@@ -320,31 +299,14 @@ function LowStockSection({
 /* ── Próximos eventos de agenda ──────────────────────────────────── */
 
 function UpcomingEventsSection({
-  orgId,
+  events,
+  loading,
   basePath,
 }: {
-  orgId: string
+  events: CalendarEvent[]
+  loading: boolean
   basePath: string
 }) {
-  // Janela estável (calculada uma vez) para não recriar a query a cada render.
-  const range = React.useMemo(() => {
-    const now = new Date()
-    return { start: now, end: new Date(now.getTime() + 90 * DAY_MS) }
-  }, [])
-  const { events, loading } = useCalendarEvents({
-    orgId,
-    start: range.start,
-    end: range.end,
-  })
-
-  const upcoming = React.useMemo(() => {
-    const now = Date.now()
-    return [...events]
-      .filter((e) => e.status !== "canceled" && +new Date(e.endsAt) >= now)
-      .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))
-      .slice(0, 10)
-  }, [events])
-
   return (
     <SectionCard
       title="Próximos eventos"
@@ -353,11 +315,11 @@ function UpcomingEventsSection({
     >
       {loading ? (
         <Loading />
-      ) : upcoming.length === 0 ? (
+      ) : events.length === 0 ? (
         <Empty>Nenhum evento próximo na agenda.</Empty>
       ) : (
         <Rows>
-          {upcoming.map((e) => (
+          {events.map((e) => (
             <li key={e.id} className="flex items-center gap-3 py-2.5 text-sm">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-white">{e.title}</p>
@@ -383,34 +345,23 @@ function UpcomingEventsSection({
 /* ── Clientes recentes (owner) ───────────────────────────────────── */
 
 function RecentCustomersSection({
-  orgId,
+  customers,
+  loading,
   basePath,
 }: {
-  orgId: string
+  customers: Customer[]
+  loading: boolean
   basePath: string
 }) {
-  const { customers, loading } = useCustomers(orgId)
-  const recent = React.useMemo(
-    () =>
-      [...customers]
-        .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
-        .slice(0, 10),
-    [customers],
-  )
-
   return (
-    <SectionCard
-      title="Clientes recentes"
-      icon={Users}
-      href={`${basePath}/clients`}
-    >
+    <SectionCard title="Clientes recentes" icon={Users} href={`${basePath}/clients`}>
       {loading ? (
         <Loading />
-      ) : recent.length === 0 ? (
+      ) : customers.length === 0 ? (
         <Empty>Nenhum cliente cadastrado ainda.</Empty>
       ) : (
         <Rows>
-          {recent.map((c) => (
+          {customers.map((c) => (
             <li key={c.id} className="flex items-center gap-3 py-2.5 text-sm">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500/15 text-xs font-medium text-orange-400">
                 {c.name.charAt(0).toUpperCase()}
@@ -439,6 +390,9 @@ export function OverviewPage() {
   const isOwner = org.role === "owner"
   const basePath = `/dashboard/org/${org.slug}`
 
+  // Um único request agregado (PERF-2) substitui os ~6 antigos.
+  const { data, loading } = useOverview(orgId)
+
   return (
     <div className="space-y-6">
       <div>
@@ -452,17 +406,35 @@ export function OverviewPage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <RecentServicesSection
-          orgId={orgId}
+          services={data?.recentServices ?? []}
+          loading={loading}
           basePath={basePath}
           showProfessional={isOwner}
         />
-        <UpcomingEventsSection orgId={orgId} basePath={basePath} />
-        <LowStockSection orgId={orgId} basePath={basePath} />
+        <UpcomingEventsSection
+          events={data?.upcomingEvents ?? []}
+          loading={loading}
+          basePath={basePath}
+        />
+        <LowStockSection
+          materials={data?.lowStock ?? []}
+          loading={loading}
+          basePath={basePath}
+        />
         {isOwner && (
-          <RecentTransactionsSection orgId={orgId} basePath={basePath} />
+          <RecentTransactionsSection
+            transactions={data?.recentTransactions ?? []}
+            categories={data?.transactionCategories ?? []}
+            loading={loading}
+            basePath={basePath}
+          />
         )}
         {isOwner && (
-          <RecentCustomersSection orgId={orgId} basePath={basePath} />
+          <RecentCustomersSection
+            customers={data?.recentCustomers ?? []}
+            loading={loading}
+            basePath={basePath}
+          />
         )}
       </div>
     </div>
