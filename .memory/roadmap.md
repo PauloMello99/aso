@@ -16,7 +16,7 @@ metadata:
 
 | Módulo | Estado |
 |---|---|
-| Auth/Users (sign-in/up, refresh, forgot/reset, me, avatar) | ✅ (gap: sign-up não-atômico) |
+| Auth/Users (sign-in/up, refresh, forgot/reset, me, avatar) | ✅ (sign-up atômico — SEC-3) |
 | Organizations (CRUD, membros, convite por token próprio) | ✅ |
 | Navegação multi-org/multi-papel (nav role-aware, guards) | ✅ |
 | Serviços (escopo por profissional, tipo via modal, material no form) | ✅ |
@@ -95,12 +95,13 @@ Visibilidade por funcionário ("só vê o que é dele; owner vê tudo + lança e
 - **SEC-2 — Migração de `transactions.created_by`** · _✅ done (2026-06-26)_
   Migration 0018 fez backfill `auth_id`→`users.id` em transactions, customers,
   stock_movements, services (guard `NOT EXISTS`). Verificado 0 legados / 0 órfãos.
-- **SEC-3 — Desacoplar do Supabase (auth + banco)** · _Planejar (estratégico)_
-  Preocupação do time: reduzir acoplamento ao Supabase para uma **possível migração de banco
-  futura**. Abstrair o provider de auth atrás de `IAuthProvider` (já existe parcialmente) e
-  garantir que persistência não dependa de features específicas do Supabase. Inclui tornar o
-  **sign-up atômico** (auth user + `public.users` numa saga/transação com rollback — hoje
-  pode deixar auth user órfão). Mapear todos os pontos de acoplamento.
+- **SEC-3 — Desacoplar do Supabase (auth + banco)** · _✅ done (2026-06-27)_
+  Sign-up agora é **atômico**: saga com compensação (`SignUpUseCase`) remove o auth user
+  órfão via `IAuthProvider.deleteUser` se o `public.users` falhar. Mapa completo de
+  acoplamento em `.memory/supabase-coupling.md`: auth/storage já abstraídos
+  (`IAuthProvider`/`IStorageProvider`, swappable), banco é Postgres puro, ponto profundo =
+  RLS (`auth.uid()`/schema `auth`/`request.jwt.claims`/`storage.buckets`), front sem
+  acoplamento. Refator de provider fica para quando a migração for priorizada.
 - **SEC-4 — Rate-limiting** · _✅ done (2026-06-26)_
   `@nestjs/throttler` global (120/min por IP via `APP_GUARD`); auth com tetos apertados:
   sign-in/sign-up 10/min, forgot/reset-password 5/min. Verificado 429 na 11ª tentativa.
@@ -137,17 +138,22 @@ Visibilidade por funcionário ("só vê o que é dele; owner vê tudo + lança e
 
 ## EPIC 8 — Produto / Relatórios
 
-- **RPT-1 — Filtros avançados por entidade** · _Planejar_
-  Em **cada module**, hoje só há filtros de campos simples. Melhorar a capacidade de filtrar
-  a entidade (múltiplos campos, faixas, combinações) — base para relatórios e export.
-- **RPT-2 — Export CSV no backend, com seletor de campos** · _Planejar_
-  Substituir a geração de CSV no front (com dados já no cliente) por **export no backend**
-  que traz a **lista completa respeitando os filtros aplicados**; incluir um **seletor de
-  quais campos** trazer no arquivo. Vale por module.
-- **RPT-3 — Custo real / margem** · _Planejar_
-  (a) Na section de "estoque acabando", mostrar **valor estimado para repor tudo** (usar
-  `costPerUnit` × quantidade a repor). (b) Section dedicada no dashboard com **custo e lucro**
-  por atendimento/período (estoque consumido ↔ serviço ↔ caixa).
+- **RPT-1 — Filtros avançados por entidade** · _✅ done (2026-06-27)_
+  Caixa (categoria, faixa de valor, membro), Serviços (método, faixa de valor, tipo/cliente),
+  Estoque (consumível/compartilhável, faixa de custo) e Clientes (status, origem, gênero,
+  faixa de cadastro). Componente compartilhado `FilterPopover` (contador + limpar) reusa
+  `DatePicker`/`RangeInputs`. Backend: novos campos nos `*Filter` + repos + controllers.
+- **RPT-2 — Export CSV no backend, com seletor de campos** · _✅ done (2026-06-27)_
+  Export no backend para os 4 modules, **respeitando filtros** + seletor de colunas via
+  `?fields=`. Util compartilhado `common/csv` (escape + BOM + helpers); export use-cases
+  reusam o list use-case (preservam scoping por funcionário). Front: `ExportMenu` (checkboxes
+  de colunas + Baixar CSV) + `downloadCsv`. Clientes migrado do download client-side.
+- **RPT-3 — Custo real / margem** · _✅ done (2026-06-27)_
+  (a) Seção "Estoque baixo" do Overview mostra **valor estimado p/ repor tudo**
+  (Σ (mín − estoque) × `costPerUnit`; itens sem custo ficam de fora, com nota) + custo por
+  item. (b) Seção "Custo & lucro dos serviços" (owner): receita dos serviços não cancelados −
+  custo dos materiais consumidos = lucro + margem%. Backend: `materialCostCentsByPeriod`
+  (join service_materials/services/materials) + analytics estendido.
 
 ## EPIC 9 — Backlog (sem prioridade agora)
 
