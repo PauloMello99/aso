@@ -32,7 +32,9 @@ metadata:
 | Excluir conta (bloqueio se owner) / Transferir org | ✅ |
 | Tema claro/escuro/sistema (next-themes + tokens) | ✅ |
 | Overview analítico do dono (KPIs + gráfico) | ✅ |
-| Settings/Agenda externa, Billing/Stripe | ⏳ placeholder/parcial |
+| Painel super_admin (`/admin`, orgs/users/suspensão) | ✅ (PLAT-1; sem billing) |
+| Calendários externos (settings/agenda) | ✅ fundação (BL-1; sem OAuth, atrás de flag) |
+| Billing/Stripe | ⏳ placeholder/parcial |
 
 Visibilidade por funcionário ("só vê o que é dele; owner vê tudo + lança em nome de"):
 **Serviços ✅, Agenda ✅, Caixa ✅** (teste de 3 contas em
@@ -157,8 +159,13 @@ Visibilidade por funcionário ("só vê o que é dele; owner vê tudo + lança e
 
 ## EPIC 9 — Backlog (sem prioridade agora)
 
-- **BL-1 — Settings/Agenda real (calendários externos)** · _Backlog_
-  Conectar Google/Outlook/Apple por usuário; hoje placeholder.
+- **BL-1 — Settings/Agenda real (calendários externos)** · _✅ done parcial — fundação (2026-06-27)_
+  Fundação **sem OAuth vivo** (integração real é V2, exige credenciais/webhooks). Conexão
+  **por organização** (decisão do time nesta rodada — diverge da doc, que sugeria por
+  usuário). Migration 0021 (`calendar_connections` + enum `calendar_provider`, RLS por org);
+  porta `IExternalCalendarProvider` (seam, sem impl); use-cases get/disconnect + controller
+  `/orgs/:id/calendar-connection`; settings/agenda lê estado + flag `EXTERNAL_CALENDARS_ENABLED`
+  (default off → "Em breve"). Ligar o OAuth real depois é drop-in atrás da flag.
 - **BL-2 — Billing/Assinatura (Stripe)** · _Backlog_
   ⚠️ **Atenção**: o time sinalizou "ainda não sabemos o que é o produto", mas o doc de
   Premissas no Notion **já define o modelo** (assinatura **por org** via Stripe — ver EPIC 10
@@ -173,9 +180,13 @@ Visibilidade por funcionário ("só vê o que é dele; owner vê tudo + lança e
 > Não foram citadas explicitamente nesta rodada, mas são "o que falta" segundo a
 > documentação oficial — **levar para alinhamento com stakeholders**.
 
-- **PLAT-1 — `platform_role` / Painel super_admin** · _Planejar (alinhar)_
-  Doc prevê `super_admin` (gerencia assinaturas, financeiro da plataforma, todas as
-  orgs/users/acessos). Não há painel super_admin implementado. Confirmar prioridade.
+- **PLAT-1 — `platform_role` / Painel super_admin** · _✅ done (2026-06-27)_
+  Painel `/admin` (fora do contexto de org), restrito ao `super_admin` via
+  `PlatformAdminGuard`: KPIs globais, lista de orgs (suspender/reativar) e de usuários
+  (promover/rebaixar `platform_role`, bloqueia auto-rebaixamento). Suspensão de org
+  (`organizations.suspended_at`, migration 0020) bloqueia membros no `OrgMembershipGuard`
+  (super_admin segue). Bootstrap do 1º super_admin via DB/seed. **Financeiro/billing fica de
+  fora** (depende de PLAT-2). Link "Painel da plataforma" no menu do super_admin.
 - **PLAT-2 — Billing/Assinatura + gate de acesso** · _Planejar (alinhar)_
   Modelo definido no doc: assinatura **por org** via Stripe (Gratuito/Trial/Mensal R$400/
   Semestral R$2000/Anual R$4200/Customizado); **acesso à org só após billing configurado**;
