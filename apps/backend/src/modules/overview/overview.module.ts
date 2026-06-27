@@ -12,7 +12,9 @@ import { ListTransactionCategoriesUseCase } from "../cashier/application/use-cas
 import { ListMaterialsUseCase } from "../materials/application/use-cases/list-materials.use-case";
 import { ListCalendarEventsUseCase } from "../calendar/application/use-cases/list-calendar-events.use-case";
 import { ListCustomersUseCase } from "../customers/application/use-cases/list-customers.use-case";
+import { GetBalanceHistoryUseCase } from "../cashier/application/use-cases/get-balance-history.use-case";
 import { GetOverviewUseCase } from "./application/get-overview.use-case";
+import { GetOverviewAnalyticsUseCase } from "./application/get-overview-analytics.use-case";
 import { OverviewController } from "./interface/overview.controller";
 
 /**
@@ -33,12 +35,14 @@ import { OverviewController } from "./interface/overview.controller";
   controllers: [OverviewController],
   providers: [
     GetOverviewUseCase,
+    GetOverviewAnalyticsUseCase,
     ListServicesUseCase,
     ListTransactionsUseCase,
     ListTransactionCategoriesUseCase,
     ListMaterialsUseCase,
     ListCalendarEventsUseCase,
     ListCustomersUseCase,
+    GetBalanceHistoryUseCase,
   ],
 })
 export class OverviewModule {}

@@ -17,6 +17,8 @@ import { cn } from "@/shared/lib/utils"
 import { Badge } from "@/shared/components/ui/badge"
 import { useCurrentOrg } from "@/features/dashboard"
 import { useOverview } from "../hooks/use-overview"
+import { useOverviewAnalytics } from "../hooks/use-overview-analytics"
+import { AnalyticsSection } from "./analytics-section"
 import { formatBRL } from "@/features/cashier/lib/money"
 import {
   serviceStatus,
@@ -392,6 +394,11 @@ export function OverviewPage() {
 
   // Um único request agregado (PERF-2) substitui os ~6 antigos.
   const { data, loading } = useOverview(orgId)
+  // KPIs + gráfico do mês (PERF-3), só para o dono.
+  const { data: analytics, loading: analyticsLoading } = useOverviewAnalytics(
+    orgId,
+    isOwner,
+  )
 
   return (
     <div className="space-y-6">
@@ -403,6 +410,10 @@ export function OverviewPage() {
             : "Resumo dos seus atendimentos e agenda."}
         </p>
       </div>
+
+      {isOwner && (
+        <AnalyticsSection data={analytics} loading={analyticsLoading} />
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <RecentServicesSection

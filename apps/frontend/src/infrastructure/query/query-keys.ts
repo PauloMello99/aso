@@ -30,6 +30,8 @@ export const queryKeys = {
   overview: {
     /** Resumo agregado da org (PERF-2) */
     detail: (orgId: string) => ["overview", orgId] as const,
+    /** KPIs + série temporal (PERF-3) */
+    analytics: (orgId: string) => ["overview", orgId, "analytics"] as const,
   },
 
   // ─── Members & Invitations ─────────────────────────────────────────────────
