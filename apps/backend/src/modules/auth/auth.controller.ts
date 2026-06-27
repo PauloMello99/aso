@@ -16,6 +16,7 @@ import {
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { Throttle } from "@nestjs/throttler";
 import { CurrentUser } from "./decorators/current-user.decorator";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
@@ -59,11 +60,14 @@ export class AuthController {
     private readonly deleteAccountUseCase: DeleteAccountUseCase,
   ) {}
 
+  // Endpoints de credenciais: limites apertados contra brute-force/abuso (SEC-4).
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post("sign-up")
   signUp(@Body() dto: SignUpDto) {
     return this.signUpUseCase.execute(dto.email, dto.password, dto.name);
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post("sign-in")
   signIn(@Body() dto: SignInDto) {
     return this.signInUseCase.execute(dto.email, dto.password);
@@ -81,12 +85,14 @@ export class AuthController {
     return this.refreshTokenUseCase.execute(dto.refreshToken);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post("forgot-password")
   @HttpCode(HttpStatus.NO_CONTENT)
   forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.forgotPasswordUseCase.execute(dto.email);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post("reset-password")
   @HttpCode(HttpStatus.NO_CONTENT)
   resetPassword(@Body() dto: ResetPasswordDto) {

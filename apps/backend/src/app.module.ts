@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
-import { APP_INTERCEPTOR } from "@nestjs/core";
+import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
+import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { DatabaseModule } from "./database/database.module";
 import { RlsInterceptor } from "./common/interceptors/rls.interceptor";
 import { AuthModule } from "./modules/auth/auth.module";
@@ -16,6 +17,9 @@ import { ServicesModule } from "./modules/services/services.module";
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    // Rate-limiting global (SEC-4): teto generoso por IP; endpoints sensíveis
+    // (auth) sobrescrevem com limites menores via @Throttle no controller.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     DatabaseModule,
     AuthModule,
     HealthModule,
@@ -27,6 +31,9 @@ import { ServicesModule } from "./modules/services/services.module";
     CashierModule,
     ServicesModule,
   ],
-  providers: [{ provide: APP_INTERCEPTOR, useClass: RlsInterceptor }],
+  providers: [
+    { provide: APP_INTERCEPTOR, useClass: RlsInterceptor },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule {}
