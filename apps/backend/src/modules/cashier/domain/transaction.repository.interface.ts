@@ -59,4 +59,27 @@ export interface ITransactionRepository {
     to: Date,
     createdBy?: string,
   ): Promise<DailyBalancePoint[]>;
+  /** Entradas (income) líquidas por método de pagamento no período (overview). */
+  incomeByPaymentMethod(
+    orgId: string,
+    from: Date,
+    to: Date,
+  ): Promise<PaymentMethodTotal[]>;
+  /** Entradas e saídas líquidas por dia no período (overview). */
+  incomeExpenseSeries(
+    orgId: string,
+    from: Date,
+    to: Date,
+  ): Promise<IncomeExpensePoint[]>;
+}
+
+export interface PaymentMethodTotal {
+  paymentMethod: PaymentMethod;
+  netCents: number;
+}
+
+export interface IncomeExpensePoint {
+  day: string;
+  incomeCents: number;
+  expenseCents: number;
 }

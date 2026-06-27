@@ -9,9 +9,12 @@ import {
 import {
   BalanceSnapshot,
   DailyBalancePoint,
+  IncomeExpensePoint,
   ITransactionRepository,
   ListTransactionsFilter,
+  PaymentMethodTotal,
 } from "../../domain/transaction.repository.interface";
+import { PaymentMethod } from "../../domain/transaction.entity";
 import { TransactionMapper } from "./transaction.mapper";
 
 // Buckets de saldo: dinheiro vs digital (banco/cartão). `credits` fica fora do caixa.
@@ -210,5 +213,57 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
         totalCents: cashCents + digitalCents,
       };
     });
+  }
+
+  async incomeByPaymentMethod(
+    orgId: string,
+    from: Date,
+    to: Date,
+  ): Promise<PaymentMethodTotal[]> {
+    const { rows } = await this.db.execute<{
+      payment_method: string;
+      net_cents: string;
+    }>(sql`
+      SELECT payment_method,
+        COALESCE(SUM(amount_cents), 0)::bigint AS net_cents
+      FROM transactions
+      WHERE org_id = ${orgId}
+        AND type = 'income'
+        AND transacted_at >= ${from}
+        AND transacted_at <= ${to}
+      GROUP BY payment_method
+      ORDER BY net_cents DESC
+    `);
+    return rows.map((r) => ({
+      paymentMethod: r.payment_method as PaymentMethod,
+      netCents: Number(r.net_cents),
+    }));
+  }
+
+  async incomeExpenseSeries(
+    orgId: string,
+    from: Date,
+    to: Date,
+  ): Promise<IncomeExpensePoint[]> {
+    const { rows } = await this.db.execute<{
+      day: string;
+      income_cents: string;
+      expense_cents: string;
+    }>(sql`
+      SELECT to_char(date_trunc('day', transacted_at)::date, 'YYYY-MM-DD') AS day,
+        COALESCE(SUM(CASE WHEN type = 'income' THEN amount_cents ELSE 0 END), 0)::bigint AS income_cents,
+        COALESCE(SUM(CASE WHEN type = 'outcome' THEN amount_cents ELSE 0 END), 0)::bigint AS expense_cents
+      FROM transactions
+      WHERE org_id = ${orgId}
+        AND transacted_at >= ${from}
+        AND transacted_at <= ${to}
+      GROUP BY 1
+      ORDER BY 1
+    `);
+    return rows.map((r) => ({
+      day: r.day,
+      incomeCents: Number(r.income_cents),
+      expenseCents: Number(r.expense_cents),
+    }));
   }
 }

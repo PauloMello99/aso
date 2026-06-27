@@ -270,6 +270,64 @@ export class DrizzleServiceRepository implements IServiceRepository {
     return Number(rows[0]?.cost_cents ?? 0);
   }
 
+  async countAndRevenueByType(
+    orgId: string,
+    from: Date,
+    to: Date,
+  ): Promise<{ name: string; count: number; revenueCents: number }[]> {
+    const { rows } = await this.db.execute<{
+      name: string;
+      cnt: number;
+      revenue_cents: string;
+    }>(sql`
+      SELECT COALESCE(st.name, 'Sem tipo') AS name,
+        COUNT(*)::int AS cnt,
+        COALESCE(SUM(s.amount_cents), 0)::bigint AS revenue_cents
+      FROM services s
+      LEFT JOIN service_types st ON st.id = s.service_type_id
+      WHERE s.org_id = ${orgId}
+        AND s.canceled_at IS NULL
+        AND s.performed_at >= ${from}
+        AND s.performed_at <= ${to}
+      GROUP BY COALESCE(st.name, 'Sem tipo')
+      ORDER BY revenue_cents DESC
+    `);
+    return rows.map((r) => ({
+      name: r.name,
+      count: Number(r.cnt),
+      revenueCents: Number(r.revenue_cents),
+    }));
+  }
+
+  async countAndRevenueByProfessional(
+    orgId: string,
+    from: Date,
+    to: Date,
+  ): Promise<{ name: string; count: number; revenueCents: number }[]> {
+    const { rows } = await this.db.execute<{
+      name: string;
+      cnt: number;
+      revenue_cents: string;
+    }>(sql`
+      SELECT COALESCE(u.name, 'Sem profissional') AS name,
+        COUNT(*)::int AS cnt,
+        COALESCE(SUM(s.amount_cents), 0)::bigint AS revenue_cents
+      FROM services s
+      LEFT JOIN users u ON u.id = s.performed_by
+      WHERE s.org_id = ${orgId}
+        AND s.canceled_at IS NULL
+        AND s.performed_at >= ${from}
+        AND s.performed_at <= ${to}
+      GROUP BY COALESCE(u.name, 'Sem profissional')
+      ORDER BY revenue_cents DESC
+    `);
+    return rows.map((r) => ({
+      name: r.name,
+      count: Number(r.cnt),
+      revenueCents: Number(r.revenue_cents),
+    }));
+  }
+
   private async findMaterials(
     serviceId: string,
   ): Promise<ServiceMaterialEntity[]> {

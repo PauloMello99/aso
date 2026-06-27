@@ -70,4 +70,23 @@ export interface IServiceRepository {
     from: Date,
     to: Date,
   ): Promise<number>;
+  /** Serviços não cancelados agrupados por tipo no período (overview). */
+  countAndRevenueByType(
+    orgId: string,
+    from: Date,
+    to: Date,
+  ): Promise<ServiceGroupRow[]>;
+  /** Serviços não cancelados agrupados por profissional no período (overview). */
+  countAndRevenueByProfessional(
+    orgId: string,
+    from: Date,
+    to: Date,
+  ): Promise<ServiceGroupRow[]>;
+}
+
+/** Linha agregada (por tipo/profissional) para os gráficos do overview. */
+export interface ServiceGroupRow {
+  name: string;
+  count: number;
+  revenueCents: number;
 }
