@@ -4,6 +4,7 @@
 - [Architecture](architecture.md) — Estrutura de pastas, NestJS pattern, Drizzle migrations, Supabase local, Turborepo tasks
 - [Domain Rules](domain-rules.md) — Multi-tenancy, roles, billing, tipos de serviço, relação serviço↔transação, pendências V1
 - [Recent Decisions](recent-decisions.md) — Índice rápido de todos os ADRs
+- [Supabase Coupling](supabase-coupling.md) — Mapa de acoplamento ao Supabase (auth/storage/RLS) e sign-up atômico — SEC-3
 
 ## ADRs
 
