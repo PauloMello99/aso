@@ -17,12 +17,26 @@
         "postgresql://postgres:postgres@localhost:54322/postgres"
       ]
     },
+    "ink-memory": {
+      "type": "stdio",
+      "command": "wsl",
+      "args": [
+        "-e",
+        "bash",
+        "-lc",
+        "exec ~/ink-ops-rag-venv/bin/python /mnt/c/Users/Paulo/Documents/Repos/Pessoal/ink-ops/bin/scripts/rag/mcp_server.py"
+      ]
+    },
     "github": {
       "type": "http",
       "url": "https://api.githubcopilot.com/mcp",
       "headers": {
-        "Authorization": "Bearer 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"
+        "Authorization": "Bearer ${GITHUB_PAT}"
       }
+    },
+    "railway": {
+      "type": "http",
+      "url": "https://mcp.railway.com"
     }
   }
 }

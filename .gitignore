@@ -45,6 +45,9 @@ packages/*/src/*.ts.map
 
 # RAG / Memory
 docker-compose.rag.yml
-bin/scripts/rag/
 .rag/
 .memory/sessions/
+
+# Python
+**/__pycache__/
+**/.venv/

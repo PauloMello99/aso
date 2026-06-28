@@ -41,20 +41,31 @@ pnpm format        # prettier em todo o repo
 - Merging de classes Tailwind: sempre `cn()`, nunca template string
 - Novas Turborepo tasks devem ser declaradas em `turbo.json`
 
-## Memória semântica (RAG)
+## Memória semântica (RAG) — OBRIGATÓRIO
 
-O Claude pode buscar contexto automaticamente via `qdrant_find` (MCP tool) — requer Qdrant rodando:
+> **Recall primeiro (faça isto antes de ler código).** Para qualquer pergunta
+> "onde/como funciona X", chame a MCP tool `memory_search("sua pergunta")` do servidor
+> **`ink-memory`** **antes** de varrer/ler o código-fonte — ela busca semanticamente o
+> banco de memória (`.memory/`, `docs/`, READMEs dos packages, `CLAUDE.md`) e devolve os
+> trechos relevantes. Só leia o código quando os trechos recuperados forem insuficientes.
+> Use `memory_status()` para confirmar que o índice está populado.
 
+**Criação (obrigatória quando relevante).** Quando um chat estabelecer algo durável —
+uma decisão, convenção ou *gotcha* — registre-o no arquivo `.memory/` certo (ou um novo
+ADR) **antes de encerrar**. Chats triviais estão isentos; o objetivo é capturar
+conhecimento que vale recall depois, não transcrever tudo.
+
+**Indexação (automática).** O índice é re-atualizado em background no início de cada
+sessão (hook SessionStart), ao fim de cada turno (hook Stop) e imediatamente após
+qualquer escrita em `.memory/` (hook PostToolUse). Stack: Qdrant (Docker, `:6333`) +
+Ollama (`:11434`, `nomic-embed-text`). Setup inicial: `/rag-setup`.
+
+Comandos manuais (raramente necessários — os hooks cuidam disso):
 ```powershell
-docker compose -f docker-compose.rag.yml up -d
+docker compose -f docker-compose.rag.yml up -d          # subir Qdrant
+wsl ~/ink-ops-rag-venv/bin/python bin/scripts/rag/index.py --no-recreate   # reindex
 ```
-
-Para reindexar após editar `.memory/`:
-```powershell
-python bin/scripts/rag/index.py --no-recreate
-```
-
-Ou usar o slash command `/memory-index`.
+Ou os slash commands `/memory-index` e `/memory-search`.
 
 ### Estrutura de `.memory/`
 

@@ -34,13 +34,14 @@ export const services = pgTable("services", {
   ),
   performedBy: uuid("performed_by"),
   createdBy: uuid("created_by"),
-  bodyPart: text("body_part"),
   description: text("description"),
   amountCents: integer("amount_cents").notNull().default(0),
   paymentMethod: paymentMethodEnum("payment_method").notNull(),
   performedAt: timestamp("performed_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+  // Quando preenchido, o serviço foi cancelado (estado derivado, ver módulo services).
+  canceledAt: timestamp("canceled_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

@@ -9,6 +9,7 @@ import { Request } from "express";
 import {
   AUTH_PROVIDER,
   IAuthProvider,
+  type AuthUser,
 } from "../application/ports/auth-provider.interface";
 
 @Injectable()
@@ -23,7 +24,7 @@ export class AuthGuard implements CanActivate {
     if (!token) throw new UnauthorizedException("No token provided");
 
     const user = await this.authProvider.verifyToken(token);
-    (request as any).user = user;
+    (request as Request & { user: AuthUser }).user = user;
     return true;
   }
 

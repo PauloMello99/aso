@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import {
   MoreVertical,
   PackagePlus,
@@ -9,8 +8,24 @@ import {
   History,
   Trash2,
   AlertTriangle,
+  Archive,
+  ArchiveRestore,
 } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/shared/components/ui/table"
 import { cn } from "@/shared/lib/utils"
 import { isLowStock } from "../hooks/use-materials"
 import { LowStockBadge } from "./low-stock-badge"
@@ -23,6 +38,7 @@ interface MaterialListProps {
   onAdjust: (material: Material) => void
   onHistory: (material: Material) => void
   onDelete: (material: Material) => void
+  onArchive: (material: Material) => void
 }
 
 interface ActionMenuProps {
@@ -32,6 +48,7 @@ interface ActionMenuProps {
   onAdjust: () => void
   onHistory: () => void
   onDelete: () => void
+  onArchive: () => void
 }
 
 function ActionMenu({
@@ -41,59 +58,60 @@ function ActionMenu({
   onAdjust,
   onHistory,
   onDelete,
+  onArchive,
 }: ActionMenuProps) {
-  const [open, setOpen] = useState(false)
-
-  const items = [
-    { icon: PackagePlus, label: "Repor estoque", action: onRestock, color: "text-emerald-400" },
-    { icon: Pencil, label: "Editar", action: onEdit, color: "" },
-    { icon: SlidersHorizontal, label: "Ajustar estoque", action: onAdjust, color: "" },
-    { icon: History, label: "Histórico", action: onHistory, color: "" },
-    { icon: Trash2, label: "Excluir", action: onDelete, color: "text-red-400" },
-  ]
-
   return (
-    <div className="relative">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 shrink-0"
-        onClick={(e) => {
-          e.stopPropagation()
-          setOpen((v) => !v)
-        }}
-      >
-        <MoreVertical className="h-4 w-4" />
-      </Button>
-      {open && (
-        <>
-          {/* backdrop to close */}
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setOpen(false)}
-          />
-          <div className="absolute right-0 top-8 z-50 min-w-[160px] overflow-hidden rounded-lg border border-white/[0.08] bg-[#1a1a1d] py-1 shadow-xl">
-            {items.map(({ icon: Icon, label, action, color }) => (
-              <button
-                key={label}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setOpen(false)
-                  action()
-                }}
-                className={cn(
-                  "flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-colors hover:bg-white/[0.06]",
-                  color || "text-white/70 hover:text-white",
-                )}
-              >
-                <Icon className="h-3.5 w-3.5 shrink-0" />
-                {label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <MoreVertical className="h-4 w-4" />
+          <span className="sr-only">Ações</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-[170px]">
+        <DropdownMenuItem
+          className="text-emerald-400 focus:bg-emerald-500/10"
+          onClick={onRestock}
+        >
+          <PackagePlus className="h-3.5 w-3.5 shrink-0" />
+          Repor estoque
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onEdit}>
+          <Pencil className="h-3.5 w-3.5 shrink-0" />
+          Editar
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onAdjust}>
+          <SlidersHorizontal className="h-3.5 w-3.5 shrink-0" />
+          Ajustar estoque
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onHistory}>
+          <History className="h-3.5 w-3.5 shrink-0" />
+          Histórico
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onArchive}>
+          {material.archivedAt ? (
+            <>
+              <ArchiveRestore className="h-3.5 w-3.5 shrink-0" />
+              Desarquivar
+            </>
+          ) : (
+            <>
+              <Archive className="h-3.5 w-3.5 shrink-0" />
+              Arquivar
+            </>
+          )}
+        </DropdownMenuItem>
+        <DropdownMenuItem variant="destructive" onClick={onDelete}>
+          <Trash2 className="h-3.5 w-3.5 shrink-0" />
+          Excluir
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -105,6 +123,7 @@ function MaterialCard({
   onAdjust,
   onHistory,
   onDelete,
+  onArchive,
 }: {
   material: Material
 } & Omit<MaterialListProps, "materials">) {
@@ -117,21 +136,25 @@ function MaterialCard({
         "flex items-start justify-between gap-3 rounded-xl border p-4 transition-colors",
         low
           ? "border-orange-500/25 bg-orange-500/[0.04]"
-          : "border-white/[0.06] bg-white/[0.02]",
+          : "border-foreground/[0.06] bg-foreground/[0.02]",
       )}
     >
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           {low && <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-orange-400" />}
-          <span className="truncate font-medium text-white">{material.name}</span>
+          <span className="truncate font-medium text-foreground">{material.name}</span>
+          {material.shareable && (
+            <span className="inline-flex items-center rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-300">
+              Compartilhável
+            </span>
+          )}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-          <span className={cn("font-semibold tabular-nums", low ? "text-orange-400" : "text-white")}>
+          <span className={cn("font-semibold tabular-nums", low ? "text-orange-400" : "text-foreground")}>
             {qty.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-            {material.unit ? ` ${material.unit}` : ""}
           </span>
           {parseFloat(material.minimumQuantity) > 0 && (
-            <span className="text-white/30">
+            <span className="text-foreground/30">
               mín.{" "}
               {parseFloat(material.minimumQuantity).toLocaleString("pt-BR", {
                 minimumFractionDigits: 0,
@@ -163,6 +186,7 @@ function MaterialCard({
           onAdjust={() => onAdjust(material)}
           onHistory={() => onHistory(material)}
           onDelete={() => onDelete(material)}
+          onArchive={() => onArchive(material)}
         />
       </div>
     </div>
@@ -177,6 +201,7 @@ function MaterialRow({
   onAdjust,
   onHistory,
   onDelete,
+  onArchive,
 }: {
   material: Material
 } & Omit<MaterialListProps, "materials">) {
@@ -185,46 +210,47 @@ function MaterialRow({
   const minQty = parseFloat(material.minimumQuantity)
 
   return (
-    <tr
-      className={cn(
-        "border-b border-white/[0.04] transition-colors hover:bg-white/[0.02]",
-        low && "bg-orange-500/[0.03]",
-      )}
-    >
-      <td className="py-3 pl-4 pr-3">
+    <TableRow className={cn(low && "bg-orange-500/[0.03]")}>
+      <TableCell className="pl-4">
         <div className="flex items-center gap-2">
           {low && <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-orange-400" />}
-          <span className="text-sm font-medium text-white">{material.name}</span>
+          <span className="font-medium text-foreground">{material.name}</span>
         </div>
-      </td>
-      <td className="px-3 py-3 text-sm text-white/40">
-        {material.unit ?? <span className="text-white/20">—</span>}
-      </td>
-      <td className="px-3 py-3 text-right">
+      </TableCell>
+      <TableCell>
+        {material.shareable ? (
+          <span className="inline-flex items-center rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-300">
+            Compartilhável
+          </span>
+        ) : (
+          <span className="text-foreground/20">—</span>
+        )}
+      </TableCell>
+      <TableCell className="text-right">
         <span
           className={cn(
-            "text-sm font-semibold tabular-nums",
-            low ? "text-orange-400" : "text-white",
+            "font-semibold tabular-nums",
+            low ? "text-orange-400" : "text-foreground",
           )}
         >
           {qty.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
         </span>
-      </td>
-      <td className="px-3 py-3 text-right text-sm text-white/40">
+      </TableCell>
+      <TableCell className="text-right text-foreground/40">
         {minQty > 0 ? (
           minQty.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })
         ) : (
-          <span className="text-white/20">—</span>
+          <span className="text-foreground/20">—</span>
         )}
-      </td>
-      <td className="px-3 py-3 text-sm text-white/40">
+      </TableCell>
+      <TableCell className="text-foreground/40">
         {material.costPerUnit ? (
           `R$ ${parseFloat(material.costPerUnit).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         ) : (
-          <span className="text-white/20">—</span>
+          <span className="text-foreground/20">—</span>
         )}
-      </td>
-      <td className="py-3 pl-3 pr-4">
+      </TableCell>
+      <TableCell className="pr-4">
         <div className="flex items-center justify-end gap-1">
           {low && <LowStockBadge compact />}
           <Button
@@ -243,10 +269,11 @@ function MaterialRow({
             onAdjust={() => onAdjust(material)}
             onHistory={() => onHistory(material)}
             onDelete={() => onDelete(material)}
+            onArchive={() => onArchive(material)}
           />
         </div>
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   )
 }
 
@@ -258,13 +285,14 @@ export function MaterialList({
   onAdjust,
   onHistory,
   onDelete,
+  onArchive,
 }: MaterialListProps) {
   if (materials.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-white/[0.08] py-16 text-center">
-        <p className="text-sm text-white/30">Nenhum material cadastrado ainda.</p>
-        <p className="mt-1 text-xs text-white/20">
-          Clique em "Novo material" para adicionar.
+      <div className="rounded-xl border border-dashed border-foreground/[0.08] py-16 text-center">
+        <p className="text-sm text-foreground/30">Nenhum material cadastrado ainda.</p>
+        <p className="mt-1 text-xs text-foreground/20">
+          Clique em &quot;Novo material&quot; para adicionar.
         </p>
       </div>
     )
@@ -283,34 +311,25 @@ export function MaterialList({
             onAdjust={onAdjust}
             onHistory={onHistory}
             onDelete={onDelete}
+            onArchive={onArchive}
           />
         ))}
       </div>
 
       {/* Desktop: table */}
-      <div className="hidden overflow-x-auto rounded-xl border border-white/[0.06] sm:block">
-        <table className="w-full min-w-[600px] text-left">
-          <thead>
-            <tr className="border-b border-white/[0.06]">
-              <th className="py-2.5 pl-4 pr-3 text-xs font-medium uppercase tracking-wider text-white/30">
-                Material
-              </th>
-              <th className="px-3 py-2.5 text-xs font-medium uppercase tracking-wider text-white/30">
-                Unidade
-              </th>
-              <th className="px-3 py-2.5 text-right text-xs font-medium uppercase tracking-wider text-white/30">
-                Estoque
-              </th>
-              <th className="px-3 py-2.5 text-right text-xs font-medium uppercase tracking-wider text-white/30">
-                Mínimo
-              </th>
-              <th className="px-3 py-2.5 text-xs font-medium uppercase tracking-wider text-white/30">
-                Custo/un
-              </th>
-              <th className="py-2.5 pl-3 pr-4" />
-            </tr>
-          </thead>
-          <tbody>
+      <div className="hidden rounded-xl border border-foreground/[0.06] sm:block">
+        <Table className="min-w-[600px]">
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="pl-4">Material</TableHead>
+              <TableHead>Tipo</TableHead>
+              <TableHead className="text-right">Estoque</TableHead>
+              <TableHead className="text-right">Mínimo</TableHead>
+              <TableHead>Custo/un</TableHead>
+              <TableHead className="pr-4" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {materials.map((m) => (
               <MaterialRow
                 key={m.id}
@@ -320,10 +339,11 @@ export function MaterialList({
                 onAdjust={onAdjust}
                 onHistory={onHistory}
                 onDelete={onDelete}
+                onArchive={onArchive}
               />
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </>
   )

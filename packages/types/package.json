@@ -9,8 +9,8 @@
   "scripts": {
     "lint": "eslint . --max-warnings 0",
     "check-types": "tsc --noEmit",
-    "clean": "rimraf dist .turbo",
-    "clean:reset": "pnpm clean && rimraf node_modules"
+    "clean": "pnpm -r exec rm -rf dist .turbo",
+    "clean:reset": "pnpm clean && pnpm -r exec rm -rf node_modules"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

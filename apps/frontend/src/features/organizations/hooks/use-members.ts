@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { apiRequest } from "@/infrastructure/api/client"
 import { queryKeys } from "@/infrastructure/query/query-keys"
-import type { Member, Invitation, OrgRole } from "../types"
+import type { Member, Invitation, InviteResult, OrgRole } from "../types"
 
 export function useMembers(orgId: string) {
   const queryClient = useQueryClient()
@@ -29,7 +29,7 @@ export function useMembers(orgId: string) {
 
   const inviteMemberMutation = useMutation({
     mutationFn: ({ email, role }: { email: string; role: OrgRole }) =>
-      apiRequest<Invitation>(`/orgs/${orgId}/members/invite`, {
+      apiRequest<InviteResult>(`/orgs/${orgId}/members/invite`, {
         method: "POST",
         body: JSON.stringify({ email, role }),
       }),
@@ -43,6 +43,36 @@ export function useMembers(orgId: string) {
       apiRequest<Member>(`/orgs/${orgId}/members/${memberId}/role`, {
         method: "PATCH",
         body: JSON.stringify({ role }),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.members.list(orgId) })
+    },
+  })
+
+  const updateMemberPermissionsMutation = useMutation({
+    mutationFn: ({
+      memberId,
+      permissions,
+    }: {
+      memberId: string
+      permissions: string[]
+    }) =>
+      apiRequest<Member>(`/orgs/${orgId}/members/${memberId}/permissions`, {
+        method: "PATCH",
+        body: JSON.stringify({ permissions }),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.members.list(orgId) })
+      // permissões afetam o nav/escopo do próprio funcionário → invalida orgs também.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.orgs.all })
+    },
+  })
+
+  const setMemberStatusMutation = useMutation({
+    mutationFn: ({ memberId, enabled }: { memberId: string; enabled: boolean }) =>
+      apiRequest<Member>(`/orgs/${orgId}/members/${memberId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ enabled }),
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.members.list(orgId) })
@@ -67,7 +97,7 @@ export function useMembers(orgId: string) {
 
   // ── Stable wrappers (unchanged call signature for consumers) ───────────────
 
-  async function inviteMember(email: string, role: OrgRole): Promise<Invitation> {
+  async function inviteMember(email: string, role: OrgRole): Promise<InviteResult> {
     return inviteMemberMutation.mutateAsync({ email, role })
   }
 
@@ -77,6 +107,20 @@ export function useMembers(orgId: string) {
 
   async function removeMember(memberId: string): Promise<void> {
     return removeMemberMutation.mutateAsync(memberId)
+  }
+
+  async function setMemberStatus(
+    memberId: string,
+    enabled: boolean,
+  ): Promise<Member> {
+    return setMemberStatusMutation.mutateAsync({ memberId, enabled })
+  }
+
+  async function updateMemberPermissions(
+    memberId: string,
+    permissions: string[],
+  ): Promise<Member> {
+    return updateMemberPermissionsMutation.mutateAsync({ memberId, permissions })
   }
 
   async function cancelInvitation(invitationId: string): Promise<void> {
@@ -93,6 +137,8 @@ export function useMembers(orgId: string) {
     inviteMember,
     updateMemberRole,
     removeMember,
+    setMemberStatus,
+    updateMemberPermissions,
     cancelInvitation,
   }
 }

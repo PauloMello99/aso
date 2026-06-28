@@ -9,21 +9,30 @@
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
-    "clean": "turbo run clean && rimraf .turbo",
-    "clean:reset": "pnpm clean && rimraf node_modules",
-    "db:start": "npx supabase start"
+    "clean": "turbo run clean && pnpm -r exec rm -rf .turbo",
+    "clean:reset": "pnpm clean && pnpm -r exec rm -rf node_modules",
+    "db:start": "npx supabase start",
+    "db:stop": "npx supabase stop",
+    "db:status": "npx supabase status",
+    "db:reset": "npx supabase db reset",
+    "db:diff": "npx supabase db diff",
+    "db:push": "npx supabase db push",
+    "db:pull": "npx supabase db pull",
+    "db:lint": "npx supabase db lint",
+    "db:migration:new": "npx supabase migration new",
+    "db:migration:up": "npx supabase migration up",
+    "db:migration:list": "npx supabase migration list",
+    "db:seed": "npx supabase seed buckets",
+    "db:gen-types": "npx supabase gen types typescript --local > apps/backend/src/database/types_db.ts",
+    "db:link": "npx supabase link"
   },
   "devDependencies": {
     "prettier": "^3.7.4",
     "turbo": "^2.9.16",
     "typescript": "5.9.2"
   },
-  "packageManager": "pnpm@11.5.2",
+  "packageManager": "pnpm@11.6.0",
   "engines": {
     "node": "^24"
-  },
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ]
+  }
 }

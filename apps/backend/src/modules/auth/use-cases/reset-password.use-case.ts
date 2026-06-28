@@ -10,7 +10,11 @@ export class ResetPasswordUseCase {
     @Inject(AUTH_PROVIDER) private readonly auth: IAuthProvider,
   ) {}
 
-  execute(accessToken: string, newPassword: string): Promise<void> {
-    return this.auth.resetPassword(accessToken, newPassword);
+  execute(
+    accessToken: string,
+    newPassword: string,
+    refreshToken?: string,
+  ): Promise<void> {
+    return this.auth.resetPassword(accessToken, newPassword, refreshToken);
   }
 }

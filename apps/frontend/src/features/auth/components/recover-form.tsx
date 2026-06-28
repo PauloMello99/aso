@@ -47,13 +47,13 @@ export function RecoverForm() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-sm border-white/5 bg-white/[0.03]">
+      <Card className="w-full max-w-sm border-foreground/5 bg-foreground/[0.03]">
         <CardHeader className="text-center">
           <div className="mb-2 text-xl font-bold">
             ink<span className="text-orange-500">ops</span>
           </div>
           <CardTitle className="text-xl">Recuperar senha</CardTitle>
-          <CardDescription className="text-white/40">
+          <CardDescription className="text-foreground/40">
             Enviaremos um link para redefinir sua senha
           </CardDescription>
         </CardHeader>
@@ -63,11 +63,11 @@ export function RecoverForm() {
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-orange-500/10">
               <MailCheck className="h-6 w-6 text-orange-400" />
             </div>
-            <p className="text-sm text-white/50">
+            <p className="text-sm text-foreground/50">
               Se esse e-mail estiver cadastrado, você receberá um link em breve.
               Verifique sua caixa de entrada e a pasta de spam.
             </p>
-            <Button asChild variant="outline" className="w-full border-white/10">
+            <Button asChild variant="outline" className="w-full border-foreground/10">
               <Link href="/auth/login">Voltar ao login</Link>
             </Button>
           </CardContent>
@@ -105,8 +105,8 @@ export function RecoverForm() {
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Enviar link
               </Button>
-              <p className="text-center text-sm text-white/40">
-                <Link href="/auth/login" className="hover:text-white">
+              <p className="text-center text-sm text-foreground/40">
+                <Link href="/auth/login" className="hover:text-foreground">
                   ← Voltar ao login
                 </Link>
               </p>
