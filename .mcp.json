@@ -16,6 +16,13 @@
         "@modelcontextprotocol/server-postgres",
         "postgresql://postgres:postgres@localhost:54322/postgres"
       ]
+    },
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp",
+      "headers": {
+        "Authorization": "Bearer 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"
+      }
     }
   }
 }
