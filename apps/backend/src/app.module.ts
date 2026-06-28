@@ -3,6 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { DatabaseModule } from "./database/database.module";
+import { AppCacheModule } from "./common/cache/cache.module";
 import { RlsInterceptor } from "./common/interceptors/rls.interceptor";
 import { AuthModule } from "./modules/auth/auth.module";
 import { CustomersModule } from "./modules/customers/customers.module";
@@ -22,6 +23,7 @@ import { AdminModule } from "./modules/admin/admin.module";
     // Rate-limiting global (SEC-4): teto generoso por IP; endpoints sensíveis
     // (auth) sobrescrevem com limites menores via @Throttle no controller.
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
+    AppCacheModule,
     DatabaseModule,
     AuthModule,
     HealthModule,
