@@ -36,7 +36,7 @@ dos serviços externos reais:
 | Backend (NestJS) | Railway env `staging` (Docker) | Railway env `production` (Docker) |
 | Auth/DB/Storage | Supabase projeto free | Supabase projeto pago |
 | E-mail | Resend sandbox | Resend + domínio verificado |
-| Cron | GitHub Actions (`cron.yml`) | GitHub Actions (`cron.yml`) |
+| Cron | Serviço Railway `Cron` (private net) | Serviço Railway `Cron` (private net) |
 
 - **Não self-hospedar Supabase agora.** É possível (subir GoTrue/Storage/Kong/Postgres no
   Railway), mas exige replicar `auth.uid()`, extrair o provisionamento de buckets do SQL e operar
@@ -48,8 +48,10 @@ dos serviços externos reais:
 - **Railway settings que importam**: builder Dockerfile, Root Directory = raiz do repo (turbo prune
   precisa do monorepo), healthcheck `/health`, PORT injetado (não criar var). `DATABASE_URL` via
   **Session pooler** do Supabase (IPv4, alcançável pelo container).
-- **Cron centralizado no GitHub Actions** — de graça, cobre os dois ambientes via matrix
-  (`BACKEND_URL_*`/`CRON_SECRET_*` = URLs do Railway), pulando o que não tiver secrets.
+- **Cron = serviço Railway dedicado** (imagem `alpine`, `*/15`, restart NEVER) que bate em
+  `http://backend.railway.internal:3001/internal/cron/*` via **private networking** (caller
+  server-side dentro do Railway → pode ser interno; ≠ browser→backend, que é público). Header
+  `x-cron-secret` = `${{ Backend.CRON_SECRET }}`. Substituiu o `cron.yml` do GitHub Actions.
 
 ### Caching (in-memory por instância, sem Redis)
 

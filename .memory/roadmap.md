@@ -143,7 +143,8 @@ Visibilidade por funcionário ("só vê o que é dele; owner vê tudo + lança e
   no boot (`RUN_MIGRATIONS=true`); frontend `next start` (`NEXT_PUBLIC_API_URL` build-time). Render e
   Vercel descartados. **Supabase gerenciado** nos dois (não self-host — ver ADR-0011).
   `apps/backend/Dockerfile` + `apps/frontend/Dockerfile` (turbo prune) + `entrypoint.sh`;
-  `apps/{backend,frontend}/railway.json`; CI ganhou build; `cron.yml` agenda `/internal/cron/*`. Caching sem
+  `apps/{backend,frontend}/railway.json`; CI ganhou build; cron via serviço Railway dedicado
+  (private net, `backend.railway.internal`) batendo `/internal/cron/*` — `cron.yml` aposentado. Caching sem
   Redis: `requestMemo` (dedup de `findByAuthId`/request) + `TtlCache` (fees/categorias por org, TTL
   1h). Guia em `docs/deployment.md`. **Pendente (manual)**: projetos Supabase, settings/vars do
   Railway por env, primeiro push.
