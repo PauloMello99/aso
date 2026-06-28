@@ -46,12 +46,30 @@ export function useOrgMutations(orgId?: string) {
     },
   })
 
+  const transferOwnershipMutation = useMutation({
+    mutationFn: (memberId: string) => {
+      if (!orgId) throw new Error("orgId is required for transfer")
+      return apiRequest<void>(`/orgs/${orgId}/transfer-ownership`, {
+        method: "POST",
+        body: JSON.stringify({ memberId }),
+      })
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.orgs.all })
+      if (orgId) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.members.list(orgId) })
+      }
+    },
+  })
+
   return {
     createOrg: createOrgMutation.mutateAsync,
     updateOrg: updateOrgMutation.mutateAsync,
     deleteOrg: deleteOrgMutation.mutateAsync,
+    transferOwnership: transferOwnershipMutation.mutateAsync,
     isCreating: createOrgMutation.isPending,
     isUpdating: updateOrgMutation.isPending,
     isDeleting: deleteOrgMutation.isPending,
+    isTransferring: transferOwnershipMutation.isPending,
   }
 }

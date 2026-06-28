@@ -10,6 +10,8 @@ export interface OrgSummary {
   slug: string
   logoUrl: string | null
   role: "owner" | "employee"
+  /** Módulos liberados ao funcionário (owner = acesso total, ignora). */
+  permissions: string[]
 }
 
 export function useOrgs() {

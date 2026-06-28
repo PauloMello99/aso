@@ -11,7 +11,9 @@ export class MaterialMapper {
       stockQuantity: row.stockQuantity,
       minimumQuantity: row.minimumQuantity,
       costPerUnit: row.costPerUnit ?? null,
-      unit: row.unit ?? null,
+      shareable: row.shareable,
+      lastUsedAt: row.lastUsedAt ?? null,
+      archivedAt: row.archivedAt ?? null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });

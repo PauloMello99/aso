@@ -6,6 +6,7 @@ interface OrgRow {
   slug: string;
   logoUrl: string | null;
   role: string;
+  permissions?: string[] | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -18,6 +19,7 @@ export class OrgMapper {
       slug: row.slug,
       logoUrl: row.logoUrl,
       role: row.role as OrgRole,
+      permissions: row.permissions ?? [],
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });

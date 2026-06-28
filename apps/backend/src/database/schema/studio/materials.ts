@@ -4,6 +4,7 @@ import {
   text,
   timestamp,
   numeric,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { organizations } from "../organizations";
@@ -25,7 +26,14 @@ export const materials = pgTable("materials", {
     .notNull()
     .default("0"),
   costPerUnit: numeric("cost_per_unit", { precision: 10, scale: 2 }),
-  unit: text("unit"),
+  // Compartilhável: não é consumido por inteiro a cada serviço (ex.: luvas).
+  // O consumo de fato (perguntar se acabou → descontar) virá com o módulo de Serviços.
+  shareable: boolean("shareable").notNull().default(false),
+  // Última vez que o material foi consumido/baixado (consumo de serviço ou ajuste
+  // negativo) — usado para ordenar "mais recentes/usados" primeiro.
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  // Arquivado: oculto da lista por padrão (não pode ser excluído se já usado em serviço).
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

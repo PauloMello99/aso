@@ -462,7 +462,6 @@ export type Database = {
       services: {
         Row: {
           amount_cents: number
-          body_part: string | null
           created_at: string
           created_by: string | null
           customer_id: string | null
@@ -478,7 +477,6 @@ export type Database = {
         }
         Insert: {
           amount_cents?: number
-          body_part?: string | null
           created_at?: string
           created_by?: string | null
           customer_id?: string | null
@@ -494,7 +492,6 @@ export type Database = {
         }
         Update: {
           amount_cents?: number
-          body_part?: string | null
           created_at?: string
           created_by?: string | null
           customer_id?: string | null

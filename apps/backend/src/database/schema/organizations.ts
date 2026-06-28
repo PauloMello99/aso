@@ -3,6 +3,8 @@ import {
   uuid,
   text,
   timestamp,
+  integer,
+  boolean,
   unique,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
@@ -13,6 +15,10 @@ export const organizations = pgTable("organizations", {
   name: text("name").notNull(),
   slug: text("slug").unique().notNull(),
   logoUrl: text("logo_url"),
+  // Intervalo (em dias) para lembrar o admin de conferir o estoque. Null = sem lembrete.
+  stockCheckIntervalDays: integer("stock_check_interval_days"),
+  // Suspensão pelo super_admin (PLAT-1): NULL = ativa; preenchido = acesso bloqueado.
+  suspendedAt: timestamp("suspended_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -30,6 +36,11 @@ export const orgMemberships = pgTable(
       .references(() => organizations.id, { onDelete: "cascade" }),
     userId: uuid("user_id").notNull(),
     role: orgRoleEnum("role").notNull().default("employee"),
+    // Módulos liberados ao funcionário (on/off). Owner ignora (acesso total).
+    // Ver modules/organizations/domain/member-permissions.ts.
+    permissions: text("permissions").array().notNull().default([]),
+    // Membro inativo perde acesso à org (OrgMembershipGuard exige enabled).
+    enabled: boolean("enabled").notNull().default(true),
     joinedAt: timestamp("joined_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

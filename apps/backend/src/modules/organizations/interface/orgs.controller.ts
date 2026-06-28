@@ -12,6 +12,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { AuthGuard } from "../../auth/guards/auth.guard";
+import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import type { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { GetMeUseCase } from "../../user/application/use-cases/get-me.use-case";
@@ -20,9 +21,12 @@ import { GetOrgUseCase } from "../application/use-cases/get-org.use-case";
 import { CreateOrgUseCase } from "../application/use-cases/create-org.use-case";
 import { UpdateOrgUseCase } from "../application/use-cases/update-org.use-case";
 import { DeleteOrgUseCase } from "../application/use-cases/delete-org.use-case";
+import { TransferOwnershipUseCase } from "../application/use-cases/transfer-ownership.use-case";
 import { ListMembersUseCase } from "../application/use-cases/list-members.use-case";
 import { InviteMemberUseCase } from "../application/use-cases/invite-member.use-case";
 import { UpdateMemberRoleUseCase } from "../application/use-cases/update-member-role.use-case";
+import { UpdateMemberPermissionsUseCase } from "../application/use-cases/update-member-permissions.use-case";
+import { SetMemberStatusUseCase } from "../application/use-cases/set-member-status.use-case";
 import { RemoveMemberUseCase } from "../application/use-cases/remove-member.use-case";
 import { ListInvitationsUseCase } from "../application/use-cases/list-invitations.use-case";
 import { CancelInvitationUseCase } from "../application/use-cases/cancel-invitation.use-case";
@@ -30,6 +34,9 @@ import { CreateOrgDto } from "./dto/create-org.dto";
 import { UpdateOrgDto } from "./dto/update-org.dto";
 import { InviteMemberDto } from "./dto/invite-member.dto";
 import { UpdateMemberRoleDto } from "./dto/update-member-role.dto";
+import { UpdateMemberPermissionsDto } from "./dto/update-member-permissions.dto";
+import { SetMemberStatusDto } from "./dto/set-member-status.dto";
+import { TransferOwnershipDto } from "./dto/transfer-ownership.dto";
 
 @Controller("orgs")
 @UseGuards(AuthGuard)
@@ -41,9 +48,12 @@ export class OrgsController {
     private readonly createOrg: CreateOrgUseCase,
     private readonly updateOrg: UpdateOrgUseCase,
     private readonly deleteOrg: DeleteOrgUseCase,
+    private readonly transferOwnership: TransferOwnershipUseCase,
     private readonly listMembers: ListMembersUseCase,
     private readonly inviteMember: InviteMemberUseCase,
     private readonly updateMemberRole: UpdateMemberRoleUseCase,
+    private readonly updateMemberPermissions: UpdateMemberPermissionsUseCase,
+    private readonly setMemberStatus: SetMemberStatusUseCase,
     private readonly removeMember: RemoveMemberUseCase,
     private readonly listInvitations: ListInvitationsUseCase,
     private readonly cancelInvitation: CancelInvitationUseCase,
@@ -87,9 +97,20 @@ export class OrgsController {
     await this.deleteOrg.execute(orgId, user.id);
   }
 
+  @Post(":orgId/transfer-ownership")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async transfer(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: TransferOwnershipDto,
+  ) {
+    await this.transferOwnership.execute(orgId, dto.memberId, user.id);
+  }
+
   /* ─── Members ───────────────────────────────────────────────── */
 
   @Get(":orgId/members")
+  @UseGuards(OrgMembershipGuard)
   getMembers(@Param("orgId", ParseUUIDPipe) orgId: string) {
     return this.listMembers.execute(orgId);
   }
@@ -118,6 +139,31 @@ export class OrgsController {
     @Body() dto: UpdateMemberRoleDto,
   ) {
     return this.updateMemberRole.execute(orgId, memberId, user.id, dto.role);
+  }
+
+  @Patch(":orgId/members/:memberId/permissions")
+  updatePermissions(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("memberId", ParseUUIDPipe) memberId: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: UpdateMemberPermissionsDto,
+  ) {
+    return this.updateMemberPermissions.execute(
+      orgId,
+      memberId,
+      user.id,
+      dto.permissions,
+    );
+  }
+
+  @Patch(":orgId/members/:memberId/status")
+  setStatus(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("memberId", ParseUUIDPipe) memberId: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: SetMemberStatusDto,
+  ) {
+    return this.setMemberStatus.execute(orgId, memberId, user.id, dto.enabled);
   }
 
   @Delete(":orgId/members/:memberId")

@@ -6,6 +6,8 @@ export interface OrgEntityProps {
   slug: string;
   logoUrl: string | null;
   role: OrgRole;
+  /** Módulos liberados (só relevante p/ employee; owner = acesso total). */
+  permissions: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -16,6 +18,7 @@ export class OrgEntity {
   readonly slug: string;
   readonly logoUrl: string | null;
   readonly role: OrgRole;
+  readonly permissions: string[];
   readonly createdAt: Date;
   readonly updatedAt: Date;
 
@@ -25,6 +28,7 @@ export class OrgEntity {
     this.slug = props.slug;
     this.logoUrl = props.logoUrl;
     this.role = props.role;
+    this.permissions = props.permissions ?? [];
     this.createdAt = props.createdAt;
     this.updatedAt = props.updatedAt;
   }

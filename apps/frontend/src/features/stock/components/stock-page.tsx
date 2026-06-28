@@ -1,8 +1,23 @@
 "use client"
 
 import { useState } from "react"
-import { Package, AlertTriangle, Plus, RefreshCw } from "lucide-react"
+import { Package, AlertTriangle, Plus, RefreshCw, Search } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select"
+import {
+  FilterPopover,
+  FilterField,
+  RangeInputs,
+} from "@/shared/components/ui/filter-popover"
+import { ExportMenu } from "@/shared/components/ui/export-menu"
+import { downloadCsv } from "@/shared/lib/download-csv"
 import { useMaterials, isLowStock } from "../hooks/use-materials"
 import { MaterialList } from "./material-list"
 import { MaterialForm } from "./material-form"
@@ -16,6 +31,18 @@ interface StockPageProps {
   orgId: string
 }
 
+/** Colunas exportáveis (chaves espelham o backend). */
+const EXPORT_COLUMNS = [
+  { key: "name", label: "Material" },
+  { key: "stock", label: "Estoque" },
+  { key: "minimum", label: "Mínimo" },
+  { key: "cost", label: "Custo unitário (R$)" },
+  { key: "shareable", label: "Compartilhável" },
+  { key: "lowStock", label: "Estoque baixo" },
+  { key: "status", label: "Status" },
+  { key: "lastUsed", label: "Último uso" },
+]
+
 interface DialogState {
   materialForm: boolean
   restockForm: boolean
@@ -24,6 +51,45 @@ interface DialogState {
 }
 
 export function StockPage({ orgId }: StockPageProps) {
+  const [search, setSearch] = useState("")
+  const [showArchived, setShowArchived] = useState(false)
+  const [advanced, setAdvanced] = useState<{
+    shareable?: boolean
+    minCost: string
+    maxCost: string
+  }>({ minCost: "", maxCost: "" })
+
+  const advancedCount =
+    (advanced.shareable !== undefined ? 1 : 0) +
+    (advanced.minCost.trim() ? 1 : 0) +
+    (advanced.maxCost.trim() ? 1 : 0)
+
+  function clearAdvanced() {
+    setAdvanced({ minCost: "", maxCost: "" })
+  }
+
+  async function handleExport(fields: string[]) {
+    await downloadCsv(
+      `/orgs/${orgId}/materials/export`,
+      `estoque-${new Date().toISOString().slice(0, 10)}.csv`,
+      {
+        q: search || undefined,
+        archived: showArchived ? "true" : undefined,
+        shareable:
+          advanced.shareable === undefined
+            ? undefined
+            : String(advanced.shareable),
+        minCost: advanced.minCost.trim()
+          ? advanced.minCost.replace(",", ".")
+          : undefined,
+        maxCost: advanced.maxCost.trim()
+          ? advanced.maxCost.replace(",", ".")
+          : undefined,
+        fields: fields.join(","),
+      },
+    )
+  }
+
   const {
     materials,
     loading,
@@ -34,7 +100,18 @@ export function StockPage({ orgId }: StockPageProps) {
     deleteMaterial,
     restockMaterial,
     adjustStock,
-  } = useMaterials(orgId)
+    archiveMaterial,
+  } = useMaterials(orgId, {
+    name: search || undefined,
+    archived: showArchived || undefined,
+    shareable: advanced.shareable,
+    minCost: advanced.minCost.trim()
+      ? advanced.minCost.replace(",", ".")
+      : undefined,
+    maxCost: advanced.maxCost.trim()
+      ? advanced.maxCost.replace(",", ".")
+      : undefined,
+  })
 
   const [dialogs, setDialogs] = useState<DialogState>({
     materialForm: false,
@@ -60,7 +137,7 @@ export function StockPage({ orgId }: StockPageProps) {
   async function handleMaterialSubmit(values: MaterialFormValues) {
     const body = {
       name: values.name,
-      unit: values.unit || null,
+      shareable: values.shareable ?? false,
       minimumQuantity: values.minimumQuantity || undefined,
       costPerUnit: values.costPerUnit || null,
     }
@@ -78,22 +155,39 @@ export function StockPage({ orgId }: StockPageProps) {
 
   async function handleAdjust(values: AdjustStockFormValues) {
     if (!activeMaterial) return
-    await adjustStock(activeMaterial.id, values.quantityDelta, values.note || null)
+    // O schema separa direção (+/−) e quantidade só-número; montamos o delta com sinal.
+    const delta =
+      values.direction === "remove" ? `-${values.quantity}` : values.quantity
+    await adjustStock(activeMaterial.id, delta, values.note || null)
   }
 
   async function handleDelete(material: Material) {
     if (!confirm(`Excluir "${material.name}"? Esta ação não pode ser desfeita.`)) return
-    await deleteMaterial(material.id)
+    try {
+      await deleteMaterial(material.id)
+    } catch (err) {
+      // ex.: material vinculado a serviço → 409 MATERIAL_IN_USE_BY_SERVICES.
+      // Sugere arquivar em vez de excluir.
+      const msg =
+        err instanceof Error ? err.message : "Não foi possível excluir o material."
+      if (confirm(`${msg}\n\nDeseja arquivar "${material.name}" em vez disso?`)) {
+        await archiveMaterial(material.id, true)
+      }
+    }
+  }
+
+  async function handleArchive(material: Material) {
+    await archiveMaterial(material.id, !material.archivedAt)
   }
 
   /* ─── Render ────────────────────────────────────────────────── */
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-white">Estoque</h1>
-          <p className="mt-0.5 text-sm text-white/40">
+          <h1 className="text-xl font-semibold text-foreground">Estoque</h1>
+          <p className="mt-0.5 text-sm text-foreground/40">
             Gerencie os materiais usados nos atendimentos.
           </p>
         </div>
@@ -108,6 +202,7 @@ export function StockPage({ orgId }: StockPageProps) {
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
+          <ExportMenu columns={EXPORT_COLUMNS} onExport={handleExport} />
           <Button
             onClick={() => openDialog("materialForm")}
             className="flex-1 sm:flex-none"
@@ -118,10 +213,67 @@ export function StockPage({ orgId }: StockPageProps) {
         </div>
       </div>
 
+      {/* Search + filters */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/30" />
+          <Input
+            placeholder="Buscar material por nome…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Button
+          variant={showArchived ? "default" : "outline"}
+          onClick={() => setShowArchived((v) => !v)}
+          className="shrink-0"
+        >
+          {showArchived ? "Ver ativos" : "Ver arquivados"}
+        </Button>
+        <FilterPopover activeCount={advancedCount} onClear={clearAdvanced}>
+          <FilterField label="Tipo de material">
+            <Select
+              value={
+                advanced.shareable === undefined
+                  ? "all"
+                  : advanced.shareable
+                    ? "shared"
+                    : "consumable"
+              }
+              onValueChange={(v) =>
+                setAdvanced((a) => ({
+                  ...a,
+                  shareable:
+                    v === "all" ? undefined : v === "shared" ? true : false,
+                }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="consumable">Consumível</SelectItem>
+                <SelectItem value="shared">Compartilhável</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterField>
+          <FilterField label="Custo unitário (R$)">
+            <RangeInputs
+              minValue={advanced.minCost}
+              maxValue={advanced.maxCost}
+              onMinChange={(v) => setAdvanced((a) => ({ ...a, minCost: v }))}
+              onMaxChange={(v) => setAdvanced((a) => ({ ...a, maxCost: v }))}
+            />
+          </FilterField>
+        </FilterPopover>
+      </div>
+
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <SummaryCard
-          icon={<Package className="h-4 w-4 text-white/40" />}
+          icon={<Package className="h-4 w-4 text-foreground/40" />}
           label="Total de materiais"
           value={String(materials.length)}
           loading={loading}
@@ -144,7 +296,7 @@ export function StockPage({ orgId }: StockPageProps) {
 
       {/* List */}
       {loading && materials.length === 0 ? (
-        <div className="flex items-center justify-center py-16 text-white/30">
+        <div className="flex items-center justify-center py-16 text-foreground/30">
           <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
           Carregando materiais…
         </div>
@@ -156,6 +308,7 @@ export function StockPage({ orgId }: StockPageProps) {
           onAdjust={(m) => openDialog("adjustForm", m)}
           onHistory={(m) => openDialog("movementsPanel", m)}
           onDelete={handleDelete}
+          onArchive={handleArchive}
         />
       )}
 
@@ -203,15 +356,15 @@ function SummaryCard({
   loading?: boolean
 }) {
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+    <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4">
       <div className="flex items-center gap-2">
         {icon}
-        <span className="text-xs text-white/40">{label}</span>
+        <span className="text-xs text-foreground/40">{label}</span>
       </div>
       {loading ? (
-        <div className="mt-2 h-7 w-12 animate-pulse rounded bg-white/[0.06]" />
+        <div className="mt-2 h-7 w-12 animate-pulse rounded bg-foreground/[0.06]" />
       ) : (
-        <p className={`mt-2 text-2xl font-semibold tabular-nums ${valueClass ?? "text-white"}`}>
+        <p className={`mt-2 text-2xl font-semibold tabular-nums ${valueClass ?? "text-foreground"}`}>
           {value}
         </p>
       )}

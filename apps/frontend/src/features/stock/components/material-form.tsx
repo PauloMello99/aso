@@ -1,16 +1,18 @@
-"use client"
+"use client";
 
-import { useEffect } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/shared/components/ui/dialog"
+  Sheet,
+  SheetBody,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/shared/components/ui/sheet";
 import {
   Form,
   FormControl,
@@ -19,17 +21,21 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/shared/components/ui/form"
-import { Button } from "@/shared/components/ui/button"
-import { Input } from "@/shared/components/ui/input"
-import { materialSchema, type MaterialFormValues } from "../schemas/stock.schemas"
-import type { Material } from "../types"
+} from "@/shared/components/ui/form";
+import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
+import { Switch } from "@/shared/components/ui/switch";
+import {
+  materialSchema,
+  type MaterialFormValues,
+} from "../schemas/stock.schemas";
+import type { Material } from "../types";
 
 interface MaterialFormProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  material?: Material | null
-  onSubmit: (values: MaterialFormValues) => Promise<void>
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  material?: Material | null;
+  onSubmit: (values: MaterialFormValues) => Promise<void>;
 }
 
 export function MaterialForm({
@@ -38,12 +44,17 @@ export function MaterialForm({
   material,
   onSubmit,
 }: MaterialFormProps) {
-  const isEditing = !!material
+  const isEditing = !!material;
 
   const form = useForm<MaterialFormValues>({
     resolver: zodResolver(materialSchema),
-    defaultValues: { name: "", unit: "", minimumQuantity: "", costPerUnit: "" },
-  })
+    defaultValues: {
+      name: "",
+      shareable: false,
+      minimumQuantity: "",
+      costPerUnit: "",
+    },
+  });
 
   useEffect(() => {
     if (open) {
@@ -51,109 +62,149 @@ export function MaterialForm({
         material
           ? {
               name: material.name,
-              unit: material.unit ?? "",
+              shareable: material.shareable,
               minimumQuantity:
-                material.minimumQuantity === "0.00" ? "" : (material.minimumQuantity ?? ""),
+                material.minimumQuantity === "0.00"
+                  ? ""
+                  : (material.minimumQuantity ?? ""),
               costPerUnit: material.costPerUnit ?? "",
             }
-          : { name: "", unit: "", minimumQuantity: "", costPerUnit: "" },
-      )
+          : { name: "", shareable: false, minimumQuantity: "", costPerUnit: "" },
+      );
     }
-  }, [open, material, form])
+  }, [open, material, form]);
 
   const handleSubmit = form.handleSubmit(async (values) => {
-    await onSubmit(values)
-    onOpenChange(false)
-  })
+    await onSubmit(values);
+    onOpenChange(false);
+  });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{isEditing ? "Editar material" : "Novo material"}</DialogTitle>
-          <DialogDescription>
-            {isEditing
-              ? "Atualize os dados do material."
-              : "Adicione um material ao estoque da sua organização."}
-          </DialogDescription>
-        </DialogHeader>
-
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="gap-0 sm:max-w-md">
         <Form {...form}>
-          <form onSubmit={handleSubmit} className="grid gap-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Nome <span className="text-red-400">*</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: Tinta preta, Agulha 3RL" autoComplete="off" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <form onSubmit={handleSubmit} className="flex h-full flex-col">
+            <SheetHeader>
+              <SheetTitle>
+                {isEditing ? "Editar material" : "Novo material"}
+              </SheetTitle>
+              <SheetDescription>
+                {isEditing
+                  ? "Atualize os dados do material."
+                  : "Adicione um material ao estoque da sua organização."}
+              </SheetDescription>
+            </SheetHeader>
 
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="unit"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Unidade</FormLabel>
-                    <FormControl>
-                      <Input placeholder="ml, g, un, pcs" autoComplete="off" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="minimumQuantity"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Qtd. mínima</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ex: 5" inputMode="decimal" autoComplete="off" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <SheetBody className="flex flex-col gap-4 py-6">
+              <div>
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Nome <span className="text-red-400">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Ex: Tinta preta, Agulha 3RL"
+                          autoComplete="off"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-            <FormField
-              control={form.control}
-              name="costPerUnit"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Custo por unidade{" "}
-                    <span className="text-xs text-white/30">(opcional)</span>
-                  </FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-white/40">
-                        R$
-                      </span>
-                      <Input
-                        placeholder="0.00"
-                        inputMode="decimal"
-                        autoComplete="off"
-                        className="pl-9"
-                        {...field}
-                      />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <div>
+                <FormField
+                  control={form.control}
+                  name="minimumQuantity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Qtd. mínima</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Ex: 5"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-            <DialogFooter showCloseButton>
+              <div>
+                <FormField
+                  control={form.control}
+                  name="shareable"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between gap-4 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3">
+                      <div className="space-y-0.5">
+                        <FormLabel>Material compartilhável</FormLabel>
+                        <FormDescription>
+                          Não é consumido por inteiro a cada serviço — ex.: luvas.
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value ?? false}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div>
+                <FormField
+                  control={form.control}
+                  name="costPerUnit"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Custo por unidade{" "}
+                        <span className="text-xs text-foreground/30">
+                          (opcional)
+                        </span>
+                      </FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-foreground/40">
+                            R$
+                          </span>
+                          <Input
+                            placeholder="0.00"
+                            inputMode="decimal"
+                            autoComplete="off"
+                            className="pl-9"
+                            {...field}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </SheetBody>
+
+            <SheetFooter>
+              <SheetClose asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                >
+                  Cancelar
+                </Button>
+              </SheetClose>
               <Button
                 type="submit"
                 disabled={form.formState.isSubmitting}
@@ -165,10 +216,10 @@ export function MaterialForm({
                     ? "Salvar alterações"
                     : "Criar material"}
               </Button>
-            </DialogFooter>
+            </SheetFooter>
           </form>
         </Form>
-      </DialogContent>
-    </Dialog>
-  )
+      </SheetContent>
+    </Sheet>
+  );
 }

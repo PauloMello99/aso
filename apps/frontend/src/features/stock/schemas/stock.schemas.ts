@@ -11,14 +11,9 @@ const optionalPositiveNumericString = z
   .optional()
   .or(z.literal(""))
 
-const signedNumericString = z
-  .string()
-  .min(1, "Campo obrigatório")
-  .regex(/^-?\d+(\.\d{1,2})?$/, "Informe um número (ex: 10 ou -5.50)")
-
 export const materialSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório").max(100, "Máximo 100 caracteres"),
-  unit: z.string().max(20, "Máximo 20 caracteres").optional().or(z.literal("")),
+  shareable: z.boolean().optional(),
   minimumQuantity: optionalPositiveNumericString,
   costPerUnit: optionalPositiveNumericString,
 })
@@ -33,7 +28,10 @@ export const restockSchema = z.object({
 export type RestockFormValues = z.infer<typeof restockSchema>
 
 export const adjustStockSchema = z.object({
-  quantityDelta: signedNumericString,
+  // Separado e travado: direção (+/−) + quantidade só-número. O delta com sinal
+  // é montado na submissão (ver stock-page handleAdjust).
+  direction: z.enum(["add", "remove"]),
+  quantity: positiveNumericString,
   note: z.string().max(255).optional().or(z.literal("")),
 })
 

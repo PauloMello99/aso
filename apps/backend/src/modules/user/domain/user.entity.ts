@@ -21,6 +21,12 @@ export interface CreateUserData {
   email: string;
 }
 
+export interface UpdateUserData {
+  name?: string;
+  email?: string;
+  avatarUrl?: string | null;
+}
+
 export class UserEntity {
   readonly id: string;
   readonly authId: string;

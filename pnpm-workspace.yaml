@@ -6,3 +6,5 @@ allowBuilds:
   esbuild: true
   msw: true
   sharp: true
+autoInstallPeers: true
+enablePrePostScripts: true

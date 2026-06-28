@@ -65,7 +65,7 @@ export function DeleteOrgDialog({ org, onConfirm }: DeleteOrgDialogProps) {
         <div className="grid gap-3">
           <Label htmlFor="delete-confirm">
             Digite{" "}
-            <span className="font-mono text-white/80">{org.name}</span> para
+            <span className="font-mono text-foreground/80">{org.name}</span> para
             confirmar:
           </Label>
           <Input

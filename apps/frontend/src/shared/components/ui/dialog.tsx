@@ -50,7 +50,7 @@ function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Content
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-white/[0.08] bg-[#1a1a1d] p-6 shadow-2xl duration-200 outline-none",
+          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-foreground/[0.08] bg-popover p-6 shadow-2xl duration-200 outline-none",
           "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
           "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
           "sm:max-w-lg",
@@ -60,7 +60,7 @@ function DialogContent({
       >
         {children}
         {showCloseButton && (
-          <DialogPrimitive.Close className="absolute top-4 right-4 rounded-md p-1 text-white/40 opacity-70 transition-opacity hover:text-white hover:opacity-100 focus:outline-none disabled:pointer-events-none">
+          <DialogPrimitive.Close className="absolute top-4 right-4 rounded-md p-1 text-foreground/40 opacity-70 transition-opacity hover:text-foreground hover:opacity-100 focus:outline-none disabled:pointer-events-none">
             <XIcon className="h-4 w-4" />
             <span className="sr-only">Fechar</span>
           </DialogPrimitive.Close>
@@ -109,7 +109,7 @@ function DialogTitle({
 }: React.ComponentProps<typeof DialogPrimitive.Title>) {
   return (
     <DialogPrimitive.Title
-      className={cn("text-base font-semibold text-white", className)}
+      className={cn("text-base font-semibold text-foreground", className)}
       {...props}
     />
   )
@@ -121,7 +121,7 @@ function DialogDescription({
 }: React.ComponentProps<typeof DialogPrimitive.Description>) {
   return (
     <DialogPrimitive.Description
-      className={cn("text-sm text-white/50", className)}
+      className={cn("text-sm text-foreground/50", className)}
       {...props}
     />
   )
