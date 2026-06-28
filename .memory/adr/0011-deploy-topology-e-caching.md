@@ -24,13 +24,15 @@ dos serviços externos reais:
 
 ### Topologia (Supabase gerenciado nos dois ambientes)
 
-> **Revisão 2026-06-28:** consolidado **só no Railway** (Render descartado). O backend roda em
-> **dois Railway Environments** (`staging` ← branch staging, `production` ← branch main), ambos com
-> **builder Dockerfile** e migração no boot. `render.yaml` foi removido.
+> **Revisão 2026-06-28:** consolidado **só no Railway** (Render **e Vercel** descartados). Dois
+> Railway Environments (`staging` ← branch staging, `production` ← branch main), cada um com **dois
+> serviços** (backend e frontend), ambos **builder Dockerfile**. Backend migra no boot; frontend
+> roda `next start` com `NEXT_PUBLIC_API_URL` inlinado em build-time. `render.yaml`, root
+> `railway.json` e `vercel.json` removidos; configs agora em `apps/{backend,frontend}/railway.json`.
 
 | Camada | Staging (`staging`) | Production (`main`) |
 |---|---|---|
-| Frontend (Next) | Vercel Hobby | Vercel |
+| Frontend (Next) | Railway env `staging` (Docker) | Railway env `production` (Docker) |
 | Backend (NestJS) | Railway env `staging` (Docker) | Railway env `production` (Docker) |
 | Auth/DB/Storage | Supabase projeto free | Supabase projeto pago |
 | E-mail | Resend sandbox | Resend + domínio verificado |

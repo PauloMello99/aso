@@ -3,21 +3,25 @@
 Detalhe operacional em `docs/deployment.md`; decisão e racional em
 `.memory/adr/0011-deploy-topology-e-caching.md`.
 
-## Topologia (Railway-only no backend — revisão 2026-06-28)
+## Topologia (Railway-only — revisão 2026-06-28)
 - Fluxo de branches: `development → staging → main`. CI (lint/types/build) em todo PR.
-- **Backend**: **Railway** com 2 Environments (`staging` ← branch staging, `production` ← branch
-  main), **builder Dockerfile**, root = raiz do repo, healthcheck `/health`. (Render foi descartado.)
-- **Frontend**: Vercel (Next.js), staging/prod por branch.
+- **Tudo no Railway**: 2 Environments (`staging` ← branch staging, `production` ← branch main),
+  cada um com **dois serviços** — backend (`apps/backend/Dockerfile`) e frontend
+  (`apps/frontend/Dockerfile`), ambos builder **Dockerfile**, root = raiz do repo.
+  (Render e Vercel descartados.)
 - **Supabase gerenciado nos dois ambientes** (não self-host) → staging ≡ prod em auth/RLS.
-- Migrações no **boot** do container (entrypoint, `RUN_MIGRATIONS=true`).
-- Configs versionadas: `railway.json` (builder Dockerfile + healthcheck + restart),
-  `apps/frontend/vercel.json`. `render.yaml` removido.
+- Backend: migrações no **boot** (entrypoint, `RUN_MIGRATIONS=true`).
+- Frontend: `next start`; `NEXT_PUBLIC_API_URL` é **build-time** (inlinado no bundle) — setar como
+  var do serviço antes do build; o Dockerfile recebe via `ARG`.
+- Configs versionadas: `apps/backend/railway.json`, `apps/frontend/railway.json` (cada serviço
+  aponta o Config-as-code pro seu). `render.yaml`, root `railway.json` e `vercel.json` removidos.
 
-## Railway — settings do backend que importam
-- Builder = **Dockerfile** (`apps/backend/Dockerfile`); limpar Custom Build/Start (o ENTRYPOINT
-  cuida). Root Directory = **raiz do repo** (turbo prune). Healthcheck `/health`. PORT injetado
-  (não criar var). Vars incl. `NODE_ENV=production`, `RUN_MIGRATIONS=true`, `CRON_SECRET`.
+## Railway — settings que importam
+- Builder = **Dockerfile** nos dois serviços; limpar Custom Build/Start. Root Directory = **raiz do
+  repo** (turbo prune). Backend: healthcheck `/health`, vars `NODE_ENV=production`,
+  `RUN_MIGRATIONS=true`, `CRON_SECRET`. PORT injetado (não criar var) — app e `next start` leem.
 - `DATABASE_URL` = Supabase **Session pooler** (IPv4, 5432) — alcançável pelo container.
+- Frontend image grande (~2GB, full prod deps + `next start`); follow-up: `output: 'standalone'`.
 
 ## Serviços externos
 - **Supabase** (Auth+DB+Storage), **Resend** (e-mail, opcional/off por padrão), **GitHub Actions**
