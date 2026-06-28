@@ -3,6 +3,7 @@ import { eq, and } from "drizzle-orm";
 import {
   DRIZZLE,
   DRIZZLE_ADMIN,
+  requestMemo,
   type DrizzleDB,
 } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
@@ -119,29 +120,36 @@ export class DrizzleMemberRepository implements IMemberRepository {
     orgId: string,
     authId: string,
   ): Promise<MemberEntity | null> {
-    const [row] = await this.db
-      .select({
-        memberId: schema.orgMemberships.id,
-        orgId: schema.orgMemberships.orgId,
-        userId: schema.orgMemberships.userId,
-        role: schema.orgMemberships.role,
-        enabled: schema.orgMemberships.enabled,
-        permissions: schema.orgMemberships.permissions,
-        userName: schema.users.name,
-        userEmail: schema.users.email,
-        joinedAt: schema.orgMemberships.joinedAt,
-      })
-      .from(schema.orgMemberships)
-      .innerJoin(schema.users, eq(schema.users.id, schema.orgMemberships.userId))
-      .where(
-        and(
-          eq(schema.orgMemberships.orgId, orgId),
-          eq(schema.users.authId, authId),
-        ),
-      )
-      .limit(1);
+    // Memoizado por request: a mesma associação é resolvida várias vezes no
+    // mesmo handler (resolveActor/resolveMembership + overview direto).
+    return requestMemo(`member:byAuthId:${orgId}:${authId}`, async () => {
+      const [row] = await this.db
+        .select({
+          memberId: schema.orgMemberships.id,
+          orgId: schema.orgMemberships.orgId,
+          userId: schema.orgMemberships.userId,
+          role: schema.orgMemberships.role,
+          enabled: schema.orgMemberships.enabled,
+          permissions: schema.orgMemberships.permissions,
+          userName: schema.users.name,
+          userEmail: schema.users.email,
+          joinedAt: schema.orgMemberships.joinedAt,
+        })
+        .from(schema.orgMemberships)
+        .innerJoin(
+          schema.users,
+          eq(schema.users.id, schema.orgMemberships.userId),
+        )
+        .where(
+          and(
+            eq(schema.orgMemberships.orgId, orgId),
+            eq(schema.users.authId, authId),
+          ),
+        )
+        .limit(1);
 
-    return row ? MemberMapper.toDomain(row) : null;
+      return row ? MemberMapper.toDomain(row) : null;
+    });
   }
 
   async updateRole(memberId: string, role: OrgRole): Promise<MemberEntity> {
