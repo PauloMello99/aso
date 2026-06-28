@@ -137,15 +137,15 @@ Visibilidade por funcionário ("só vê o que é dele; owner vê tudo + lança e
 - **DX-3 — CI** · _✅ done (2026-06-26)_
   `.github/workflows/ci.yml` roda `check-types` + `lint` em PR/push (Node 24, pnpm). Débito
   de lint pré-existente zerado (lint e check-types 4/4 verdes). `pnpm test` quando TEST-2.
-- **DX-4 — Fundação de deploy (staging/prod) + caching** · _✅ done (2026-06-27)_
-  Topologia: `development → staging → main`; staging grátis (Vercel + **Render free** + Supabase
-  free), prod (Vercel + **Railway** + Supabase pago). **Supabase gerenciado** nos dois (não
-  self-host — ver ADR-0011). `apps/backend/Dockerfile` (turbo prune) + `entrypoint.sh` (migra no
-  boot); `render.yaml`/`railway.json`/`vercel.json`; CI ganhou build; `cron.yml` agenda os
-  endpoints `/internal/cron/*` (Render free não tem scheduler). Caching sem Redis: `requestMemo`
-  (dedup de `findByAuthId`/request) + `TtlCache` (fees/categorias por org, TTL 1h). Guia em
-  `docs/deployment.md`. **Pendente (manual do usuário)**: criar projetos Supabase, setar secrets e
-  primeiro push.
+- **DX-4 — Fundação de deploy (staging/prod) + caching** · _✅ done (2026-06-27; rev. 2026-06-28)_
+  Topologia `development → staging → main`. **Backend só no Railway** (2 Environments: `staging`←
+  staging, `production`←main; builder Dockerfile, migra no boot) — Render descartado, `render.yaml`
+  removido. Frontend no Vercel. **Supabase gerenciado** nos dois (não self-host — ver ADR-0011).
+  `apps/backend/Dockerfile` (turbo prune) + `entrypoint.sh` (`RUN_MIGRATIONS=true`);
+  `railway.json`/`vercel.json`; CI ganhou build; `cron.yml` agenda `/internal/cron/*`. Caching sem
+  Redis: `requestMemo` (dedup de `findByAuthId`/request) + `TtlCache` (fees/categorias por org, TTL
+  1h). Guia em `docs/deployment.md`. **Pendente (manual)**: projetos Supabase, settings/vars do
+  Railway por env, primeiro push.
 
 ## EPIC 8 — Produto / Relatórios
 

@@ -1,7 +1,7 @@
 # ADR-0011 — Topologia de deploy (staging/prod) e estratégia de caching
 
 **Status:** Aceito
-**Data:** 2026-06-27
+**Data:** 2026-06-27 (revisado 2026-06-28: backend Railway-only — Render descartado)
 **Origem:** Sessão de preparação do primeiro deploy de ambiente de teste
 
 ## Contexto
@@ -24,10 +24,14 @@ dos serviços externos reais:
 
 ### Topologia (Supabase gerenciado nos dois ambientes)
 
-| Camada | Staging (`staging`, grátis) | Production (`main`) |
+> **Revisão 2026-06-28:** consolidado **só no Railway** (Render descartado). O backend roda em
+> **dois Railway Environments** (`staging` ← branch staging, `production` ← branch main), ambos com
+> **builder Dockerfile** e migração no boot. `render.yaml` foi removido.
+
+| Camada | Staging (`staging`) | Production (`main`) |
 |---|---|---|
 | Frontend (Next) | Vercel Hobby | Vercel |
-| Backend (NestJS) | Render free (Docker) | Railway (Docker) |
+| Backend (NestJS) | Railway env `staging` (Docker) | Railway env `production` (Docker) |
 | Auth/DB/Storage | Supabase projeto free | Supabase projeto pago |
 | E-mail | Resend sandbox | Resend + domínio verificado |
 | Cron | GitHub Actions (`cron.yml`) | GitHub Actions (`cron.yml`) |
@@ -36,10 +40,14 @@ dos serviços externos reais:
   Railway), mas exige replicar `auth.uid()`, extrair o provisionamento de buckets do SQL e operar
   backups — esforço médio-alto sem ganho neste estágio. Manter o Supabase gerenciado garante
   **staging ≡ prod** em auth/RLS. Reavaliar se/quando custo ou controle justificarem.
-- **Backend containerizado** com Dockerfile multi-stage (turbo prune). Migrações rodam no boot via
-  `entrypoint.sh` quando `RUN_MIGRATIONS=true`.
-- **Cron centralizado no GitHub Actions** (Render free não tem scheduler) — de graça, cobre os dois
-  ambientes via matrix, pulando o que não tiver secrets.
+- **Backend containerizado** com Dockerfile multi-stage (turbo prune). Migrações rodam no **boot**
+  via `entrypoint.sh` quando `RUN_MIGRATIONS=true` (autoridade única; `numReplicas: 1` → sem corrida).
+  O `up` aplica só os tags forward de `meta/_journal.json` — os `*.down.sql` nunca rodam no `up`.
+- **Railway settings que importam**: builder Dockerfile, Root Directory = raiz do repo (turbo prune
+  precisa do monorepo), healthcheck `/health`, PORT injetado (não criar var). `DATABASE_URL` via
+  **Session pooler** do Supabase (IPv4, alcançável pelo container).
+- **Cron centralizado no GitHub Actions** — de graça, cobre os dois ambientes via matrix
+  (`BACKEND_URL_*`/`CRON_SECRET_*` = URLs do Railway), pulando o que não tiver secrets.
 
 ### Caching (in-memory por instância, sem Redis)
 
