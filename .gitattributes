@@ -1,0 +1,8 @@
+# Scripts shell e Dockerfile rodam em Linux/containers — precisam de LF mesmo
+# quando editados no Windows. Sem isso, o autocrlf reescreve entrypoint.sh com
+# CRLF e `sh entrypoint.sh` quebra com erros de `\r`.
+*.sh        text eol=lf
+entrypoint.sh text eol=lf
+Dockerfile  text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf

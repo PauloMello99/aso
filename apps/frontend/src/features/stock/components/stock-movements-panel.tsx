@@ -52,11 +52,11 @@ function MovementRow({ m }: { m: StockMovement }) {
   })
 
   return (
-    <li className="flex items-start gap-3 border-b border-white/[0.06] py-3 last:border-0">
+    <li className="flex items-start gap-3 border-b border-foreground/[0.06] py-3 last:border-0">
       <span className={`mt-0.5 shrink-0 ${meta.color}`}>{meta.icon}</span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-sm text-white">{meta.label}</span>
+          <span className="truncate text-sm text-foreground">{meta.label}</span>
           <span
             className={`shrink-0 text-sm font-medium tabular-nums ${
               isPositive ? "text-emerald-400" : "text-red-400"
@@ -70,9 +70,11 @@ function MovementRow({ m }: { m: StockMovement }) {
           </span>
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-          <span className="text-xs text-white/30">{dateStr}</span>
+          <span className="text-xs text-foreground/30">{dateStr}</span>
           {m.note && (
-            <span className="text-xs italic text-white/40">"{m.note}"</span>
+            <span className="text-xs italic text-foreground/40">
+              &quot;{m.note}&quot;
+            </span>
           )}
         </div>
       </div>
@@ -101,7 +103,7 @@ export function StockMovementsPanel({
             {material ? (
               <>
                 Histórico de{" "}
-                <span className="font-medium text-white">{material.name}</span> —
+                <span className="font-medium text-foreground">{material.name}</span> —
                 últimas 30 entradas.
               </>
             ) : (
@@ -112,7 +114,7 @@ export function StockMovementsPanel({
 
         <div className="max-h-[60vh] overflow-y-auto">
           {loading && (
-            <div className="flex items-center justify-center gap-2 py-8 text-sm text-white/40">
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-foreground/40">
               <RefreshCw className="h-4 w-4 animate-spin" />
               Carregando…
             </div>
@@ -121,7 +123,7 @@ export function StockMovementsPanel({
             <p className="py-4 text-center text-sm text-red-400">{error}</p>
           )}
           {!loading && !error && movements.length === 0 && (
-            <p className="py-8 text-center text-sm text-white/30">
+            <p className="py-8 text-center text-sm text-foreground/30">
               Nenhuma movimentação registrada ainda.
             </p>
           )}

@@ -23,38 +23,58 @@ import {
   type LoginFormValues,
 } from "@/features/auth/schemas/auth.schemas"
 
+function queryParam(value: string | string[] | undefined): string {
+  return typeof value === "string" ? value : ""
+}
+
 export function LoginForm() {
   const { signIn } = useAuth()
   const router = useRouter()
+  const inviteToken = queryParam(router.query.invite)
+  const invitedEmail = queryParam(router.query.email)
 
   const {
     register,
     handleSubmit,
     setError,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
   })
 
+  // Prefill do e-mail quando vier de um convite (router.query só fica pronto após hidratação).
+  React.useEffect(() => {
+    if (invitedEmail) reset({ email: invitedEmail, password: "" })
+  }, [invitedEmail, reset])
+
   const onSubmit = async (data: LoginFormValues) => {
     try {
       await signIn(data.email, data.password)
-      await router.push("/dashboard/organizations")
+      await router.push(
+        inviteToken
+          ? `/invite/accept?token=${encodeURIComponent(inviteToken)}`
+          : "/dashboard/organizations",
+      )
     } catch {
       setError("root", { message: "E-mail ou senha inválidos" })
     }
   }
 
+  const signupHref = inviteToken
+    ? `/auth/signup?invite=${encodeURIComponent(inviteToken)}${invitedEmail ? `&email=${encodeURIComponent(invitedEmail)}` : ""}`
+    : "/auth/signup"
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-sm border-white/5 bg-white/[0.03]">
+      <Card className="w-full max-w-sm border-foreground/5 bg-foreground/[0.03]">
         <CardHeader className="text-center">
           <div className="mb-2 text-xl font-bold">
             ink<span className="text-orange-500">ops</span>
           </div>
           <CardTitle className="text-xl">Entrar</CardTitle>
-          <CardDescription className="text-white/40">
+          <CardDescription className="text-foreground/40">
             Acesse sua conta para continuar
           </CardDescription>
         </CardHeader>
@@ -87,7 +107,7 @@ export function LoginForm() {
                 <Label htmlFor="password">Senha</Label>
                 <Link
                   href="/auth/recover"
-                  className="text-xs text-white/40 hover:text-white"
+                  className="text-xs text-foreground/40 hover:text-foreground"
                 >
                   Esqueceu a senha?
                 </Link>
@@ -115,10 +135,10 @@ export function LoginForm() {
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Entrar
             </Button>
-            <p className="text-center text-sm text-white/40">
+            <p className="text-center text-sm text-foreground/40">
               Não tem conta?{" "}
               <Link
-                href="/auth/signup"
+                href={signupHref}
                 className="text-orange-400 hover:text-orange-300"
               >
                 Criar conta

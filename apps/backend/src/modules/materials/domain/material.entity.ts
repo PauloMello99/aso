@@ -11,7 +11,9 @@ export interface MaterialEntityProps {
   stockQuantity: string; // numeric string from DB (numeric(10,2))
   minimumQuantity: string;
   costPerUnit: string | null;
-  unit: string | null;
+  shareable: boolean;
+  lastUsedAt: Date | null;
+  archivedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,7 +24,7 @@ export interface CreateMaterialData {
   name: string;
   minimumQuantity?: string;
   costPerUnit?: string | null;
-  unit?: string | null;
+  shareable?: boolean;
 }
 
 export interface UpdateMaterialData {
@@ -30,7 +32,7 @@ export interface UpdateMaterialData {
   name?: string;
   minimumQuantity?: string;
   costPerUnit?: string | null;
-  unit?: string | null;
+  shareable?: boolean;
 }
 
 export class MaterialEntity {
@@ -41,7 +43,9 @@ export class MaterialEntity {
   readonly stockQuantity: string;
   readonly minimumQuantity: string;
   readonly costPerUnit: string | null;
-  readonly unit: string | null;
+  readonly shareable: boolean;
+  readonly lastUsedAt: Date | null;
+  readonly archivedAt: Date | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 
@@ -53,9 +57,15 @@ export class MaterialEntity {
     this.stockQuantity = props.stockQuantity;
     this.minimumQuantity = props.minimumQuantity;
     this.costPerUnit = props.costPerUnit;
-    this.unit = props.unit;
+    this.shareable = props.shareable;
+    this.lastUsedAt = props.lastUsedAt;
+    this.archivedAt = props.archivedAt;
     this.createdAt = props.createdAt;
     this.updatedAt = props.updatedAt;
+  }
+
+  get isArchived(): boolean {
+    return this.archivedAt !== null;
   }
 
   static create(props: MaterialEntityProps): MaterialEntity {

@@ -14,21 +14,24 @@
     "db:status": "tsx src/database/migrator.ts status",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "clean": "rimraf dist .turbo",
-    "clean:reset": "pnpm clean && rimraf node_modules"
+    "clean": "pnpm -r exec rm -rf dist .turbo",
+    "clean:reset": "pnpm clean && pnpm -r exec rm -rf node_modules"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/throttler": "^6.5.0",
     "@supabase/supabase-js": "^2.49.4",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
+    "date-fns": "^4.4.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "pg": "^8.21.0",
     "reflect-metadata": "^0.2.2",
+    "resend": "^6.12.4",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {

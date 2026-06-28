@@ -8,6 +8,7 @@ interface InvitationRow {
   email: string;
   role: string;
   status: string;
+  token: string;
   expiresAt: Date;
   createdAt: Date;
 }
@@ -21,6 +22,7 @@ export class InvitationMapper {
       email: row.email,
       role: row.role as OrgRole,
       status: row.status as InvitationStatus,
+      token: row.token,
       expiresAt: row.expiresAt,
       createdAt: row.createdAt,
     });

@@ -1,0 +1,38 @@
+# Mantém o contexto de build enxuto e determinístico. O `pnpm install` dentro
+# da imagem reconstrói node_modules a partir do lockfile, e o turbo prune
+# seleciona só o subset do backend — nada abaixo precisa ir no contexto.
+
+# deps / build outputs
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/coverage
+
+# git / ci / editor
+**/.git
+**/.github
+**/.vscode
+**/.idea
+**/.DS_Store
+**/*.log
+
+# segredos (o .env.example continua entrando)
+**/.env
+**/.env.*
+!**/.env.example
+
+# Python / RAG (contém .venv com symlinks que quebram o sender)
+bin
+**/.venv
+**/__pycache__
+**/*.py[cod]
+
+# Supabase local (config + volumes pesados) — irrelevante ao build do backend
+supabase
+
+# docs e artefatos de conhecimento — não entram na imagem
+docs
+.memory
+.claude
+**/*.md

@@ -6,6 +6,9 @@ export interface Member {
   orgId: string
   userId: string
   role: OrgRole
+  enabled: boolean
+  /** Módulos liberados ao funcionário (owner = acesso total, ignora). */
+  permissions: string[]
   userName: string
   userEmail: string
   joinedAt: string
@@ -20,4 +23,10 @@ export interface Invitation {
   status: InvitationStatus
   expiresAt: string
   createdAt: string
+}
+
+/** Resposta do convite: a invitation + o link de aceite (exposto p/ teste em dev). */
+export interface InviteResult {
+  invitation: Invitation
+  acceptUrl: string
 }

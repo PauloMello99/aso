@@ -5,8 +5,15 @@ import { useRouter } from "next/router"
 import { TopHeader } from "@/features/dashboard/components/top-header"
 import { OrgSidebar } from "@/features/dashboard/components/org-sidebar"
 import { OrgSwitcher } from "@/features/dashboard/components/org-switcher"
-import { useOrg } from "@/features/dashboard/hooks/use-orgs"
-import { PAGE_LABELS } from "@/features/dashboard/lib/nav"
+import { OrgProvider } from "@/features/dashboard/components/org-context"
+import { useOrgs } from "@/features/dashboard/hooks/use-orgs"
+import {
+  PAGE_LABELS,
+  isOwnerOnlyPath,
+  isModuleKey,
+  canAccessModule,
+} from "@/features/dashboard/lib/nav"
+import type { OrgSummary } from "@/features/dashboard/hooks/use-orgs"
 import type { BreadcrumbItem } from "@/features/dashboard/components/top-header"
 
 interface OrgLayoutProps {
@@ -16,23 +23,23 @@ interface OrgLayoutProps {
 /**
  * Builds breadcrumb items for org pages, including settings sub-pages.
  *
- * /dashboard/org/[orgId]/overview          → [OrgSwitcher, "Overview"]
- * /dashboard/org/[orgId]/settings/billing  → [OrgSwitcher, "Configurações", "Cobrança"]
+ * /dashboard/org/[orgSlug]/overview          → [OrgSwitcher, "Overview"]
+ * /dashboard/org/[orgSlug]/settings/billing  → [OrgSwitcher, "Configurações", "Cobrança"]
  */
 function buildOrgCrumbs(
   pathname: string,
-  orgId: string,
+  slug: string,
   orgSwitcher: React.ReactNode,
 ): BreadcrumbItem[] {
   const crumbs: BreadcrumbItem[] = [{ label: "Org", node: orgSwitcher }]
 
-  const afterOrg = pathname.split("/[orgId]/")[1] ?? ""
+  const afterOrg = pathname.split("/[orgSlug]/")[1] ?? ""
   const segments = afterOrg.split("/").filter(Boolean)
 
   if (segments[0] === "settings") {
     crumbs.push({
       label: "Configurações",
-      href: `/dashboard/org/${orgId}/settings`,
+      href: `/dashboard/org/${slug}/settings`,
     })
     const subLabel = segments[1] ? PAGE_LABELS[segments[1]] : undefined
     if (subLabel) crumbs.push({ label: subLabel })
@@ -46,15 +53,33 @@ function buildOrgCrumbs(
 
 export function OrgLayout({ children }: OrgLayoutProps) {
   const router = useRouter()
-  const { orgId } = router.query as { orgId?: string }
+  const { orgSlug } = router.query as { orgSlug?: string }
   const [mobileOpen, setMobileOpen] = React.useState(false)
 
-  const { org, notFound } = useOrg(orgId ?? "")
+  const { orgs, loading } = useOrgs()
+  const org: OrgSummary | undefined = orgs.find((o) => o.slug === orgSlug)
 
-  // Redirect if org not found
+  // Slug doesn't match any of the user's orgs → back to the org list.
   React.useEffect(() => {
-    if (orgId && notFound) void router.replace("/dashboard/organizations")
-  }, [orgId, notFound, router])
+    if (orgSlug && !loading && !org) {
+      void router.replace("/dashboard/organizations")
+    }
+  }, [orgSlug, loading, org, router])
+
+  // Funcionário tentando acessar rota owner-only direto pela URL → manda p/ overview.
+  // O backend já barra com 403; isto evita renderizar a casca de uma página proibida.
+  // settings/agenda fica de fora (funcionário configura a própria agenda).
+  const currentSubpath = router.pathname.split("/[orgSlug]/")[1] ?? ""
+  React.useEffect(() => {
+    if (!org || org.role === "owner") return
+    const seg = currentSubpath.split("/")[0] ?? ""
+    // Funcionário sem permissão no módulo (ou rota owner-only) → volta p/ overview.
+    const lacksModule =
+      isModuleKey(seg) && !canAccessModule(org.role, org.permissions, seg)
+    if (isOwnerOnlyPath(currentSubpath) || lacksModule) {
+      void router.replace(`/dashboard/org/${org.slug}/overview`)
+    }
+  }, [org, currentSubpath, router])
 
   // Close mobile sidebar on navigation
   React.useEffect(() => {
@@ -64,22 +89,26 @@ export function OrgLayout({ children }: OrgLayoutProps) {
   if (!org) return null
 
   const orgSwitcher = <OrgSwitcher org={org} />
-  const breadcrumbs = buildOrgCrumbs(router.pathname, org.id, orgSwitcher)
+  const breadcrumbs = buildOrgCrumbs(router.pathname, org.slug, orgSwitcher)
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background">
-      <TopHeader
-        breadcrumbs={breadcrumbs}
-        onMobileMenuToggle={() => setMobileOpen((v) => !v)}
-      />
-      <div className="flex flex-1 overflow-hidden">
-        <OrgSidebar
-          org={org}
-          mobileOpen={mobileOpen}
-          onMobileClose={() => setMobileOpen(false)}
+    <OrgProvider org={org}>
+      <div className="flex h-screen flex-col overflow-hidden bg-background">
+        <TopHeader
+          breadcrumbs={breadcrumbs}
+          onMobileMenuToggle={() => setMobileOpen((v) => !v)}
         />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
+        <div className="flex flex-1 overflow-hidden">
+          <OrgSidebar
+            org={org}
+            mobileOpen={mobileOpen}
+            onMobileClose={() => setMobileOpen(false)}
+          />
+          <main className="flex-1 overflow-y-auto">
+            <div className="mx-auto w-full max-w-7xl p-4 sm:p-6">{children}</div>
+          </main>
+        </div>
       </div>
-    </div>
+    </OrgProvider>
   )
 }

@@ -1,0 +1,46 @@
+# Render Blueprint — backend NestJS do STAGING (camada gratuita).
+# Importar via Render Dashboard → New → Blueprint (aponta para este repo).
+# Deploy automático a cada push na branch `staging`.
+#
+# Observações:
+#  - Render injeta a env PORT automaticamente; o app lê process.env.PORT.
+#  - Plano free hiberna após ~15min ocioso (cold start ~30s) — ok p/ staging.
+#  - RUN_MIGRATIONS=true → o entrypoint aplica as migrações no boot.
+#  - Variáveis `sync: false` NÃO são versionadas: setar no dashboard.
+services:
+  - type: web
+    name: ink-ops-backend-staging
+    runtime: docker
+    repo: https://github.com/REPLACE_ME/ink-ops # ajustar no dashboard
+    branch: staging
+    plan: free
+    region: oregon
+    dockerfilePath: ./apps/backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: RUN_MIGRATIONS
+        value: "true"
+      - key: FRONTEND_URL
+        sync: false # URL do frontend no Vercel (staging)
+      - key: DATABASE_URL
+        sync: false # Supabase staging — role postgres (migrações/admin)
+      - key: DATABASE_APP_URL
+        sync: false # Supabase staging — role app_user (NOBYPASSRLS)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: CRON_SECRET
+        sync: false # mesmo valor usado pelo workflow cron.yml (staging)
+      - key: NOTIFICATIONS_EMAIL_ENABLED
+        value: "false"
+      - key: RESEND_API_KEY
+        sync: false
+      - key: NOTIFICATIONS_FROM_EMAIL
+        value: Ink Ops <onboarding@resend.dev>

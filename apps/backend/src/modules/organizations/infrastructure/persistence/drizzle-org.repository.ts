@@ -1,6 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { asc, eq, and } from "drizzle-orm";
-import { DRIZZLE, type DrizzleDB } from "../../../../database/database.module";
+import {
+  DRIZZLE,
+  DRIZZLE_ADMIN,
+  type DrizzleDB,
+} from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
 import type { IOrganizationRepository } from "../../domain/org.repository.interface";
 import type { OrgEntity } from "../../domain/org.entity";
@@ -12,13 +16,19 @@ const ORG_SELECT = {
   slug: schema.organizations.slug,
   logoUrl: schema.organizations.logoUrl,
   role: schema.orgMemberships.role,
+  permissions: schema.orgMemberships.permissions,
   createdAt: schema.organizations.createdAt,
   updatedAt: schema.organizations.updatedAt,
 } as const;
 
 @Injectable()
 export class DrizzleOrgRepository implements IOrganizationRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    // create() inserts the first owner membership before one exists, which the
+    // org_memberships_insert RLS policy would block — so it bypasses RLS.
+    @Inject(DRIZZLE_ADMIN) private readonly admin: DrizzleDB,
+  ) {}
 
   async findAllByAuthId(authId: string): Promise<OrgEntity[]> {
     const rows = await this.db
@@ -68,7 +78,7 @@ export class DrizzleOrgRepository implements IOrganizationRepository {
   }
 
   async create(name: string, slug: string, creatorAuthId: string): Promise<OrgEntity> {
-    return this.db.transaction(async (tx) => {
+    return this.admin.transaction(async (tx) => {
       // Find the creator's user record
       const [user] = await tx
         .select({ id: schema.users.id })
@@ -92,6 +102,24 @@ export class DrizzleOrgRepository implements IOrganizationRepository {
         userId: user.id,
         role: "owner",
       });
+
+      // Seed default lookups (origens de cliente + categorias de transação).
+      await tx
+        .insert(schema.customerOrigins)
+        .values(
+          ["Indicação", "Rede social do profissional", "Rede social do estúdio"].map(
+            (name) => ({ orgId: org.id, name }),
+          ),
+        )
+        .onConflictDoNothing();
+      await tx
+        .insert(schema.transactionCategories)
+        .values(
+          ["Serviço", "Funcionário", "Material", "Conta", "Reforma", "Transferência", "Outros"].map(
+            (name) => ({ orgId: org.id, name }),
+          ),
+        )
+        .onConflictDoNothing();
 
       return OrgMapper.toDomain({ ...org, role: "owner" as const });
     });

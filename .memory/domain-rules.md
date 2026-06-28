@@ -59,6 +59,22 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
 5. **Headings**: escalar da menor para maior — `text-3xl md:text-5xl lg:text-7xl`
 6. **Forms**: `w-full max-w-sm mx-auto` — funciona em qualquer tela
 7. **Textos longas de nav/breadcrumb**: `overflow-x-auto` ou truncate antes de esconder em mobile
+8. **Tabelas**: usar SEMPRE o componente `Table` de `shared/components/ui/table.tsx` (nunca `<table>` cru). Padrão mobile-first: lista de cards no mobile (`sm:hidden`) + `Table` no desktop (`hidden sm:block`).
+9. **Menu de ações em linha de tabela**: usar o `DropdownMenu` (radix, portaled) — NUNCA um `<div absolute>` próprio, que é cortado pelo `overflow-x-auto` do container da tabela. (Bug corrigido 2026-06-14.)
+10. **Modais de criação/edição**: usar o `Sheet` de `shared/components/ui/sheet.tsx` (painel lateral `side="right"`), com `SheetHeader` + `SheetBody` (scroll) + `SheetFooter` (sticky, Cancelar + submit). Confirmações simples e painéis de histórico continuam em `Dialog`.
+11. **Validação de e-mail**: usar o validador do zod (`z.email()` / helper `optionalEmail`), nunca regex manual.
+12. **Telefone**: usar `PhoneInput` (`shared/components/ui/phone-input.tsx`) — seletor de país (libphonenumber-js, BR/US no topo) + máscara as-you-type; **armazena E.164** (`+5511999990000`). Schema valida com `/^\+[1-9]\d{6,14}$/`.
+13. **Data**: usar `DatePicker` (`shared/components/ui/date-picker.tsx` = Popover + Calendar react-day-picker v10, locale ptBR, dropdowns de mês/ano); valor no form é string `YYYY-MM-DD`.
+14. **Endereço do cliente**: internacional genérico — `address` (logradouro/linha 1), `address_line2` (complemento), `city`, `state`, `postal_code`, `country` (ISO-2). Migration `0004`.
+15. **Rotas da org usam SLUG, não UUID** — pasta `pages/dashboard/org/[orgSlug]/`. `OrgLayout` resolve `orgSlug`→org via `useOrgs()` e provê o contexto `OrgProvider`; páginas/componentes obtêm o **UUID** via `useCurrentOrg().orgId` para as chamadas de API (`/orgs/:orgId/*` continuam em UUID — backend intocado). Links sempre com `org.slug`. Slug não encontrado → redirect para `/dashboard/organizations`. (Somente slug; sem fallback de UUID.)
+16. **Switch/toggle**: usar `shared/components/ui/switch.tsx` (radix). Dropdowns no header/breadcrumb (org-switcher, user-menu) DEVEM ser o `DropdownMenu` portaled (senão renderizam atrás da sidebar `fixed z-50`).
+17. **Sidebar ativo por SEGMENTO BASE, não por fim de rota**: `org-sidebar` compara o 1º segmento após `[orgSlug]/` (`settings/cashier` → `settings`). Assim `settings/*` acende "Configurações" e nunca o item "Caixa" (`href="cashier"`). Regressão histórica: `endsWith("/"+href)` acendia Caixa em `settings/cashier` (corrigido 2026-06-16).
+18. **react-query + `useEffect`**: NÃO usar `const { data = [] }` como dep de efeito — o default cria **novo array a cada render** → loop "Maximum update depth" (ex.: `PaymentFeesForm` resetando o form). Usar referência estável (`const EMPTY = []` no módulo) e `data ?? EMPTY`. (Bug corrigido 2026-06-16.)
+19. **Agenda week/day cobre 0–24h** (`START_HOUR=0`, `END_HOUR=24`). Antes era 7–22, escondendo/clipando eventos fora do horário comercial (corrigido 2026-06-16).
+20. **Campos de formulário padronizados** (2026-06-20): `Input`, `SelectTrigger` e `Textarea` compartilham o mesmo visual — **`h-10` (input/select), `rounded-md`, `border-white/[0.08]`, `bg-white/[0.04]`, `focus:border-white/20 focus:ring-1 focus:ring-white/10`**. Botão default também `h-10 rounded-md`. Antes o select era `h-9 rounded-lg` e o input usava tokens `border-input/bg-background` → alturas/bordas divergentes. Não reintroduzir tamanhos diferentes.
+21. **Conteúdo centralizado**: o padding e a centralização vivem nos **layouts** (`OrgLayout`/`DashboardLayout` envolvem `children` em `<div className="mx-auto w-full max-w-7xl p-4 sm:p-6">`). Páginas **não** repetem `p-4 sm:p-6` no root (evita padding duplo) — usam só `space-y-*`.
+22. **Scroll de container alto (gotcha CSS)**: `overflow-x-auto` força `overflow-y:auto` no mesmo elemento (spec) → criava um scroll interno no calendário (week-view). Para a página inteira rolar, adicionar **`overflow-y-hidden`** ao container com `overflow-x-auto` quando a altura é o próprio conteúdo. (Corrigido 2026-06-20.)
+23. **DatePicker — dropdown de mês/ano (2026-06-20)**: o `<select>` nativo do `react-day-picker` v10 (`captionLayout="dropdown"`) abre um popup do SO (branco/azul) **não tematizável por CSS**. Override em `calendar.tsx` via **`components.Dropdown` = `CalendarDropdown`** que usa o nosso `Select` (Radix). O RDP v10 lê **`Number(e.target.value)`** no `onChange`, então o adapter sintetiza `onChange({ target: { value } })` a partir do `onValueChange` do Select (padrão shadcn). Não voltar ao select nativo.
 
 ---
 
@@ -80,6 +96,21 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
 - Banco único no Supabase com isolamento por `org_id` + Row Level Security (RLS)
 - Todo dado de estúdio obrigatoriamente carrega `org_id`
 - Cada org representa um estúdio de tatuagem
+- **Todo controller org-scoped (`/orgs/:orgId/*`) DEVE usar `OrgMembershipGuard`**
+  (`modules/auth/guards/org-membership.guard.ts`) — já aplicado em materials, customers e na rota
+  `GET /orgs/:orgId/members`. Alternativa válida (orgs module): escopar por
+  `findByIdAndAuthId`/`isOwner` no use-case. Regressão histórica: `list-members` vazava
+  cross-org por não escopar (corrigido 2026-06-14).
+- ✅ **RLS habilitada e enforced no backend** (defense-in-depth, ativada 2026-06-14 — ver ADR-0005):
+  - Repositórios injetam `DRIZZLE` (pool **`app_user`**, `NOBYPASSRLS`). O `RlsInterceptor`
+    global abre uma transação por request com `set_config('request.jwt.claims', {sub:authId}, true)`,
+    e as policies de `0000` (baseadas em `auth.uid()`) fazem o isolamento no nível do banco.
+  - **Use `DRIZZLE_ADMIN` (BYPASSRLS) apenas** em: guards que consultam o banco
+    (`OrgMembershipGuard` roda antes do interceptor), e bootstrap (`UserRepository.create` no
+    sign-up; `OrgRepository.create` insere o 1º owner membership). O resto = `DRIZZLE`.
+  - `DATABASE_URL` = conexão admin (postgres); `DATABASE_APP_URL` = conexão `app_user`.
+  - O guard de aplicação (`OrgMembershipGuard`) **continua obrigatório** — RLS é camada extra,
+    não substitui o 403 explícito por endpoint.
 
 ### Modelo de usuários e roles
 
@@ -105,6 +136,56 @@ Platform User (único por email/auth)
 - `owner`: gestão total da org
 - `employee`: acesso conforme permissões configuradas pelo owner (granularidade a definir)
 
+**Visibilidade por funcionário ("só vê o que é dele") — backend.** Regra de produto: o
+funcionário só enxerga dados referentes a ele; o owner vê tudo e pode lançar **em nome de**
+um funcionário. Estado por módulo (2026-06-21):
+- **Services** ✅ — `list-services` força `performedBy=self` p/ funcionário; owner escolhe o
+  profissional (`resolvePerformer`). Coluna `services.performed_by` + `created_by`.
+- **Agenda/Calendar** ✅ — `list-calendar-events` força `assignedTo=self` p/ funcionário;
+  owner vê todos ou filtra por membro. `create-calendar-event` aceita `assignedTo` (owner
+  cria em nome de membro ativo, validado por `repo.isOrgMember`; funcionário força self).
+  Frontend: `EventForm` mostra "Para o membro" só p/ owner na criação.
+- **Caixa/Transações** ✅ — `CashierController` agora é `AuthGuard + OrgMembershipGuard`
+  (membros acessam); `OrgOwnerGuard` a **nível de método** em reverse/correct/transfer/
+  PUT fees/POST categories. `list-transactions`/`get-balance`/`get-balance-history` escopam
+  por `transactions.created_by=self` p/ funcionário (helper `resolveActor`);
+  `create-transaction` aceita `createdBy` (owner em nome de, validado;
+  funcionário força self). `created_by` passou a guardar **users.id (app)**, não auth id.
+  Frontend: `Caixa` visível a todos no nav; `CashierPage` esconde Transferir/estorno/
+  correção e o seletor "Em nome de" p/ funcionário; mostra "Seus lançamentos" no subtítulo.
+  Verificado por teste de 3 contas (dono + func A + func B) em
+  `docs/testing/employee-visibility-tests.md`.
+  - **Errata preserva autoria (TX-1, 2026-06-22):** `correct-transaction` lê o
+    `created_by` do lançamento original e repassa via `trustedCreatedBy` (campo interno
+    de `create-transaction` que pula `resolveActor`/`resolveCreatedBy`) — assim o
+    corrigido **continua pertencendo ao funcionário**, não migra para o owner que corrige.
+
+**Navegação por papel (multi-org/multi-papel) — frontend.** Um usuário pode ser `owner`
+de N orgs e `employee` de outras N ao mesmo tempo. `GET /orgs` retorna `role` por org;
+a UI deve refletir o papel da org *ativa*:
+- `NavItem.roles?: Array<"owner"|"employee">` em `features/dashboard/lib/nav.ts` — item sem
+  `roles` é visível a todos; com `roles`, só aparece para quem tem o papel. Hoje
+  `Caixa` e `Configurações` são `roles:["owner"]`.
+- `org-sidebar.tsx` filtra os itens por `org.role` e **não renderiza seção vazia**.
+- `isOwnerOnlyPath(subpath)` (derivado das `roles` do nav principal + `SETTINGS_NAV`) +
+  guard no `OrgLayout`: funcionário acessando rota owner-only direto pela URL é
+  redirecionado p/ `/overview`. Granularidade por sub-path: `settings/agenda` é
+  acessível ao funcionário (configura a própria agenda); demais `settings/*` são
+  owner-only. O índice `/settings` redireciona por papel (owner→general,
+  funcionário→agenda) e o `OrgSettingsLayout` filtra as abas por `org.role`.
+- `org-switcher.tsx` mostra o papel por org (`Proprietário`/`Funcionário`) para orientar
+  quem transita entre orgs.
+- A filtragem de nav é **cosmética**: a fonte de verdade é o `OrgOwnerGuard` no backend
+  (rotas owner-only respondem 403). Nunca confiar só no nav para autorização.
+- Convite de funcionário **não** passa pelo Supabase admin — usa nosso token
+  (`org_invitations`): lookup público por token, accept exige auth; login/cadastro
+  carregam o token de volta para `/invite/accept`.
+- **Recusar convite (INV-1, 2026-06-22)**: `POST /invitations/decline` (auth, só o
+  convidado — e-mail bate, status pending) **remove** o convite (não só cancela), via
+  `invitationRepo.delete` (admin). Assim o owner pode **reenviar o fluxo** (o `create`
+  já faz upsert por `(orgId,email)` regenerando o token). Front: botão "Recusar" na tela
+  de aceite → `/dashboard/organizations`.
+
 ### Organizações
 
 **Fluxo de criação único (V1):**
@@ -119,14 +200,40 @@ Platform User (único por email/auth)
 - `customer` é entidade de dados gerenciada pelo estúdio, sem acesso ao sistema na V1
 - Schema tem `user_id` nullable — preparado para vínculo futuro com account da plataforma
 - Futuro: cliente pode criar conta e ver histórico entre orgs que frequentou
-- Sistema de créditos: pendente de definição (não bloqueante para V1)
+- **Campos núcleo padronizados** (reunião 11/06): Nome, Telefone, E-mail, **Cidade**, Origem — coluna `customers.city` **implementada** (migração 0002, 2026-06-14)
+- **Créditos:** considerado específico da Ink House → **fora da estrutura núcleo** da plataforma. Substituto futuro: **cashback opcional por org** (com regras de expiração)
+- **Observações + anexos:** cada cliente pode ter observações e anexos (imagem/documento). Implementar como **estrutura genérica** de documentação do cliente (ex.: ficha de anamnese), não uma feature de "ficha" específica
 
 ### Tipos de serviço
 
 - Na v1 eram enums fixos (`tattoo | body_piercing`)
 - Na v2 são um **cadastro configurável por org** — tabela `service_types` com `UNIQUE(org_id, name)`
-- Mesmo padrão para `material_categories` e `customer_origins` (origens de cliente)
+- Mesmo padrão para `material_categories`
 - Impacto: não há enums de domínio para serviços — tudo é row no banco
+
+> ⚠️ **Origem do cliente (`customer_origins`) — refinamento (reunião 11/06):** ao contrário de
+> serviços/materiais, a **origem do cliente** passa a ser **categorias padronizadas** (não livre
+> por org), para viabilizar **relatórios cross-org**. Canais: Indicação · Rede social do
+> profissional · Rede social do estúdio. Estrutura final a confirmar (enum fixo vs. catálogo
+> global gerenciado pelo super_admin).
+
+### Conta do usuário (account) — implementado 2026-06-16
+
+- **Perfil** (`/dashboard/account/profile`): edita nome, e-mail e foto via `PATCH /auth/me`
+  (`UpdateMeUseCase` no auth module). E-mail é a identidade de login → atualizado no Supabase via
+  `IAuthProvider.updateEmail` (`admin.updateUserById`, `email_confirm:true`) antes do DB. Frontend:
+  hook `useMe` (`GET/PATCH /auth/me` + `uploadAvatar`).
+- **Foto de perfil — upload (2026-06-20):** bucket **`avatars`** (Supabase Storage, migration
+  `0010_avatars_bucket.sql`): público, 5 MB, mimetypes de imagem. Upload **só pelo backend** com
+  `service_role` (bypassa RLS de `storage.objects`) — `POST /auth/me/avatar` (`FileInterceptor` +
+  `ParseFilePipe` ≤5 MB/imagem) → `IStorageProvider`/`SupabaseStorageProvider` grava em
+  `"<authId>/avatar.<ext>"` (`upsert`) → retorna **URL pública + cache-bust `?t=`** → salva em
+  `users.avatarUrl`. Frontend faz `multipart` (apiRequest **omite `Content-Type` p/ `FormData`**).
+  ⚠️ Não dá `DELETE` direto em `storage.objects` (trigger bloqueia) — usar a Storage API.
+- **Acesso** (`/dashboard/account/access`): troca de senha **por e-mail** — botão dispara
+  `forgotPassword(user.email)`; o link do e-mail abre `/auth/reset-password`, que **recupera a sessão
+  pelo token do link** e mostra a tela de nova senha (fluxo reusa o de recuperação existente).
+- **Org switcher** (breadcrumb) tem item final "Ver todas as organizações" → `/dashboard/organizations`.
 
 ### Relação serviço ↔ transação financeira
 
@@ -153,10 +260,180 @@ Produto: "assessoria". Quatro configurações possíveis (gerenciadas pelo super
 - Grace period configurável após inadimplência
 - Estrutura de produtos Stripe desacoplada por produto
 
-### Qualidade
+### Gaps de reunião aplicados (2026-06-20) — migrations 0011–0013
 
-- Testes unitários + integração do zero
-- Código da v1 não é reaproveitado — apenas regras de negócio
+Auditoria código vs. transcrições → aplicados nos módulos já construídos:
+
+- **Caixa = owner-only:** `CashierController` usa **`OrgOwnerGuard`** (novo, em `auth/guards/`) —
+  funcionário recebe 403 ("funcionário não tem acesso ao caixa"). Nav esconde Caixa p/ employee.
+- **Categoria de transação:** tabela `transaction_categories` (por org, UNIQUE org+name) +
+  `transactions.category_id` (FK). Seed default por org (Serviço/Funcionário/Material/Conta/
+  Reforma/Transferência/Outros) na criação de org + migration p/ orgs existentes. **Descrição
+  permanece.** Rotas `GET/POST /orgs/:orgId/cashier/categories`.
+- **Transferência entre meios:** `POST /orgs/:orgId/cashier/transfers` → `TransferUseCase` cria
+  **2 transações** (saída no método origem + entrada no destino), sem taxa.
+- **Membro ativo/inativo:** `org_memberships.enabled` (default true). `SetMemberStatusUseCase`
+  (owner; **bloqueia desativar o último owner ativo** → `LAST_ACTIVE_OWNER` 409). **`OrgMembershipGuard`
+  agora exige `enabled=true`** — membro inativo perde acesso. Rota `PATCH .../members/:id/status`.
+- **Material:** `archived_at` (arquivar em vez de excluir quando em uso; lista exclui arquivados
+  por default, `?archived=true`) + `last_used_at` (setado em baixa/ajuste negativo; ordenação
+  padrão por mais recente). Busca por nome (`?q=`, ilike). Rotas `POST :id/archive` / `:id/unarchive`.
+- **Conferência de estoque:** `organizations.stock_check_interval_days` + `stock_verifications`
+  (+ `_items`). `CreateStockVerificationUseCase` (grava físico×sistema; `reconcile` gera
+  `manual_adjustment`). **Cron** `POST /internal/cron/stock-check-reminders` (`CronSecretGuard`,
+  novo enum `notification_type.stock_check_reminder`) notifica owners. UI em `settings/stock` (owner).
+- **Origem do cliente:** seed das 3 categorias por org + `GET /orgs/:orgId/customers/origins` +
+  Select no form. **Cidade** exibida na listagem de clientes.
+- **Anexos do cliente:** bucket **privado** `customer-files` (migration `0012`) +
+  `customer_attachments`. `IStorageProvider` ganhou `uploadFile/createSignedUrl/removeFile`
+  (genéricos). Rotas `POST/GET/DELETE /orgs/:orgId/customers/:id/attachments` (GET = signed URLs).
+- **Export CSV** de clientes: `GET /orgs/:orgId/customers/export` (text/csv; respeita filtro).
+- ⚠️ **Gotcha (repetido):** ao adicionar campo a uma *entity* de domínio, adicione nos **3**
+  lugares — props interface, `readonly` field e atribuição no constructor — senão não serializa
+  (pegadinha que ocultou `transaction.categoryId` até o teste e2e).
+- **Fora do escopo (por design):** super-admin panel, módulo de Serviços, Google Calendar, push
+  externo, caixa-poupança, tema/exclusão de conta.
+
+### Caixa & Financeiro — implementado (2026-06-16)
+
+- **Backend** `modules/cashier/**` (espelha materials), **frontend** `features/cashier/**`,
+  migration `0009`. Rota `orgs/:orgId/cashier` (`AuthGuard`+`OrgMembershipGuard`).
+- **Split bruto/taxa/líquido** em `transactions` (migration `0009`, **aditiva**):
+  `amount_gross_cents`, `fee_cents`, e `amount_cents` = **líquido** (o que o caixa reflete).
+  ⚠️ A coluna legada `amount_cents` foi **repurposed como líquido** (não renomeada) para manter
+  `drizzle-kit generate` não-interativo — no domínio mapeia para `netCents`. Não recriar.
+- **Append-only + ERRATA (regra central):** nunca editar/excluir transação. **Estornar** cria
+  uma transação de tipo oposto com `reverses_transaction_id` → original; "estornada" é
+  **derivado** (existe linha que a estorna), nunca campo mutável. **Corrigir** = estorno +
+  relançamento (`correct-transaction.use-case`). Estornar duas vezes → 409
+  (`TRANSACTION_ALREADY_REVERSED`); estornar um estorno → 422 (`TRANSACTION_NOT_REVERSIBLE`).
+- **Saldos por AGREGAÇÃO on-read** (não snapshot): dois buckets — **dinheiro** (`cash`) e
+  **digital** (`bank_transfer|credit_card|debit_card`); `credits` **fora** do caixa.
+  `GET /balance` (SUM líquido com sinal) e `GET /balance/history` (running sum por dia em SQL).
+- **Taxas de cartão** (`org_payment_fees`, UNIQUE org+método, RLS owner-write): líquido =
+  `gross - round(gross*percent/100 + fixed_cents)`. Só em **entrada** (`income`) com cartão.
+  Config **exclusiva de `owner`/`super_admin`** (checado em `upsert-payment-fees` via
+  `IOrganizationRepository.isOwner`; `CASHIER_FORBIDDEN` 403). Helper puro
+  `domain/fee-calculator.ts` (reusável pelo futuro módulo de Serviços).
+- **Frontend**: valores sempre em **centavos** no estado (`lib/money.ts`); UI mobile-first
+  (Table desktop + cards mobile), `Sheet` para novo lançamento/correção, `Dialog` para estorno,
+  `DropdownMenu` portaled nas ações (oculto em linhas já estornadas/estorno). Config de taxas em
+  `settings/cashier` (owner-only), dentro do `OrgSettingsLayout`.
+- **Integração Serviço→transação:** entregue no módulo de Serviços (abaixo). A transação é
+  criada **server-side via `TRANSACTION_REPOSITORY`** dentro do use-case — o gate owner-only do
+  `CashierController` **não** bloqueia, pois RLS `transactions_insert = is_org_member`.
+
+### Serviços / Atendimentos (módulo `services`, 2026-06-21)
+- **Serviço = evento central** (cliente + profissional + materiais + pagamento). Backend
+  `modules/services/` (Clean Arch, espelha cashier/materials). Rota
+  `orgs/:orgId/services` (`AuthGuard`+`OrgMembershipGuard` — **membros**, não owner-only).
+  Schema `services`/`service_materials`/`service_types` já existia desde `0000` (RLS inclusa);
+  migration `0014` só adicionou `services.canceled_at` (aditiva, hand-written).
+- **Estado derivado (sem coluna de status):** `pendente` (sem `payment_transaction_id`, não
+  cancelado) · `pago` (com transação) · `cancelado` (`canceled_at` set). ⚠️ Os getters do
+  `ServiceEntity` (`status`/`isPaid`/`isCanceled`) **não serializam** em JSON — o frontend
+  **deriva** status de `canceledAt` + `paymentTransactionId` (`serviceStatus()` em types).
+- **Reaproveitamento entre módulos:** o use-case importa tokens já exportados pelos
+  `*InfrastructureModule`: `TRANSACTION_REPOSITORY`+`computeNet`+`PAYMENT_FEE_REPOSITORY`
+  (cashier), `MATERIAL_REPOSITORY`+`STOCK_MOVEMENT_REPOSITORY` (materials),
+  `CUSTOMER_REPOSITORY` (customers), `MEMBER_REPOSITORY` (orgs). `services.module` importa os 4
+  infra-modules. Atomicidade garantida pela transação por-request do `RlsInterceptor`.
+- **`performed_by` / `created_by` = `users.id` (app), NÃO authId.** `user.id` no controller é o
+  **authId** Supabase (guards comparam `users.auth_id = user.id`). Os use-cases resolvem a
+  associação via `MEMBER_REPOSITORY.findByAuthId(orgId, authId)` (método **novo**) → `{ userId
+  (app), isOwner }`. `performed_by` casa com `member.userId` e com `calendar.assigned_to`.
+- **Papéis:** funcionário (não-owner) **força `performedBy=self`** e vê/edita/paga/cancela só os
+  próprios (`SERVICE_FORBIDDEN` 403); owner escolhe o profissional (membro ativo, senão
+  `EMPLOYEE_INACTIVE` 422) e filtra por membro. Lista **default = mês vigente** (1º→hoje).
+- **Pagamento:** `paymentStatus` "paid" → cria transação `income` **líquida** (`computeNet`) e
+  vincula `payment_transaction_id`; "pending" → sem transação. `POST /:id/pay` converte
+  pendente→pago (`SERVICE_NOT_PAYABLE` 409 se já pago/cancelado). Métodos: dinheiro,
+  `bank_transfer` (Pix), crédito/débito — **`credits`/cashback adiados** (fora do enum do form).
+- **Cancelar (`POST /:id/cancel`):** marca `canceled_at` + **estorna** a transação (errata,
+  `reversesTransactionId`) + **devolve estoque** (movimento `manual_adjustment` positivo).
+  Recancelar → `SERVICE_ALREADY_CANCELED` 409. **Editar** só campos não-financeiros
+  (tipo/cliente/profissional/local/descrição/data); valor/método/materiais = cancelar + recriar.
+- **Consumo de materiais:** linha não-compartilhável → quantidade (valida estoque, senão
+  `INSUFFICIENT_STOCK` 422; debita via `updateStockQuantity` + movimento `service_consumption`
+  + `touchLastUsed`). Compartilhável (`shareable`) → checkbox **"acabou?"**: marcado ⇒ baixa
+  **1 unidade** + grava `service_materials.quantity=1`; desmarcado ⇒ não baixa / sem linha.
+- **Cliente** precisa estar `enabled` (senão `CUSTOMER_DISABLED` 422).
+- **Tipos de serviço criáveis inline** (`POST /services/types`, upsert UNIQUE org+name — espelha
+  transaction-category). ⚠️ Rotas `/types` declaradas **antes** de `/:id` no controller (senão
+  `:id` captura "types").
+- **Frontend** `features/services/`: Sheet com 3 seções (Dados·Materiais·Pagamento), `useFieldArray`
+  + `useFormContext` em `material-lines` (mutar o snapshot do field **não** atualiza o RHF — usar
+  `register`/`Controller`); lista Table desktop + cards mobile com badge de status; reusa
+  `lib/money` do cashier e `useCustomers`/`useMembers`/`useMaterials`.
+
+### Estoque — modelo realista (reunião 11/06)
+
+- Objetivo: o registrado deve refletir o **físico**
+- **Descartáveis (consumo unitário)** — cartuchos, agulhas, luvas, barreiras → usou, saiu do estoque
+- **Parcialmente consumidos** — vaselina, sabão, limpeza → controlar frações é burocrático; decisão tentativa: após o **primeiro uso**, tratar como **consumido**
+- **Integração estoque ↔ serviço** (futuro, pesquisar): relacionar materiais ao serviço para custo real/lucro líquido (`service_materials` já existe no schema)
+
+#### Simplificações implementadas (2026-06-15)
+- **Material NÃO tem mais campo `unit`** (removido — migration `0006`). Não reintroduzir.
+- **`shareable` (bool, migration `0005`)**: material compartilhável não é "queimado" por inteiro a cada serviço (ex.: luvas). UI = `Switch` no form + badge "Compartilhável" na lista. ⚠️ O comportamento de consumo (ao vincular no serviço, perguntar se acabou → descontar) é **pendente** e será feito com o módulo de Serviços — hoje só existe a flag.
+- **Ajuste de estoque**: o form separa **direção** (`Select` Adição/Remoção) + **quantidade** (input só-número); o `quantityDelta` com sinal é montado na submissão (`stock-page handleAdjust`). Backend continua recebendo `quantityDelta` assinado.
+- **Excluir material**: bloqueado se vinculado a algum serviço — `DeleteMaterialUseCase` checa `service_materials` e lança `MATERIAL_IN_USE_BY_SERVICES` (409). Frontend mostra a mensagem no `handleDelete`.
+
+### Agenda — implementada (2026-06-15)
+
+- **Agenda por membro**: cada membro gerencia a **própria** agenda. `calendar_events.assigned_to` (FK `users.id`, NOT NULL) é o dono do horário. **Ninguém cria/edita evento de outro** — nem o owner.
+- **Tipo de evento** (`calendar_event_type`, migration `0007`): `appointment` (com `customer_id` opcional) | `unavailability` (bloqueio).
+- **Sobreposição** proibida por membro: app-level em `CreateCalendarEventUseCase`/`UpdateCalendarEventUseCase` (`hasOverlap`) → `CALENDAR_EVENT_OVERLAP` (409). `ends_at > starts_at` → `CALENDAR_EVENT_INVALID_RANGE` (422). Editar/excluir de terceiro → `CALENDAR_EVENT_FORBIDDEN` (403).
+- **Visibilidade por papel**: `owner` = admin (vê todos; filtra por membro via `?assignedTo=<userId>`); `employee` vê só os seus (o use-case força `assignedTo = self`). No frontend, owner que abre evento de outro membro vê em **modo leitura** (`EventForm readOnly`).
+- **Backend**: `modules/calendar/**` (espelha customers); rota `orgs/:orgId/calendar` (`AuthGuard`+`OrgMembershipGuard`). RLS de `calendar_events` já vinha de `0000` (isolamento por org); a visibilidade por membro é camada de aplicação.
+- **Frontend**: `features/agenda/**` — context (view day/week/month + range), `useCalendarEvents`, visões **custom em CSS-grid** (Semana/Mês/Dia, sem lib de calendário), `EventForm` (Sheet). Página `[orgSlug]/schedule.tsx`.
+- **Integração externa (Google/Outlook/Apple)**: **adiada** — só placeholder em `/dashboard/preferences` ("Calendários externos — em breve"). Conexão será **por usuário** (espelhamento bidirecional), nunca em nome de outro. Não bloqueia o fluxo nativo.
+- **Status do evento** (migration `0008`): `scheduled | canceled` (mínimo). Só o dono altera (`UpdateCalendarEventUseCase`). Eventos `canceled` aparecem esmaecidos/riscados nas visões. Marcar status NÃO cria serviço/transação (virá com Serviços/Caixa).
+
+### Notificações — núcleo reutilizável (2026-06-15)
+- **Módulo `modules/notifications/`**: `NotificationService.notify({userId, orgId?, type, title, body?, data?, email?})` cria a notificação **in-app** (tabela `notifications`, migration `0008`) e dispara **e-mail** (Resend) se `NOTIFICATIONS_EMAIL_ENABLED=true` + `RESEND_API_KEY`. Falha de e-mail nunca quebra o fluxo. **Outros módulos injetam `NotificationService`** (exportado).
+- A tabela `notifications` **não tem RLS** — acesso só pelo módulo, sempre escopado por `user_id` no código, via **`DRIZZLE_ADMIN`**. Inbox por usuário: `GET/POST /me/notifications` (`AuthGuard`, resolve `authId→users.id`).
+- **Gatilhos atuais**: (1) indisponibilidade criada por um membro → notifica os **owners** (exceto o autor), no `CreateCalendarEventUseCase`; (2) **lembrete de agenda** via cron.
+- **Cron interno**: `CronSecretGuard` (header `x-cron-secret` == env `CRON_SECRET`) protege `POST /internal/cron/*` (sem Auth/Org guard). `POST /internal/cron/agenda-reminders` lembra appointments `scheduled` que começam nas próximas 24h e seta `reminder_sent_at` (**idempotente**). No Railway, um job agendado bate nesse endpoint. **Queries de cron/cross-user usam `DRIZZLE_ADMIN`** (sem contexto de request, RLS bloquearia; e a policy de `users` é self-only).
+- **Feature flags completas (ADR-0009) adiadas**: por ora e-mail é gateado por env; in-app sempre ligado.
+- Frontend: `features/notifications/` (`useNotifications` polling 30s + `NotificationBell` portaled no `top-header`).
+
+### Relatórios segmentados (reunião 11/06)
+
+- Não é uma única tela — **múltiplos relatórios especializados**: Serviços, Funcionários, Clientes, Financeiros
+- Requer **levantamento de requisitos próprio** antes do desenvolvimento
+
+### Feature Flags
+
+- Recursos podem ser desenvolvidos antes e **habilitados só quando viáveis** (custo/validação)
+- Controle **global pelo super_admin** (ex.: e-mail, SMS, notificações automáticas desabilitados até validar). Ver ADR-0009
+
+### Outros direcionamentos
+
+- **Dashboard administrativo** é prioritário (indicadores, estoque, movimentações, alertas); futuro: dashboards por funcionário
+- **Pré-cadastro** de cliente (nome + telefone) para automações de confirmação de agenda
+- **Ambientes** separados: dev / homologação / produção
+- **Cron jobs / assíncrono** para mensagens, campanhas, confirmações e retenção
+- **Auditoria** obrigatória: quem / o quê / quando / qual org / quais alterações
+- **Agenda:** possível integração com Google Calendar (avaliar necessidade real)
+
+### Qualidade — Testes (TDD obrigatório)
+
+**Regra (2026-06-22): TDD em todo module.** Cada module do sistema (back e front) deve ter
+**cobertura de testes unitários e de integração**. O fluxo é **test-first**: escreve-se o
+teste cobrindo a funcionalidade **antes** da implementação, e só então o código que o faz
+passar (red → green → refactor).
+
+- **Unitário**: use-cases (lógica de domínio/autorização — ex. `resolveActor`,
+  `resolvePerformer`, `isOwnerOnlyPath`), helpers puros, mappers, schemas.
+- **Integração**: fluxos por módulo ponta-a-ponta (controller → use-case → repo) contra um
+  Postgres de teste; cobrir os caminhos já mapeados manualmente (convite e2e, visibilidade
+  por funcionário/3-contas, caixa append-only, scoping de agenda/serviços).
+- Os **scripts manuais de API** (PowerShell) existentes em `docs/testing/` são a base de
+  cobertura a portar para a suíte automatizada.
+- **Backlog**: a adoção plena é um "ataque de testes" dedicado (ver `roadmap.md` → EPIC
+  Qualidade & Testes). A regra entra em vigor já para **todo código novo**.
+- Código da v1 não é reaproveitado — apenas regras de negócio.
 
 ### Pendências não bloqueantes para V1
 

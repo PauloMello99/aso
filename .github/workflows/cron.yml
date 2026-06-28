@@ -1,0 +1,53 @@
+name: Scheduled crons
+
+# Dispara os endpoints internos de cron do backend (agenda + estoque).
+# Substitui um scheduler de plataforma (Render free não tem cron) — centraliza
+# staging e production aqui, de graça. Os use-cases são idempotentes.
+on:
+  schedule:
+    - cron: "*/15 * * * *" # a cada 15 min (UTC)
+  workflow_dispatch: # permite disparo manual para smoke test
+
+concurrency:
+  group: cron-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [staging, production]
+    steps:
+      - name: Disparar crons (${{ matrix.environment }})
+        env:
+          URL_STAGING: ${{ secrets.BACKEND_URL_STAGING }}
+          SECRET_STAGING: ${{ secrets.CRON_SECRET_STAGING }}
+          URL_PROD: ${{ secrets.BACKEND_URL_PROD }}
+          SECRET_PROD: ${{ secrets.CRON_SECRET_PROD }}
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.environment }}" = "staging" ]; then
+            BASE="$URL_STAGING"; SECRET="$SECRET_STAGING"
+          else
+            BASE="$URL_PROD"; SECRET="$SECRET_PROD"
+          fi
+
+          if [ -z "$BASE" ] || [ -z "$SECRET" ]; then
+            echo "::notice::Pulando ${{ matrix.environment }} — secrets BACKEND_URL/CRON_SECRET ausentes."
+            exit 0
+          fi
+
+          for ep in agenda-reminders stock-check-reminders; do
+            echo "POST $BASE/internal/cron/$ep"
+            code=$(curl -sS -o /tmp/body -w "%{http_code}" -m 60 \
+              -X POST "$BASE/internal/cron/$ep" \
+              -H "x-cron-secret: $SECRET")
+            echo "  -> HTTP $code"
+            cat /tmp/body; echo
+            if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
+              echo "::error::cron $ep falhou em ${{ matrix.environment }} (HTTP $code)"
+              exit 1
+            fi
+          done

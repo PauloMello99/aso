@@ -1,11 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/router"
 import { UserPlus, Loader2, AlertCircle } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { useAuth } from "@/features/auth/hooks/use-auth"
-import { useOrg } from "@/features/dashboard/hooks/use-orgs"
+import { useCurrentOrg } from "@/features/dashboard"
 import { useMembers } from "../hooks/use-members"
 import { MemberList } from "./member-list"
 import { InviteMemberForm } from "./invite-member-form"
@@ -13,12 +12,12 @@ import type { InviteFormValues } from "../schemas/org.schemas"
 import type { OrgRole } from "../types"
 
 export function MembersPage() {
-  const router = useRouter()
-  const { orgId } = router.query as { orgId?: string }
+  const { org, orgId } = useCurrentOrg()
+  const isOwner = org.role === "owner"
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null)
 
   const { user } = useAuth()
-  const { isOwner } = useOrg(orgId ?? "")
   const {
     members,
     invitations,
@@ -27,22 +26,50 @@ export function MembersPage() {
     inviteMember,
     updateMemberRole: updateMemberRoleFn,
     removeMember,
+    setMemberStatus,
+    updateMemberPermissions,
     cancelInvitation,
-  } = useMembers(orgId ?? "")
+  } = useMembers(orgId)
+
+  async function handleUpdatePermissions(
+    memberId: string,
+    permissions: string[],
+  ): Promise<void> {
+    try {
+      await updateMemberPermissions(memberId, permissions)
+    } catch (err) {
+      alert(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível atualizar as permissões.",
+      )
+    }
+  }
 
   async function updateMemberRole(memberId: string, role: OrgRole): Promise<void> {
     await updateMemberRoleFn(memberId, role)
   }
 
-  async function handleInvite(values: InviteFormValues) {
-    await inviteMember(values.email, values.role as OrgRole)
+  async function toggleStatus(memberId: string, enabled: boolean): Promise<void> {
+    try {
+      await setMemberStatus(memberId, enabled)
+    } catch (err) {
+      alert(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível alterar o status do membro.",
+      )
+    }
   }
 
-  if (!orgId) return null
+  async function handleInvite(values: InviteFormValues) {
+    const result = await inviteMember(values.email, values.role as OrgRole)
+    setLastInviteUrl(result.acceptUrl)
+  }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16 text-white/40">
+      <div className="flex items-center justify-center py-16 text-foreground/40">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         Carregando membros…
       </div>
@@ -63,7 +90,7 @@ export function MembersPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold">Membros</h2>
-          <p className="text-sm text-white/50">Gerencie quem tem acesso a esta organização.</p>
+          <p className="text-sm text-foreground/50">Gerencie quem tem acesso a esta organização.</p>
         </div>
         {isOwner && (
           <Button
@@ -77,6 +104,29 @@ export function MembersPage() {
         )}
       </div>
 
+      {lastInviteUrl && (
+        <div className="flex flex-col gap-2 rounded-lg border border-orange-500/20 bg-orange-500/5 p-3 text-sm">
+          <span className="text-foreground/70">
+            Convite criado. Link de aceite (dev — copie para testar):
+          </span>
+          <div className="flex items-center gap-2">
+            <input
+              readOnly
+              value={lastInviteUrl}
+              onFocus={(e) => e.currentTarget.select()}
+              className="min-w-0 flex-1 rounded-md border border-foreground/[0.08] bg-foreground/[0.04] px-2 py-1 text-xs text-foreground/80"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void navigator.clipboard?.writeText(lastInviteUrl)}
+            >
+              Copiar
+            </Button>
+          </div>
+        </div>
+      )}
+
       <MemberList
         members={members}
         invitations={invitations}
@@ -84,6 +134,8 @@ export function MembersPage() {
         isOwner={isOwner}
         onUpdateRole={updateMemberRole}
         onRemove={removeMember}
+        onToggleStatus={toggleStatus}
+        onUpdatePermissions={handleUpdatePermissions}
         onCancelInvitation={cancelInvitation}
       />
 

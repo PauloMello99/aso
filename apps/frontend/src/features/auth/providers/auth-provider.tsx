@@ -56,9 +56,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
   }
 
+  const resetPassword = async (
+    accessToken: string,
+    newPassword: string,
+    refreshToken?: string,
+  ): Promise<void> => {
+    await apiRequest("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ accessToken, newPassword, refreshToken }),
+      skipAuth: true,
+    })
+  }
+
   return (
     <AuthContext.Provider
-      value={{ user, loading, signUp, signIn, signOut, forgotPassword }}
+      value={{ user, loading, signUp, signIn, signOut, forgotPassword, resetPassword }}
     >
       {children}
     </AuthContext.Provider>
