@@ -1,43 +1,101 @@
 "use client"
 
 import * as React from "react"
-import { RefreshCw, Ban, RotateCcw } from "lucide-react"
+import { useRouter } from "next/router"
+import { RefreshCw, Ban, RotateCcw, Search, Building2 } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Badge } from "@/shared/components/ui/badge"
+import { Input } from "@/shared/components/ui/input"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/shared/components/ui/table"
 import { useAdminOrgs } from "../hooks/use-admin"
+import { fmtDate } from "../lib/format"
+import { useDebouncedValue } from "../lib/use-debounced-value"
+import { ConfirmDialog } from "./confirm-dialog"
+import { SortHead } from "./sort-head"
+import type { AdminOrg, OrgSortKey, OrgStatusFilter, SortDir } from "../types"
 
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
+const STATUS_TABS: { value: OrgStatusFilter; label: string }[] = [
+  { value: "all", label: "Todas" },
+  { value: "active", label: "Ativas" },
+  { value: "suspended", label: "Suspensas" },
+]
 
 export function AdminOrgs() {
+  const router = useRouter()
   const { orgs, loading, error, refetch, setSuspended } = useAdminOrgs()
-  const [busyId, setBusyId] = React.useState<string | null>(null)
 
-  async function toggleSuspend(id: string, name: string, suspended: boolean) {
-    const verb = suspended ? "reativar" : "suspender"
-    if (!confirm(`Deseja ${verb} a organização "${name}"?`)) return
-    setBusyId(id)
+  const [query, setQuery] = React.useState("")
+  const debouncedQuery = useDebouncedValue(query)
+  const [status, setStatus] = React.useState<OrgStatusFilter>("all")
+  const [sortKey, setSortKey] = React.useState<OrgSortKey>("createdAt")
+  const [sortDir, setSortDir] = React.useState<SortDir>("desc")
+
+  const [target, setTarget] = React.useState<AdminOrg | null>(null)
+  const [busy, setBusy] = React.useState(false)
+  const [actionError, setActionError] = React.useState<string | null>(null)
+
+  const rows = React.useMemo(() => {
+    const q = debouncedQuery.trim().toLowerCase()
+    const filtered = orgs.filter((o) => {
+      const suspended = o.suspendedAt !== null
+      if (status === "active" && suspended) return false
+      if (status === "suspended" && !suspended) return false
+      if (!q) return true
+      return (
+        o.name.toLowerCase().includes(q) ||
+        o.slug.toLowerCase().includes(q) ||
+        (o.ownerName ?? "").toLowerCase().includes(q)
+      )
+    })
+    const dir = sortDir === "asc" ? 1 : -1
+    return [...filtered].sort((a, b) => {
+      if (sortKey === "name") return a.name.localeCompare(b.name) * dir
+      if (sortKey === "memberCount") return (a.memberCount - b.memberCount) * dir
+      return (
+        (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * dir
+      )
+    })
+  }, [orgs, debouncedQuery, status, sortKey, sortDir])
+
+  function toggleSort(key: OrgSortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"))
+    } else {
+      setSortKey(key)
+      setSortDir(key === "name" ? "asc" : "desc")
+    }
+  }
+
+  async function confirmToggle() {
+    if (!target) return
+    setBusy(true)
+    setActionError(null)
     try {
-      await setSuspended(id, !suspended)
+      await setSuspended(target.id, target.suspendedAt === null)
+      setTarget(null)
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Não foi possível atualizar.")
+      setActionError(
+        err instanceof Error ? err.message : "Não foi possível atualizar.",
+      )
     } finally {
-      setBusyId(null)
+      setBusy(false)
     }
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Organizações</h1>
           <p className="mt-0.5 text-sm text-foreground/40">
-            {orgs.length} organizações na plataforma.
+            {orgs.length} na plataforma · {rows.length} exibidas
           </p>
         </div>
         <Button
@@ -57,59 +115,143 @@ export function AdminOrgs() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-foreground/[0.06]">
-        <ul className="divide-y divide-foreground/[0.05]">
-          {orgs.map((o) => {
-            const suspended = o.suspendedAt !== null
-            return (
-              <li
-                key={o.id}
-                className="flex items-center gap-3 px-4 py-3 text-sm"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate font-medium text-foreground">
-                      {o.name}
-                    </p>
-                    {suspended && (
-                      <Badge
-                        variant="destructive"
-                        className="bg-red-500/15 text-red-400"
-                      >
-                        Suspensa
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="mt-0.5 truncate text-xs text-foreground/40">
-                    {o.ownerName ?? "sem dono"} · {o.memberCount}{" "}
-                    {o.memberCount === 1 ? "membro" : "membros"} ·{" "}
-                    {fmtDate(o.createdAt)}
-                  </p>
-                </div>
-                <Button
-                  variant={suspended ? "outline" : "ghost"}
-                  size="sm"
-                  disabled={busyId === o.id}
-                  onClick={() => void toggleSuspend(o.id, o.name, suspended)}
-                  className={suspended ? "" : "text-red-400 hover:text-red-300"}
-                >
-                  {suspended ? (
-                    <>
-                      <RotateCcw className="h-4 w-4" />
-                      <span className="hidden sm:inline">Reativar</span>
-                    </>
-                  ) : (
-                    <>
-                      <Ban className="h-4 w-4" />
-                      <span className="hidden sm:inline">Suspender</span>
-                    </>
-                  )}
-                </Button>
-              </li>
-            )
-          })}
-        </ul>
+      {/* Toolbar: busca + filtro de status */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/30" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar por nome, slug ou dono…"
+            className="pl-9"
+          />
+        </div>
+        <div className="flex shrink-0 rounded-md border border-foreground/[0.08] p-0.5">
+          {STATUS_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setStatus(tab.value)}
+              className={`rounded px-3 py-1.5 text-sm transition-colors ${
+                status === tab.value
+                  ? "bg-foreground/[0.08] text-foreground"
+                  : "text-foreground/50 hover:text-foreground"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
+
+      <div className="overflow-hidden rounded-xl border border-foreground/[0.06]">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <SortHead label="Organização" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} />
+              <TableHead>Dono</TableHead>
+              <SortHead label="Membros" active={sortKey === "memberCount"} dir={sortDir} onClick={() => toggleSort("memberCount")} align="right" />
+              <SortHead label="Criada" active={sortKey === "createdAt"} dir={sortDir} onClick={() => toggleSort("createdAt")} />
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((o) => {
+              const suspended = o.suspendedAt !== null
+              return (
+                <TableRow
+                  key={o.id}
+                  onClick={() => void router.push(`/admin/orgs/${o.id}`)}
+                  className="cursor-pointer"
+                >
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-foreground">{o.name}</span>
+                      {suspended && (
+                        <Badge variant="destructive" className="bg-red-500/15 text-red-400">
+                          Suspensa
+                        </Badge>
+                      )}
+                    </div>
+                    <span className="text-xs text-foreground/40">/{o.slug}</span>
+                  </TableCell>
+                  <TableCell className="text-foreground/70">
+                    {o.ownerName ?? "—"}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-foreground/70">
+                    {o.memberCount}
+                  </TableCell>
+                  <TableCell className="text-foreground/50">
+                    {fmtDate(o.createdAt)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant={suspended ? "outline" : "ghost"}
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setActionError(null)
+                        setTarget(o)
+                      }}
+                      className={suspended ? "" : "text-red-400 hover:text-red-300"}
+                    >
+                      {suspended ? (
+                        <>
+                          <RotateCcw className="h-4 w-4" />
+                          <span className="hidden sm:inline">Reativar</span>
+                        </>
+                      ) : (
+                        <>
+                          <Ban className="h-4 w-4" />
+                          <span className="hidden sm:inline">Suspender</span>
+                        </>
+                      )}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+
+        {!loading && rows.length === 0 && (
+          <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+            <Building2 className="h-6 w-6 text-foreground/20" />
+            <p className="text-sm text-foreground/50">
+              {orgs.length === 0
+                ? "Nenhuma organização ainda."
+                : "Nenhuma organização corresponde à busca."}
+            </p>
+          </div>
+        )}
+        {loading && (
+          <div className="space-y-px">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-14 animate-pulse bg-foreground/[0.02]" />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <ConfirmDialog
+        open={target !== null}
+        onOpenChange={(o) => !o && setTarget(null)}
+        title={
+          target?.suspendedAt
+            ? `Reativar "${target.name}"?`
+            : `Suspender "${target?.name}"?`
+        }
+        description={
+          target?.suspendedAt
+            ? "A organização volta a ter acesso à plataforma."
+            : "Os membros perdem acesso até a reativação."
+        }
+        confirmLabel={target?.suspendedAt ? "Reativar" : "Suspender"}
+        destructive={!target?.suspendedAt}
+        loading={busy}
+        error={actionError}
+        onConfirm={() => void confirmToggle()}
+      />
     </div>
   )
 }

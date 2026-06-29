@@ -32,8 +32,17 @@ export class TransferOwnershipUseCase {
     const currentOwner = await this.memberRepo.findByAuthId(orgId, authId);
     if (!currentOwner) throw new OrgForbiddenException();
 
-    // Transferir para si mesmo é no-op.
-    if (currentOwner.memberId === newOwnerMemberId) return;
+    // super_admin não-membro tem memberId vazio (sintetizado): nesse caso o
+    // "dono atual" a rebaixar é o owner real da org, não o ator.
+    let currentOwnerMemberId = currentOwner.memberId;
+    if (currentOwnerMemberId === "") {
+      const members = await this.memberRepo.findAllByOrg(orgId);
+      currentOwnerMemberId =
+        members.find((m) => m.role === "owner" && m.enabled)?.memberId ?? "";
+    }
+
+    // Transferir para quem já é o dono é no-op.
+    if (currentOwnerMemberId === newOwnerMemberId) return;
 
     const newOwner = await this.memberRepo.findByMemberId(
       newOwnerMemberId,
@@ -43,10 +52,12 @@ export class TransferOwnershipUseCase {
     if (!newOwner.enabled) throw new MemberInactiveException();
 
     // O antigo dono vira funcionário com acesso total (não perde os módulos).
+    // currentOwnerMemberId vazio (sem owner real) → o update de rebaixamento é
+    // no-op e apenas promovemos o novo dono.
     await this.memberRepo.transferOwnership(
       orgId,
       newOwnerMemberId,
-      currentOwner.memberId,
+      currentOwnerMemberId,
       [...MODULE_KEYS],
     );
   }

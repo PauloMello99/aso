@@ -101,6 +101,22 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
   `GET /orgs/:orgId/members`. Alternativa válida (orgs module): escopar por
   `findByIdAndAuthId`/`isOwner` no use-case. Regressão histórica: `list-members` vazava
   cross-org por não escopar (corrigido 2026-06-14).
+- **super_admin age como owner em QUALQUER org (2026-06-29).** A RLS já permitia
+  (`is_super_admin()` em toda policy); o bloqueio era só na app. Padrão: detectar super_admin
+  no **caminho de miss** (sem membership) via helper `common/auth/is-super-admin.ts`
+  `isSuperAdmin(db, authId)`. Aplicado em: os 3 guards (`OrgMembershipGuard` — inclusive org
+  suspensa, `OrgOwnerGuard`, `OrgModuleGuard`); `DrizzleOrgRepository.findByIdAndAuthId`/
+  `findBySlugAndAuthId`/`isOwner` (sintetizam role `owner`); e
+  `DrizzleMemberRepository.findByAuthId` (sintetiza membro owner com `memberId: ""` → cobre
+  `resolveActor` do caixa, `resolveMembership` de serviços, overview, transfer-ownership).
+  `transfer-ownership` trata o ator sintetizado rebaixando o owner **real**. `findAllByAuthId`
+  (switcher) **não** muda — super_admin não vê todas as orgs na lista; entra por deep-link
+  (`GET /orgs/by-slug/:slug`, botão "Gerenciar" no admin). **Visualização (2026-06-29):** no
+  `OrgLayout`, super_admin **sempre opera como owner** (override de `role` para "owner", paridade
+  com o backend) em qualquer org. Banner em 2 níveis: **forte** ("gerenciando como super_admin")
+  quando NÃO é o owner real (funcionário ou não-membro = `actingAsAdmin`); **sutil** ("Acesso de
+  super_admin") quando É o owner real (ex.: Ruan/João + Ink House). Auditoria das ações =
+  **PLAT-3** (pendente). Não-membro sem super_admin → 404 (sem vazar).
 - ✅ **RLS habilitada e enforced no backend** (defense-in-depth, ativada 2026-06-14 — ver ADR-0005):
   - Repositórios injetam `DRIZZLE` (pool **`app_user`**, `NOBYPASSRLS`). O `RlsInterceptor`
     global abre uma transação por request com `set_config('request.jwt.claims', {sub:authId}, true)`,
@@ -391,7 +407,8 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
 - **Status do evento** (migration `0008`): `scheduled | canceled` (mínimo). Só o dono altera (`UpdateCalendarEventUseCase`). Eventos `canceled` aparecem esmaecidos/riscados nas visões. Marcar status NÃO cria serviço/transação (virá com Serviços/Caixa).
 
 ### Notificações — núcleo reutilizável (2026-06-15)
-- **Módulo `modules/notifications/`**: `NotificationService.notify({userId, orgId?, type, title, body?, data?, email?})` cria a notificação **in-app** (tabela `notifications`, migration `0008`) e dispara **e-mail** (Resend) se `NOTIFICATIONS_EMAIL_ENABLED=true` + `RESEND_API_KEY`. Falha de e-mail nunca quebra o fluxo. **Outros módulos injetam `NotificationService`** (exportado).
+- **Módulo `modules/notifications/`**: `NotificationService.notify({userId, orgId?, type, title, body?, data?, email?, actionUrl?, actionLabel?})` cria a notificação **in-app** (tabela `notifications`, migration `0008`) e dispara **e-mail** via `MailService.sendNotification` (best-effort em `try/catch` — falha nunca quebra agenda/estoque/cron). **Outros módulos injetam `NotificationService`** (exportado).
+- **E-mail transacional centralizado (ADR-0012)**: módulo dedicado `modules/mail/` (sem dep de auth/notifications → evita ciclo) é dono do port `IEmailSender`/`ResendEmailSender` e do `MailService` (`sendOrgInvite`/`sendPasswordReset`/`sendWelcome`/`sendNotification`). Templates **React Email** `.tsx` em `modules/mail/templates/` (preview: `pnpm --filter backend email:dev`). **`IEmailSender.send`**: `false` = desabilitado (no-op, dev), `true` = enviado, **lança** em falha real. **Críticos (abortam):** convite (cria→envia→em falha **reverte** o convite + `InvitationEmailFailedException`/HTTP 502) e **reset de senha**. **Best-effort:** notificações/crons e welcome. **Reset de senha saiu do GoTrue**: `IAuthProvider.generatePasswordResetLink` (`admin.generateLink type=recovery`, sem enviar) → enviamos via Resend; `null` p/ user inexistente (sem enumeração). Welcome no sign-up. `NOTIFICATIONS_FROM_EMAIL` exige domínio verificado no Resend.
 - A tabela `notifications` **não tem RLS** — acesso só pelo módulo, sempre escopado por `user_id` no código, via **`DRIZZLE_ADMIN`**. Inbox por usuário: `GET/POST /me/notifications` (`AuthGuard`, resolve `authId→users.id`).
 - **Gatilhos atuais**: (1) indisponibilidade criada por um membro → notifica os **owners** (exceto o autor), no `CreateCalendarEventUseCase`; (2) **lembrete de agenda** via cron.
 - **Cron interno**: `CronSecretGuard` (header `x-cron-secret` == env `CRON_SECRET`) protege `POST /internal/cron/*` (sem Auth/Org guard). `POST /internal/cron/agenda-reminders` lembra appointments `scheduled` que começam nas próximas 24h e seta `reminder_sent_at` (**idempotente**). No Railway, um job agendado bate nesse endpoint. **Queries de cron/cross-user usam `DRIZZLE_ADMIN`** (sem contexto de request, RLS bloquearia; e a policy de `users` é self-only).

@@ -29,7 +29,7 @@ development ──PR──▶ staging ──PR──▶ main
 | Railway | backend NestJS + frontend Next (staging + production) | uso (pago) |
 | Supabase (2 projetos) | Auth + Postgres + Storage | grátis → Pro |
 | Resend | e-mail transacional (opcional; domínio só p/ prod) | grátis (3k/mês) |
-| GitHub Actions | CI + cron agendado | grátis |
+| GitHub Actions | CI (lint/types/build) | grátis |
 
 Sem Redis. Sem Vercel/Render.
 
@@ -90,17 +90,37 @@ os downs** e **não é preciso configurar nada dentro do Supabase** além das co
      (incl. `RUN_MIGRATIONS=true`, `CRON_SECRET`). Builda, migra no boot e sobe.
    - **frontend**: builder Dockerfile (`apps/frontend/Dockerfile`), var `NEXT_PUBLIC_API_URL` =
      URL pública do backend (build-time).
-3. **GitHub Secrets** (cron): `BACKEND_URL_STAGING` (URL do backend Railway) e `CRON_SECRET_STAGING`
-   (= `CRON_SECRET` do Railway).
-4. **Smoke test**: abrir o frontend, sign-in, `/overview`, criar uma transação. Disparar o cron:
-   Actions → "Scheduled crons" → Run workflow, conferir `{ sent }` / `{ orgsNotified }`.
+   - **cron**: serviço dedicado (ver seção Cron abaixo).
+3. **Smoke test**: abrir o frontend, sign-in, `/overview`, criar uma transação. Aguardar o cron
+   no próximo `*/15` (ou redeployar o serviço Cron para rodar na hora) e conferir nos logs do Cron
+   os status `200`.
 
 ## Production (diferenças)
 
 - **Railway → Environment `production`** (branch `main`), com o Supabase **pago** e as mesmas vars.
   O `NEXT_PUBLIC_API_URL` do frontend aponta pro backend Railway de produção.
 - Resend com **domínio verificado** (DNS) para enviar de `no-reply@seudominio`.
-- Secrets do cron: `BACKEND_URL_PROD`, `CRON_SECRET_PROD`.
+
+## Cron (serviço Railway dedicado, private networking)
+
+O cron roda **dentro do Railway** como um serviço próprio que bate nos endpoints internos do backend
+via **private networking** (`backend.railway.internal`) — não passa pela internet. Substitui o antigo
+`cron.yml` do GitHub Actions.
+
+Por ambiente (production e staging), crie um serviço `Cron`:
+- **Source**: imagem `alpine:3.20`.
+- **Cron Schedule**: `*/15 * * * *`.
+- **Restart Policy**: `NEVER` (roda até terminar; espera o próximo tick).
+- **Start Command** (sem aspas — o `$CRON_SECRET` é expandido pelo shell; mantenha o segredo
+  alfanumérico):
+  ```sh
+  apk add --no-cache curl && curl -fsS -X POST -H x-cron-secret:$CRON_SECRET http://backend.railway.internal:3001/internal/cron/agenda-reminders && curl -fsS -X POST -H x-cron-secret:$CRON_SECRET http://backend.railway.internal:3001/internal/cron/stock-check-reminders
+  ```
+- **Variável**: `CRON_SECRET` = referência `${{ Backend.CRON_SECRET }}`.
+
+> A porta no hostname interno é a que o backend escuta (`PORT`, ex. 3001). O backend precisa bindar
+> em IPv6 (`::`) para o private networking — o NestJS faz isso por padrão. Se o cron der
+> connection refused, force `app.listen(port, '::')` no `main.ts`.
 
 ## Build local das imagens (debug)
 

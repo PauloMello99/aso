@@ -9,6 +9,7 @@ import { Request } from "express";
 import { and, eq } from "drizzle-orm";
 import { DRIZZLE_ADMIN, type DrizzleDB } from "../../../database/database.module";
 import * as schema from "../../../database/schema";
+import { isSuperAdmin } from "../../../common/auth/is-super-admin";
 import { AuthUser } from "../application/ports/auth-provider.interface";
 
 /**
@@ -68,6 +69,8 @@ export class OrgMembershipGuard implements CanActivate {
       .limit(1);
 
     if (!membership) {
+      // super_admin age como owner em qualquer org (inclusive suspensa).
+      if (await isSuperAdmin(this.db, user.id)) return true;
       throw new ForbiddenException(
         "You do not have access to this organization",
       );

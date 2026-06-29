@@ -24,6 +24,8 @@ export const queryKeys = {
     list: () => ["orgs", "list"] as const,
     /** Single org by id */
     detail: (orgId: string) => ["orgs", "detail", orgId] as const,
+    /** Single org resolved by slug (super_admin deep-link) */
+    bySlug: (slug: string) => ["orgs", "by-slug", slug] as const,
   },
 
   // ─── Overview (agregado) ───────────────────────────────────────────────────
@@ -86,8 +88,11 @@ export const queryKeys = {
   admin: {
     all: ["admin"] as const,
     stats: () => ["admin", "stats"] as const,
+    growth: () => ["admin", "stats", "growth"] as const,
     orgs: () => ["admin", "orgs"] as const,
+    orgDetail: (id: string) => ["admin", "orgs", "detail", id] as const,
     users: () => ["admin", "users"] as const,
+    userDetail: (id: string) => ["admin", "users", "detail", id] as const,
   },
 
   // ─── Services (Atendimentos) ───────────────────────────────────────────────

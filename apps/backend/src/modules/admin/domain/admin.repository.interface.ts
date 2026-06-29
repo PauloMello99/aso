@@ -32,10 +32,79 @@ export interface AdminUserRow {
   createdAt: Date;
 }
 
+/** Ponto da série de crescimento da plataforma (novos por mês). */
+export interface GrowthPoint {
+  /** Mês no formato "YYYY-MM". */
+  month: string;
+  newOrgs: number;
+  newUsers: number;
+}
+
+/** Membro de uma org no detalhe da plataforma. */
+export interface AdminOrgMember {
+  userId: string;
+  name: string;
+  email: string;
+  /** org_role: "owner" | "employee". */
+  role: string;
+  enabled: boolean;
+  joinedAt: Date;
+}
+
+/** Convite pendente no detalhe da org. */
+export interface AdminOrgInvitation {
+  id: string;
+  email: string;
+  role: string;
+  createdAt: Date;
+  expiresAt: Date;
+}
+
+/** Detalhe de uma organização (drill-down). */
+export interface AdminOrgDetail {
+  id: string;
+  name: string;
+  slug: string;
+  suspendedAt: Date | null;
+  stockCheckIntervalDays: number | null;
+  createdAt: Date;
+  owner: { id: string; name: string; email: string } | null;
+  memberCount: number;
+  members: AdminOrgMember[];
+  pendingInvitations: AdminOrgInvitation[];
+}
+
+/** Membership de um usuário no detalhe (drill-down). */
+export interface AdminUserMembership {
+  orgId: string;
+  orgName: string;
+  orgSlug: string;
+  role: string;
+  enabled: boolean;
+  joinedAt: Date;
+}
+
+/** Detalhe de um usuário (drill-down). */
+export interface AdminUserDetail {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  platformRole: PlatformRole;
+  createdAt: Date;
+  memberships: AdminUserMembership[];
+}
+
 export interface IAdminRepository {
   getStats(): Promise<PlatformStats>;
+  /** Novos orgs/users por mês nos últimos 12 meses (meses vazios incluídos). */
+  getGrowthSeries(): Promise<GrowthPoint[]>;
   listOrgs(): Promise<AdminOrgRow[]>;
   listUsers(): Promise<AdminUserRow[]>;
+  /** Detalhe de uma org (membros + convites). Null se não existe. */
+  getOrgDetail(orgId: string): Promise<AdminOrgDetail | null>;
+  /** Detalhe de um usuário (memberships). Null se não existe. */
+  getUserDetail(userId: string): Promise<AdminUserDetail | null>;
   /** Marca/desmarca a org como suspensa. Retorna false se a org não existe. */
   setOrgSuspended(orgId: string, suspended: boolean): Promise<boolean>;
   /** Define o platform_role de um usuário. Retorna false se o usuário não existe. */

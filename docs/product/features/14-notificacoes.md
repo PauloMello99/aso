@@ -11,6 +11,12 @@ Comunicação automática com clientes e operação: lembretes, agradecimentos, 
 - **Canais V1**: **in-app** (sempre) + **e-mail via Resend** (gateado por `NOTIFICATIONS_EMAIL_ENABLED`
   + `RESEND_API_KEY`; sem chave → no-op logado, in-app continua). Porta `IEmailSender` pronta para
   plugar **SMS/WhatsApp** depois sem tocar nos gatilhos.
+- **E-mail transacional padronizado (ADR-0012, 2026-06-28)**: módulo dedicado `modules/mail/`
+  (port `IEmailSender` + `ResendEmailSender` + `MailService`) com templates **React Email** `.tsx`
+  (`modules/mail/templates/`). `NotificationService` usa `MailService.sendNotification` (best-effort).
+  `send()` agora **lança** em falha real (com canal habilitado) — notificações/crons engolem e logam;
+  fluxos críticos (convite, reset de senha) abortam. Cobre **convite, reset de senha, welcome e
+  notificação genérica** (lembrete de agenda/estoque herdam o template de notificação).
 - **Inbox por usuário** `GET /me/notifications` (`{items, unread}`), `POST :id/read`, `POST read-all`
   (`AuthGuard`; resolve `authId→users.id`). Tabela `notifications` **sem RLS**, escopada por `user_id`
   no código via `DRIZZLE_ADMIN`.

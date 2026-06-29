@@ -18,7 +18,12 @@ export interface IAuthProvider {
   signIn(email: string, password: string): Promise<AuthSession>;
   signOut(accessToken: string): Promise<void>;
   refreshToken(refreshToken: string): Promise<AuthSession>;
-  forgotPassword(email: string): Promise<void>;
+  /**
+   * Gera o link de recuperação de senha (sem enviar e-mail — o envio é nosso,
+   * via Resend + React Email). Retorna `null` se o usuário não existir (evita
+   * enumeração de e-mail). O link redireciona para FRONTEND_URL/auth/reset-password.
+   */
+  generatePasswordResetLink(email: string): Promise<string | null>;
   resetPassword(
     accessToken: string,
     newPassword: string,

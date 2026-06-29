@@ -26,3 +26,66 @@ export interface AdminUser {
   orgCount: number
   createdAt: string
 }
+
+/** Ponto da série de crescimento (novos por mês). */
+export interface GrowthPoint {
+  month: string
+  newOrgs: number
+  newUsers: number
+}
+
+export interface AdminOrgMember {
+  userId: string
+  name: string
+  email: string
+  role: string
+  enabled: boolean
+  joinedAt: string
+}
+
+export interface AdminOrgInvitation {
+  id: string
+  email: string
+  role: string
+  createdAt: string
+  expiresAt: string
+}
+
+export interface AdminOrgDetail {
+  id: string
+  name: string
+  slug: string
+  suspendedAt: string | null
+  stockCheckIntervalDays: number | null
+  createdAt: string
+  owner: { id: string; name: string; email: string } | null
+  memberCount: number
+  members: AdminOrgMember[]
+  pendingInvitations: AdminOrgInvitation[]
+}
+
+export interface AdminUserMembership {
+  orgId: string
+  orgName: string
+  orgSlug: string
+  role: string
+  enabled: boolean
+  joinedAt: string
+}
+
+export interface AdminUserDetail {
+  id: string
+  name: string
+  email: string
+  phone: string | null
+  platformRole: PlatformRole
+  createdAt: string
+  memberships: AdminUserMembership[]
+}
+
+/** Filtros/ordenação client-side das tabelas. */
+export type OrgStatusFilter = "all" | "active" | "suspended"
+export type UserRoleFilter = "all" | "super_admin" | "user"
+export type OrgSortKey = "name" | "createdAt" | "memberCount"
+export type UserSortKey = "name" | "createdAt" | "orgCount"
+export type SortDir = "asc" | "desc"

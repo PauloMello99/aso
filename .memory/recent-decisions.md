@@ -15,6 +15,7 @@
 | ADR-0009 | Feature Flags para liberação controlada de recursos | 2026-06-13 | Aceito |
 | ADR-0010 | Caixa: livro append-only com erratas + saldo por agregação | 2026-06-16 | Aceito |
 | ADR-0011 | Topologia de deploy (staging/prod) + caching in-memory sem Redis | 2026-06-27 | Aceito |
+| ADR-0012 | E-mail transacional: React Email + módulo `mail` dedicado (auth fora do GoTrue) | 2026-06-28 | Aceito |
 
 ## Decisões/registros recentes (sem ADR)
 

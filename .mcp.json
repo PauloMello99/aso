@@ -37,6 +37,14 @@
     "railway": {
       "type": "http",
       "url": "https://mcp.railway.com"
+    },
+    "resend": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "resend-mcp"],
+      "env": {
+        "RESEND_API_KEY": "${RESEND_API_KEY}"
+      }
     }
   }
 }
