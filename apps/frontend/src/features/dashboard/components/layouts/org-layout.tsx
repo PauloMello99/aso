@@ -73,8 +73,20 @@ export function OrgLayout({ children }: OrgLayoutProps) {
     notFound,
   } = useResolveOrgBySlug(orgSlug, tryResolve)
 
-  const org: OrgSummary | undefined = listOrg ?? resolvedOrg ?? undefined
-  const actingAsAdmin = !listOrg && !!resolvedOrg
+  // super_admin sempre opera como owner em qualquer org (paridade com o backend).
+  const org: OrgSummary | undefined = React.useMemo(() => {
+    const base = listOrg ?? resolvedOrg ?? undefined
+    if (base && isSuper && base.role !== "owner") {
+      return { ...base, role: "owner" as const }
+    }
+    return base
+  }, [listOrg, resolvedOrg, isSuper])
+
+  // Dono real da org (membership owner) — nesse caso o super_admin não está
+  // "agindo em nome de", apenas tem o indicador sutil de plataforma.
+  const isRealOwner = listOrg?.role === "owner"
+  const actingAsAdmin = isSuper && !isRealOwner // funcionário ou não-membro
+  const superOwner = isSuper && isRealOwner // owner real + super_admin
 
   // Slug não pertence ao usuário e ele não é super_admin (ou a resolução falhou)
   // → volta para a lista de orgs.
@@ -113,7 +125,8 @@ export function OrgLayout({ children }: OrgLayoutProps) {
   return (
     <OrgProvider org={org} actingAsAdmin={actingAsAdmin}>
       <div className="flex h-screen flex-col overflow-hidden bg-background">
-        {actingAsAdmin && (
+        {actingAsAdmin ? (
+          // Funcionário ou não-membro agindo com poderes de plataforma → aviso forte.
           <div className="flex shrink-0 items-center justify-center gap-2 bg-orange-500/15 px-4 py-1.5 text-center text-xs text-orange-300 sm:text-sm">
             <ShieldAlert className="h-4 w-4 shrink-0" />
             <span>
@@ -128,7 +141,19 @@ export function OrgLayout({ children }: OrgLayoutProps) {
               Voltar ao painel
             </Link>
           </div>
-        )}
+        ) : superOwner ? (
+          // Dono real + super_admin → indicador sutil de contexto de plataforma.
+          <div className="flex shrink-0 items-center justify-center gap-1.5 bg-foreground/[0.04] px-4 py-1 text-center text-[11px] text-foreground/40">
+            <ShieldAlert className="h-3 w-3 shrink-0" />
+            <span>Acesso de super_admin</span>
+            <Link
+              href="/admin"
+              className="shrink-0 underline underline-offset-2 hover:text-foreground/70"
+            >
+              Painel da plataforma
+            </Link>
+          </div>
+        ) : null}
         <TopHeader
           breadcrumbs={breadcrumbs}
           onMobileMenuToggle={() => setMobileOpen((v) => !v)}

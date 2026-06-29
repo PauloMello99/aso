@@ -111,9 +111,12 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
   `resolveActor` do caixa, `resolveMembership` de serviços, overview, transfer-ownership).
   `transfer-ownership` trata o ator sintetizado rebaixando o owner **real**. `findAllByAuthId`
   (switcher) **não** muda — super_admin não vê todas as orgs na lista; entra por deep-link
-  (`GET /orgs/by-slug/:slug`, botão "Gerenciar" no admin) e o frontend mostra **banner
-  "gerenciando como super_admin"** (`OrgLayout` + `actingAsAdmin` no `OrgContext`). Auditoria
-  das ações = **PLAT-3** (pendente). Não-membro sem super_admin → 404 (sem vazar).
+  (`GET /orgs/by-slug/:slug`, botão "Gerenciar" no admin). **Visualização (2026-06-29):** no
+  `OrgLayout`, super_admin **sempre opera como owner** (override de `role` para "owner", paridade
+  com o backend) em qualquer org. Banner em 2 níveis: **forte** ("gerenciando como super_admin")
+  quando NÃO é o owner real (funcionário ou não-membro = `actingAsAdmin`); **sutil** ("Acesso de
+  super_admin") quando É o owner real (ex.: Ruan/João + Ink House). Auditoria das ações =
+  **PLAT-3** (pendente). Não-membro sem super_admin → 404 (sem vazar).
 - ✅ **RLS habilitada e enforced no backend** (defense-in-depth, ativada 2026-06-14 — ver ADR-0005):
   - Repositórios injetam `DRIZZLE` (pool **`app_user`**, `NOBYPASSRLS`). O `RlsInterceptor`
     global abre uma transação por request com `set_config('request.jwt.claims', {sub:authId}, true)`,
