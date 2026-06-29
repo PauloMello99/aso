@@ -72,15 +72,25 @@ export class SupabaseAuthProvider implements IAuthProvider {
     return this.mapSession(data.session, data.user!);
   }
 
-  async forgotPassword(email: string): Promise<void> {
+  async generatePasswordResetLink(email: string): Promise<string | null> {
     const frontendUrl = this.config.get<string>(
       "FRONTEND_URL",
       "http://localhost:3000",
     );
-    const { error } = await this.anon.auth.resetPasswordForEmail(email, {
-      redirectTo: `${frontendUrl}/auth/reset-password`,
+    // generateLink NÃO envia e-mail (diferente de resetPasswordForEmail) — só
+    // devolve o action_link de recovery, que enviamos via Resend. O link aponta
+    // para o /auth/v1/verify do Supabase e redireciona p/ o frontend com os
+    // tokens no fragment (mesmo fluxo que o front já trata).
+    const { data, error } = await this.admin.auth.admin.generateLink({
+      type: "recovery",
+      email,
+      options: { redirectTo: `${frontendUrl}/auth/reset-password` },
     });
-    if (error) throw new InvalidCredentialsException(error.message);
+    if (error) {
+      // Usuário inexistente → não vazamos a informação (sem enumeração).
+      return null;
+    }
+    return data.properties?.action_link ?? null;
   }
 
   async resetPassword(

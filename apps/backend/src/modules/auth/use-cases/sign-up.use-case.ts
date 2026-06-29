@@ -1,4 +1,6 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { MailService } from "../../mail/application/mail.service";
 import {
   AUTH_PROVIDER,
   AuthSession,
@@ -16,6 +18,8 @@ export class SignUpUseCase {
   constructor(
     @Inject(AUTH_PROVIDER) private readonly auth: IAuthProvider,
     @Inject(USER_REPOSITORY) private readonly userRepo: IUserRepository,
+    private readonly mail: MailService,
+    private readonly config: ConfigService,
   ) {}
 
   async execute(
@@ -39,6 +43,18 @@ export class SignUpUseCase {
     } catch (err) {
       await this.rollbackAuthUser(session.user.id);
       throw err;
+    }
+
+    // E-mail de boas-vindas: best-effort — nunca quebra/bloqueia o cadastro.
+    try {
+      const appUrl = this.config.get<string>("FRONTEND_URL");
+      await this.mail.sendWelcome({ to: email, name, appUrl });
+    } catch (mailErr) {
+      this.logger.warn(
+        `Falha ao enviar welcome para ${email}: ${
+          mailErr instanceof Error ? mailErr.message : String(mailErr)
+        }`,
+      );
     }
 
     return session;

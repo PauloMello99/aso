@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { MailService } from "../../../mail/application/mail.service";
 import type { OrgRole } from "../../domain/org.entity";
 import type { InvitationEntity } from "../../domain/invitation.entity";
 import {
@@ -10,12 +11,9 @@ import {
   IInvitationRepository,
   INVITATION_REPOSITORY,
 } from "../../domain/invitation.repository.interface";
-import {
-  EMAIL_SENDER,
-  IEmailSender,
-} from "../../../notifications/domain/ports/email-sender.port";
 import { OrgForbiddenException } from "../../domain/exceptions/org-forbidden.exception";
 import { OrgNotFoundException } from "../../domain/exceptions/org-not-found.exception";
+import { InvitationEmailFailedException } from "../../domain/exceptions/invitation-email-failed.exception";
 
 export interface InviteMemberInput {
   orgId: string;
@@ -40,8 +38,7 @@ export class InviteMemberUseCase {
     private readonly orgRepo: IOrganizationRepository,
     @Inject(INVITATION_REPOSITORY)
     private readonly invitationRepo: IInvitationRepository,
-    @Inject(EMAIL_SENDER)
-    private readonly email: IEmailSender,
+    private readonly mail: MailService,
     private readonly config: ConfigService,
   ) {}
 
@@ -68,31 +65,39 @@ export class InviteMemberUseCase {
     );
     const acceptUrl = `${frontendUrl}/invite/accept?token=${invitation.token}`;
 
-    // Envio best-effort (no-op em dev — o link fica logado/exposto p/ teste).
-    await this.email.send({
-      to: input.email,
-      subject: `Convite para ${org.name} no Ink Ops`,
-      html: invitationEmailHtml(org.name, acceptUrl),
-    });
-    this.logger.log(`Convite p/ ${input.email} (${org.name}): ${acceptUrl}`);
+    // Envio CRÍTICO: o convidado só recebe o link por e-mail. Se o canal estiver
+    // habilitado e o envio falhar, revertemos o convite (saga c/ compensação,
+    // igual ao sign-up) e abortamos — o owner pode tentar de novo. Em dev o
+    // canal é no-op (send retorna false) e o acceptUrl fica disponível p/ teste.
+    try {
+      await this.mail.sendOrgInvite({
+        to: input.email,
+        orgName: org.name,
+        acceptUrl,
+      });
+    } catch (err) {
+      await this.compensate(invitation.id);
+      this.logger.error(
+        `Falha ao enviar convite p/ ${input.email} (${org.name}); convite revertido: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      throw new InvitationEmailFailedException(input.email);
+    }
 
+    this.logger.log(`Convite p/ ${input.email} (${org.name}): ${acceptUrl}`);
     return { invitation, acceptUrl };
   }
-}
 
-function invitationEmailHtml(orgName: string, acceptUrl: string): string {
-  return `
-    <p>Você foi convidado para participar de <strong>${escapeHtml(orgName)}</strong> no Ink Ops.</p>
-    <p><a href="${acceptUrl}">Clique aqui para aceitar o convite</a></p>
-    <p>Ou copie e cole este link no navegador:<br>${acceptUrl}</p>
-    <p>O convite expira em 7 dias.</p>
-  `;
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  /** Compensação best-effort: remove o convite órfão após falha de e-mail. */
+  private async compensate(invitationId: string): Promise<void> {
+    try {
+      await this.invitationRepo.delete(invitationId);
+    } catch (rollbackErr) {
+      this.logger.error(
+        `Falha ao reverter convite ${invitationId} após erro de e-mail`,
+        rollbackErr instanceof Error ? rollbackErr.stack : undefined,
+      );
+    }
+  }
 }

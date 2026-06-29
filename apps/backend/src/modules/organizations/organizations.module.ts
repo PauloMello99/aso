@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
 import { UserModule } from "../user/user.module";
-import { NotificationsInfrastructureModule } from "../notifications/infrastructure/notifications-infrastructure.module";
+import { MailModule } from "../mail/mail.module";
 import { OrgsInfrastructureModule } from "./infrastructure/orgs-infrastructure.module";
 import { ListUserOrgsUseCase } from "./application/use-cases/list-user-orgs.use-case";
 import { GetOrgUseCase } from "./application/use-cases/get-org.use-case";
@@ -24,12 +24,7 @@ import { OrgsController } from "./interface/orgs.controller";
 import { InvitationsController } from "./interface/invitations.controller";
 
 @Module({
-  imports: [
-    AuthModule,
-    UserModule,
-    NotificationsInfrastructureModule,
-    OrgsInfrastructureModule,
-  ],
+  imports: [AuthModule, UserModule, MailModule, OrgsInfrastructureModule],
   controllers: [OrgsController, InvitationsController],
   providers: [
     ListUserOrgsUseCase,
