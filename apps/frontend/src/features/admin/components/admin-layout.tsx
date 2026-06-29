@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/router"
-import { LayoutDashboard, Building2, Users, ArrowLeft, Loader2, ShieldCheck } from "lucide-react"
+import { LayoutDashboard, Building2, Users, CreditCard, ArrowLeft, Loader2, ShieldCheck } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { useMe } from "@/features/auth/hooks/use-me"
 import { UserMenu } from "@/features/dashboard/components/user-menu"
@@ -12,6 +12,7 @@ const NAV = [
   { href: "/admin", label: "Visão geral", icon: LayoutDashboard },
   { href: "/admin/orgs", label: "Organizações", icon: Building2 },
   { href: "/admin/users", label: "Usuários", icon: Users },
+  { href: "/admin/billing", label: "Assinaturas", icon: CreditCard },
 ]
 
 /**

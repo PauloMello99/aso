@@ -86,8 +86,11 @@ export const queryKeys = {
   admin: {
     all: ["admin"] as const,
     stats: () => ["admin", "stats"] as const,
+    growth: () => ["admin", "stats", "growth"] as const,
     orgs: () => ["admin", "orgs"] as const,
+    orgDetail: (id: string) => ["admin", "orgs", "detail", id] as const,
     users: () => ["admin", "users"] as const,
+    userDetail: (id: string) => ["admin", "users", "detail", id] as const,
   },
 
   // ─── Services (Atendimentos) ───────────────────────────────────────────────

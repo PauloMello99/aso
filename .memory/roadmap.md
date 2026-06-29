@@ -191,13 +191,18 @@ Visibilidade por funcionário ("só vê o que é dele; owner vê tudo + lança e
 > Não foram citadas explicitamente nesta rodada, mas são "o que falta" segundo a
 > documentação oficial — **levar para alinhamento com stakeholders**.
 
-- **PLAT-1 — `platform_role` / Painel super_admin** · _✅ done (2026-06-27)_
+- **PLAT-1 — `platform_role` / Painel super_admin** · _✅ done (2026-06-27); dashboard+drill-down (2026-06-29)_
   Painel `/admin` (fora do contexto de org), restrito ao `super_admin` via
   `PlatformAdminGuard`: KPIs globais, lista de orgs (suspender/reativar) e de usuários
   (promover/rebaixar `platform_role`, bloqueia auto-rebaixamento). Suspensão de org
   (`organizations.suspended_at`, migration 0020) bloqueia membros no `OrgMembershipGuard`
-  (super_admin segue). Bootstrap do 1º super_admin via DB/seed. **Financeiro/billing fica de
-  fora** (depende de PLAT-2). Link "Painel da plataforma" no menu do super_admin.
+  (super_admin segue). Bootstrap do 1º super_admin via DB/seed. Link "Painel da plataforma" no menu do super_admin.
+  **Iteração UI/UX (2026-06-29):** dashboard com gráficos (recharts — crescimento mensal de
+  orgs/users via `GET /admin/stats/growth`; donut orgs ativas×suspensas); tabelas de orgs/users
+  com busca/filtro/ordenação client-side + `ConfirmDialog` (substitui `confirm`/`alert`);
+  **drill-down** `/admin/orgs/[id]` e `/admin/users/[id]` (membros, convites, memberships) via
+  `GET /admin/orgs/:id` e `/admin/users/:id`; seção **Assinaturas** (`/admin/billing`) como shell
+  travado até o billing. **Financeiro/assinaturas reais ficam de fora** (depende de PLAT-2).
 - **PLAT-2 — Billing/Assinatura + gate de acesso** · _Planejar (alinhar)_
   Modelo definido no doc: assinatura **por org** via Stripe (Gratuito/Trial/Mensal R$400/
   Semestral R$2000/Anual R$4200/Customizado); **acesso à org só após billing configurado**;
