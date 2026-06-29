@@ -193,6 +193,20 @@ a UI deve refletir o papel da org *ativa*:
   quem transita entre orgs.
 - A filtragem de nav é **cosmética**: a fonte de verdade é o `OrgOwnerGuard` no backend
   (rotas owner-only respondem 403). Nunca confiar só no nav para autorização.
+
+**Roteamento Next (pages router) — gotchas (2026-06-29).**
+- **Lista + detalhe NÃO podem ser `foo.tsx` + `foo/[id].tsx`** (arquivo e diretório de mesmo
+  nome). É ambíguo: a rota dinâmica filha cai em **404 no dev** (o `next build` até passa,
+  mascarando). Usar sempre `foo/index.tsx` + `foo/[id].tsx`. Foi a causa do bug "ao abrir
+  `/admin/orgs/[id]` o super_admin era jogado para fora" — corrigido movendo
+  `admin/orgs.tsx`→`admin/orgs/index.tsx` e `admin/users.tsx`→`admin/users/index.tsx` (commit 54197b2).
+- **`pages/404.tsx` faz `router.replace("/dashboard/organizations")`** — qualquer 404 vira um
+  **redirect silencioso** para a lista de orgs, o que **mascara** erros de rota (parece
+  "redirect inesperado" em vez de 404). Ao depurar "fui redirecionado para fora", checar antes
+  se a rota está em 404.
+- Mover/renomear arquivos de página **com o dev server rodando** corrompe o manifest do Next
+  (404 em rotas válidas, `ERR_CONTENT_LENGTH_MISMATCH` em chunks antigos). Recuperação: parar o
+  dev, `rm apps/frontend/.next`, `pnpm dev` (mesma receita de [[env_turbopack_hydration]]).
 - Convite de funcionário **não** passa pelo Supabase admin — usa nosso token
   (`org_invitations`): lookup público por token, accept exige auth; login/cadastro
   carregam o token de volta para `/invite/accept`.
