@@ -8,18 +8,25 @@ interface OrgContextValue {
   org: OrgSummary
   /** The organization UUID — use this for API calls (`/orgs/:orgId/...`). */
   orgId: string
+  /** True quando um super_admin gerencia uma org da qual NÃO é membro. */
+  actingAsAdmin: boolean
 }
 
 const OrgContext = React.createContext<OrgContextValue | null>(null)
 
 export function OrgProvider({
   org,
+  actingAsAdmin = false,
   children,
 }: {
   org: OrgSummary
+  actingAsAdmin?: boolean
   children: React.ReactNode
 }) {
-  const value = React.useMemo(() => ({ org, orgId: org.id }), [org])
+  const value = React.useMemo(
+    () => ({ org, orgId: org.id, actingAsAdmin }),
+    [org, actingAsAdmin],
+  )
   return <OrgContext.Provider value={value}>{children}</OrgContext.Provider>
 }
 

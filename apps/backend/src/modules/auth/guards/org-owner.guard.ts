@@ -9,6 +9,7 @@ import { Request } from "express";
 import { and, eq } from "drizzle-orm";
 import { DRIZZLE_ADMIN, type DrizzleDB } from "../../../database/database.module";
 import * as schema from "../../../database/schema";
+import { isSuperAdmin } from "../../../common/auth/is-super-admin";
 import { AuthUser } from "../application/ports/auth-provider.interface";
 
 /**
@@ -50,6 +51,8 @@ export class OrgOwnerGuard implements CanActivate {
       .limit(1);
 
     if (!row) {
+      // super_admin age como owner em qualquer org.
+      if (await isSuperAdmin(this.db, user.id)) return true;
       throw new ForbiddenException(
         "Only organization owners can access this resource",
       );

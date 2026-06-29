@@ -5,6 +5,7 @@ import { MailModule } from "../mail/mail.module";
 import { OrgsInfrastructureModule } from "./infrastructure/orgs-infrastructure.module";
 import { ListUserOrgsUseCase } from "./application/use-cases/list-user-orgs.use-case";
 import { GetOrgUseCase } from "./application/use-cases/get-org.use-case";
+import { ResolveOrgBySlugUseCase } from "./application/use-cases/resolve-org-by-slug.use-case";
 import { CreateOrgUseCase } from "./application/use-cases/create-org.use-case";
 import { UpdateOrgUseCase } from "./application/use-cases/update-org.use-case";
 import { DeleteOrgUseCase } from "./application/use-cases/delete-org.use-case";
@@ -29,6 +30,7 @@ import { InvitationsController } from "./interface/invitations.controller";
   providers: [
     ListUserOrgsUseCase,
     GetOrgUseCase,
+    ResolveOrgBySlugUseCase,
     CreateOrgUseCase,
     UpdateOrgUseCase,
     DeleteOrgUseCase,

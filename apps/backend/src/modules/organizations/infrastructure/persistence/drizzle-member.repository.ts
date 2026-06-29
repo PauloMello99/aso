@@ -7,6 +7,7 @@ import {
   type DrizzleDB,
 } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
+import { isSuperAdmin } from "../../../../common/auth/is-super-admin";
 import type {
   IMemberRepository,
   UpsertMembershipData,
@@ -148,7 +149,35 @@ export class DrizzleMemberRepository implements IMemberRepository {
         )
         .limit(1);
 
-      return row ? MemberMapper.toDomain(row) : null;
+      if (row) return MemberMapper.toDomain(row);
+
+      // Miss: super_admin age como owner de qualquer org. Sintetiza um membro
+      // owner (memberId vazio — não há linha real) para que os fluxos que
+      // resolvem o ator (caixa, serviços, overview) o tratem como dono.
+      if (await isSuperAdmin(this.admin, authId)) {
+        const [u] = await this.admin
+          .select({
+            id: schema.users.id,
+            name: schema.users.name,
+            email: schema.users.email,
+          })
+          .from(schema.users)
+          .where(eq(schema.users.authId, authId))
+          .limit(1);
+        if (!u) return null;
+        return MemberMapper.toDomain({
+          memberId: "",
+          orgId,
+          userId: u.id,
+          role: "owner",
+          enabled: true,
+          permissions: [],
+          userName: u.name,
+          userEmail: u.email,
+          joinedAt: new Date(0),
+        });
+      }
+      return null;
     });
   }
 

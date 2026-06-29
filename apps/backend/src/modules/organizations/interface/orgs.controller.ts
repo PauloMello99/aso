@@ -18,6 +18,7 @@ import type { AuthUser } from "../../auth/application/ports/auth-provider.interf
 import { GetMeUseCase } from "../../user/application/use-cases/get-me.use-case";
 import { ListUserOrgsUseCase } from "../application/use-cases/list-user-orgs.use-case";
 import { GetOrgUseCase } from "../application/use-cases/get-org.use-case";
+import { ResolveOrgBySlugUseCase } from "../application/use-cases/resolve-org-by-slug.use-case";
 import { CreateOrgUseCase } from "../application/use-cases/create-org.use-case";
 import { UpdateOrgUseCase } from "../application/use-cases/update-org.use-case";
 import { DeleteOrgUseCase } from "../application/use-cases/delete-org.use-case";
@@ -45,6 +46,7 @@ export class OrgsController {
     private readonly getMe: GetMeUseCase,
     private readonly listUserOrgs: ListUserOrgsUseCase,
     private readonly getOrg: GetOrgUseCase,
+    private readonly resolveOrgBySlug: ResolveOrgBySlugUseCase,
     private readonly createOrg: CreateOrgUseCase,
     private readonly updateOrg: UpdateOrgUseCase,
     private readonly deleteOrg: DeleteOrgUseCase,
@@ -69,6 +71,12 @@ export class OrgsController {
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateOrgDto) {
     return this.createOrg.execute(dto.name, user.id);
+  }
+
+  /** Resolve por slug (membro ou super_admin). Antes de `:orgId` por ser path fixo. */
+  @Get("by-slug/:slug")
+  bySlug(@Param("slug") slug: string, @CurrentUser() user: AuthUser) {
+    return this.resolveOrgBySlug.execute(slug, user.id);
   }
 
   @Get(":orgId")

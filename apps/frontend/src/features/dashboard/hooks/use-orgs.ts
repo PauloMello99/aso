@@ -27,6 +27,25 @@ export function useOrgs() {
   }
 }
 
+/**
+ * Resolve uma org pela slug mesmo quando o usuário não é membro — usado pelo
+ * super_admin ao gerenciar uma org alheia (backend devolve role "owner").
+ * 404 → org inexistente ou sem acesso.
+ */
+export function useResolveOrgBySlug(slug: string | undefined, enabled: boolean) {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: queryKeys.orgs.bySlug(slug ?? ""),
+    queryFn: () => apiRequest<OrgSummary>(`/orgs/by-slug/${slug}`),
+    enabled: enabled && !!slug,
+    retry: false,
+  })
+  return {
+    org: data ?? null,
+    loading: isLoading,
+    notFound: isError,
+  }
+}
+
 export function useOrg(orgId: string) {
   const { data, isLoading, isError } = useQuery({
     queryKey: queryKeys.orgs.detail(orgId),

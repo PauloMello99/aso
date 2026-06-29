@@ -24,6 +24,8 @@ export const queryKeys = {
     list: () => ["orgs", "list"] as const,
     /** Single org by id */
     detail: (orgId: string) => ["orgs", "detail", orgId] as const,
+    /** Single org resolved by slug (super_admin deep-link) */
+    bySlug: (slug: string) => ["orgs", "by-slug", slug] as const,
   },
 
   // ─── Overview (agregado) ───────────────────────────────────────────────────

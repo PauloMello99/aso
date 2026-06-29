@@ -101,6 +101,19 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
   `GET /orgs/:orgId/members`. Alternativa válida (orgs module): escopar por
   `findByIdAndAuthId`/`isOwner` no use-case. Regressão histórica: `list-members` vazava
   cross-org por não escopar (corrigido 2026-06-14).
+- **super_admin age como owner em QUALQUER org (2026-06-29).** A RLS já permitia
+  (`is_super_admin()` em toda policy); o bloqueio era só na app. Padrão: detectar super_admin
+  no **caminho de miss** (sem membership) via helper `common/auth/is-super-admin.ts`
+  `isSuperAdmin(db, authId)`. Aplicado em: os 3 guards (`OrgMembershipGuard` — inclusive org
+  suspensa, `OrgOwnerGuard`, `OrgModuleGuard`); `DrizzleOrgRepository.findByIdAndAuthId`/
+  `findBySlugAndAuthId`/`isOwner` (sintetizam role `owner`); e
+  `DrizzleMemberRepository.findByAuthId` (sintetiza membro owner com `memberId: ""` → cobre
+  `resolveActor` do caixa, `resolveMembership` de serviços, overview, transfer-ownership).
+  `transfer-ownership` trata o ator sintetizado rebaixando o owner **real**. `findAllByAuthId`
+  (switcher) **não** muda — super_admin não vê todas as orgs na lista; entra por deep-link
+  (`GET /orgs/by-slug/:slug`, botão "Gerenciar" no admin) e o frontend mostra **banner
+  "gerenciando como super_admin"** (`OrgLayout` + `actingAsAdmin` no `OrgContext`). Auditoria
+  das ações = **PLAT-3** (pendente). Não-membro sem super_admin → 404 (sem vazar).
 - ✅ **RLS habilitada e enforced no backend** (defense-in-depth, ativada 2026-06-14 — ver ADR-0005):
   - Repositórios injetam `DRIZZLE` (pool **`app_user`**, `NOBYPASSRLS`). O `RlsInterceptor`
     global abre uma transação por request com `set_config('request.jwt.claims', {sub:authId}, true)`,

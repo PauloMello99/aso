@@ -10,6 +10,7 @@ import {
   Crown,
   Mail,
   Loader2,
+  ExternalLink,
 } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Badge } from "@/shared/components/ui/badge"
@@ -88,24 +89,30 @@ export function AdminOrgDetail({ id }: { id: string | undefined }) {
             /{org.slug} · criada em {fmtDate(org.createdAt)}
           </p>
         </div>
-        <Button
-          variant={suspended ? "outline" : "destructive"}
-          onClick={() => {
-            setActionError(null)
-            setConfirming(true)
-          }}
-          className="shrink-0"
-        >
-          {suspended ? (
-            <>
-              <RotateCcw className="h-4 w-4" /> Reativar
-            </>
-          ) : (
-            <>
-              <Ban className="h-4 w-4" /> Suspender
-            </>
-          )}
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button asChild variant="default">
+            <Link href={`/dashboard/org/${org.slug}`}>
+              <ExternalLink className="h-4 w-4" /> Gerenciar
+            </Link>
+          </Button>
+          <Button
+            variant={suspended ? "outline" : "destructive"}
+            onClick={() => {
+              setActionError(null)
+              setConfirming(true)
+            }}
+          >
+            {suspended ? (
+              <>
+                <RotateCcw className="h-4 w-4" /> Reativar
+              </>
+            ) : (
+              <>
+                <Ban className="h-4 w-4" /> Suspender
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* KPIs */}
