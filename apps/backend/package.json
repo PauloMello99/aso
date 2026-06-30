@@ -19,6 +19,7 @@
     "clean:reset": "pnpm clean && pnpm -r exec rm -rf node_modules"
   },
   "dependencies": {
+    "@logtail/node": "^0.5.8",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.0",

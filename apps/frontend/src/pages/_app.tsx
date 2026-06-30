@@ -1,7 +1,10 @@
+import { useEffect } from "react"
 import type { AppProps } from "next/app"
 import type { NextPage } from "next"
 import type { ReactElement, ReactNode } from "react"
 import { AppProviders } from "@/providers"
+import { ErrorBoundary } from "@/shared/components/error-boundary"
+import { installGlobalErrorHandlers } from "@/infrastructure/telemetry/telemetry"
 import "@/styles/globals.css"
 
 // Allow pages to declare a custom layout via getLayout
@@ -16,7 +19,14 @@ type AppPropsWithLayout = AppProps & {
 export default function App({ Component, pageProps }: AppPropsWithLayout) {
   const getLayout = Component.getLayout ?? ((page) => page)
 
+  // Captura erros globais não tratados (window.onerror / unhandledrejection).
+  useEffect(() => {
+    installGlobalErrorHandlers()
+  }, [])
+
   return (
-    <AppProviders>{getLayout(<Component {...pageProps} />)}</AppProviders>
+    <ErrorBoundary>
+      <AppProviders>{getLayout(<Component {...pageProps} />)}</AppProviders>
+    </ErrorBoundary>
   )
 }

@@ -18,12 +18,12 @@ import { OverviewModule } from "./modules/overview/overview.module";
 import { AdminModule } from "./modules/admin/admin.module";
 import { AuditModule } from "./modules/audit/audit.module";
 import { InternalCronModule } from "./modules/internal-cron/internal-cron.module";
+import { TelemetryModule } from "./common/telemetry/telemetry.module";
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    // Rate-limiting global (SEC-4): teto generoso por IP; endpoints sensíveis
-    // (auth) sobrescrevem com limites menores via @Throttle no controller.
+    TelemetryModule,
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     AppCacheModule,
     DatabaseModule,
