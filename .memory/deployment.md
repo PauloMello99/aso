@@ -27,10 +27,11 @@ Detalhe operacional em `docs/deployment.md`; decisão e racional em
 - **Supabase** (Auth+DB+Storage), **Resend** (e-mail, opcional/off por padrão), **GitHub Actions**
   (só CI). **Sem Redis.**
 - **Cron = serviço Railway dedicado** (imagem `alpine`, `*/15`, restart NEVER) que bate em
-  `http://backend.railway.internal:3001/internal/cron/{agenda-reminders,stock-check-reminders}` via
-  **private networking** (header `x-cron-secret` = `${{ Backend.CRON_SECRET }}`). Substituiu o
-  `cron.yml` do GitHub Actions (aposentado). Private networking vale aqui porque o cron é caller
-  server-side dentro do Railway (≠ browser→backend, que tem que ser público).
+  `http://backend.railway.internal:3001/internal/cron/tick` via **private networking** (header
+  `x-cron-secret` = `${{ Backend.CRON_SECRET }}`). O endpoint único despacha todos os jobs
+  internamente (`InternalCronController` em `modules/internal-cron/`) com `Promise.allSettled`
+  — isolamento de falha por job. Para novos jobs de cron: adicionar em `InternalCronController`
+  apenas, sem alterar o Railway. Substituiu o `cron.yml` do GitHub Actions (aposentado).
 
 ## Caching (sem Redis)
 - `requestMemo` (database.module.ts, sobre o ALS do RLS): dedup de `findByAuthId` por request.

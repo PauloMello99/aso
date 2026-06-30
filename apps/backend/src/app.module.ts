@@ -16,6 +16,7 @@ import { CashierModule } from "./modules/cashier/cashier.module";
 import { ServicesModule } from "./modules/services/services.module";
 import { OverviewModule } from "./modules/overview/overview.module";
 import { AdminModule } from "./modules/admin/admin.module";
+import { InternalCronModule } from "./modules/internal-cron/internal-cron.module";
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { AdminModule } from "./modules/admin/admin.module";
     ServicesModule,
     OverviewModule,
     AdminModule,
+    InternalCronModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: RlsInterceptor },
