@@ -93,6 +93,8 @@ export const queryKeys = {
     orgDetail: (id: string) => ["admin", "orgs", "detail", id] as const,
     users: () => ["admin", "users"] as const,
     userDetail: (id: string) => ["admin", "users", "detail", id] as const,
+    auditLogs: (filters?: Record<string, unknown>) =>
+      ["admin", "audit-logs", filters ?? {}] as const,
   },
 
   // ─── Services (Atendimentos) ───────────────────────────────────────────────

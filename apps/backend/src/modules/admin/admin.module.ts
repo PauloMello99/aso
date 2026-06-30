@@ -10,6 +10,7 @@ import { GetOrgDetailUseCase } from "./application/use-cases/get-org-detail.use-
 import { GetUserDetailUseCase } from "./application/use-cases/get-user-detail.use-case";
 import { SetOrgSuspendedUseCase } from "./application/use-cases/set-org-suspended.use-case";
 import { SetUserPlatformRoleUseCase } from "./application/use-cases/set-user-platform-role.use-case";
+import { ListAuditLogsUseCase } from "../audit/application/use-cases/list-audit-logs.use-case";
 import { AdminController } from "./interface/admin.controller";
 
 @Module({
@@ -25,6 +26,7 @@ import { AdminController } from "./interface/admin.controller";
     GetUserDetailUseCase,
     SetOrgSuspendedUseCase,
     SetUserPlatformRoleUseCase,
+    ListAuditLogsUseCase,
   ],
 })
 export class AdminModule {}

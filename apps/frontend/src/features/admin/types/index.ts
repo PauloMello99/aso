@@ -83,6 +83,43 @@ export interface AdminUserDetail {
   memberships: AdminUserMembership[]
 }
 
+export type AuditAction =
+  | "create"
+  | "update"
+  | "delete"
+  | "invite_sent"
+  | "invite_accepted"
+  | "subscription_changed"
+
+export interface AuditLogEntry {
+  id: string
+  actor: { id: string; name: string; email: string } | null
+  org: { id: string; name: string; slug: string } | null
+  action: AuditAction
+  entityType: string
+  entityId: string | null
+  metadata: Record<string, unknown> | null
+  createdAt: string
+}
+
+export interface AuditLogFilters {
+  page?: number
+  limit?: number
+  orgId?: string
+  actorId?: string
+  action?: AuditAction
+  entityType?: string
+  from?: string
+  to?: string
+}
+
+export interface AuditLogPage {
+  data: AuditLogEntry[]
+  total: number
+  page: number
+  pages: number
+}
+
 /** Filtros/ordenação client-side das tabelas. */
 export type OrgStatusFilter = "all" | "active" | "suspended"
 export type UserRoleFilter = "all" | "super_admin" | "user"

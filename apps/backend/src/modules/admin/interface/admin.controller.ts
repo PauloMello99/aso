@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Query,
   UseGuards,
 } from "@nestjs/common";
 import { AuthGuard } from "../../auth/guards/auth.guard";
@@ -21,8 +22,10 @@ import { GetOrgDetailUseCase } from "../application/use-cases/get-org-detail.use
 import { GetUserDetailUseCase } from "../application/use-cases/get-user-detail.use-case";
 import { SetOrgSuspendedUseCase } from "../application/use-cases/set-org-suspended.use-case";
 import { SetUserPlatformRoleUseCase } from "../application/use-cases/set-user-platform-role.use-case";
+import { ListAuditLogsUseCase } from "../../audit/application/use-cases/list-audit-logs.use-case";
 import { SetSuspendedDto } from "./dto/set-suspended.dto";
 import { SetPlatformRoleDto } from "./dto/set-platform-role.dto";
+import { AuditLogsQueryDto } from "./dto/audit-logs-query.dto";
 
 /**
  * Painel da plataforma (PLAT-1). Rotas NÃO org-scoped, restritas ao super_admin
@@ -40,6 +43,7 @@ export class AdminController {
     private readonly getUserDetail: GetUserDetailUseCase,
     private readonly setOrgSuspended: SetOrgSuspendedUseCase,
     private readonly setUserPlatformRole: SetUserPlatformRoleUseCase,
+    private readonly listAuditLogs: ListAuditLogsUseCase,
   ) {}
 
   @Get("stats")
@@ -72,13 +76,19 @@ export class AdminController {
     return this.getUserDetail.execute(id);
   }
 
+  @Get("audit-logs")
+  auditLogs(@Query() query: AuditLogsQueryDto) {
+    return this.listAuditLogs.execute(query);
+  }
+
   @Patch("orgs/:id/suspend")
   @HttpCode(HttpStatus.NO_CONTENT)
   async suspend(
     @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: SetSuspendedDto,
+    @CurrentUser() user: AuthUser,
   ) {
-    await this.setOrgSuspended.execute(id, dto.suspended);
+    await this.setOrgSuspended.execute(id, dto.suspended, user.id);
   }
 
   @Patch("users/:id/platform-role")

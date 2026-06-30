@@ -11,6 +11,7 @@ import {
   IInvitationRepository,
   INVITATION_REPOSITORY,
 } from "../../domain/invitation.repository.interface";
+import { AuditService } from "../../../audit/audit.service";
 import { OrgForbiddenException } from "../../domain/exceptions/org-forbidden.exception";
 import { OrgNotFoundException } from "../../domain/exceptions/org-not-found.exception";
 import { InvitationEmailFailedException } from "../../domain/exceptions/invitation-email-failed.exception";
@@ -40,6 +41,7 @@ export class InviteMemberUseCase {
     private readonly invitationRepo: IInvitationRepository,
     private readonly mail: MailService,
     private readonly config: ConfigService,
+    private readonly auditService: AuditService,
   ) {}
 
   async execute(input: InviteMemberInput): Promise<InviteMemberResult> {
@@ -84,6 +86,15 @@ export class InviteMemberUseCase {
       );
       throw new InvitationEmailFailedException(input.email);
     }
+
+    await this.auditService.log({
+      actorId: input.inviterUserId,
+      orgId: input.orgId,
+      action: "invite_sent",
+      entityType: "org_invitation",
+      entityId: invitation.id,
+      metadata: { email: input.email, role: input.role },
+    });
 
     this.logger.log(`Convite p/ ${input.email} (${org.name}): ${acceptUrl}`);
     return { invitation, acceptUrl };

@@ -4,6 +4,7 @@ import {
   IOrganizationRepository,
   ORGANIZATION_REPOSITORY,
 } from "../../domain/org.repository.interface";
+import { AuditService } from "../../../audit/audit.service";
 import { OrgForbiddenException } from "../../domain/exceptions/org-forbidden.exception";
 import { OrgNotFoundException } from "../../domain/exceptions/org-not-found.exception";
 
@@ -12,6 +13,7 @@ export class UpdateOrgUseCase {
   constructor(
     @Inject(ORGANIZATION_REPOSITORY)
     private readonly orgRepo: IOrganizationRepository,
+    private readonly auditService: AuditService,
   ) {}
 
   async execute(
@@ -25,6 +27,16 @@ export class UpdateOrgUseCase {
     const isOwner = await this.orgRepo.isOwner(orgId, authId);
     if (!isOwner) throw new OrgForbiddenException();
 
-    return this.orgRepo.update(orgId, data);
+    const updated = await this.orgRepo.update(orgId, data);
+
+    await this.auditService.logByAuthId(authId, {
+      orgId,
+      action: "update",
+      entityType: "organization",
+      entityId: orgId,
+      metadata: { fields: Object.keys(data) },
+    });
+
+    return updated;
   }
 }

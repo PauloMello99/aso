@@ -8,6 +8,8 @@ import type {
   AdminOrgDetail,
   AdminUser,
   AdminUserDetail,
+  AuditLogFilters,
+  AuditLogPage,
   GrowthPoint,
   PlatformRole,
   PlatformStats,
@@ -92,6 +94,29 @@ export function useSetUserPlatformRole() {
     },
   })
   return (id: string, role: PlatformRole) => mutation.mutateAsync({ id, role })
+}
+
+export function useAdminAuditLogs(filters?: AuditLogFilters) {
+  const params = new URLSearchParams()
+  if (filters?.page) params.set("page", String(filters.page))
+  if (filters?.limit) params.set("limit", String(filters.limit))
+  if (filters?.orgId) params.set("orgId", filters.orgId)
+  if (filters?.actorId) params.set("actorId", filters.actorId)
+  if (filters?.action) params.set("action", filters.action)
+  if (filters?.entityType) params.set("entityType", filters.entityType)
+  if (filters?.from) params.set("from", filters.from)
+  if (filters?.to) params.set("to", filters.to)
+  const qs = params.toString()
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: queryKeys.admin.auditLogs(filters as Record<string, unknown>),
+    queryFn: () => apiRequest<AuditLogPage>(`/admin/audit-logs${qs ? `?${qs}` : ""}`),
+  })
+  return {
+    page: data ?? null,
+    loading: isLoading,
+    error: error instanceof Error ? error.message : null,
+  }
 }
 
 export function useAdminOrgs() {

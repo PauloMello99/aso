@@ -12,6 +12,7 @@ import {
   MEMBER_REPOSITORY,
   IMemberRepository,
 } from "../../organizations/domain/member.repository.interface";
+import { AuditService } from "../../audit/audit.service";
 import { UserNotFoundException } from "../../user/domain/exceptions/user-not-found.exception";
 import { OwnsOrganizationException } from "../../user/domain/exceptions/owns-organization.exception";
 
@@ -21,6 +22,7 @@ export class DeleteAccountUseCase {
     @Inject(AUTH_PROVIDER) private readonly authProvider: IAuthProvider,
     @Inject(USER_REPOSITORY) private readonly userRepo: IUserRepository,
     @Inject(MEMBER_REPOSITORY) private readonly memberRepo: IMemberRepository,
+    private readonly auditService: AuditService,
   ) {}
 
   async execute(authUser: AuthUser): Promise<void> {
@@ -36,5 +38,13 @@ export class DeleteAccountUseCase {
     await this.memberRepo.removeAllByUserId(user.id);
     await this.userRepo.delete(authUser.id);
     await this.authProvider.deleteUser(authUser.id);
+
+    await this.auditService.log({
+      actorId: user.id,
+      action: "delete",
+      entityType: "user",
+      entityId: user.id,
+      metadata: { email: user.email },
+    });
   }
 }

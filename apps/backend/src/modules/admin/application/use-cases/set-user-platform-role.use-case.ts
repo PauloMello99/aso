@@ -4,6 +4,7 @@ import {
   IAdminRepository,
   PlatformRole,
 } from "../../domain/admin.repository.interface";
+import { AuditService } from "../../../audit/audit.service";
 import {
   CannotChangeOwnPlatformRoleException,
   PlatformTargetNotFoundException,
@@ -13,6 +14,7 @@ import {
 export class SetUserPlatformRoleUseCase {
   constructor(
     @Inject(ADMIN_REPOSITORY) private readonly adminRepo: IAdminRepository,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -31,6 +33,15 @@ export class SetUserPlatformRoleUseCase {
     if (target.authId === actingAuthId) {
       throw new CannotChangeOwnPlatformRoleException();
     }
+
+    const previousRole = target.platformRole;
     await this.adminRepo.setUserPlatformRole(targetUserId, role);
+
+    await this.auditService.logByAuthId(actingAuthId, {
+      action: "update",
+      entityType: "user",
+      entityId: targetUserId,
+      metadata: { from: previousRole, to: role },
+    });
   }
 }
