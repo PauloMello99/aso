@@ -7,6 +7,7 @@ import {
   IInvitationRepository,
   INVITATION_REPOSITORY,
 } from "../../domain/invitation.repository.interface";
+import { AuditService } from "../../../audit/audit.service";
 import { OrgForbiddenException } from "../../domain/exceptions/org-forbidden.exception";
 import { InvitationNotFoundException } from "../../domain/exceptions/invitation-not-found.exception";
 
@@ -17,6 +18,7 @@ export class CancelInvitationUseCase {
     private readonly orgRepo: IOrganizationRepository,
     @Inject(INVITATION_REPOSITORY)
     private readonly invitationRepo: IInvitationRepository,
+    private readonly auditService: AuditService,
   ) {}
 
   async execute(
@@ -31,5 +33,13 @@ export class CancelInvitationUseCase {
     if (!invitation) throw new InvitationNotFoundException(invitationId);
 
     await this.invitationRepo.cancel(invitationId);
+
+    await this.auditService.logByAuthId(authId, {
+      orgId,
+      action: "delete",
+      entityType: "org_invitation",
+      entityId: invitationId,
+      metadata: { reason: "cancelled" },
+    });
   }
 }

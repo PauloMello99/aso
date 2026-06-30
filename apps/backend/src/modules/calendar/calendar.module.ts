@@ -11,11 +11,10 @@ import { DisconnectCalendarUseCase } from "./application/use-cases/disconnect-ca
 import { CalendarInfrastructureModule } from "./infrastructure/calendar-infrastructure.module";
 import { CalendarController } from "./interface/calendar.controller";
 import { CalendarConnectionController } from "./interface/calendar-connection.controller";
-import { CronController } from "./interface/cron.controller";
 
 @Module({
   imports: [CalendarInfrastructureModule, AuthModule, NotificationsModule],
-  controllers: [CalendarController, CalendarConnectionController, CronController],
+  controllers: [CalendarController, CalendarConnectionController],
   providers: [
     ListCalendarEventsUseCase,
     CreateCalendarEventUseCase,
@@ -25,6 +24,6 @@ import { CronController } from "./interface/cron.controller";
     GetCalendarConnectionUseCase,
     DisconnectCalendarUseCase,
   ],
-  exports: [CalendarInfrastructureModule],
+  exports: [CalendarInfrastructureModule, SendAgendaRemindersUseCase],
 })
 export class CalendarModule {}

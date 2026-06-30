@@ -8,6 +8,7 @@ import {
   AUTH_PROVIDER,
   IAuthProvider,
 } from "../application/ports/auth-provider.interface";
+import { AuditService } from "../../audit/audit.service";
 
 @Injectable()
 export class ForgotPasswordUseCase {
@@ -15,6 +16,7 @@ export class ForgotPasswordUseCase {
     @Inject(AUTH_PROVIDER) private readonly auth: IAuthProvider,
     @Inject(USER_REPOSITORY) private readonly userRepo: IUserRepository,
     private readonly mail: MailService,
+    private readonly auditService: AuditService,
   ) {}
 
   async execute(email: string): Promise<void> {
@@ -23,6 +25,15 @@ export class ForgotPasswordUseCase {
     if (!resetUrl) return;
 
     const user = await this.userRepo.findByEmail(email);
+
+    await this.auditService.log({
+      actorId: user?.id ?? null,
+      action: "create",
+      entityType: "password_reset",
+      entityId: user?.id ?? null,
+      metadata: { email },
+    });
+
     // Envio CRÍTICO: se o canal estiver habilitado e falhar, propaga (o usuário
     // pode tentar novamente). Em dev o canal é no-op (send retorna false).
     await this.mail.sendPasswordReset({

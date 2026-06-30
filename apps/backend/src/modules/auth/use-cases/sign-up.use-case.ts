@@ -10,6 +10,7 @@ import {
   IUserRepository,
   USER_REPOSITORY,
 } from "../../user/domain/user.repository.interface";
+import { AuditService } from "../../audit/audit.service";
 
 @Injectable()
 export class SignUpUseCase {
@@ -20,6 +21,7 @@ export class SignUpUseCase {
     @Inject(USER_REPOSITORY) private readonly userRepo: IUserRepository,
     private readonly mail: MailService,
     private readonly config: ConfigService,
+    private readonly auditService: AuditService,
   ) {}
 
   async execute(
@@ -34,16 +36,26 @@ export class SignUpUseCase {
     // não deixar um auth user órfão (que bloquearia um novo cadastro do e-mail).
     const session = await this.auth.signUp(email, password);
 
+    let createdUserId: string | null = null;
     try {
-      await this.userRepo.create({
+      const created = await this.userRepo.create({
         authId: session.user.id,
         email: session.user.email,
         name,
       });
+      createdUserId = created.id;
     } catch (err) {
       await this.rollbackAuthUser(session.user.id);
       throw err;
     }
+
+    await this.auditService.log({
+      actorId: createdUserId,
+      action: "create",
+      entityType: "user",
+      entityId: createdUserId,
+      metadata: { name, email },
+    });
 
     // E-mail de boas-vindas: best-effort — nunca quebra/bloqueia o cadastro.
     try {

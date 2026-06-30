@@ -4,17 +4,30 @@
       "command": "npx",
       "args": ["shadcn@latest", "mcp"]
     },
-    "supabase": {
+    "supabase-local": {
       "type": "http",
       "url": "http://127.0.0.1:54321/mcp"
     },
-    "postgres": {
+    "postgres-local": {
       "type": "stdio",
       "command": "npx",
       "args": [
         "-y",
         "@modelcontextprotocol/server-postgres",
         "postgresql://postgres:postgres@localhost:54322/postgres"
+      ]
+    },
+    "supabase-staging": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=qcnrfuqqvcsyhfzvlrch"
+    },
+    "postgres-staging": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://postgres.qcnrfuqqvcsyhfzvlrch:XoBbgbxJFlZSd1B9@aws-1-sa-east-1.pooler.supabase.com:5432/postgres"
       ]
     },
     "ink-memory": {
@@ -44,6 +57,13 @@
       "args": ["-y", "resend-mcp"],
       "env": {
         "RESEND_API_KEY": "${RESEND_API_KEY}"
+      }
+    },
+    "better-stack": {
+      "type": "http",
+      "url": "https://mcp.betterstack.com",
+      "headers": {
+        "Authorization": "Bearer ${BETTERSTACK_TOKEN}"
       }
     }
   }

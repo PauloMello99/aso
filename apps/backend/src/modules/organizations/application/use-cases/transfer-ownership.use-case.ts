@@ -7,6 +7,7 @@ import {
   IMemberRepository,
   MEMBER_REPOSITORY,
 } from "../../domain/member.repository.interface";
+import { AuditService } from "../../../audit/audit.service";
 import { MODULE_KEYS } from "../../domain/member-permissions";
 import { OrgForbiddenException } from "../../domain/exceptions/org-forbidden.exception";
 import { MemberNotFoundException } from "../../domain/exceptions/member-not-found.exception";
@@ -19,6 +20,7 @@ export class TransferOwnershipUseCase {
     private readonly orgRepo: IOrganizationRepository,
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepo: IMemberRepository,
+    private readonly auditService: AuditService,
   ) {}
 
   async execute(
@@ -60,5 +62,17 @@ export class TransferOwnershipUseCase {
       currentOwnerMemberId,
       [...MODULE_KEYS],
     );
+
+    await this.auditService.logByAuthId(authId, {
+      orgId,
+      action: "update",
+      entityType: "organization",
+      entityId: orgId,
+      metadata: {
+        from: currentOwnerMemberId,
+        to: newOwnerMemberId,
+        operation: "transfer_ownership",
+      },
+    });
   }
 }

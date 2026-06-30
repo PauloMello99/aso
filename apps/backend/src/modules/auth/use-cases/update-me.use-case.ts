@@ -10,6 +10,7 @@ import {
   IUserRepository,
   USER_REPOSITORY,
 } from "../../user/domain/user.repository.interface";
+import { AuditService } from "../../audit/audit.service";
 
 export interface UpdateMeInput {
   name?: string;
@@ -22,6 +23,7 @@ export class UpdateMeUseCase {
   constructor(
     @Inject(USER_REPOSITORY) private readonly userRepo: IUserRepository,
     @Inject(AUTH_PROVIDER) private readonly auth: IAuthProvider,
+    private readonly auditService: AuditService,
   ) {}
 
   async execute(authUser: AuthUser, input: UpdateMeInput): Promise<UserEntity> {
@@ -34,10 +36,23 @@ export class UpdateMeUseCase {
       await this.auth.updateEmail(authUser.id, input.email!);
     }
 
-    return this.userRepo.update(authUser.id, {
+    const updated = await this.userRepo.update(authUser.id, {
       name: input.name,
       email: emailChanged ? input.email : undefined,
       avatarUrl: input.avatarUrl,
     });
+
+    const changedFields = Object.keys(input).filter(
+      (k) => input[k as keyof UpdateMeInput] !== undefined,
+    );
+    await this.auditService.log({
+      actorId: current.id,
+      action: "update",
+      entityType: "user",
+      entityId: current.id,
+      metadata: { fields: changedFields },
+    });
+
+    return updated;
   }
 }

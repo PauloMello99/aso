@@ -114,8 +114,12 @@ Por ambiente (production e staging), crie um serviço `Cron`:
 - **Start Command** (sem aspas — o `$CRON_SECRET` é expandido pelo shell; mantenha o segredo
   alfanumérico):
   ```sh
-  apk add --no-cache curl && curl -fsS -X POST -H x-cron-secret:$CRON_SECRET http://backend.railway.internal:3001/internal/cron/agenda-reminders && curl -fsS -X POST -H x-cron-secret:$CRON_SECRET http://backend.railway.internal:3001/internal/cron/stock-check-reminders
+  apk add --no-cache curl && curl -fsS -X POST -H x-cron-secret:$CRON_SECRET http://backend.railway.internal:3001/internal/cron/tick
   ```
+  O endpoint `/internal/cron/tick` despacha todos os jobs internamente com isolamento de erro
+  (um job falho não bloqueia os outros) e retorna `{ ok, jobs: [{name, status, durationMs}] }`.
+  Para adicionar novos jobs de cron, edite apenas `InternalCronController` — sem alterar esta
+  configuração do Railway.
 - **Variável**: `CRON_SECRET` = referência `${{ Backend.CRON_SECRET }}`.
 
 > A porta no hostname interno é a que o backend escuta (`PORT`, ex. 3001). O backend precisa bindar
