@@ -16,7 +16,10 @@ import {
   hasModuleAccess,
   type ModuleKey,
 } from "../../organizations/domain/member-permissions";
-import { REQUIRE_MODULE_KEY } from "../decorators/require-module.decorator";
+import {
+  ALLOW_ANY_ORG_MEMBER,
+  REQUIRE_MODULE_KEY,
+} from "../decorators/require-module.decorator";
 
 /**
  * Autoriza acesso a um **módulo** da org: owner sempre passa; funcionário precisa
@@ -31,10 +34,9 @@ export class OrgModuleGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const required = this.reflector.getAllAndOverride<ModuleKey | undefined>(
-      REQUIRE_MODULE_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const required = this.reflector.getAllAndOverride<
+      ModuleKey | typeof ALLOW_ANY_ORG_MEMBER | undefined
+    >(REQUIRE_MODULE_KEY, [context.getHandler(), context.getClass()]);
     // Sem módulo exigido → nada a checar aqui (membership já garante acesso).
     if (!required) return true;
 
@@ -69,6 +71,10 @@ export class OrgModuleGuard implements CanActivate {
       if (await isSuperAdmin(this.db, user.id)) return true;
       throw new ForbiddenException("You do not have access to this organization");
     }
+
+    // `@AllowAnyOrgMember()` no handler: já validamos membership/enabled acima;
+    // não exige a flag de módulo.
+    if (required === ALLOW_ANY_ORG_MEMBER) return true;
 
     const role = row.role as "owner" | "employee";
     if (!hasModuleAccess(role, row.permissions ?? [], required)) {
