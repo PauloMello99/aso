@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -Command \"docker compose -f docker-compose.rag.yml up -d 2>$null; wsl -e bash -lc 'nohup ~/ink-ops-rag-venv/bin/python /mnt/c/Users/Paulo/Documents/Repos/Pessoal/ink-ops/bin/scripts/rag/index.py --no-recreate >/dev/null 2>&1 & disown; exit 0'\"",
+            "command": "powershell -NoProfile -Command \"docker compose -f docker-compose.rag.yml up -d 2>$null; Start-Process wsl -ArgumentList 'bash','bin/scripts/rag/reindex.sh' -WindowStyle Hidden\"",
             "timeout": 20
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -Command \"wsl -e bash -lc 'nohup ~/ink-ops-rag-venv/bin/python /mnt/c/Users/Paulo/Documents/Repos/Pessoal/ink-ops/bin/scripts/rag/index.py --no-recreate >/dev/null 2>&1 & disown; exit 0'\""
+            "command": "powershell -NoProfile -Command \"Start-Process wsl -ArgumentList 'bash','bin/scripts/rag/reindex.sh' -WindowStyle Hidden\""
           }
         ]
       }

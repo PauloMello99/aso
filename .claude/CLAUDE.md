@@ -32,10 +32,11 @@ em `.memory/adr/` (fonte de verdade). Roadmap: `.memory/roadmap.md`.
 
 - `@repo/eslint-config` — configs ESLint por runtime (next, react-internal, node, base)
 - `@repo/typescript-config` — tsconfigs por runtime (nextjs, nestjs, react-library, base)
-- `@repo/ui` — componentes React (shadcn pattern); no frontend os componentes de UI vivem
-  em `apps/frontend/src/shared/components/ui/`
 - `@repo/utils` — `cn()` para merge seguro de classes Tailwind
 - `@repo/types` — tipos Supabase compartilhados (popular via `supabase gen types`)
+
+Não há `@repo/ui`: componentes shadcn/ui vivem direto em
+`apps/frontend/src/shared/components/ui/`, sem package compartilhado.
 
 ## Comandos
 
@@ -106,12 +107,14 @@ conhecimento que vale recall depois, não transcrever tudo.
 
 **Indexação (automática).** O índice é re-atualizado em background no início de cada
 sessão (hook SessionStart), ao fim de cada turno (hook Stop) e imediatamente após
-qualquer escrita em `.memory/` (hook PostToolUse). Stack: Qdrant (Docker, `:6333`) +
-Ollama (`:11434`, `nomic-embed-text`). Setup inicial: `/rag-setup`.
+qualquer escrita em `.memory/` (hook PostToolUse). Stack: Qdrant (Docker, `:6333`,
+container **compartilhado** com outros projetos — cada um com sua coleção; ink-ops =
+`ink_ops_memory`) + Ollama (`:11434`, `bge-m3`, híbrido dense+BM25 com parent-document
+retrieval — ver ADR-0015). Setup inicial: `/rag-setup`.
 
 Comandos manuais (raramente necessários — os hooks cuidam disso):
 ```powershell
-docker compose -f docker-compose.rag.yml up -d          # subir Qdrant
+docker compose -f docker-compose.rag.yml up -d          # subir Qdrant (compartilhado)
 wsl ~/ink-ops-rag-venv/bin/python bin/scripts/rag/index.py --no-recreate   # reindex
 ```
 Ou os slash commands `/memory-index` e `/memory-search`.

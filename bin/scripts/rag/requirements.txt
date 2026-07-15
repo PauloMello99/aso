@@ -1,4 +1,8 @@
-qdrant-client>=1.7
+qdrant-client>=1.10
 requests>=2.31
 # Stdio MCP server (mcp_server.py) that exposes the index to a live Claude session.
 mcp>=1.0,<2
+# Hybrid search: sparse BM25 vectors (Qdrant/bm25 model, CPU-only).
+fastembed>=0.3
+# Token-aware chunking with bge-m3's tokenizer (XLM-RoBERTa).
+tokenizers>=0.15

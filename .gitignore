@@ -44,7 +44,7 @@ packages/*/src/*.js.map
 packages/*/src/*.ts.map
 
 # RAG / Memory
-docker-compose.rag.yml
+# docker-compose.rag.yml is versioned (shared Qdrant container, ADR-0015).
 .rag/
 .memory/sessions/
 
