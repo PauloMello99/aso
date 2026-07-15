@@ -3,51 +3,13 @@
     "allow": [
       "PowerShell(Invoke-RestMethod -Uri \"http://localhost:3001/health\" -Method Get)",
       "PowerShell($r = Invoke-WebRequest -Uri \"http://localhost:3000\" -UseBasicParsing; $r.StatusCode)",
-      "PowerShell(ls -Force \"C:\\\\Users\\\\Paulo\\\\Documents\\\\Repos\\\\Pessoal\\\\InkHouse\\\\ink-house-studio\" | Format-Table -Property Name, @{Name=\"Type\";Expression={if\\($_.PSIsContainer\\){\"Dir\"}else{\"File\"}}})",
+      "PowerShell(Get-Process -Id \\(Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue\\).OwningProcess -ErrorAction SilentlyContinue | Select-Object Id, ProcessName)",
+      "Bash(pnpm add *)",
       "mcp__788d392c-8484-40bc-82e2-a0bea16d7990__notion-get-teams",
       "mcp__788d392c-8484-40bc-82e2-a0bea16d7990__notion-search",
       "mcp__788d392c-8484-40bc-82e2-a0bea16d7990__notion-fetch",
       "mcp__788d392c-8484-40bc-82e2-a0bea16d7990__notion-update-page",
-      "mcp__788d392c-8484-40bc-82e2-a0bea16d7990__notion-create-pages",
-      "Bash(Get-ChildItem \"C:\\\\Users\\\\Paulo\\\\Documents\\\\Repos\\\\Pessoal\\\\ink-ops\\\\node_modules\\\\drizzle-orm\" -Recurse -Filter \"migrator*\")",
-      "Bash(Select-Object -First 10 FullName)",
-      "Bash(Get-ChildItem \"C:\\\\Users\\\\Paulo\\\\Documents\\\\Repos\\\\Pessoal\\\\ink-ops\\\\apps\\\\backend\\\\node_modules\\\\drizzle-orm\" -Recurse -Filter \"migrator*\")",
-      "Bash(Select-Object FullName)",
-      "Bash(Select-Object -First 10)",
-      "Bash(Get-ChildItem \"C:\\\\Users\\\\Paulo\\\\Documents\\\\Repos\\\\Pessoal\\\\ink-ops\\\\apps\\\\backend\\\\drizzle\" -Recurse)",
-      "Bash(awk '{print $NF}')",
-      "mcp__Claude_Preview__preview_start",
-      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Paulo\\\\Documents\\\\Repos\\\\Pessoal\\\\ink-ops\" -Name)",
-      "Read(//c/mnt/c/Users/Paulo/Documents/Repos/Pessoal/ink-ops/**)",
-      "Bash(pnpm add *)",
-      "Bash(ls /mnt/c/Users/Paulo/Documents/Repos/Pessoal/ink-ops/apps/backend/.env* 2>/dev/null || echo \"no env files\")",
-      "Bash(ls -la \"C:\\\\Users\\\\Paulo\\\\.claude\\\\\" 2>&1 || echo \"Directory does not exist\")",
-      "Bash(xargs grep -l \"rtk\\\\|token\\\\|cache\")",
-      "Bash(xargs grep -l \"qdrant\\\\|mcp.*qdrant\")",
-      "Bash(rm -rf \"/mnt/c/Users/Paulo/Documents/Repos/Pessoal/ink-ops/packages/ui\")",
-      "PowerShell(Get-Process -Id \\(Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue\\).OwningProcess -ErrorAction SilentlyContinue | Select-Object Id, ProcessName)"
-    ]
-  },
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "powershell -NoProfile -Command \"docker compose -f docker-compose.rag.yml up -d 2>$null; wsl -e bash -lc 'nohup ~/ink-ops-rag-venv/bin/python /mnt/c/Users/Paulo/Documents/Repos/Pessoal/ink-ops/bin/scripts/rag/index.py --no-recreate >/dev/null 2>&1 & disown; exit 0'\""
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "powershell -NoProfile -Command \"wsl -e bash -lc 'nohup ~/ink-ops-rag-venv/bin/python /mnt/c/Users/Paulo/Documents/Repos/Pessoal/ink-ops/bin/scripts/rag/index.py --no-recreate >/dev/null 2>&1 & disown; exit 0'\""
-          }
-        ]
-      }
+      "mcp__788d392c-8484-40bc-82e2-a0bea16d7990__notion-create-pages"
     ]
   }
 }

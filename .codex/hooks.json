@@ -42,21 +42,5 @@
         ]
       }
     ]
-  },
-  "enabledPlugins": {
-    "ui-ux-pro-max@ui-ux-pro-max-skill": true,
-    "caveman": true
-  },
-  "enabledMcpjsonServers": [
-    "shadcn",
-    "supabase-local",
-    "postgres-local",
-    "supabase-staging",
-    "postgres-staging",
-    "ink-memory",
-    "github",
-    "railway",
-    "resend",
-    "better-stack"
-  ]
+  }
 }
