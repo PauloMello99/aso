@@ -17,6 +17,7 @@
 | ADR-0011 | Topologia de deploy (staging/prod) + caching in-memory sem Redis | 2026-06-27 | Aceito |
 | ADR-0012 | E-mail transacional: React Email + módulo `mail` dedicado (auth fora do GoTrue) | 2026-06-28 | Aceito |
 | ADR-0013 | super_admin age como owner de qualquer org (bypass no miss-path; banner; audit→PLAT-3) | 2026-06-29 | Aceito |
+| ADR-0015 | RAG: bge-m3 híbrido (dense+BM25+RRF), parent-document, código TS, Qdrant compartilhado com larmony | 2026-07-15 | Aceito |
 
 ## Decisões/registros recentes (sem ADR)
 

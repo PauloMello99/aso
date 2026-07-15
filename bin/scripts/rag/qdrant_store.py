@@ -4,7 +4,9 @@ from qdrant_client.models import (
     FieldCondition,
     Filter,
     MatchValue,
+    Modifier,
     PayloadSchemaType,
+    SparseVectorParams,
     VectorParams,
 )
 
@@ -12,9 +14,22 @@ from config import COLLECTION, EMBED_DIM, QDRANT_URL
 
 _client: QdrantClient | None = None
 
+# Named vectors for hybrid search (ADR-0015).
+DENSE = "dense"
+SPARSE = "sparse"
+
 # Keyword payload fields we filter on (metadata-aware retrieval). Indexed so
 # server-side filtering stays efficient as the collection grows.
-FILTERABLE_FIELDS = ("memory_type", "document", "section", "category")
+FILTERABLE_FIELDS = (
+    "memory_type",
+    "document",
+    "section",
+    "category",
+    "tags",
+    "app",
+    "module",
+    "layer",
+)
 
 
 def get_client() -> QdrantClient:
@@ -39,19 +54,34 @@ def ensure_payload_indexes() -> None:
             pass
 
 
-def build_filter(**conditions) -> Filter | None:
-    """Build a Qdrant must-match keyword Filter from given fields.
+def build_filter(exclude_code: bool = False, **conditions) -> Filter | None:
+    """Build a Qdrant keyword Filter.
 
-    Pass any of the FILTERABLE_FIELDS as keyword args (e.g.
-    ``build_filter(memory_type="adr")``). None/empty values are ignored; returns
-    None when no conditions are given (callers then query unfiltered).
+    Pass any FILTERABLE_FIELDS as keyword args; None/empty values are ignored.
+    ``exclude_code=True`` adds must_not memory_type=code (the memory_search
+    default — code is opt-in).
     """
     must = [
         FieldCondition(key=key, match=MatchValue(value=value))
         for key, value in conditions.items()
         if value
     ]
-    return Filter(must=must) if must else None
+    must_not = (
+        [FieldCondition(key="memory_type", match=MatchValue(value="code"))]
+        if exclude_code
+        else []
+    )
+    if not must and not must_not:
+        return None
+    return Filter(must=must or None, must_not=must_not or None)
+
+
+def _vectors_config():
+    return {DENSE: VectorParams(size=EMBED_DIM, distance=Distance.COSINE)}
+
+
+def _sparse_config():
+    return {SPARSE: SparseVectorParams(modifier=Modifier.IDF)}
 
 
 def ensure_collection() -> None:
@@ -60,15 +90,19 @@ def ensure_collection() -> None:
     if COLLECTION not in existing:
         client.create_collection(
             collection_name=COLLECTION,
-            vectors_config=VectorParams(size=EMBED_DIM, distance=Distance.COSINE),
+            vectors_config=_vectors_config(),
+            sparse_vectors_config=_sparse_config(),
         )
     ensure_payload_indexes()
 
 
 def recreate_collection() -> None:
     client = get_client()
-    client.recreate_collection(
+    if client.collection_exists(COLLECTION):
+        client.delete_collection(COLLECTION)
+    client.create_collection(
         collection_name=COLLECTION,
-        vectors_config=VectorParams(size=EMBED_DIM, distance=Distance.COSINE),
+        vectors_config=_vectors_config(),
+        sparse_vectors_config=_sparse_config(),
     )
     ensure_payload_indexes()
