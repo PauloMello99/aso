@@ -18,7 +18,10 @@ import type { Response } from "express";
 import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
-import { RequireModule } from "../../auth/decorators/require-module.decorator";
+import {
+  AllowAnyOrgMember,
+  RequireModule,
+} from "../../auth/decorators/require-module.decorator";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { AdjustStockUseCase } from "../application/use-cases/adjust-stock.use-case";
@@ -100,7 +103,11 @@ export class MaterialsController {
     });
   }
 
+  // Seleção de material no lançamento de serviço precisa listar mesmo sem a
+  // flag do módulo (B1): leitura para seleção fica liberada a qualquer membro
+  // habilitado; RLS já isola por organização.
   @Get()
+  @AllowAnyOrgMember()
   async list(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Query("categoryId") categoryId?: string,

@@ -23,7 +23,10 @@ import type { Response } from "express";
 import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
-import { RequireModule } from "../../auth/decorators/require-module.decorator";
+import {
+  AllowAnyOrgMember,
+  RequireModule,
+} from "../../auth/decorators/require-module.decorator";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { CreateCustomerUseCase } from "../application/use-cases/create-customer.use-case";
@@ -91,7 +94,11 @@ export class CustomersController {
     private readonly deleteAttachment: DeleteCustomerAttachmentUseCase,
   ) {}
 
+  // Seleção de cliente no lançamento de serviço precisa listar mesmo sem a flag
+  // do módulo (B1): leitura para seleção fica liberada a qualquer membro
+  // habilitado; RLS já isola por organização.
   @Get()
+  @AllowAnyOrgMember()
   async list(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Query("search") search?: string,
@@ -109,6 +116,7 @@ export class CustomersController {
   }
 
   @Get("origins")
+  @AllowAnyOrgMember()
   async origins(@Param("orgId", ParseUUIDPipe) orgId: string) {
     return this.listOrigins.execute(orgId);
   }
