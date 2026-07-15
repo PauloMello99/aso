@@ -4,6 +4,7 @@ export { SignupForm } from "./components/signup-form"
 export { RecoverForm } from "./components/recover-form"
 export { ResetPasswordForm } from "./components/reset-password-form"
 export { AuthGuard } from "./components/auth-guard"
+export { GuestGuard } from "./components/guest-guard"
 
 // Schemas
 export {

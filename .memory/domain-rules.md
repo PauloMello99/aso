@@ -215,6 +215,15 @@ a UI deve refletir o papel da org *ativa*:
   `invitationRepo.delete` (admin). Assim o owner pode **reenviar o fluxo** (o `create`
   já faz upsert por `(orgId,email)` regenerando o token). Front: botão "Recusar" na tela
   de aceite → `/dashboard/organizations`.
+- **Guard inverso `GuestGuard` (2026-07-15)**: usuário **logado** que abre página de auth é
+  redirecionado para a área privada. Espelho de `AuthGuard` em
+  `features/auth/components/guest-guard.tsx` (mesmo spinner enquanto `loading`, lógica
+  invertida: `if (!loading && user) router.replace(...)`). Aplicado via `getLayout` em
+  `pages/auth/login|signup|recover.tsx`. Alvo: `/invite/accept?token=` se houver `?invite=`
+  na URL (paridade com login/signup-form), senão `/dashboard/organizations`.
+  **`reset-password.tsx` fica de fora** — é fluxo por token (`type=recovery`) que precisa
+  funcionar mesmo com sessão ativa. Como a sessão é client-side (`inkops_session` no
+  localStorage, sem middleware), o gate depende de `loading===false` antes de checar `user`.
 
 ### Organizações
 
