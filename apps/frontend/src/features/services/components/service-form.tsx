@@ -37,7 +37,11 @@ import type { Customer } from "@/features/clients/types"
 import type { Member } from "@/features/organizations/types"
 import type { Material } from "@/features/stock/types"
 import type { MaterialFormValues } from "@/features/stock/schemas/stock.schemas"
-import { serviceSchema, type ServiceFormValues } from "../schemas/services.schemas"
+import {
+  createServiceSchema,
+  serviceSchema,
+  type ServiceFormValues,
+} from "../schemas/services.schemas"
 import {
   SERVICE_PAYMENT_METHODS,
   SERVICE_PAYMENT_METHOD_LABELS,
@@ -95,14 +99,16 @@ export function ServiceForm({
 }: ServiceFormProps) {
   const isEdit = !!service
   const form = useForm<ServiceFormValues>({
-    resolver: zodResolver(serviceSchema),
+    resolver: zodResolver(isEdit ? serviceSchema : createServiceSchema),
     defaultValues: emptyValues(),
   })
 
   const [typeDialogOpen, setTypeDialogOpen] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
+    setSubmitError(null)
     if (service) {
       form.reset({
         customerId: service.customerId ?? "",
@@ -121,8 +127,15 @@ export function ServiceForm({
   }, [open, service, form])
 
   const handleSubmit = form.handleSubmit(async (values) => {
-    await onSubmit(values)
-    onOpenChange(false)
+    setSubmitError(null)
+    try {
+      await onSubmit(values)
+      onOpenChange(false)
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : "Falha ao lançar o serviço.",
+      )
+    }
   })
 
   const activeMembers = members.filter((m) => m.enabled)
@@ -308,6 +321,11 @@ export function ServiceForm({
                     materials={materials}
                     onCreateMaterial={onCreateMaterial}
                   />
+                  {form.formState.errors.materials?.message && (
+                    <p className="text-sm text-red-400">
+                      {form.formState.errors.materials.message}
+                    </p>
+                  )}
                 </section>
               )}
 
@@ -400,6 +418,10 @@ export function ServiceForm({
                     )}
                   />
                 </section>
+              )}
+
+              {submitError && (
+                <p className="text-sm text-red-400">{submitError}</p>
               )}
             </SheetBody>
 

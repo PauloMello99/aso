@@ -1,12 +1,12 @@
 {
   "name": "frontend",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3000",
-    "dev:reset": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next dev --port 3000",
-    "build": "next build",
+    "dev": "next dev --port 3000 --webpack",
+    "dev:reset": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next dev --port 3000 --webpack",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint . --max-warnings 0",
     "check-types": "tsc --noEmit",

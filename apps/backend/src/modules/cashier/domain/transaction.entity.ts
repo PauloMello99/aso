@@ -3,8 +3,10 @@ export type PaymentMethod =
   | "cash"
   | "bank_transfer"
   | "credit_card"
-  | "debit_card"
-  | "credits";
+  | "debit_card";
+
+export const TRANSFER_METHODS = ["cash", "bank_transfer"] as const;
+export type TransferMethod = (typeof TRANSFER_METHODS)[number];
 
 export interface TransactionEntityProps {
   id: string;

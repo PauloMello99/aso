@@ -38,5 +38,13 @@ export const serviceSchema = z.object({
   materials: z.array(serviceMaterialLineSchema),
 })
 
+// Lançamento (create): materiais são obrigatórios. Edição não mexe em
+// materiais/estoque (ver update-service.use-case), por isso usa serviceSchema puro.
+export const createServiceSchema = serviceSchema.extend({
+  materials: z
+    .array(serviceMaterialLineSchema)
+    .min(1, "Selecione ao menos um material consumido"),
+})
+
 export type ServiceFormValues = z.infer<typeof serviceSchema>
 export type ServiceMaterialLineValues = z.infer<typeof serviceMaterialLineSchema>

@@ -54,7 +54,6 @@ const METHOD_ORDER: PaymentMethod[] = [
   "bank_transfer",
   "credit_card",
   "debit_card",
-  "credits",
 ]
 
 interface TransactionFormProps {

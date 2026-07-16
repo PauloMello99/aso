@@ -3,6 +3,7 @@ import {
   IsEmail,
   IsIn,
   IsOptional,
+  IsPhoneNumber,
   IsString,
   IsUUID,
   Matches,
@@ -21,7 +22,7 @@ export class UpdateCustomerDto {
   @IsOptional()
   email?: string | null;
 
-  @IsString()
+  @IsPhoneNumber(undefined, { message: "Telefone inválido" })
   @IsOptional()
   phone?: string | null;
 

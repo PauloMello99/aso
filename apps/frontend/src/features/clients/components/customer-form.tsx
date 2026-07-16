@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -78,6 +78,7 @@ export function CustomerForm({
   onSubmit,
 }: CustomerFormProps) {
   const isEditing = !!customer;
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
@@ -86,6 +87,7 @@ export function CustomerForm({
 
   useEffect(() => {
     if (open) {
+      setSubmitError(null);
       form.reset(
         customer
           ? {
@@ -109,8 +111,15 @@ export function CustomerForm({
   }, [open, customer, form]);
 
   const handleSubmit = form.handleSubmit(async (values) => {
-    await onSubmit(values);
-    onOpenChange(false);
+    setSubmitError(null);
+    try {
+      await onSubmit(values);
+      onOpenChange(false);
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : "Falha ao salvar o cliente.",
+      );
+    }
   });
 
   return (
@@ -171,6 +180,9 @@ export function CustomerForm({
                     </FormItem>
                   )}
                 />
+                {submitError && (
+                  <p className="mt-1 text-sm text-red-400">{submitError}</p>
+                )}
               </div>
 
               <div>

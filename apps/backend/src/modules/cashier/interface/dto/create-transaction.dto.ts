@@ -13,7 +13,6 @@ export const PAYMENT_METHODS = [
   "bank_transfer",
   "credit_card",
   "debit_card",
-  "credits",
 ] as const;
 
 export const TRANSACTION_TYPES = ["income", "outcome"] as const;

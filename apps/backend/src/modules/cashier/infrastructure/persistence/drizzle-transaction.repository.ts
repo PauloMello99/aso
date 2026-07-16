@@ -17,7 +17,7 @@ import {
 import { PaymentMethod } from "../../domain/transaction.entity";
 import { TransactionMapper } from "./transaction.mapper";
 
-// Buckets de saldo: dinheiro vs digital (banco/cartão). `credits` fica fora do caixa.
+// Buckets de saldo: dinheiro vs digital (banco/cartão).
 const DIGITAL_METHODS = ["bank_transfer", "credit_card", "debit_card"] as const;
 
 @Injectable()

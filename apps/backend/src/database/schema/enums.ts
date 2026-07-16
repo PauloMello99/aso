@@ -44,7 +44,6 @@ export const paymentMethodEnum = pgEnum("payment_method", [
   "bank_transfer",
   "credit_card",
   "debit_card",
-  "credits",
 ]);
 
 export const genderEnum = pgEnum("gender", ["male", "female", "other"]);

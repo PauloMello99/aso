@@ -5,7 +5,6 @@ export type PaymentMethod =
   | "bank_transfer"
   | "credit_card"
   | "debit_card"
-  | "credits"
 
 export interface Transaction {
   id: string
@@ -79,7 +78,6 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   bank_transfer: "Transferência / Pix",
   credit_card: "Cartão de crédito",
   debit_card: "Cartão de débito",
-  credits: "Créditos",
 }
 
 export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {

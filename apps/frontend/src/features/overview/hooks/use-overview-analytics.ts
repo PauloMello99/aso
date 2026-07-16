@@ -25,7 +25,7 @@ export interface ServiceGroupRow {
 }
 
 export interface PaymentMethodTotal {
-  paymentMethod: "cash" | "bank_transfer" | "credit_card" | "debit_card" | "credits"
+  paymentMethod: "cash" | "bank_transfer" | "credit_card" | "debit_card"
   netCents: number
 }
 

@@ -1,5 +1,6 @@
 import { Type } from "class-transformer";
 import {
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsIn,
@@ -75,6 +76,6 @@ export class CreateServiceDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ServiceMaterialLineDto)
-  @IsOptional()
-  materials?: ServiceMaterialLineDto[];
+  @ArrayMinSize(1, { message: "Selecione ao menos um material consumido" })
+  materials!: ServiceMaterialLineDto[];
 }

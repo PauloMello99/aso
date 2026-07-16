@@ -19,7 +19,6 @@ const METHOD_LABELS: Record<string, string> = {
   bank_transfer: "Transferência / Pix",
   credit_card: "Cartão de crédito",
   debit_card: "Cartão de débito",
-  credits: "Créditos",
 };
 
 /** Colunas exportáveis do caixa (chaves usadas no seletor `?fields=`). */
