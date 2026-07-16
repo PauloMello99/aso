@@ -27,14 +27,27 @@ interpretações com custos muito diferentes), pergunte ANTES de acionar agentes
 
 ## 2. Executar o menor fluxo
 
-- **Simples**: `implementer` → você roda `pnpm check-types` + `pnpm lint` (filtrados no
+Escolha o implementer pelo domínio do passo: **backend-implementer** (`apps/backend/**`,
+migration, use-case, controller, tooling/root) ou **frontend-implementer** (`apps/frontend/**`,
+componente, hook, schema). Full-stack ⇒ ambos, na ordem backend → frontend. Abaixo,
+`<implementer>` = o do domínio.
+
+- **Simples**: `<implementer>` → você roda `pnpm check-types` + `pnpm lint` (filtrados no
   app afetado quando possível) → resposta. **Não** acione locator/planner/tester/reviewer.
-- **Intermediária**: `locator` → `implementer` → `tester` → resposta.
+- **Intermediária**: `locator` → `<implementer>` → `tester` → resposta.
 - **Complexa**: `locator` → `planner` → (aprovação do usuário se a mudança for grande ou
-  destrutiva) → `implementer` (um passo do plano por vez) → `tester` →
+  destrutiva) → `<implementer>` (um passo do plano por vez) → `tester` →
   `database-guardian` (somente se o diff tiver schema/migration/backfill/conexão DRIZZLE)
-  → `reviewer` → correções (implementer só com findings critical/high; tester revalida
-  direcionado) → resposta.
+  → `reviewer` → correções (implementer do domínio só com findings critical/high; tester
+  revalida direcionado) → resposta.
+
+Variantes:
+- **Bug com causa não óbvia**: insira `debugger` entre locator e implementer — ele isola a
+  causa-raiz e devolve um `proposed_fix` que o `<implementer>` aplica.
+- **UI-heavy** (tela/fluxo novo, redesenho): insira `design` antes do `frontend-implementer` —
+  ele devolve a spec de UI (layout/estados/tokens) que o implementer executa.
+- **Documentação**: `codebase-documenter` é invocado explicitamente (fora destes fluxos) para
+  docs de módulo/README ou auditoria de frescor; escreve só arquivos de doc.
 
 Regra de ouro: cada agente a mais precisa se justificar. Na dúvida entre acionar ou não
 um agente opcional, não acione — a menos que haja gatilho de risco.

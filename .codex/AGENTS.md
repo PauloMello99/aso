@@ -17,7 +17,7 @@ em `.memory/adr/` (fonte de verdade). Roadmap: `.memory/roadmap.md`.
 
 | Camada | Tecnologia |
 |---|---|
-| Monorepo | Turborepo 2 + pnpm workspaces |
+| Monorepo | Turborepo 2 + pnpm 9 workspaces |
 | Linguagem | TypeScript 5 strict |
 | Backend | NestJS 11 + Drizzle ORM (migrator custom) + Supabase (auth/RLS) |
 | Frontend | Next.js (pages router) + React 19 + Radix UI + Tailwind CSS |
@@ -31,10 +31,11 @@ em `.memory/adr/` (fonte de verdade). Roadmap: `.memory/roadmap.md`.
 
 - `@repo/eslint-config` — configs ESLint por runtime (next, react-internal, node, base)
 - `@repo/typescript-config` — tsconfigs por runtime (nextjs, nestjs, react-library, base)
-- `@repo/ui` — componentes React (shadcn pattern); no frontend os componentes de UI vivem
-  em `apps/frontend/src/shared/components/ui/`
 - `@repo/utils` — `cn()` para merge seguro de classes Tailwind
 - `@repo/types` — tipos Supabase compartilhados
+
+Não há `@repo/ui`: componentes shadcn/ui vivem direto em
+`apps/frontend/src/shared/components/ui/`, sem package compartilhado.
 
 ## Comandos
 
@@ -79,7 +80,9 @@ estilo — MUST/SHOULD/MAY/MUST NOT). Siga essas regras mesmo sem subagentes:
 
 - **Menor fluxo suficiente**: mudança localizada ⇒ implementar + check-types/lint;
   poucos módulos ⇒ localizar → implementar → validar; transversal/risco ⇒ planejar
-  antes e revisar depois.
+  antes e revisar depois. Bug de causa não óbvia ⇒ diagnosticar a causa-raiz antes de
+  corrigir; tela/fluxo novo ⇒ especificar a UI (layout/estados/tokens, mobile-first) antes
+  de implementar.
 - **Elevação por risco**: banco, RLS/tenancy, auth, caixa/dinheiro, cron, contratos
   públicos ou integrações externas ⇒ tratar como complexa mesmo se pequena.
 - **Validação atual**: o repo ainda não tem suíte automatizada — validar por
@@ -105,12 +108,13 @@ ADR) **antes de encerrar**. Chats triviais estão isentos.
 
 **Indexação (automática).** O índice é re-atualizado em background no início da sessão
 (hook SessionStart), ao fim de cada turno (hook Stop) e após qualquer escrita em
-`.memory/` (hook PostToolUse). Stack: Qdrant (Docker, `:6333`) + Ollama (`:11434`,
-`nomic-embed-text`), coleção `ink_ops_memory` — ver ADR-0002. Setup inicial: `/rag-setup`.
+`.memory/` (hook PostToolUse). Stack: Qdrant (Docker, `:6333`, container **compartilhado**
+com outros projetos — ink-ops = coleção `ink_ops_memory`) + Ollama (`:11434`, `bge-m3`,
+híbrido dense+BM25 com parent-document retrieval) — ver ADR-0015. Setup inicial: `/rag-setup`.
 
 Comandos manuais (raramente necessários — os hooks cuidam disso):
 ```powershell
-docker compose -f docker-compose.rag.yml up -d          # subir Qdrant
+docker compose -f docker-compose.rag.yml up -d          # subir Qdrant (compartilhado)
 wsl ~/ink-ops-rag-venv/bin/python bin/scripts/rag/index.py --no-recreate   # reindex
 ```
 Ou os slash commands `/memory-index` e `/memory-search`.

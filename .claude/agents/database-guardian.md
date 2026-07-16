@@ -2,6 +2,7 @@
 name: database-guardian
 description: Guardião de banco do ink-ops. Invocar ADICIONALMENTE ao reviewer quando a mudança inclui schema Drizzle, migration (.sql/.down.sql), backfill, índices, ou troca de conexão DRIZZLE/DRIZZLE_ADMIN. Verifica integridade, rollback, RLS por organização, dinheiro em centavos e compatibilidade com dados existentes. Read-only, apenas banco LOCAL. NÃO invocar para mudanças sem superfície de dados.
 tools: Read, Grep, Glob, Bash
+model: opus
 ---
 
 # Database Guardian — schema, migrations e RLS
@@ -89,6 +90,6 @@ rls_assessment:
 
 ## Handoff e limites
 Devolve o YAML ao thread principal, que consolida com o reviewer. `changes_required`
-⇒ implementer corrige apenas os findings apontados; nova checagem só sobre o diff das
-correções. Não opina sobre lógica de negócio fora da superfície de dados. Após duas
+⇒ o `backend-implementer` corrige apenas os findings apontados (superfície de dados é
+sempre backend); nova checagem só sobre o diff das correções. Não opina sobre lógica de negócio fora da superfície de dados. Após duas
 rodadas sem convergência, escale ao usuário.

@@ -80,12 +80,16 @@ O processo de desenvolvimento está formalizado em `docs/ai/agentic-workflow.md`
 (roteamento adaptativo simples/intermediária/complexa, critérios de elevação por risco,
 validação com os scripts reais) e `docs/ai/development-style-profile.md` (regras de
 estilo — MUST/SHOULD/MAY/MUST NOT). Executado pela skill `development-workflow` com os
-subagentes de `.claude/agents/` (`coordinator`, `locator`, `planner`, `implementer`,
-`tester`, `reviewer`, `database-guardian`):
+subagentes de `.claude/agents/` (`coordinator`, `locator`, `planner`, `backend-implementer`,
+`frontend-implementer`, `debugger`, `tester`, `reviewer`, `database-guardian`, `design`,
+`codebase-documenter`):
 
-- **Menor fluxo suficiente**: mudança localizada ⇒ implementer + check-types/lint;
-  poucos módulos ⇒ locator → implementer → tester; transversal/risco ⇒ planner antes e
-  reviewer depois.
+- **Menor fluxo suficiente**: mudança localizada ⇒ implementer (backend/frontend) +
+  check-types/lint; poucos módulos ⇒ locator → implementer → tester; transversal/risco ⇒
+  planner antes e reviewer depois. Bug de causa não óbvia ⇒ `debugger` antes do implementer;
+  tela/fluxo novo ⇒ `design` antes do `frontend-implementer`.
+- **Escrita de código**: só `backend-implementer` e `frontend-implementer`; o
+  `codebase-documenter` escreve apenas docs; os demais são read-only.
 - **Elevação por risco**: banco, RLS/tenancy, auth, caixa/dinheiro, cron, contratos
   públicos ou integrações externas ⇒ tratar como complexa mesmo se pequena.
 - **Proibido**: push, deploy, migrations remotas, reset/clean destrutivos, commits sem

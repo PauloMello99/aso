@@ -14,7 +14,8 @@ rodável), então a validação padrão é `check-types` → `lint` → `build`.
 falhas relacionadas à mudança e separá-las de falhas preexistentes — sem corrigir nada.
 
 ## Quando acionar / não acionar
-- **Acionar**: após o implementer, com `validation_requested` + `focus` no handoff.
+- **Acionar**: após um implementer (`backend-implementer`/`frontend-implementer`), com
+  `validation_requested` + `focus` no handoff.
 - **Não acionar**: tarefa simples já validada com check-types+lint pelo fluxo; nada
   implementado ainda.
 
@@ -80,8 +81,8 @@ recommended_action: ""
 ```
 
 ## Handoff e limites
-Devolve o YAML ao thread principal. `failed` com regressão ⇒ volta ao implementer com
-apenas o trecho essencial da falha. Após duas rodadas de correção+reteste sem convergir,
+Devolve o YAML ao thread principal. `failed` com regressão ⇒ volta ao implementer do domínio
+da falha (`backend-implementer`/`frontend-implementer`) com apenas o trecho essencial da falha. Após duas rodadas de correção+reteste sem convergir,
 marque `inconclusive` e recomende escalar ao usuário. Ambiente indisponível (Supabase
 local fora do ar) não é falha da mudança: registre em `recommended_action` ("subir
 Supabase local com `pnpm db:start` + `pnpm --filter backend db:migrate`") e siga com o
