@@ -30,7 +30,7 @@ Tailwind num componente, pequena configuração.
 
 ```text
 Thread principal (classifica)
-  → implementer
+  → backend-implementer | frontend-implementer   (pelo domínio do arquivo)
   → validação direcionada (check-types + lint do app afetado)
   → resposta final
 ```
@@ -42,7 +42,7 @@ alteração em poucos módulos com padrão existente.
 ```text
 Thread principal (classifica)
   → locator
-  → implementer
+  → backend-implementer | frontend-implementer   (pelo domínio do passo)
   → tester
   → resposta final
 ```
@@ -55,14 +55,46 @@ público, múltiplos módulos, integração externa crítica.
 Thread principal (classifica; coordinator se ambíguo)
   → locator
   → planner
-  → implementer            (um passo do plano por vez, quando o plano fatiar)
+  → backend-implementer / frontend-implementer   (um passo por vez, pelo domínio do passo;
+                                                   ordem de fatiamento backend → frontend)
   → tester
   → database-guardian      (somente se tocar schema/migrations/RLS/dados persistidos)
   → reviewer
-  → implementer (correções de findings critical/high)
+  → implementer do domínio (correções de findings critical/high)
   → tester (revalidação direcionada)
   → resposta final
 ```
+
+### Variantes de fluxo
+
+**Bug / defeito com causa não óbvia** — insere o `debugger` (diagnóstico read-only) antes da
+correção:
+
+```text
+Thread principal
+  → locator
+  → debugger               (isola causa-raiz, propõe fix mínimo — não edita)
+  → backend-implementer | frontend-implementer   (aplica o proposed_fix)
+  → tester
+  (+ reviewer se risco elevado)
+```
+
+**UI-heavy** — tela/fluxo novo ou redesenho: insere o `design` (spec de UI read-only) antes do
+`frontend-implementer`:
+
+```text
+Thread principal
+  → locator
+  → (planner, se transversal)
+  → design                 (spec: layout, estados, tokens, responsivo — não edita)
+  → frontend-implementer   (implementa a spec)
+  → tester
+  → reviewer
+```
+
+**Documentação** (fora do fluxo de dev) — `codebase-documenter` invocado explicitamente para
+gerar/atualizar docs de módulo/README ou auditar frescor doc↔código; escreve só arquivos de
+doc. Não entra nos fluxos de feature/bug acima.
 
 ## Critérios de elevação por risco
 
@@ -83,23 +115,34 @@ quando a mudança inclui schema, migration, backfill ou troca de conexão DRIZZL
 
 ## Agentes e responsabilidades
 
-| Agente | Papel único | Modelo | Escreve código? |
+| Agente | Papel único | Modelo | Escreve? |
 |---|---|---|---|
 | `coordinator` | Classificar tarefa e propor roteamento (YAML) | sonnet | Não |
 | `locator` | Recall RAG + localizar arquivos/testes/padrões; contexto mínimo | haiku | Não |
-| `planner` | Plano executável fatiado (só tarefas complexas) | herda o principal | Não |
-| `implementer` | Implementar o escopo aprovado, menor mudança possível | sonnet | **Sim (único)** |
+| `planner` | Plano executável fatiado (só tarefas complexas) | opus | Não |
+| `backend-implementer` | Implementar passos de backend (NestJS/Clean Arch/Drizzle) | sonnet | **Sim (código)** |
+| `frontend-implementer` | Implementar passos de frontend (Next/React/Tailwind) | sonnet | **Sim (código)** |
+| `debugger` | Isolar causa-raiz e propor fix mínimo (read-only) | opus | Não |
 | `tester` | Menor validação suficiente; separar regressão de falha preexistente | sonnet | Não |
-| `reviewer` | Revisar diff: bugs, segurança, tenancy, estilo, validação | herda o principal | Não |
-| `database-guardian` | Guardião de schema/migrations/RLS/centavos (opcional) | herda o principal | Não |
+| `reviewer` | Revisar diff: bugs, segurança, tenancy, estilo (lente backend + frontend) | opus | Não |
+| `database-guardian` | Guardião de schema/migrations/RLS/centavos (opcional) | opus | Não |
+| `design` | Spec de UI/UX implementável (read-only) | opus | Não |
+| `codebase-documenter` | Manutenção de docs (fora do fluxo padrão) | sonnet | Só docs |
+
+Regra de escrita: apenas `backend-implementer` e `frontend-implementer` editam código;
+`codebase-documenter` edita **somente arquivos de documentação**; todos os demais são read-only.
 
 ### Política de modelos
 
-- **haiku** para busca/localização (locator) — barato e suficiente para grep+recall.
-- **sonnet** para execução padrão (implementer, tester, coordinator).
-- **Herança do modelo principal** (campo `model` omitido) para os papéis de maior
-  exigência (planner, reviewer, database-guardian) — a spec de risco pede o modelo mais
-  forte disponível apenas nessas etapas, e herdar evita fixar nomes de modelo que mudam.
+Cada agente **fixa** seu `model` explicitamente (sem herança do principal — herdar tornava o
+tier imprevisível quando o modelo principal muda). Trocar um tier é uma edição localizada
+desta tabela + do frontmatter do agente.
+
+- **haiku**: `locator` (busca/recall — barato e suficiente para grep+recall).
+- **sonnet**: execução padrão — `coordinator`, `backend-implementer`, `frontend-implementer`,
+  `tester`, `codebase-documenter`.
+- **opus**: papéis de maior exigência de julgamento — `planner`, `reviewer`,
+  `database-guardian`, `debugger`, `design`.
 
 ## Handoffs
 
@@ -116,14 +159,18 @@ não relacionados.
 Cadeia de formatos (definidos nos arquivos dos agentes):
 
 ```text
-coordinator → routing YAML (level, agents, per-agent context)
-locator     → task_scope / entry_points / relevant_files / existing_patterns / tests / constraints / risks
-planner     → objective / assumptions / constraints / steps[] / acceptance_criteria / risks
-implementer → status / changes[] / tests_added_or_updated / validation_requested / deviations / handoff_to_tester
-tester      → status / commands[] / regressions / pre_existing_failures / coverage_gaps / recommended_action
-reviewer    → verdict / findings[] / style_compliance / test_assessment
-db-guardian → verdict / findings[] / migration_assessment / rls_assessment
+coordinator  → routing YAML (level, agents, per-agent context)
+locator      → task_scope / entry_points / relevant_files / existing_patterns / tests / constraints / risks
+planner      → objective / assumptions / constraints / steps[] / acceptance_criteria / risks
+debugger     → status / symptom / reproduction / root_cause / evidence / proposed_fix[] / verification_approach / risks
+design       → screen / reused_components / new_components / layout[] / states[] / tokens / role_visibility / edge_cases / handoff / open_questions
+implementer* → status / changes[] / tests_added_or_updated / validation_requested / deviations / handoff_to_tester
+tester       → status / commands[] / regressions / pre_existing_failures / coverage_gaps / recommended_action
+reviewer     → verdict / findings[] / style_compliance / test_assessment
+db-guardian  → verdict / findings[] / migration_assessment / rls_assessment
+documenter   → status / docs_written[] / discrepancies_found[] / verification_notes / open_items
 ```
+(*`implementer` = `backend-implementer` e `frontend-implementer`, mesmo contrato de saída.)
 
 ## Validação (comandos reais do projeto)
 
@@ -156,8 +203,9 @@ existe, não invente comandos de teste.
 
 Proibido em qualquer fluxo: `git push`, deploy, publish, migrations em banco remoto,
 alteração de secrets, `git reset --hard`, `git clean -fd`, apagar branches, commits sem
-solicitação explícita, instalar dependência sem justificativa comprovada. Apenas o
-`implementer` edita arquivos, e somente dentro do escopo aprovado.
+solicitação explícita, instalar dependência sem justificativa comprovada. Apenas os agentes
+implementer (`backend-implementer`/`frontend-implementer`) editam código, e somente dentro do
+escopo aprovado; o `codebase-documenter` edita apenas arquivos de documentação.
 
 ## Formato da resposta final (thread principal)
 

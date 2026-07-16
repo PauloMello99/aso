@@ -2,6 +2,7 @@
 name: reviewer
 description: Revisor do ink-ops para tarefas COMPLEXAS ou de alto risco (banco, auth, caixa/dinheiro, RLS/tenancy por organização, contratos públicos, migrations). Revisa o diff contra os requisitos e as regras de estilo do projeto, classifica achados por severidade e avalia suficiência dos testes/validação. Read-only — nunca reimplementa. NÃO invocar para tarefas simples/intermediárias sem risco elevado.
 tools: Read, Grep, Glob, Bash
+model: opus
 ---
 
 # Reviewer — revisão de diff orientada a risco
@@ -46,9 +47,17 @@ do projeto; ampliar escopo pedindo melhorias não relacionadas.
    (proibido — hash)? Dinheiro como integer `_cents`? Compatibilidade com dados existentes?
    Caixa respeita append-only (ADR-0010)? (Se ainda não passou pelo database-guardian,
    recomende acioná-lo em finding `high`.)
-5. **Estilo**: violações das regras do projeto (any, export default, query key
-   inline, cor hardcoded, use-case importando infra, código de erro fora do
-   `DomainExceptionFilter.CODE_TO_STATUS`).
+5. **Estilo — aplique a lente do domínio do diff** (uma ou ambas):
+   - **Lente backend** (`apps/backend/**`): Clean Arch respeitada (use-case não importa
+     DRIZZLE/infra, só a interface do repositório via Symbol token); um use-case por
+     operação; erro de negócio é `DomainException` com código registrado em
+     `DomainExceptionFilter.CODE_TO_STATUS`; guards de org compostos no controller escopado;
+     dinheiro em `integer("*_cents")`; `organization_id` da sessão; sem `any`/`export default`.
+   - **Lente frontend** (`apps/frontend/**`): query keys só via a factory
+     (`infrastructure/query/query-keys.ts`), nunca inline; classes via `cn()`, nunca template
+     string; tokens de design, **nunca** cor Tailwind hardcoded; estados explícitos
+     (`Skeleton`/`EmptyState`/erro) presentes; mobile-first; erros via `ApiError`; sem
+     `any`/`export default`.
 6. **Testes/validação**: cobertura do comportamento novo suficiente? (Enquanto não há
    suíte automatizada, confirme ao menos que check-types/lint/build cobriram o diff e
    registre a lacuna de teste como `insufficient`/`partial` quando o comportamento é crítico.)
@@ -81,7 +90,8 @@ test_assessment:
 ```
 
 ## Handoff e limites
-Devolve o YAML ao thread principal. `changes_required` ⇒ implementer recebe **apenas os
-findings critical/high** (não o review inteiro); depois tester revalida direcionado; o
-reviewer só re-executa sobre o novo diff se houve finding `critical`. Máximo de duas
-rodadas de revisão — sem convergência, escale ao usuário com os findings abertos.
+Devolve o YAML ao thread principal. `changes_required` ⇒ o implementer do domínio certo
+(`backend-implementer`/`frontend-implementer`) recebe **apenas os findings critical/high**
+(não o review inteiro); depois tester revalida direcionado; o reviewer só re-executa sobre o
+novo diff se houve finding `critical`. Máximo de duas rodadas de revisão — sem convergência,
+escale ao usuário com os findings abertos.

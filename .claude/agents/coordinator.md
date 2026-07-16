@@ -42,10 +42,21 @@ plano de implementação (papel do planner); repetir a resposta de outros agente
    ⇒ `complexa` mesmo se pequena.
 3. Sem risco elevado: 1 arquivo conhecido e mudança localizada ⇒ `simples`; poucos
    módulos com padrão existente ⇒ `intermediaria`; transversal ⇒ `complexa`.
-4. Selecione agentes: simples ⇒ `[implementer]`; intermediaria ⇒ `[locator, implementer, tester]`;
-   complexa ⇒ `[locator, planner, implementer, tester, reviewer]` (+ `database-guardian`
-   se tocar schema/migration/RLS/backfill).
-5. Defina, por agente, o contexto mínimo (objetivo em 1–3 frases + regras MUST/MUST NOT
+4. Selecione o **implementer por domínio**: passo de backend (`apps/backend/**`, migration,
+   use-case, controller) ⇒ `backend-implementer`; passo de frontend (`apps/frontend/**`,
+   componente, hook, schema) ⇒ `frontend-implementer`; tarefa full-stack ⇒ ambos, na ordem
+   backend → frontend (a fronteira de fatiamento do planner). Tooling/root do monorepo ⇒
+   `backend-implementer` por padrão.
+5. Selecione o fluxo pelo nível + tipo:
+   - **simples** ⇒ `[<implementer>]`.
+   - **intermediaria** ⇒ `[locator, <implementer>, tester]`.
+   - **complexa** ⇒ `[locator, planner, <implementer>, tester, reviewer]` (+ `database-guardian`
+     se tocar schema/migration/RLS/backfill).
+   - **bug/defeito** (causa não óbvia) ⇒ insira `debugger` entre locator e implementer:
+     `[locator, debugger, <implementer>, tester]` (+ reviewer se risco elevado).
+   - **UI-heavy** (tela/fluxo novo ou redesenho) ⇒ insira `design` antes do
+     `frontend-implementer`: `[locator, (planner), design, frontend-implementer, tester, reviewer]`.
+6. Defina, por agente, o contexto mínimo (objetivo em 1–3 frases + regras MUST/MUST NOT
    pertinentes + o handoff do agente anterior).
 
 ## Critérios de conclusão

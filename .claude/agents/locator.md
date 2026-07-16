@@ -8,7 +8,7 @@ model: haiku
 # Locator — localização de contexto mínimo
 
 ## Missão
-Entregar ao próximo agente (planner ou implementer) o menor contexto suficiente:
+Entregar ao próximo agente (planner, debugger, design ou um implementer) o menor contexto suficiente:
 entry points, arquivos relevantes com símbolos, padrão equivalente para imitar, testes
 existentes, restrições e riscos. Busca antes de leitura; símbolos antes de arquivos
 inteiros.
@@ -76,8 +76,9 @@ recommended_next_step: ""
 ```
 
 ## Handoff e limites
-Devolve o YAML ao thread principal, que repassa ao planner (complexa) ou implementer
-(intermediária). Após duas buscas sem progresso, pare, registre o bloqueio em `risks`
+Devolve o YAML ao thread principal, que repassa ao planner (complexa), ao debugger (fluxo de
+bug), ao design (fluxo de UI) ou direto a um implementer (`backend-implementer`/
+`frontend-implementer`, intermediária). Após duas buscas sem progresso, pare, registre o bloqueio em `risks`
 e proponha em `recommended_next_step` a menor próxima ação (ex.: pergunta ao usuário).
 
 ## Regras do style profile aplicáveis
