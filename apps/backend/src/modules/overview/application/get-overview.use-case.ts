@@ -10,11 +10,13 @@ import {
   type TransactionView,
 } from "../../cashier/application/use-cases/list-transactions.use-case";
 import { ListTransactionCategoriesUseCase } from "../../cashier/application/use-cases/list-transaction-categories.use-case";
-import { ListMaterialsUseCase } from "../../materials/application/use-cases/list-materials.use-case";
+import {
+  ListMaterialsUseCase,
+  type MaterialListItemView,
+} from "../../materials/application/use-cases/list-materials.use-case";
 import { ListCalendarEventsUseCase } from "../../calendar/application/use-cases/list-calendar-events.use-case";
 import { ListCustomersUseCase } from "../../customers/application/use-cases/list-customers.use-case";
 import type { ServiceEntity } from "../../services/domain/service.entity";
-import type { MaterialEntity } from "../../materials/domain/material.entity";
 import type { CalendarEventEntity } from "../../calendar/domain/calendar-event.entity";
 import type { CustomerEntity } from "../../customers/domain/customer.entity";
 import type { TransactionCategoryEntity } from "../../cashier/domain/transaction-category.entity";
@@ -35,7 +37,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export interface OverviewResult {
   recentServices: ServiceEntity[];
   upcomingEvents: CalendarEventEntity[];
-  lowStock: MaterialEntity[];
+  lowStock: MaterialListItemView[];
   /** Owner-only — funcionário recebe lista vazia. */
   recentTransactions: TransactionView[];
   transactionCategories: TransactionCategoryEntity[];
@@ -71,7 +73,7 @@ export class GetOverviewUseCase {
     const [services, events, materials] = await Promise.all([
       this.listServices.execute({ orgId, authId }),
       this.listEvents.execute({ orgId, authId, start: now, end: windowEnd }),
-      this.listMaterials.execute(orgId, { lowStockOnly: true }),
+      this.listMaterials.execute(orgId, { lowStockOnly: true }, authId),
     ]);
 
     const recentServices = [...services]

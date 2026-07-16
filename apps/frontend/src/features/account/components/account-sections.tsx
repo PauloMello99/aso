@@ -21,6 +21,8 @@ import { useTheme } from "next-themes"
 import { useMe } from "@/features/auth"
 import { useAuth } from "@/features/auth"
 import { clearSession } from "@/features/auth/lib/session"
+import { useOrgs } from "@/features/dashboard/hooks/use-orgs"
+import { shouldShowDeleteAccount } from "@/features/account/lib/can-delete-account"
 import { apiRequest } from "@/infrastructure/api/client"
 import {
   Form,
@@ -368,6 +370,7 @@ export function AppearanceSection() {
 export function DangerSection() {
   const router = useRouter()
   const { user } = useAuth()
+  const { orgs, loading: orgsLoading } = useOrgs()
   const [open, setOpen] = useState(false)
   const [confirmation, setConfirmation] = useState("")
   const [loading, setLoading] = useState(false)
@@ -408,72 +411,74 @@ export function DangerSection() {
             pessoais. Esta ação é irreversível.
           </p>
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-medium">Excluir minha conta</p>
-            <p className="text-xs text-foreground/40">
-              Você precisa transferir ou excluir as organizações das quais é
-              proprietário antes de excluir sua conta.
-            </p>
-          </div>
+        {!orgsLoading && shouldShowDeleteAccount(orgs) && (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium">Excluir minha conta</p>
+              <p className="text-xs text-foreground/40">
+                Você precisa transferir ou excluir as organizações das quais é
+                proprietário antes de excluir sua conta.
+              </p>
+            </div>
 
-          <Dialog
-            open={open}
-            onOpenChange={(v) => {
-              setOpen(v)
-              if (!v) {
-                setConfirmation("")
-                setError(null)
-              }
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button variant="destructive" size="sm" className="w-full sm:w-auto">
-                <Trash2 className="h-4 w-4" />
-                Apagar conta
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Excluir minha conta</DialogTitle>
-                <DialogDescription>
-                  Esta ação é{" "}
-                  <span className="font-semibold text-red-400">irreversível</span>.
-                  Seus dados pessoais serão permanentemente removidos. Se você
-                  ainda for proprietário de alguma organização, a exclusão será
-                  bloqueada.
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="grid gap-3">
-                <Label htmlFor="delete-account-confirm">
-                  Digite seu e-mail{" "}
-                  <span className="font-mono text-foreground/80">{email}</span> para
-                  confirmar:
-                </Label>
-                <Input
-                  id="delete-account-confirm"
-                  value={confirmation}
-                  onChange={(e) => setConfirmation(e.target.value)}
-                  placeholder={email}
-                  autoComplete="off"
-                />
-                {error && <p className="text-sm text-red-400">{error}</p>}
-              </div>
-
-              <DialogFooter>
-                <Button
-                  variant="destructive"
-                  disabled={!isConfirmed || loading}
-                  onClick={handleDelete}
-                  className="w-full sm:w-auto"
-                >
-                  {loading ? "Excluindo…" : "Excluir permanentemente"}
+            <Dialog
+              open={open}
+              onOpenChange={(v) => {
+                setOpen(v)
+                if (!v) {
+                  setConfirmation("")
+                  setError(null)
+                }
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button variant="destructive" size="sm" className="w-full sm:w-auto">
+                  <Trash2 className="h-4 w-4" />
+                  Apagar conta
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Excluir minha conta</DialogTitle>
+                  <DialogDescription>
+                    Esta ação é{" "}
+                    <span className="font-semibold text-red-400">irreversível</span>.
+                    Seus dados pessoais serão permanentemente removidos. Se você
+                    ainda for proprietário de alguma organização, a exclusão será
+                    bloqueada.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="grid gap-3">
+                  <Label htmlFor="delete-account-confirm">
+                    Digite seu e-mail{" "}
+                    <span className="font-mono text-foreground/80">{email}</span> para
+                    confirmar:
+                  </Label>
+                  <Input
+                    id="delete-account-confirm"
+                    value={confirmation}
+                    onChange={(e) => setConfirmation(e.target.value)}
+                    placeholder={email}
+                    autoComplete="off"
+                  />
+                  {error && <p className="text-sm text-red-400">{error}</p>}
+                </div>
+
+                <DialogFooter>
+                  <Button
+                    variant="destructive"
+                    disabled={!isConfirmed || loading}
+                    onClick={handleDelete}
+                    className="w-full sm:w-auto"
+                  >
+                    {loading ? "Excluindo…" : "Excluir permanentemente"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        )}
       </section>
     </div>
   )

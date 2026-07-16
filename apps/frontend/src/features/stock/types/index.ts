@@ -12,7 +12,7 @@ export interface Material {
   name: string
   stockQuantity: string
   minimumQuantity: string
-  costPerUnit: string | null
+  costPerUnit?: string | null
   shareable: boolean
   lastUsedAt: string | null
   archivedAt: string | null
