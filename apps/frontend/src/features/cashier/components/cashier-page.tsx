@@ -53,7 +53,6 @@ const METHOD_ORDER: PaymentMethod[] = [
   "bank_transfer",
   "credit_card",
   "debit_card",
-  "credits",
 ]
 
 /** Colunas exportáveis (chaves espelham o backend). */

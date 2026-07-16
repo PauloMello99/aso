@@ -1,5 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { PaymentMethod, TransactionEntity } from "../../domain/transaction.entity";
+import {
+  TransactionEntity,
+  TransferMethod,
+} from "../../domain/transaction.entity";
 import {
   ITransactionRepository,
   TRANSACTION_REPOSITORY,
@@ -8,8 +11,8 @@ import {
 export interface TransferInput {
   orgId: string;
   createdBy?: string | null;
-  fromMethod: PaymentMethod;
-  toMethod: PaymentMethod;
+  fromMethod: TransferMethod;
+  toMethod: TransferMethod;
   amountCents: number;
   description?: string;
   transactedAt?: Date;

@@ -5,7 +5,6 @@ const PAYMENT_METHODS = [
   "bank_transfer",
   "credit_card",
   "debit_card",
-  "credits",
 ] as const
 
 // Valor monetário em reais: "1234.56" ou "1.234,56".

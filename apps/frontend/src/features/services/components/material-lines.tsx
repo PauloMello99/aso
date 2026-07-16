@@ -57,7 +57,7 @@ export function MaterialLines({
     <div className="flex flex-col gap-3">
       {fields.length === 0 && (
         <p className="text-xs text-foreground/30">
-          Nenhum material adicionado (opcional).
+          Adicione ao menos um material consumido.
         </p>
       )}
 

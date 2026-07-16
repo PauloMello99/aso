@@ -23,7 +23,7 @@ import { parseReaisToCents } from "../lib/money"
 import { PAYMENT_METHOD_LABELS, type PaymentMethod } from "../types"
 import type { TransferBody } from "../hooks/use-transactions"
 
-const METHODS: PaymentMethod[] = ["cash", "bank_transfer", "credit_card", "debit_card"]
+const METHODS: PaymentMethod[] = ["cash", "bank_transfer"]
 
 interface TransferDialogProps {
   open: boolean

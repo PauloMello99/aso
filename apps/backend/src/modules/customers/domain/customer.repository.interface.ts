@@ -25,6 +25,11 @@ export interface ListCustomersFilter {
 
 export interface ICustomerRepository {
   findById(id: string, orgId: string): Promise<CustomerEntity | null>;
+  findByEmail(
+    orgId: string,
+    email: string,
+    excludeId?: string,
+  ): Promise<CustomerEntity | null>;
   findAllByOrg(
     orgId: string,
     filter?: ListCustomersFilter,

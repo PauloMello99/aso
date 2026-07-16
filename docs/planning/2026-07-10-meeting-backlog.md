@@ -141,19 +141,17 @@ pnpm --filter backend build     # nest build
 pnpm --filter frontend build    # next build — VER FALHA CONHECIDA ABAIXO
 ```
 
-**Falha preexistente conhecida (NAO e regressao de M0/M1)**: `pnpm --filter frontend
-build` (e portanto `pnpm build` na raiz) falha localmente com:
-```
-The route /_betterstack/web-vitals rewrites urls outside of the basePath...
-Error: Invalid rewrites found
-```
-Confirmado que esse erro **ja existe em `development`** antes de qualquer mudanca desta
-sessao (testado via `git stash` + `git checkout development` + build). Causa provavel:
-`@logtail/next` monta rewrites externos no `next.config.js` que exigem envs do Better
-Stack (`BETTERSTACK_*`/`NEXT_PUBLIC_BETTER_STACK_*`) ausentes no ambiente local. Nao
-bloqueia nenhuma milestone deste backlog — mas se o `tester` de uma milestone futura
-reportar esse mesmo erro, **classifique como preexistente, nao regressao**, a menos que
-o diff da milestone toque `next.config.js` ou envs do Better Stack.
+**RESOLVIDO em 2026-07-15 (durante M2)**: a falha `pnpm --filter frontend build` (e
+`next dev`) com `The route /_betterstack/... rewrites urls outside of the basePath...
+Error: Invalid rewrites found` **nao era falta de env var** — `.env.local` sempre teve
+`NEXT_PUBLIC_BETTER_STACK_*` validos. Causa real: Next 16 usa Turbopack por padrao
+quando nenhuma flag de bundler e passada, e o Turbopack tem um bug de validacao para o
+rewrite externo assincrono que o `@logtail/next` (`withBetterStack`) gera com
+`basePath: false` — rejeita uma URL `https://` sintaticamente valida. Fix aplicado:
+`apps/frontend/package.json` agora forca `--webpack` nos scripts `dev`/`build`/`dev:reset`
+ate o bug do Turbopack ser corrigido a montante. Detalhes em `env_turbopack_hydration` na
+memoria do Claude. Nenhuma milestone deste backlog precisa mais tratar esse erro como
+preexistente — se reaparecer, e regressao.
 
 Ao adicionar testes novos: sempre fakes/mocks em memoria, nunca banco real (backend) e
 nunca `@repo/*` nos testes de frontend (linking quebrado neste ambiente, ver ADR

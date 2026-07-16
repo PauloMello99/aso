@@ -33,8 +33,10 @@ import { computeNet } from "../../../cashier/domain/fee-calculator";
 import { CustomerDisabledException } from "../../domain/exceptions/customer-disabled.exception";
 import { MaterialNotFoundException } from "../../../materials/domain/exceptions/material-not-found.exception";
 import { InsufficientStockException } from "../../../materials/domain/exceptions/insufficient-stock.exception";
+import { ServiceMaterialRequiredException } from "../../domain/exceptions/service-material-required.exception";
 import { resolvePerformer } from "./resolve-performer";
 import { resolveMembership } from "./resolve-membership";
+import { assertPerformedAtNotFuture } from "./assert-performed-at-not-future";
 
 /** Linha de material no lançamento. */
 export interface ServiceMaterialInput {
@@ -82,6 +84,8 @@ export class CreateServiceUseCase {
   ) {}
 
   async execute(input: CreateServiceInput): Promise<ServiceEntity> {
+    assertPerformedAtNotFuture(input.performedAt);
+
     const { userId: currentUserId, isOwner } = await resolveMembership(
       this.memberRepo,
       input.orgId,
@@ -140,6 +144,10 @@ export class CreateServiceUseCase {
 
       toRecord.push({ materialId: material.id, quantity: String(qty) });
       debits.push({ materialId: material.id, delta: String(-qty) });
+    }
+
+    if (toRecord.length === 0) {
+      throw new ServiceMaterialRequiredException();
     }
 
     // 4. Criar serviço + service_materials.

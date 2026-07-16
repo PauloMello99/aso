@@ -18,6 +18,7 @@ import { CustomerDisabledException } from "../../domain/exceptions/customer-disa
 import { ServiceForbiddenException } from "../../domain/exceptions/service-forbidden.exception";
 import { resolvePerformer } from "./resolve-performer";
 import { resolveMembership } from "./resolve-membership";
+import { assertPerformedAtNotFuture } from "./assert-performed-at-not-future";
 
 /**
  * Edita apenas campos **não-financeiros** do serviço. Valor, método e estoque
@@ -65,6 +66,8 @@ export class UpdateServiceUseCase {
     if (service.isCanceled) {
       throw new ServiceAlreadyCanceledException(input.serviceId);
     }
+
+    assertPerformedAtNotFuture(input.performedAt);
 
     if (input.customerId) {
       const customer = await this.customerRepo.findById(

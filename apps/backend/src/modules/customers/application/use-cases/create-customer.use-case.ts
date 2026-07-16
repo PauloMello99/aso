@@ -3,6 +3,7 @@ import {
   CreateCustomerData,
   CustomerEntity,
 } from "../../domain/customer.entity";
+import { CustomerEmailAlreadyExistsException } from "../../domain/exceptions/customer-email-already-exists.exception";
 import {
   CUSTOMER_REPOSITORY,
   ICustomerRepository,
@@ -16,6 +17,19 @@ export class CreateCustomerUseCase {
   ) {}
 
   async execute(data: CreateCustomerData): Promise<CustomerEntity> {
-    return this.customerRepo.create(data);
+    if (data.email) {
+      const existing = await this.customerRepo.findByEmail(
+        data.orgId,
+        data.email,
+      );
+      if (existing) {
+        throw new CustomerEmailAlreadyExistsException(data.email);
+      }
+    }
+
+    return this.customerRepo.create({
+      ...data,
+      email: data.email?.trim() || null,
+    });
   }
 }
