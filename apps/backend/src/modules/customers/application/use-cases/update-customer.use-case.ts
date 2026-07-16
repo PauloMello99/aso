@@ -37,7 +37,7 @@ export class UpdateCustomerUseCase {
           throw new CustomerEmailAlreadyExistsException(data.email);
         }
       }
-      email = data.email?.trim() || null;
+      email = data.email?.trim();
     }
 
     return this.customerRepo.update(id, { ...data, email });

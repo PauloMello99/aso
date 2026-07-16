@@ -169,6 +169,13 @@
       "when": 1782001300000,
       "tag": "0023_customers_email_unique_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1782001400000,
+      "tag": "0024_customers_required_fields_and_number",
+      "breakpoints": true
     }
   ]
 }

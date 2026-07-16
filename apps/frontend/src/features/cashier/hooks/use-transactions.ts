@@ -50,6 +50,7 @@ export function useTransactions(orgId: string, filter?: TransactionsFilter) {
       if (filter?.maxCents !== undefined)
         params.set("maxCents", String(filter.maxCents))
       if (filter?.createdBy) params.set("createdBy", filter.createdBy)
+      if (filter?.customerId) params.set("customerId", filter.customerId)
       if (filter?.q) params.set("q", filter.q)
       const query = params.toString() ? `?${params.toString()}` : ""
       return apiRequest<TransactionView[]>(

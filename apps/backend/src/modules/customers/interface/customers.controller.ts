@@ -34,6 +34,7 @@ import { DeleteCustomerUseCase } from "../application/use-cases/delete-customer.
 import { ListCustomersUseCase } from "../application/use-cases/list-customers.use-case";
 import { ListCustomerOriginsUseCase } from "../application/use-cases/list-customer-origins.use-case";
 import { ExportCustomersUseCase } from "../application/use-cases/export-customers.use-case";
+import { GetCustomerUseCase } from "../application/use-cases/get-customer.use-case";
 import { UpdateCustomerUseCase } from "../application/use-cases/update-customer.use-case";
 import {
   UploadCustomerAttachmentUseCase,
@@ -63,7 +64,11 @@ function buildCustomersFilter(q: {
   gender?: string;
   from?: string;
   to?: string;
+  birthMonth?: string;
+  city?: string;
+  state?: string;
 }): ListCustomersFilter {
+  const parsedBirthMonth = q.birthMonth ? Number(q.birthMonth) : NaN;
   return {
     search: q.search?.trim() || undefined,
     enabledOnly: q.enabled === "true",
@@ -75,6 +80,14 @@ function buildCustomersFilter(q: {
       : undefined,
     from: q.from ? new Date(q.from) : undefined,
     to: q.to ? new Date(q.to) : undefined,
+    birthMonth:
+      Number.isInteger(parsedBirthMonth) &&
+      parsedBirthMonth >= 1 &&
+      parsedBirthMonth <= 12
+        ? parsedBirthMonth
+        : undefined,
+    city: q.city?.trim() || undefined,
+    state: q.state?.trim() || undefined,
   };
 }
 
@@ -86,6 +99,7 @@ export class CustomersController {
     private readonly listCustomers: ListCustomersUseCase,
     private readonly listOrigins: ListCustomerOriginsUseCase,
     private readonly exportCustomers: ExportCustomersUseCase,
+    private readonly getCustomer: GetCustomerUseCase,
     private readonly createCustomer: CreateCustomerUseCase,
     private readonly updateCustomer: UpdateCustomerUseCase,
     private readonly deleteCustomer: DeleteCustomerUseCase,
@@ -108,10 +122,24 @@ export class CustomersController {
     @Query("gender") gender?: string,
     @Query("from") from?: string,
     @Query("to") to?: string,
+    @Query("birthMonth") birthMonth?: string,
+    @Query("city") city?: string,
+    @Query("state") state?: string,
   ) {
     return this.listCustomers.execute(
       orgId,
-      buildCustomersFilter({ search, enabled, status, originId, gender, from, to }),
+      buildCustomersFilter({
+        search,
+        enabled,
+        status,
+        originId,
+        gender,
+        from,
+        to,
+        birthMonth,
+        city,
+        state,
+      }),
     );
   }
 
@@ -132,11 +160,25 @@ export class CustomersController {
     @Query("gender") gender?: string,
     @Query("from") from?: string,
     @Query("to") to?: string,
+    @Query("birthMonth") birthMonth?: string,
+    @Query("city") city?: string,
+    @Query("state") state?: string,
     @Query("fields") fields?: string,
   ) {
     const csv = await this.exportCustomers.execute(
       orgId,
-      buildCustomersFilter({ search, enabled, status, originId, gender, from, to }),
+      buildCustomersFilter({
+        search,
+        enabled,
+        status,
+        originId,
+        gender,
+        from,
+        to,
+        birthMonth,
+        city,
+        state,
+      }),
       parseFields(fields),
     );
     const date = new Date().toISOString().slice(0, 10);
@@ -146,6 +188,14 @@ export class CustomersController {
       `attachment; filename="clientes-${date}.csv"`,
     );
     res.send(csv);
+  }
+
+  @Get(":id")
+  async findOne(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.getCustomer.execute(id, orgId);
   }
 
   @Post()

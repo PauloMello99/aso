@@ -7,14 +7,15 @@ export interface Customer {
   originId: string | null
   createdBy: string | null
   name: string
-  email: string | null
+  email: string
   phone: string | null
-  birthDate: string | null
+  birthDate: string
   gender: Gender | null
-  address: string | null
+  address: string
   addressLine2: string | null
-  city: string | null
-  state: string | null
+  number: string
+  city: string
+  state: string
   postalCode: string | null
   country: string | null
   notes: string | null
@@ -32,4 +33,10 @@ export interface CustomersFilter {
   /** Faixa de data de cadastro (YYYY-MM-DD). */
   from?: string
   to?: string
+  /** Mês de nascimento (1-12), ignora ano/dia. */
+  birthMonth?: number
+  /** Match exato no backend. */
+  city?: string
+  /** Match exato no backend. */
+  state?: string
 }

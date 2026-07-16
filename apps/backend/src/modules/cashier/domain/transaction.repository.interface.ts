@@ -22,6 +22,11 @@ export interface ListTransactionsFilter {
   q?: string;
   /** users.id — restringe aos lançamentos do membro (funcionário vê só os seus). */
   createdBy?: string;
+  /**
+   * customers.id — transactions não tem coluna própria; filtra por transações
+   * cujo id é o payment_transaction_id de algum serviço deste cliente.
+   */
+  customerId?: string;
 }
 
 /** Saldos correntes por bucket (todos em centavos, líquido com sinal). */

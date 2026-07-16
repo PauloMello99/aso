@@ -5,6 +5,7 @@ import { DeleteCustomerUseCase } from "./application/use-cases/delete-customer.u
 import { ListCustomersUseCase } from "./application/use-cases/list-customers.use-case";
 import { ListCustomerOriginsUseCase } from "./application/use-cases/list-customer-origins.use-case";
 import { ExportCustomersUseCase } from "./application/use-cases/export-customers.use-case";
+import { GetCustomerUseCase } from "./application/use-cases/get-customer.use-case";
 import { UpdateCustomerUseCase } from "./application/use-cases/update-customer.use-case";
 import {
   UploadCustomerAttachmentUseCase,
@@ -21,6 +22,7 @@ import { CustomersController } from "./interface/customers.controller";
     ListCustomersUseCase,
     ListCustomerOriginsUseCase,
     ExportCustomersUseCase,
+    GetCustomerUseCase,
     CreateCustomerUseCase,
     UpdateCustomerUseCase,
     DeleteCustomerUseCase,

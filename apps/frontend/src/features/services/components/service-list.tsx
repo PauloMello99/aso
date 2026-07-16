@@ -33,7 +33,7 @@ interface ServiceListProps {
   onCancel: (s: Service) => void
 }
 
-function formatDate(iso: string): string {
+export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "short",
@@ -41,7 +41,7 @@ function formatDate(iso: string): string {
   })
 }
 
-function StatusBadge({ status }: { status: ServiceStatus }) {
+export function StatusBadge({ status }: { status: ServiceStatus }) {
   const variant =
     status === "paid"
       ? "bg-emerald-500/10 text-emerald-400"

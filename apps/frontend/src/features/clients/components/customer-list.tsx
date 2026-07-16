@@ -1,6 +1,15 @@
 "use client"
 
-import { MoreVertical, Pencil, Power, Trash2, Mail, Phone, MapPin } from "lucide-react"
+import {
+  MoreVertical,
+  Pencil,
+  Power,
+  Trash2,
+  Mail,
+  Phone,
+  MapPin,
+  Eye,
+} from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import {
   DropdownMenu,
@@ -24,11 +33,12 @@ interface CustomerListProps {
   onEdit: (customer: Customer) => void
   onToggleStatus: (customer: Customer) => void
   onDelete: (customer: Customer) => void
+  onViewDetail: (customer: Customer) => void
 }
 
 type RowActions = Omit<CustomerListProps, "customers">
 
-function StatusBadge({ enabled }: { enabled: boolean }) {
+export function StatusBadge({ enabled }: { enabled: boolean }) {
   return (
     <span
       className={cn(
@@ -48,6 +58,7 @@ function ActionMenu({
   onEdit,
   onToggleStatus,
   onDelete,
+  onViewDetail,
 }: { customer: Customer } & RowActions) {
   return (
     <DropdownMenu>
@@ -63,6 +74,10 @@ function ActionMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[160px]">
+        <DropdownMenuItem onClick={() => onViewDetail(customer)}>
+          <Eye className="h-3.5 w-3.5 shrink-0" />
+          Ver detalhes
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onEdit(customer)}>
           <Pencil className="h-3.5 w-3.5 shrink-0" />
           Editar
@@ -86,9 +101,13 @@ function CustomerCard({
   onEdit,
   onToggleStatus,
   onDelete,
+  onViewDetail,
 }: { customer: Customer } & RowActions) {
   return (
-    <div className="flex items-start justify-between gap-3 rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4">
+    <div
+      onClick={() => onViewDetail(customer)}
+      className="flex cursor-pointer items-start justify-between gap-3 rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4"
+    >
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="truncate font-medium text-foreground">{customer.name}</span>
@@ -120,6 +139,7 @@ function CustomerCard({
         onEdit={onEdit}
         onToggleStatus={onToggleStatus}
         onDelete={onDelete}
+        onViewDetail={onViewDetail}
       />
     </div>
   )
@@ -131,9 +151,13 @@ function CustomerRow({
   onEdit,
   onToggleStatus,
   onDelete,
+  onViewDetail,
 }: { customer: Customer } & RowActions) {
   return (
-    <TableRow>
+    <TableRow
+      onDoubleClick={() => onViewDetail(customer)}
+      className="cursor-pointer"
+    >
       <TableCell className="pl-4 font-medium text-foreground">
         {customer.name}
       </TableCell>
@@ -155,6 +179,7 @@ function CustomerRow({
           onEdit={onEdit}
           onToggleStatus={onToggleStatus}
           onDelete={onDelete}
+          onViewDetail={onViewDetail}
         />
       </TableCell>
     </TableRow>
@@ -167,6 +192,7 @@ export function CustomerList({
   onEdit,
   onToggleStatus,
   onDelete,
+  onViewDetail,
 }: CustomerListProps) {
   if (customers.length === 0) {
     return (
@@ -190,6 +216,7 @@ export function CustomerList({
             onEdit={onEdit}
             onToggleStatus={onToggleStatus}
             onDelete={onDelete}
+            onViewDetail={onViewDetail}
           />
         ))}
       </div>
@@ -215,6 +242,7 @@ export function CustomerList({
                 onEdit={onEdit}
                 onToggleStatus={onToggleStatus}
                 onDelete={onDelete}
+                onViewDetail={onViewDetail}
               />
             ))}
           </TableBody>
