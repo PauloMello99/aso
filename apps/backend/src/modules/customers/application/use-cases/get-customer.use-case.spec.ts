@@ -1,7 +1,7 @@
-import { CreateCustomerUseCase } from "./create-customer.use-case";
+import { GetCustomerUseCase } from "./get-customer.use-case";
 import { ICustomerRepository } from "../../domain/customer.repository.interface";
 import { CustomerEntity } from "../../domain/customer.entity";
-import { CustomerEmailAlreadyExistsException } from "../../domain/exceptions/customer-email-already-exists.exception";
+import { CustomerNotFoundException } from "../../domain/exceptions/customer-not-found.exception";
 
 function buildCustomer(
   overrides: Partial<Parameters<typeof CustomerEntity.create>[0]> = {},
@@ -37,7 +37,7 @@ function buildFakeCustomerRepo(
 ): jest.Mocked<ICustomerRepository> {
   return {
     findById: jest.fn(),
-    findByEmail: jest.fn().mockResolvedValue(null),
+    findByEmail: jest.fn(),
     findAllByOrg: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
@@ -48,49 +48,30 @@ function buildFakeCustomerRepo(
 
 function buildUseCase(overrides: Partial<jest.Mocked<ICustomerRepository>> = {}) {
   const customerRepo = buildFakeCustomerRepo(overrides);
-  const useCase = new CreateCustomerUseCase(customerRepo);
+  const useCase = new GetCustomerUseCase(customerRepo);
   return { useCase, customerRepo };
 }
 
-const baseInput = {
-  orgId: "org-1",
-  createdBy: "user-1",
-  name: "Cliente",
-  birthDate: "1990-01-01",
-  address: "Rua Teste",
-  number: "100",
-  city: "São Paulo",
-  state: "SP",
-};
-
-describe("CreateCustomerUseCase", () => {
-  it("lança CustomerEmailAlreadyExistsException quando findByEmail retorna um cliente", async () => {
+describe("GetCustomerUseCase", () => {
+  it("retorna a entity quando findById encontra o cliente", async () => {
     const existing = buildCustomer();
     const { useCase, customerRepo } = buildUseCase({
-      findByEmail: jest.fn().mockResolvedValue(existing),
+      findById: jest.fn().mockResolvedValue(existing),
     });
 
-    await expect(
-      useCase.execute({ ...baseInput, email: "cliente@example.com" }),
-    ).rejects.toBeInstanceOf(CustomerEmailAlreadyExistsException);
-    expect(customerRepo.create).not.toHaveBeenCalled();
+    const result = await useCase.execute("customer-1", "org-1");
+
+    expect(customerRepo.findById).toHaveBeenCalledWith("customer-1", "org-1");
+    expect(result).toBe(existing);
   });
 
-  it("chama create com email trimado quando findByEmail retorna null", async () => {
-    const created = buildCustomer();
-    const { useCase, customerRepo } = buildUseCase({
-      findByEmail: jest.fn().mockResolvedValue(null),
-      create: jest.fn().mockResolvedValue(created),
+  it("lança CustomerNotFoundException quando findById retorna null", async () => {
+    const { useCase } = buildUseCase({
+      findById: jest.fn().mockResolvedValue(null),
     });
 
-    const result = await useCase.execute({
-      ...baseInput,
-      email: "  cliente@example.com  ",
-    });
-
-    expect(customerRepo.create).toHaveBeenCalledWith(
-      expect.objectContaining({ email: "cliente@example.com" }),
+    await expect(useCase.execute("customer-1", "org-1")).rejects.toBeInstanceOf(
+      CustomerNotFoundException,
     );
-    expect(result).toBe(created);
   });
 });

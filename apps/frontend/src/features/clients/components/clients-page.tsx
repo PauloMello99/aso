@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/router"
 import { Users, UserCheck, Plus, RefreshCw, Search } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
@@ -18,10 +19,12 @@ import {
 } from "@/shared/components/ui/filter-popover"
 import { ExportMenu } from "@/shared/components/ui/export-menu"
 import { downloadCsv } from "@/shared/lib/download-csv"
+import { useCurrentOrg } from "@/features/dashboard"
 import { useCustomers } from "../hooks/use-customers"
 import { useCustomerOrigins } from "../hooks/use-customer-origins"
 import { CustomerList } from "./customer-list"
 import { CustomerForm } from "./customer-form"
+import { MONTH_OPTIONS } from "../lib/birth-month"
 import type { Customer, CustomersFilter, Gender } from "../types"
 import type { CustomerFormValues } from "../schemas/client.schemas"
 
@@ -44,6 +47,8 @@ const EXPORT_COLUMNS = [
 ]
 
 export function ClientsPage({ orgId }: ClientsPageProps) {
+  const router = useRouter()
+  const { org } = useCurrentOrg()
   const [searchInput, setSearchInput] = useState("")
   const [search, setSearch] = useState("")
 
@@ -59,17 +64,43 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
     gender?: Gender
     from?: string
     to?: string
+    birthMonth?: number
+    city?: string
+    state?: string
   }>({})
+
+  const [cityInput, setCityInput] = useState("")
+  const [stateInput, setStateInput] = useState("")
+
+  // Debounce city/state free-text inputs → advanced filter (mirrors search)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setAdvanced((a) => ({ ...a, city: cityInput.trim() || undefined }))
+    }, 300)
+    return () => clearTimeout(t)
+  }, [cityInput])
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setAdvanced((a) => ({ ...a, state: stateInput.trim() || undefined }))
+    }, 300)
+    return () => clearTimeout(t)
+  }, [stateInput])
 
   const advancedCount =
     (advanced.status ? 1 : 0) +
     (advanced.originId ? 1 : 0) +
     (advanced.gender ? 1 : 0) +
     (advanced.from ? 1 : 0) +
-    (advanced.to ? 1 : 0)
+    (advanced.to ? 1 : 0) +
+    (advanced.birthMonth ? 1 : 0) +
+    (advanced.city ? 1 : 0) +
+    (advanced.state ? 1 : 0)
 
   function clearAdvanced() {
     setAdvanced({})
+    setCityInput("")
+    setStateInput("")
   }
 
   const filter = useMemo<CustomersFilter | undefined>(() => {
@@ -107,6 +138,10 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
     setFormOpen(true)
   }
 
+  function openDetail(customer: Customer) {
+    void router.push(`/dashboard/org/${org.slug}/clients/${customer.id}`)
+  }
+
   async function handleSubmit(values: CustomerFormValues) {
     const body = {
       name: values.name,
@@ -116,6 +151,7 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
       birthDate: values.birthDate || null,
       address: values.address || null,
       addressLine2: values.addressLine2 || null,
+      number: values.number,
       city: values.city || null,
       state: values.state || null,
       postalCode: values.postalCode || null,
@@ -151,6 +187,9 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
         gender: advanced.gender,
         from: advanced.from,
         to: advanced.to,
+        birthMonth: advanced.birthMonth,
+        city: advanced.city,
+        state: advanced.state,
         fields: fields.join(","),
       },
     )
@@ -299,6 +338,47 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
               />
             </FilterField>
           </div>
+          <FilterField label="Aniversariantes do mês">
+            <Select
+              value={advanced.birthMonth ? String(advanced.birthMonth) : "all"}
+              onValueChange={(v) =>
+                setAdvanced((a) => ({
+                  ...a,
+                  birthMonth: v === "all" ? undefined : Number(v),
+                }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Todos os meses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os meses</SelectItem>
+                {MONTH_OPTIONS.map((m) => (
+                  <SelectItem key={m.value} value={String(m.value)}>
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterField>
+          <div className="grid grid-cols-2 gap-2">
+            <FilterField label="Cidade">
+              <Input
+                value={cityInput}
+                onChange={(e) => setCityInput(e.target.value)}
+                placeholder="Busca exata"
+                autoComplete="off"
+              />
+            </FilterField>
+            <FilterField label="Estado">
+              <Input
+                value={stateInput}
+                onChange={(e) => setStateInput(e.target.value)}
+                placeholder="Busca exata"
+                autoComplete="off"
+              />
+            </FilterField>
+          </div>
         </FilterPopover>
       </div>
 
@@ -321,6 +401,7 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
           onEdit={openEdit}
           onToggleStatus={handleToggleStatus}
           onDelete={handleDelete}
+          onViewDetail={openDetail}
         />
       )}
 

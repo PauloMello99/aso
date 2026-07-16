@@ -91,6 +91,20 @@ export class DrizzleCustomerRepository implements ICustomerRepository {
       conditions.push(lte(schema.customers.createdAt, filter.to));
     }
 
+    if (filter?.birthMonth) {
+      conditions.push(
+        sql`EXTRACT(MONTH FROM ${schema.customers.birthDate}) = ${filter.birthMonth}`,
+      );
+    }
+
+    if (filter?.city) {
+      conditions.push(eq(schema.customers.city, filter.city));
+    }
+
+    if (filter?.state) {
+      conditions.push(eq(schema.customers.state, filter.state));
+    }
+
     if (filter?.search) {
       const term = `%${filter.search}%`;
       const match = or(
@@ -119,14 +133,15 @@ export class DrizzleCustomerRepository implements ICustomerRepository {
           createdBy: data.createdBy ?? null,
           originId: data.originId ?? null,
           name: data.name,
-          email: data.email ?? null,
+          email: data.email,
           phone: data.phone ?? null,
-          birthDate: data.birthDate ?? null,
+          birthDate: data.birthDate,
           gender: data.gender ?? null,
-          address: data.address ?? null,
+          address: data.address,
+          number: data.number,
           addressLine2: data.addressLine2 ?? null,
-          city: data.city ?? null,
-          state: data.state ?? null,
+          city: data.city,
+          state: data.state,
           postalCode: data.postalCode ?? null,
           country: data.country ?? null,
           notes: data.notes ?? null,
@@ -153,6 +168,7 @@ export class DrizzleCustomerRepository implements ICustomerRepository {
           ...(data.birthDate !== undefined && { birthDate: data.birthDate }),
           ...(data.gender !== undefined && { gender: data.gender }),
           ...(data.address !== undefined && { address: data.address }),
+          ...(data.number !== undefined && { number: data.number }),
           ...(data.addressLine2 !== undefined && {
             addressLine2: data.addressLine2,
           }),

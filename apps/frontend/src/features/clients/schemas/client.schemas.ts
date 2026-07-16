@@ -3,19 +3,19 @@ import { z } from "zod"
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const GENDERS = ["male", "female", "other"] as const
 
-/** Optional e-mail field validated with zod's own e-mail validator. */
-export const optionalEmail = z
+/** Required e-mail field validated with zod's own e-mail validator. */
+export const requiredEmail = z
   .string()
+  .min(1, "E-mail é obrigatório")
   .max(255, "Máximo 255 caracteres")
-  .optional()
-  .refine((v) => !v || z.email().safeParse(v).success, "E-mail inválido")
+  .refine((v) => z.email().safeParse(v).success, "E-mail inválido")
 
 export const customerSchema = z.object({
   name: z
     .string()
     .min(1, "Nome é obrigatório")
     .max(120, "Máximo 120 caracteres"),
-  email: optionalEmail,
+  email: requiredEmail,
   // Telefone armazenado em E.164 (ex: +5511999990000) pelo PhoneInput.
   phone: z
     .string()
@@ -31,12 +31,25 @@ export const customerSchema = z.object({
     ),
   birthDate: z
     .string()
-    .optional()
-    .refine((v) => !v || DATE_RE.test(v), "Data inválida"),
-  address: z.string().max(255, "Máximo 255 caracteres").optional(),
+    .min(1, "Nascimento é obrigatório")
+    .refine((v) => DATE_RE.test(v), "Data inválida"),
+  address: z
+    .string()
+    .min(1, "Endereço é obrigatório")
+    .max(255, "Máximo 255 caracteres"),
   addressLine2: z.string().max(255, "Máximo 255 caracteres").optional(),
-  city: z.string().max(120, "Máximo 120 caracteres").optional(),
-  state: z.string().max(120, "Máximo 120 caracteres").optional(),
+  number: z
+    .string()
+    .min(1, "Número é obrigatório")
+    .max(20, "Máximo 20 caracteres"),
+  city: z
+    .string()
+    .min(1, "Cidade é obrigatória")
+    .max(120, "Máximo 120 caracteres"),
+  state: z
+    .string()
+    .min(1, "Estado é obrigatório")
+    .max(120, "Máximo 120 caracteres"),
   postalCode: z.string().max(20, "Máximo 20 caracteres").optional(),
   country: z.string().max(2, "Use o código ISO de 2 letras").optional(),
   originId: z.string().optional(),

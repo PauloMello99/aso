@@ -21,6 +21,12 @@ export interface ListCustomersFilter {
   from?: Date;
   /** Faixa de data de cadastro: fim inclusivo. */
   to?: Date;
+  /** Mês de nascimento (1-12), ignora ano/dia; independente de from/to (que são data de cadastro). */
+  birthMonth?: number;
+  /** Match exato de cidade. */
+  city?: string;
+  /** Match exato de estado. */
+  state?: string;
 }
 
 export interface ICustomerRepository {

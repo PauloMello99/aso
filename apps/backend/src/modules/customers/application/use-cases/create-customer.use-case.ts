@@ -29,7 +29,7 @@ export class CreateCustomerUseCase {
 
     return this.customerRepo.create({
       ...data,
-      email: data.email?.trim() || null,
+      email: data.email.trim(),
     });
   }
 }

@@ -66,6 +66,9 @@ export const queryKeys = {
     /** Customer list, optionally scoped by filter */
     list: (orgId: string, filter?: CustomersFilter) =>
       ["customers", orgId, "list", filter ?? {}] as const,
+    /** Single customer detail */
+    detail: (orgId: string, id: string) =>
+      ["customers", orgId, "detail", id] as const,
   },
 
   // ─── Cashier (Caixa) ───────────────────────────────────────────────────────

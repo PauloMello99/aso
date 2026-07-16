@@ -17,8 +17,7 @@ export class CreateCustomerDto {
   name!: string;
 
   @IsEmail()
-  @IsOptional()
-  email?: string | null;
+  email!: string;
 
   @IsPhoneNumber(undefined, { message: "Telefone inválido" })
   @IsOptional()
@@ -26,28 +25,31 @@ export class CreateCustomerDto {
 
   @IsString()
   @Matches(DATE_PATTERN, { message: "birthDate must be in YYYY-MM-DD format" })
-  @IsOptional()
-  birthDate?: string | null;
+  birthDate!: string;
 
   @IsIn(["male", "female", "other"])
   @IsOptional()
   gender?: "male" | "female" | "other" | null;
 
   @IsString()
-  @IsOptional()
-  address?: string | null;
+  @IsNotEmpty()
+  address!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  number!: string;
 
   @IsString()
   @IsOptional()
   addressLine2?: string | null;
 
   @IsString()
-  @IsOptional()
-  city?: string | null;
+  @IsNotEmpty()
+  city!: string;
 
   @IsString()
-  @IsOptional()
-  state?: string | null;
+  @IsNotEmpty()
+  state!: string;
 
   @IsString()
   @IsOptional()

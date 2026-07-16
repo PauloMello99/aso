@@ -1,5 +1,15 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, desc, eq, gte, ilike, isNotNull, lte, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  isNotNull,
+  lte,
+  sql,
+} from "drizzle-orm";
 import { DRIZZLE, DrizzleDB } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
 import {
@@ -95,6 +105,26 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
     }
     if (filter?.createdBy) {
       conditions.push(eq(schema.transactions.createdBy, filter.createdBy));
+    }
+    if (filter?.customerId) {
+      // transactions não referencia customer direto; o vínculo é via services
+      // (services.customer_id -> services.payment_transaction_id -> transactions.id).
+      // orgId aqui é o MESMO da query externa — nunca aceitar de outra fonte.
+      conditions.push(
+        inArray(
+          schema.transactions.id,
+          this.db
+            .select({ id: schema.services.paymentTransactionId })
+            .from(schema.services)
+            .where(
+              and(
+                eq(schema.services.orgId, orgId),
+                eq(schema.services.customerId, filter.customerId),
+                isNotNull(schema.services.paymentTransactionId),
+              ),
+            ),
+        ),
+      );
     }
 
     const rows = await this.db

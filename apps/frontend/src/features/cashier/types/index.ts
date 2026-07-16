@@ -70,6 +70,7 @@ export interface TransactionsFilter {
   maxCents?: number
   /** users.id — filtro de membro (só owner). */
   createdBy?: string
+  customerId?: string
   q?: string
 }
 

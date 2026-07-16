@@ -38,7 +38,7 @@ interface TransactionListProps {
   canManage?: boolean
 }
 
-function formatDate(iso: string): string {
+export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "short",
@@ -89,7 +89,7 @@ function ActionMenu({
 }
 
 /** Badge de status: Estornada (original anulada) ou Estorno (a própria reversão). */
-function StatusBadge({ view }: { view: TransactionView }) {
+export function StatusBadge({ view }: { view: TransactionView }) {
   if (view.entity.reversesTransactionId) {
     return (
       <span className="inline-flex items-center rounded-full bg-foreground/[0.06] px-2 py-0.5 text-xs font-medium text-foreground/50">
@@ -107,7 +107,7 @@ function StatusBadge({ view }: { view: TransactionView }) {
   return null
 }
 
-function AmountCell({ t, struck }: { t: Transaction; struck: boolean }) {
+export function AmountCell({ t, struck }: { t: Transaction; struck: boolean }) {
   const isIncome = t.type === "income"
   return (
     <span

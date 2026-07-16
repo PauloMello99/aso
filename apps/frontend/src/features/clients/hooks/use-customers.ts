@@ -21,6 +21,9 @@ export function useCustomers(orgId: string, filter?: CustomersFilter) {
       if (filter?.gender) params.set("gender", filter.gender)
       if (filter?.from) params.set("from", filter.from)
       if (filter?.to) params.set("to", filter.to)
+      if (filter?.birthMonth) params.set("birthMonth", String(filter.birthMonth))
+      if (filter?.city) params.set("city", filter.city)
+      if (filter?.state) params.set("state", filter.state)
       const query = params.toString() ? `?${params.toString()}` : ""
       return apiRequest<Customer[]>(`/orgs/${orgId}/customers${query}`)
     },
@@ -36,6 +39,7 @@ export function useCustomers(orgId: string, filter?: CustomersFilter) {
     gender?: Gender | null
     birthDate?: string | null
     address?: string | null
+    number?: string
     city?: string | null
     notes?: string | null
   }

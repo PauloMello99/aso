@@ -88,6 +88,7 @@ export class CashierController {
     @Query("maxCents") maxCents?: string,
     @Query("createdBy") createdBy?: string,
     @Query("q") q?: string,
+    @Query("customerId") customerId?: string,
   ) {
     return this.listTransactions.execute({
       orgId,
@@ -107,6 +108,7 @@ export class CashierController {
         // Owner pode filtrar por membro; para funcionário o use-case força o próprio id.
         createdBy: createdBy || undefined,
         q: q || undefined,
+        customerId: customerId || undefined,
       },
     });
   }
@@ -125,6 +127,7 @@ export class CashierController {
     @Query("maxCents") maxCents?: string,
     @Query("createdBy") createdBy?: string,
     @Query("q") q?: string,
+    @Query("customerId") customerId?: string,
     @Query("fields") fields?: string,
   ) {
     const csv = await this.exportTransactions.execute(
@@ -144,6 +147,7 @@ export class CashierController {
         maxCents: parseCents(maxCents),
         createdBy: createdBy || undefined,
         q: q || undefined,
+        customerId: customerId || undefined,
       },
       parseFields(fields),
     );
