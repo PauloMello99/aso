@@ -1,7 +1,9 @@
 import { Injectable } from "@nestjs/common";
-import { ListMaterialsUseCase } from "./list-materials.use-case";
+import {
+  ListMaterialsUseCase,
+  type MaterialListItemView,
+} from "./list-materials.use-case";
 import { ListMaterialsFilter } from "../../domain/material.repository.interface";
-import { MaterialEntity } from "../../domain/material.entity";
 import {
   buildCsv,
   csvDate,
@@ -9,7 +11,7 @@ import {
 } from "../../../../common/csv/csv.util";
 
 /** Colunas exportáveis de materiais (chaves usadas no seletor `?fields=`). */
-export const MATERIAL_CSV_COLUMNS: CsvColumn<MaterialEntity>[] = [
+export const MATERIAL_CSV_COLUMNS: CsvColumn<MaterialListItemView>[] = [
   { key: "name", header: "Material", value: (m) => m.name },
   { key: "stock", header: "Estoque", value: (m) => m.stockQuantity },
   { key: "minimum", header: "Mínimo", value: (m) => m.minimumQuantity },
@@ -48,8 +50,9 @@ export class ExportMaterialsUseCase {
     orgId: string,
     filter?: ListMaterialsFilter,
     fields?: string[],
+    authId?: string,
   ): Promise<string> {
-    const materials = await this.listMaterials.execute(orgId, filter);
+    const materials = await this.listMaterials.execute(orgId, filter, authId);
     return buildCsv(materials, MATERIAL_CSV_COLUMNS, fields);
   }
 }

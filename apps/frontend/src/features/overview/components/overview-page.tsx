@@ -17,6 +17,7 @@ import {
 import { cn } from "@/shared/lib/utils"
 import { Badge } from "@/shared/components/ui/badge"
 import { useCurrentOrg } from "@/features/dashboard"
+import { canAccessModule } from "@/features/dashboard/lib/nav"
 import { useBalance } from "@/features/cashier/hooks/use-balance"
 import { useOverview } from "../hooks/use-overview"
 import { useOverviewAnalytics } from "../hooks/use-overview-analytics"
@@ -302,7 +303,7 @@ function restockQty(m: Material): number {
 
 /** Custo estimado (centavos) para repor um material até o mínimo. */
 function restockCents(m: Material): number | null {
-  if (m.costPerUnit === null) return null
+  if (m.costPerUnit == null) return null
   const cost = parseFloat(m.costPerUnit)
   if (Number.isNaN(cost)) return null
   return Math.round(restockQty(m) * cost * 100)
@@ -327,10 +328,12 @@ function LowStockSection({
   materials,
   loading,
   basePath,
+  canSeeCost,
 }: {
   materials: Material[]
   loading: boolean
   basePath: string
+  canSeeCost: boolean
 }) {
   const { totalCents, missingCost } = restockEstimate(materials)
 
@@ -344,7 +347,7 @@ function LowStockSection({
         <>
           <Rows>
             {materials.map((m) => {
-              const cents = restockCents(m)
+              const cents = canSeeCost ? restockCents(m) : null
               return (
                 <li
                   key={m.id}
@@ -369,13 +372,15 @@ function LowStockSection({
               )
             })}
           </Rows>
-          <div className="mt-3 flex items-center justify-between border-t border-foreground/[0.06] pt-3 text-sm">
-            <span className="text-foreground/50">Repor tudo (estimado)</span>
-            <span className="font-semibold text-foreground">
-              {formatBRL(totalCents)}
-            </span>
-          </div>
-          {missingCost > 0 && (
+          {canSeeCost && (
+            <div className="mt-3 flex items-center justify-between border-t border-foreground/[0.06] pt-3 text-sm">
+              <span className="text-foreground/50">Repor tudo (estimado)</span>
+              <span className="font-semibold text-foreground">
+                {formatBRL(totalCents)}
+              </span>
+            </div>
+          )}
+          {canSeeCost && missingCost > 0 && (
             <p className="mt-1 text-xs text-foreground/30">
               {missingCost}{" "}
               {missingCost === 1
@@ -539,6 +544,7 @@ function BandLabel({ children }: { children: React.ReactNode }) {
 export function OverviewPage() {
   const { org, orgId } = useCurrentOrg()
   const isOwner = org.role === "owner"
+  const canSeeCost = canAccessModule(org.role, org.permissions, "stock")
   const basePath = `/dashboard/org/${org.slug}`
 
   const [periodKey, setPeriodKey] = React.useState<PeriodKey>("month")
@@ -582,6 +588,7 @@ export function OverviewPage() {
             materials={data?.lowStock ?? []}
             loading={loading}
             basePath={basePath}
+            canSeeCost={canSeeCost}
           />
           {isOwner && (
             <RecentTransactionsSection

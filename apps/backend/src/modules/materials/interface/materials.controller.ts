@@ -110,6 +110,7 @@ export class MaterialsController {
   @AllowAnyOrgMember()
   async list(
     @Param("orgId", ParseUUIDPipe) orgId: string,
+    @CurrentUser() user: AuthUser,
     @Query("categoryId") categoryId?: string,
     @Query("lowStock") lowStock?: string,
     @Query("q") q?: string,
@@ -119,23 +120,32 @@ export class MaterialsController {
     @Query("maxCost") maxCost?: string,
     @Query("sortBy") sortBy?: string,
   ) {
-    return this.listMaterials.execute(orgId, {
-      categoryId,
-      lowStockOnly: lowStock === "true",
-      name: q || undefined,
-      archived: archived === "true",
-      shareable:
-        shareable === "true" ? true : shareable === "false" ? false : undefined,
-      minCost: minCost || undefined,
-      maxCost: maxCost || undefined,
-      sortBy: sortBy === "name" ? "name" : "lastUsed",
-    });
+    return this.listMaterials.execute(
+      orgId,
+      {
+        categoryId,
+        lowStockOnly: lowStock === "true",
+        name: q || undefined,
+        archived: archived === "true",
+        shareable:
+          shareable === "true"
+            ? true
+            : shareable === "false"
+              ? false
+              : undefined,
+        minCost: minCost || undefined,
+        maxCost: maxCost || undefined,
+        sortBy: sortBy === "name" ? "name" : "lastUsed",
+      },
+      user.id,
+    );
   }
 
   @Get("export")
   async export(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Res() res: Response,
+    @CurrentUser() user: AuthUser,
     @Query("categoryId") categoryId?: string,
     @Query("lowStock") lowStock?: string,
     @Query("q") q?: string,
@@ -162,6 +172,7 @@ export class MaterialsController {
         maxCost: maxCost || undefined,
       },
       parseFields(fields),
+      user.id,
     );
     const date = new Date().toISOString().slice(0, 10);
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
