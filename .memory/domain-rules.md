@@ -390,8 +390,21 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   `bank_transfer` (Pix), crédito/débito — **`credits`/cashback adiados** (fora do enum do form).
 - **Cancelar (`POST /:id/cancel`):** marca `canceled_at` + **estorna** a transação (errata,
   `reversesTransactionId`) + **devolve estoque** (movimento `manual_adjustment` positivo).
-  Recancelar → `SERVICE_ALREADY_CANCELED` 409. **Editar** só campos não-financeiros
-  (tipo/cliente/profissional/local/descrição/data); valor/método/materiais = cancelar + recriar.
+  Recancelar → `SERVICE_ALREADY_CANCELED` 409. **Editar** (`PATCH /:id`) só campos
+  não-financeiros (tipo/cliente/profissional/local/descrição/data); materiais = cancelar + recriar.
+- **Corrigir valor de pagamento** (`PATCH /:id/payment`, owner-only, `CorrectServicePaymentUseCase`,
+  2026-07-17): estorna a transação de pagamento original e relança uma nova com o valor/método
+  corrigidos (fee/net recalculados via `computeNet` no NOVO método) — só então atualiza
+  `services.amount_cents`/`payment_method`/`payment_transaction_id`, nessa ordem exata (nunca deixa
+  o serviço apontando para uma transação já estornada). **Autoria**: o estorno usa o ator que
+  corrige (`createdBy: currentUserId`); o relançamento preserva o autor original
+  (`createdBy: original.createdBy`) — mesmo padrão do `CorrectTransactionUseCase` do cashier.
+  Serviço cancelado/pendente/já-estornado → `SERVICE_PAYMENT_NOT_CORRECTABLE` 422.
+  **Guarda simétrica no cashier**: `CorrectTransactionUseCase` e `ReverseTransactionUseCase`
+  (ambos em `cashier`) rejeitam (422 `TRANSACTION_IS_SERVICE_PAYMENT`) corrigir/estornar pelo
+  caminho genérico do Caixa uma transação vinculada a um serviço — `CashierModule` importa
+  `ServicesInfrastructureModule` só para isso (sem ciclo: essa infra-module só depende de
+  `DatabaseModule`). Ver ADR a considerar / `.memory/sessions/` para o raciocínio completo.
 - **Consumo de materiais:** linha não-compartilhável → quantidade (valida estoque, senão
   `INSUFFICIENT_STOCK` 422; debita via `updateStockQuantity` + movimento `service_consumption`
   + `touchLastUsed`). Compartilhável (`shareable`) → checkbox **"acabou?"**: marcado ⇒ baixa
