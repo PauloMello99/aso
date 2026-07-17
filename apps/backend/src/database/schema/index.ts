@@ -16,3 +16,4 @@ export * from "./studio/calendar";
 export * from "./studio/calendar-connections";
 export * from "./studio/notifications";
 export * from "./studio/audit";
+export * from "./studio/anamnesis";
