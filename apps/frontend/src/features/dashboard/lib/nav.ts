@@ -7,6 +7,7 @@ import {
   Wallet,
   Settings,
   CreditCard,
+  ClipboardList,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
@@ -82,6 +83,12 @@ export const SETTINGS_NAV: NavItem[] = [
   { label: "Agenda", href: "settings/agenda", icon: CalendarDays },
   { label: "Estoque", href: "settings/stock", icon: Archive, roles: ["owner"] },
   { label: "Caixa", href: "settings/cashier", icon: Wallet, roles: ["owner"] },
+  {
+    label: "Anamnese",
+    href: "settings/anamnesis",
+    icon: ClipboardList,
+    roles: ["owner"],
+  },
   { label: "Assinatura", href: "settings/subscription", icon: CreditCard, roles: ["owner"] },
 ]
 
@@ -118,6 +125,7 @@ export const PAGE_LABELS: Record<string, string> = {
   billing: "Cobrança",
   general: "Geral",
   agenda: "Agenda",
+  anamnesis: "Anamnese",
   subscription: "Assinatura",
   organizations: "Organizações",
 }

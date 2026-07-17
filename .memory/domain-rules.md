@@ -537,6 +537,49 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   sidebar (`data-tour="nav-*"`) e fecha para os demais passos (popover central,
   `user-menu`) — evita o overlay do drawer cobrindo o header por cima do popover.
 
+### M10a — Ficha de anamnese: construtor + versionamento (F10, 2026-07-17)
+
+- **F10 dividido em 3 fatias** (decisão do usuário, após pesquisa mostrar que
+  "complexa" no roadmap subestimava o escopo real): **M10a** (este) = construtor +
+  versionamento, admin-only, sem exposição pública. **M10b** (próximo) = link público
+  sem login + submissão de resposta (primeiro endpoint de escrita pública do app) +
+  e-mail + `services.anamnesis_response_id`. **M10c** (BLOQUEADO) = assinatura digital —
+  usuário precisa pesquisar validade jurídica (ICP-Brasil ou equivalente) antes de
+  qualquer código; não implementar sem confirmar que a pesquisa foi feita.
+- **Modelagem em 2 tabelas** (migration `0029`): `anamnesis_forms` (identidade — 1 por
+  tipo de serviço via `UNIQUE(service_type_id)`) + `anamnesis_form_versions` (conteúdo
+  — snapshot imutável das perguntas em `jsonb`, `UNIQUE(form_id, version_number)`,
+  `org_id` denormalizado pra RLS, mesmo padrão de `service_media`). Separar identidade
+  de conteúdo versionado é o que permite "1 formulário, N versões" sem ambiguidade.
+- **Imutabilidade de versão é estrutural, não só de convenção**: RLS de
+  `anamnesis_form_versions` não tem policy de UPDATE nem DELETE — nem `is_super_admin()`
+  consegue mudar uma versão existente pela conexão `DRIZZLE` (só `DRIZZLE_ADMIN`/dono da
+  tabela poderia, fora do caminho normal da app). O repositório também não expõe nenhum
+  método de update/delete de versão — toda gravação é `createVersion()` (get-or-create
+  do form + `INSERT` da próxima versão numa transação; `version_number` = `max()+1`).
+- **Só owner cria/edita** (`POST .../versions` com `OrgOwnerGuard` + RLS
+  `is_org_owner(org_id)`); qualquer membro lê (`GET` com `OrgMembershipGuard` + RLS
+  `is_org_member(org_id)`) — precisa saber se o tipo de serviço exige anamnese.
+  `createdBy` sempre resolvido de `authId` (sessão) → `users.id`, nunca aceito do
+  client/body.
+- **Perguntas sem schema no banco** (`jsonb` puro: `{ id: uuid, type: 'text'|'yes_no',
+  label, required }[]`) — a única validação é em aplicação (`class-validator` nested no
+  DTO, `whitelist: true` no `ValidationPipe` global remove chaves extras antes de
+  chegar no jsonb). Sem verificação de unicidade de `question.id` dentro do array ainda
+  — pendência registrada pra M10b resolver antes de mapear respostas por pergunta.
+- **Pendência explícita levada pro M10b** (achado do `database-guardian`):
+  `anamnesis_forms.service_type_id` é `ON DELETE CASCADE` — hoje inofensivo (M10a não
+  tem nenhuma resposta preenchida), mas quando M10b existir (`services` →
+  `anamnesis_responses` → `anamnesis_form_versions`), excluir um tipo de serviço vai
+  apagar em cascata todo o histórico de versões e, por extensão, o registro de
+  respostas preenchidas por clientes — decidir lá se isso é aceitável ou se o FK
+  precisa virar `RESTRICT`/a resposta precisa ficar self-contained (snapshot das
+  perguntas embutido na resposta, não só uma referência).
+- **Sem tela de gestão de tipos de serviço** existia antes desta fatia (tipos só eram
+  criados inline por nome ao lançar serviço) — criada uma página mínima
+  `settings/anamnesis` (owner-only) que lista os tipos existentes e permite configurar
+  a ficha de cada um; NÃO é CRUD completo de tipos (fora de escopo).
+
 ### Notificações — núcleo reutilizável (2026-06-15)
 - **Módulo `modules/notifications/`**: `NotificationService.notify({userId, orgId?, type, title, body?, data?, email?, actionUrl?, actionLabel?})` cria a notificação **in-app** (tabela `notifications`, migration `0008`) e dispara **e-mail** via `MailService.sendNotification` (best-effort em `try/catch` — falha nunca quebra agenda/estoque/cron). **Outros módulos injetam `NotificationService`** (exportado).
 - **E-mail transacional centralizado (ADR-0012)**: módulo dedicado `modules/mail/` (sem dep de auth/notifications → evita ciclo) é dono do port `IEmailSender`/`ResendEmailSender` e do `MailService` (`sendOrgInvite`/`sendPasswordReset`/`sendWelcome`/`sendNotification`). Templates **React Email** `.tsx` em `modules/mail/templates/` (preview: `pnpm --filter backend email:dev`). **`IEmailSender.send`**: `false` = desabilitado (no-op, dev), `true` = enviado, **lança** em falha real. **Críticos (abortam):** convite (cria→envia→em falha **reverte** o convite + `InvitationEmailFailedException`/HTTP 502) e **reset de senha**. **Best-effort:** notificações/crons e welcome. **Reset de senha saiu do GoTrue**: `IAuthProvider.generatePasswordResetLink` (`admin.generateLink type=recovery`, sem enviar) → enviamos via Resend; `null` p/ user inexistente (sem enumeração). Welcome no sign-up. `NOTIFICATIONS_FROM_EMAIL` exige domínio verificado no Resend.

@@ -118,4 +118,14 @@ export const queryKeys = {
     media: (orgId: string, serviceId: string) =>
       ["services", orgId, "detail", serviceId, "media"] as const,
   },
+
+  // ─── Anamnesis (ficha de anamnese por tipo de serviço) ─────────────────────
+  anamnesis: {
+    /** Versão atual do formulário de um tipo de serviço */
+    form: (orgId: string, serviceTypeId: string) =>
+      ["anamnesis", orgId, serviceTypeId, "form"] as const,
+    /** Histórico de versões de um tipo de serviço */
+    versions: (orgId: string, serviceTypeId: string) =>
+      ["anamnesis", orgId, serviceTypeId, "versions"] as const,
+  },
 } as const
