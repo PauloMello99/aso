@@ -379,6 +379,9 @@ export function DangerSection() {
   const email = user?.email ?? ""
   const isConfirmed = confirmation.trim().toLowerCase() === email.toLowerCase()
 
+  // A3 — funcionários puros (sem organização própria) não veem a Zona de perigo.
+  if (!orgsLoading && !shouldShowDeleteAccount(orgs)) return null
+
   async function handleDelete() {
     if (!isConfirmed) return
     setLoading(true)
