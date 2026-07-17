@@ -64,6 +64,17 @@ export const calendarProviderEnum = pgEnum("calendar_provider", [
   "apple",
 ]);
 
+export const calendarEventVisibilityEnum = pgEnum(
+  "calendar_event_visibility",
+  ["private", "shared"],
+);
+
+// Só 2 valores persistidos — "pending" é derivado depois, no DTO, nunca gravado no banco.
+export const calendarAttendeeStatusEnum = pgEnum("calendar_attendee_status", [
+  "going",
+  "not_going",
+]);
+
 export const notificationTypeEnum = pgEnum("notification_type", [
   "agenda_reminder",
   "member_unavailability",

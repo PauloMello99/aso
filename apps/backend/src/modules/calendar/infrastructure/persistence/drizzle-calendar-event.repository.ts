@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, eq, gt, isNull, lt, lte, ne } from "drizzle-orm";
+import { and, eq, gt, isNull, lt, lte, ne, or, type SQL } from "drizzle-orm";
 import {
   DRIZZLE,
   DRIZZLE_ADMIN,
@@ -12,6 +12,7 @@ import {
   UpdateCalendarEventData,
 } from "../../domain/calendar-event.entity";
 import type {
+  AttendeeRow,
   DueReminder,
   ICalendarEventRepository,
   ListCalendarEventsFilter,
@@ -104,13 +105,21 @@ export class DrizzleCalendarEventRepository implements ICalendarEventRepository 
     filter: ListCalendarEventsFilter,
   ): Promise<CalendarEventEntity[]> {
     // Eventos que intersectam a janela [start, end): startsAt < end AND endsAt > start
-    const conditions = [
+    const conditions: (SQL | undefined)[] = [
       eq(schema.calendarEvents.orgId, orgId),
       lt(schema.calendarEvents.startsAt, filter.end),
       gt(schema.calendarEvents.endsAt, filter.start),
     ];
     if (filter.assignedTo) {
       conditions.push(eq(schema.calendarEvents.assignedTo, filter.assignedTo));
+    } else if (filter.includeSharedForUserId) {
+      // Funcionário: os próprios eventos (qualquer visibility) + shared de qualquer membro.
+      conditions.push(
+        or(
+          eq(schema.calendarEvents.assignedTo, filter.includeSharedForUserId),
+          eq(schema.calendarEvents.visibility, "shared"),
+        ),
+      );
     }
 
     const rows = await this.db
@@ -158,6 +167,7 @@ export class DrizzleCalendarEventRepository implements ICalendarEventRepository 
         startsAt: data.startsAt,
         endsAt: data.endsAt,
         allDay: data.allDay ?? false,
+        visibility: data.visibility ?? "private",
       })
       .returning();
     return CalendarEventMapper.toDomain(row!);
@@ -178,6 +188,7 @@ export class DrizzleCalendarEventRepository implements ICalendarEventRepository 
         ...(data.startsAt !== undefined && { startsAt: data.startsAt }),
         ...(data.endsAt !== undefined && { endsAt: data.endsAt }),
         ...(data.allDay !== undefined && { allDay: data.allDay }),
+        ...(data.visibility !== undefined && { visibility: data.visibility }),
         updatedAt: new Date(),
       })
       .where(eq(schema.calendarEvents.id, id))
@@ -223,5 +234,55 @@ export class DrizzleCalendarEventRepository implements ICalendarEventRepository 
       .update(schema.calendarEvents)
       .set({ reminderSentAt: new Date() })
       .where(eq(schema.calendarEvents.id, id));
+  }
+
+  async upsertAttendee(
+    eventId: string,
+    userId: string,
+    status: "going" | "not_going",
+  ): Promise<void> {
+    await this.db
+      .insert(schema.calendarEventAttendees)
+      .values({ eventId, userId, status })
+      .onConflictDoUpdate({
+        target: [
+          schema.calendarEventAttendees.eventId,
+          schema.calendarEventAttendees.userId,
+        ],
+        set: { status, updatedAt: new Date() },
+      });
+  }
+
+  async listAttendees(eventId: string): Promise<AttendeeRow[]> {
+    return this.db
+      .select({
+        userId: schema.calendarEventAttendees.userId,
+        name: schema.users.name,
+        status: schema.calendarEventAttendees.status,
+      })
+      .from(schema.calendarEventAttendees)
+      .innerJoin(
+        schema.users,
+        eq(schema.users.id, schema.calendarEventAttendees.userId),
+      )
+      .where(eq(schema.calendarEventAttendees.eventId, eventId));
+  }
+
+  async listOrgMembersBasic(
+    orgId: string,
+  ): Promise<{ userId: string; name: string }[]> {
+    return this.db
+      .select({
+        userId: schema.orgMemberships.userId,
+        name: schema.users.name,
+      })
+      .from(schema.orgMemberships)
+      .innerJoin(schema.users, eq(schema.users.id, schema.orgMemberships.userId))
+      .where(
+        and(
+          eq(schema.orgMemberships.orgId, orgId),
+          eq(schema.orgMemberships.enabled, true),
+        ),
+      );
   }
 }

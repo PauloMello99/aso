@@ -26,14 +26,23 @@ export class ListCalendarEventsUseCase {
     const membership = await this.repo.getMembership(input.orgId, input.authId);
     if (!membership) throw new EventForbiddenException();
 
-    // Employee: sempre só os seus. Owner: todos, ou filtrado por membro.
-    const assignedTo =
-      membership.role === "owner" ? input.assignedTo : membership.userId;
+    // Owner: todos, ou filtrado por membro (assignedTo do input).
+    // Funcionário: ignora o assignedTo do input (privilégio de owner) e vê os
+    // próprios eventos (qualquer visibility) + os shared de qualquer membro —
+    // nunca os privados de terceiros (filtro obrigatório em aplicação; a RLS
+    // do banco só isola por tenant, não por private/shared).
+    if (membership.role === "owner") {
+      return this.repo.findInRange(input.orgId, {
+        start: input.start,
+        end: input.end,
+        assignedTo: input.assignedTo,
+      });
+    }
 
     return this.repo.findInRange(input.orgId, {
       start: input.start,
       end: input.end,
-      assignedTo,
+      includeSharedForUserId: membership.userId,
     });
   }
 }

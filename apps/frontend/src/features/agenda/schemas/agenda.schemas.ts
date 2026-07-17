@@ -12,6 +12,7 @@ export const eventFormSchema = z
     description: z.string().max(1000, "Máximo 1000 caracteres").optional(),
     /** users.id do membro (owner cria em nome de). Vazio = self. */
     assignedTo: z.string().optional(),
+    visibility: z.enum(["private", "shared"]),
   })
   .refine((v) => v.allDay || v.startTime < v.endTime, {
     message: "O fim deve ser após o início",

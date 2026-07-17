@@ -442,7 +442,7 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
 
 ### Agenda — implementada (2026-06-15)
 
-- **Agenda por membro**: cada membro gerencia a **própria** agenda. `calendar_events.assigned_to` (FK `users.id`, NOT NULL) é o dono do horário. **Ninguém cria/edita evento de outro** — nem o owner.
+- **Agenda por membro**: cada membro gerencia a **própria** agenda. `calendar_events.assigned_to` (FK `users.id`, NOT NULL) é o dono do horário. `owner` pode **criar** evento em nome de um membro (`assignedTo` no create, só na criação); **editar/excluir de terceiro continua bloqueado** mesmo para owner (`CALENDAR_EVENT_FORBIDDEN`, 403) — corrigido 2026-07-17, a nota anterior ("ninguém cria evento de outro, nem owner") estava desatualizada frente ao código.
 - **Tipo de evento** (`calendar_event_type`, migration `0007`): `appointment` (com `customer_id` opcional) | `unavailability` (bloqueio).
 - **Sobreposição** proibida por membro: app-level em `CreateCalendarEventUseCase`/`UpdateCalendarEventUseCase` (`hasOverlap`) → `CALENDAR_EVENT_OVERLAP` (409). `ends_at > starts_at` → `CALENDAR_EVENT_INVALID_RANGE` (422). Editar/excluir de terceiro → `CALENDAR_EVENT_FORBIDDEN` (403).
 - **Visibilidade por papel**: `owner` = admin (vê todos; filtra por membro via `?assignedTo=<userId>`); `employee` vê só os seus (o use-case força `assignedTo = self`). No frontend, owner que abre evento de outro membro vê em **modo leitura** (`EventForm readOnly`).
@@ -450,6 +450,16 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
 - **Frontend**: `features/agenda/**` — context (view day/week/month + range), `useCalendarEvents`, visões **custom em CSS-grid** (Semana/Mês/Dia, sem lib de calendário), `EventForm` (Sheet). Página `[orgSlug]/schedule.tsx`.
 - **Integração externa (Google/Outlook/Apple)**: **adiada** — só placeholder em `/dashboard/preferences` ("Calendários externos — em breve"). Conexão será **por usuário** (espelhamento bidirecional), nunca em nome de outro. Não bloqueia o fluxo nativo.
 - **Status do evento** (migration `0008`): `scheduled | canceled` (mínimo). Só o dono altera (`UpdateCalendarEventUseCase`). Eventos `canceled` aparecem esmaecidos/riscados nas visões. Marcar status NÃO cria serviço/transação (virá com Serviços/Caixa).
+
+### F6 — Eventos compartilhados + RSVP (M6, 2026-07-17)
+
+- **Visibilidade do evento** (`calendar_events.visibility` enum `private|shared`, migration `0026`, **default `private` NOT NULL**): evento `private` (padrão) só é visível para o dono + owner/admin; `shared` fica visível para **toda a organização** + ganha lista de presença. Toggle "Compartilhar com a equipe" no `EventForm`, só o dono edita (mesma regra de edição do evento).
+- **Backfill seguro**: `ADD COLUMN ... DEFAULT 'private' NOT NULL` sem nenhum `UPDATE` — todo evento pré-existente permanece `private`. Verificado com `database-guardian` + reviewer antes do merge (nenhum evento antigo vaza para a org).
+- **RLS não distingue private/shared**: a policy Postgres de `calendar_events`/`calendar_event_attendees` só isola por **tenant** (`is_org_member(org_id)`) — mesmo padrão de `service_materials` (tabela filha sem `org_id` direto, policy via `EXISTS` join). O filtro private/shared é **100% camada de aplicação**: `ListCalendarEventsUseCase` — `owner` vê tudo (ou filtra por `assignedTo`); `employee` **ignora** o `assignedTo` do input e busca `assignedTo = self OR visibility = 'shared'` (nunca vê `private` de terceiro).
+- **RSVP** (`calendar_event_attendees`: `event_id`+`user_id` FK cascade, unique `(event_id,user_id)`, `status` enum `going|not_going`): `SetEventRsvpUseCase` deriva `user_id` **sempre do membership da sessão** (nunca do body/client) e só aceita RSVP em evento `shared` (senão `CALENDAR_EVENT_NOT_SHARED`, 422). `pending` é **derivado, nunca persistido** — `ListEventAttendeesUseCase` monta o roster com todos os membros ativos da org, marcando `pending` quem não tem linha de attendee.
+- **Frontend gotcha**: `<EventAttendees>` (botões Vou/Não vou) fica **fora** do `<fieldset disabled={readOnly}>` do `EventForm` — funcionário abre evento `shared` de outro membro em modo leitura (não edita o evento), mas precisa conseguir votar a própria presença.
+- **Valor da sessão continua na descrição** — F6 não adicionou campo novo para isso.
+- **Migration manual**: `drizzle-kit generate` segue quebrado desde a `0011` (sem snapshot) — `0026` escrita à mão seguindo o padrão de `0025_transaction_categories_protected.sql` (+ `.down.sql` + entrada manual em `meta/_journal.json`).
 
 ### Notificações — núcleo reutilizável (2026-06-15)
 - **Módulo `modules/notifications/`**: `NotificationService.notify({userId, orgId?, type, title, body?, data?, email?, actionUrl?, actionLabel?})` cria a notificação **in-app** (tabela `notifications`, migration `0008`) e dispara **e-mail** via `MailService.sendNotification` (best-effort em `try/catch` — falha nunca quebra agenda/estoque/cron). **Outros módulos injetam `NotificationService`** (exportado).

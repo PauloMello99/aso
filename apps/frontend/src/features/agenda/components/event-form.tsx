@@ -40,6 +40,7 @@ import type { CalendarEvent } from "../types"
 import type { CalendarEventBody } from "../hooks/use-calendar-events"
 import { DatePicker } from "@/shared/components/ui/date-picker"
 import type { Member } from "@/features/organizations/types"
+import { EventAttendees } from "./event-attendees"
 
 const NO_CUSTOMER = "none"
 const ASSIGNEE_SELF = "self"
@@ -59,6 +60,8 @@ interface EventFormProps {
   /** Owner pode criar em nome de um membro; funcionário não vê o seletor. */
   isOwner?: boolean
   members?: Member[]
+  /** users.id do usuário logado — usado para o RSVP em eventos compartilhados. */
+  currentUserId?: string
   onSubmit: (body: CalendarEventBody, id?: string) => Promise<void>
   onDelete?: (id: string) => Promise<void>
   onSetStatus?: (id: string, status: "scheduled" | "canceled") => Promise<void>
@@ -75,6 +78,7 @@ function emptyValues(slot?: EventFormProps["defaultSlot"]): EventFormValues {
     allDay: false,
     description: "",
     assignedTo: "",
+    visibility: "private",
   }
 }
 
@@ -88,6 +92,7 @@ export function EventForm({
   ownerName,
   isOwner = false,
   members = [],
+  currentUserId,
   onSubmit,
   onDelete,
   onSetStatus,
@@ -120,6 +125,7 @@ export function EventForm({
         allDay: event.allDay,
         description: event.description ?? "",
         assignedTo: event.assignedTo ?? "",
+        visibility: event.visibility,
       })
     } else {
       form.reset(emptyValues(defaultSlot))
@@ -147,6 +153,7 @@ export function EventForm({
       allDay: v.allDay ?? false,
       // Só relevante na criação; o owner pode atribuir a outro membro.
       assignedTo: v.assignedTo || null,
+      visibility: v.visibility,
     }
     await onSubmit(body, event?.id)
     onOpenChange(false)
@@ -374,7 +381,38 @@ export function EventForm({
                   </FormItem>
                 )}
               />
+
+              <FormField
+                control={form.control}
+                name="visibility"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between gap-4 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3">
+                    <div>
+                      <FormLabel>Compartilhar com a equipe</FormLabel>
+                      <p className="text-xs text-foreground/40">
+                        Membros da organização podem ver e confirmar presença.
+                      </p>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value === "shared"}
+                        onCheckedChange={(checked) =>
+                          field.onChange(checked ? "shared" : "private")
+                        }
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
               </fieldset>
+
+              {event && event.visibility === "shared" && (
+                <EventAttendees
+                  orgId={orgId}
+                  eventId={event.id}
+                  currentUserId={currentUserId}
+                />
+              )}
             </SheetBody>
 
             {readOnly ? (
