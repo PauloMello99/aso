@@ -503,6 +503,40 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   ("Baixar CSV"/"Baixar Excel"). `download-csv.ts` renomeado para `download-export.ts`
   (função `downloadExport`), extensão do arquivo baixado derivada do formato escolhido.
 
+### M9 — Tour de onboarding (F9, 2026-07-17)
+
+- **Persistência no backend, não localStorage**: `users.onboarding_completed_at`
+  (timestamptz nullable, migration `0028`, SEM backfill — usuários existentes veem o
+  tour uma vez, é dismissível e barato). Decisão do usuário: correta entre
+  dispositivos/navegadores, mesmo elevando a tarefa de "intermediária" (rótulo original
+  do roadmap) para **complexa + database-guardian** por tocar schema.
+- **Timestamp sempre derivado no servidor**: `PATCH /auth/me` aceita
+  `onboardingCompletedAt` só como **sinal** (qualquer string truthy ou `null`) — o valor
+  em si é sempre `new Date()` no momento da chamada, nunca o timestamp enviado pelo
+  cliente (evita gravar uma data arbitrária de passado/futuro na própria linha).
+- **Sem endpoint novo**: reusa o fluxo já existente `PATCH /auth/me` →
+  `UpdateMeUseCase` → `userRepo.update` (mesma auditoria automática via
+  `changedFields`), em vez de criar uma rota dedicada.
+- **Lib de tour**: `driver.js` (vanilla JS, zero peer-deps — sem risco de conflito com
+  React 19). CSS global só pode ser importado em `pages/_app.tsx` (Next pages router);
+  importar em componente/hook quebra o build.
+- **Passos calculados dinamicamente**: `getTourSteps(org)` (função pura,
+  `features/dashboard/lib/onboarding-tour.ts`) reusa EXATAMENTE o mesmo filtro de
+  visibilidade de `org-sidebar.tsx` (role + `canAccessModule`) — funcionário com
+  permissões parciais vê só os passos dos módulos que realmente acessa; owner vê todos.
+- **Replay via query param, não navegação direta durante o tour**: botão "Ver tour
+  novamente" fica em **Minha Conta** (não em Configurações da org — o tour é por
+  usuário, não por org) e navega para `/dashboard/org/<slug>/overview?tour=1`;
+  `useOnboardingTour` (montado em `OrgLayout`) detecta `?tour=1` e inicia em modo
+  replay (sem regravar a flag). O tour em si NUNCA navega durante a execução dos
+  passos — só alterna o drawer mobile e o destaque entre elementos já montados.
+- **Gotcha de React Strict Mode**: o guard de dupla montagem (`startedRef`) só é
+  setado **dentro** do `setTimeout` de start, nunca antes de agendá-lo — senão o
+  cleanup do Strict Mode cancela a 1ª montagem e a 2ª nunca reagenda (tour morto).
+- **Mobile**: `onHighlightStarted` do driver.js abre o drawer antes de destacar item de
+  sidebar (`data-tour="nav-*"`) e fecha para os demais passos (popover central,
+  `user-menu`) — evita o overlay do drawer cobrindo o header por cima do popover.
+
 ### Notificações — núcleo reutilizável (2026-06-15)
 - **Módulo `modules/notifications/`**: `NotificationService.notify({userId, orgId?, type, title, body?, data?, email?, actionUrl?, actionLabel?})` cria a notificação **in-app** (tabela `notifications`, migration `0008`) e dispara **e-mail** via `MailService.sendNotification` (best-effort em `try/catch` — falha nunca quebra agenda/estoque/cron). **Outros módulos injetam `NotificationService`** (exportado).
 - **E-mail transacional centralizado (ADR-0012)**: módulo dedicado `modules/mail/` (sem dep de auth/notifications → evita ciclo) é dono do port `IEmailSender`/`ResendEmailSender` e do `MailService` (`sendOrgInvite`/`sendPasswordReset`/`sendWelcome`/`sendNotification`). Templates **React Email** `.tsx` em `modules/mail/templates/` (preview: `pnpm --filter backend email:dev`). **`IEmailSender.send`**: `false` = desabilitado (no-op, dev), `true` = enviado, **lança** em falha real. **Críticos (abortam):** convite (cria→envia→em falha **reverte** o convite + `InvitationEmailFailedException`/HTTP 502) e **reset de senha**. **Best-effort:** notificações/crons e welcome. **Reset de senha saiu do GoTrue**: `IAuthProvider.generatePasswordResetLink` (`admin.generateLink type=recovery`, sem enviar) → enviamos via Resend; `null` p/ user inexistente (sem enumeração). Welcome no sign-up. `NOTIFICATIONS_FROM_EMAIL` exige domínio verificado no Resend.

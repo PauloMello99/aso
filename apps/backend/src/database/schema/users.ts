@@ -13,6 +13,9 @@ export const users = pgTable("users", {
   avatarUrl: text("avatar_url"),
   birthDate: date("birth_date"),
   gender: genderEnum("gender"),
+  onboardingCompletedAt: timestamp("onboarding_completed_at", {
+    withTimezone: true,
+  }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

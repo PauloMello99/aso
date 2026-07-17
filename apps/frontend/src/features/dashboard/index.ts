@@ -22,3 +22,5 @@ export type { OrgSummary } from "./hooks/use-orgs"
 // Lib
 export { ORG_NAV_SECTIONS, PAGE_LABELS } from "./lib/nav"
 export type { NavItem, NavSection } from "./lib/nav"
+export { getTourSteps } from "./lib/onboarding-tour"
+export type { TourStep } from "./lib/onboarding-tour"

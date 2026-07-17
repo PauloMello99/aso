@@ -12,6 +12,7 @@ import {
   Monitor,
   Moon,
   Palette,
+  RotateCcw,
   ShieldCheck,
   Sun,
   Trash2,
@@ -73,6 +74,8 @@ const MAX_AVATAR_BYTES = 5 * 1024 * 1024
 
 export function ProfileSection() {
   const { me, loading, updateMe, uploadAvatar } = useMe()
+  const router = useRouter()
+  const { orgs, loading: orgsLoading } = useOrgs()
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
@@ -235,6 +238,30 @@ export function ProfileSection() {
               </div>
             </form>
           </Form>
+
+          <div className="border-t border-foreground/[0.06] pt-5">
+            <p className="text-sm font-medium">Tour de boas-vindas</p>
+            <p className="mt-0.5 text-xs text-foreground/40">
+              Reveja a apresentação guiada das áreas principais da plataforma.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              disabled={orgsLoading || orgs.length === 0}
+              onClick={() => {
+                const firstOrg = orgs[0]
+                if (!firstOrg) return
+                void router.push(
+                  `/dashboard/org/${firstOrg.slug}/overview?tour=1`,
+                )
+              }}
+            >
+              <RotateCcw className="h-4 w-4" />
+              Ver tour novamente
+            </Button>
+          </div>
         </div>
       )}
     </div>

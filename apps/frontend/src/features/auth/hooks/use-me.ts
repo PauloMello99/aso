@@ -9,6 +9,7 @@ export interface UpdateMeBody {
   name?: string
   email?: string
   avatarUrl?: string | null
+  onboardingCompletedAt?: string | null
 }
 
 export function useMe() {
