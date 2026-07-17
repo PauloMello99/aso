@@ -86,6 +86,8 @@ export class ListCustomerAttachmentsUseCase {
         url: await this.storage.createSignedUrl(
           CUSTOMER_FILES_BUCKET,
           a.storagePath,
+          undefined,
+          a.fileName,
         ),
       })),
     );

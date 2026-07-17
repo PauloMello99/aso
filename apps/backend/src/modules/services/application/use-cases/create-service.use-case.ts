@@ -4,11 +4,16 @@ import {
   SERVICE_REPOSITORY,
   type CreateServiceMaterialData,
 } from "../../domain/service.repository.interface";
+import {
+  IServiceTypeRepository,
+  SERVICE_TYPE_REPOSITORY,
+} from "../../domain/service-type.repository.interface";
 import { ServiceEntity, type PaymentMethod } from "../../domain/service.entity";
 import {
   ICustomerRepository,
   CUSTOMER_REPOSITORY,
 } from "../../../customers/domain/customer.repository.interface";
+import type { CustomerEntity } from "../../../customers/domain/customer.entity";
 import {
   IMemberRepository,
   MEMBER_REPOSITORY,
@@ -37,6 +42,7 @@ import { ServiceMaterialRequiredException } from "../../domain/exceptions/servic
 import { resolvePerformer } from "./resolve-performer";
 import { resolveMembership } from "./resolve-membership";
 import { assertPerformedAtNotFuture } from "./assert-performed-at-not-future";
+import { assertAgeVerification } from "./assert-age-verification";
 
 /** Linha de material no lançamento. */
 export interface ServiceMaterialInput {
@@ -69,6 +75,8 @@ export class CreateServiceUseCase {
   constructor(
     @Inject(SERVICE_REPOSITORY)
     private readonly serviceRepo: IServiceRepository,
+    @Inject(SERVICE_TYPE_REPOSITORY)
+    private readonly serviceTypeRepo: IServiceTypeRepository,
     @Inject(CUSTOMER_REPOSITORY)
     private readonly customerRepo: ICustomerRepository,
     @Inject(MEMBER_REPOSITORY)
@@ -93,8 +101,9 @@ export class CreateServiceUseCase {
     );
 
     // 1. Cliente da org e ativo.
+    let customer: CustomerEntity | null = null;
     if (input.customerId) {
-      const customer = await this.customerRepo.findById(
+      customer = await this.customerRepo.findById(
         input.customerId,
         input.orgId,
       );
@@ -103,6 +112,16 @@ export class CreateServiceUseCase {
         throw new CustomerDisabledException(input.customerId);
       }
     }
+
+    // 1b. Tipo de serviço pode exigir confirmação de maioridade do cliente.
+    const serviceType = input.serviceTypeId
+      ? await this.serviceTypeRepo.findById(input.serviceTypeId, input.orgId)
+      : null;
+    assertAgeVerification(
+      serviceType,
+      customer,
+      input.performedAt ?? new Date(),
+    );
 
     // 2. Profissional: funcionário força self; owner escolhe (membro ativo).
     const performedBy = await resolvePerformer(

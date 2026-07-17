@@ -51,6 +51,7 @@ import {
 } from "../types"
 import { MaterialLines } from "./material-lines"
 import { ServiceTypeDialog } from "./service-type-dialog"
+import { ServiceMediaSection } from "./service-media-section"
 
 const TYPE_NONE = "none"
 const TYPE_CREATE = "__create__"
@@ -72,6 +73,7 @@ function emptyValues(): ServiceFormValues {
 interface ServiceFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  orgId: string
   /** Quando presente, é edição (só campos não-financeiros). */
   service?: Service | null
   isOwner: boolean
@@ -88,6 +90,7 @@ interface ServiceFormProps {
 export function ServiceForm({
   open,
   onOpenChange,
+  orgId,
   service,
   isOwner,
   customers,
@@ -311,6 +314,17 @@ export function ServiceForm({
                   )}
                 />
               </section>
+
+              {/* ── Seção: Fotos (só na edição — precisa de um serviço já
+                  existente para anexar mídia) ─────────────────────── */}
+              {isEdit && service && (
+                <section className="flex flex-col gap-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/40">
+                    Fotos
+                  </h3>
+                  <ServiceMediaSection orgId={orgId} serviceId={service.id} />
+                </section>
+              )}
 
               {/* ── Seção: Materiais (só no lançamento) ───────────── */}
               {!isEdit && (

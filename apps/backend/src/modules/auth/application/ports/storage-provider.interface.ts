@@ -24,6 +24,7 @@ export interface IStorageProvider {
     bucket: string,
     path: string,
     expiresInSeconds?: number,
+    downloadFileName?: string,
   ): Promise<string>;
 
   /** Remove um arquivo de um bucket. */

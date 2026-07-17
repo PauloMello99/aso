@@ -1,7 +1,10 @@
 import { CreateServiceUseCase } from "./create-service.use-case";
 import { IServiceRepository } from "../../domain/service.repository.interface";
 import { ServiceEntity } from "../../domain/service.entity";
+import { IServiceTypeRepository } from "../../domain/service-type.repository.interface";
+import { ServiceTypeEntity } from "../../domain/service-type.entity";
 import { ICustomerRepository } from "../../../customers/domain/customer.repository.interface";
+import { CustomerEntity } from "../../../customers/domain/customer.entity";
 import { IMemberRepository } from "../../../organizations/domain/member.repository.interface";
 import { MemberEntity } from "../../../organizations/domain/member.entity";
 import { IMaterialRepository } from "../../../materials/domain/material.repository.interface";
@@ -11,6 +14,7 @@ import { ITransactionRepository } from "../../../cashier/domain/transaction.repo
 import { IPaymentFeeRepository } from "../../../cashier/domain/payment-fee.repository.interface";
 import { ServiceMaterialRequiredException } from "../../domain/exceptions/service-material-required.exception";
 import { ServicePerformedAtFutureException } from "../../domain/exceptions/service-performed-at-future.exception";
+import { ServiceAgeVerificationRequiredException } from "../../domain/exceptions/service-age-verification-required.exception";
 import { InsufficientStockException } from "../../../materials/domain/exceptions/insufficient-stock.exception";
 
 function buildService(
@@ -70,6 +74,59 @@ function buildMaterial(
     updatedAt: new Date("2026-01-01T00:00:00Z"),
     ...overrides,
   });
+}
+
+function buildServiceType(
+  overrides: Partial<Parameters<typeof ServiceTypeEntity.create>[0]> = {},
+): ServiceTypeEntity {
+  return ServiceTypeEntity.create({
+    id: "service-type-1",
+    orgId: "org-1",
+    name: "Tatuagem",
+    description: null,
+    requiresAgeVerification: false,
+    ...overrides,
+  });
+}
+
+function buildCustomer(
+  overrides: Partial<Parameters<typeof CustomerEntity.create>[0]> = {},
+): CustomerEntity {
+  return CustomerEntity.create({
+    id: "customer-1",
+    orgId: "org-1",
+    userId: null,
+    originId: null,
+    createdBy: null,
+    name: "Cliente",
+    email: "cliente@example.com",
+    phone: null,
+    birthDate: "2000-01-01",
+    gender: null,
+    address: "Rua A",
+    number: "1",
+    addressLine2: null,
+    city: "Cidade",
+    state: "SP",
+    postalCode: null,
+    country: null,
+    notes: null,
+    enabled: true,
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    updatedAt: new Date("2026-01-01T00:00:00Z"),
+    ...overrides,
+  });
+}
+
+function buildFakeServiceTypeRepo(
+  overrides: Partial<jest.Mocked<IServiceTypeRepository>> = {},
+): jest.Mocked<IServiceTypeRepository> {
+  return {
+    findByOrg: jest.fn(),
+    findById: jest.fn(),
+    create: jest.fn(),
+    ...overrides,
+  } as unknown as jest.Mocked<IServiceTypeRepository>;
 }
 
 function buildFakeServiceRepo(
@@ -179,6 +236,7 @@ function buildFakeFeeRepo(
 
 interface Fakes {
   serviceRepo: jest.Mocked<IServiceRepository>;
+  serviceTypeRepo: jest.Mocked<IServiceTypeRepository>;
   customerRepo: jest.Mocked<ICustomerRepository>;
   memberRepo: jest.Mocked<IMemberRepository>;
   materialRepo: jest.Mocked<IMaterialRepository>;
@@ -190,6 +248,7 @@ interface Fakes {
 function buildUseCase(overrides: Partial<Fakes> = {}) {
   const fakes: Fakes = {
     serviceRepo: buildFakeServiceRepo(),
+    serviceTypeRepo: buildFakeServiceTypeRepo(),
     customerRepo: buildFakeCustomerRepo(),
     memberRepo: buildFakeMemberRepo(),
     materialRepo: buildFakeMaterialRepo(),
@@ -200,6 +259,7 @@ function buildUseCase(overrides: Partial<Fakes> = {}) {
   };
   const useCase = new CreateServiceUseCase(
     fakes.serviceRepo,
+    fakes.serviceTypeRepo,
     fakes.customerRepo,
     fakes.memberRepo,
     fakes.materialRepo,
@@ -293,5 +353,104 @@ describe("CreateServiceUseCase", () => {
         materials: [{ materialId: material.id, quantity: 5 }],
       }),
     ).rejects.toBeInstanceOf(InsufficientStockException);
+  });
+
+  it("lança ServiceAgeVerificationRequiredException quando o tipo exige maioridade e não há cliente selecionado", async () => {
+    const serviceType = buildServiceType({ requiresAgeVerification: true });
+    const { useCase, materialRepo, serviceRepo } = buildUseCase({
+      serviceTypeRepo: buildFakeServiceTypeRepo({
+        findById: jest.fn().mockResolvedValue(serviceType),
+      }),
+    });
+
+    await expect(
+      useCase.execute({
+        ...baseInput,
+        serviceTypeId: serviceType.id,
+        materials: [{ materialId: "material-1", quantity: 1 }],
+      }),
+    ).rejects.toBeInstanceOf(ServiceAgeVerificationRequiredException);
+    expect(materialRepo.findById).not.toHaveBeenCalled();
+    expect(serviceRepo.create).not.toHaveBeenCalled();
+  });
+
+  it("lança ServiceAgeVerificationRequiredException quando o cliente é menor de idade na data do atendimento", async () => {
+    const serviceType = buildServiceType({ requiresAgeVerification: true });
+    const minor = buildCustomer({ birthDate: "2015-01-01" });
+    const { useCase } = buildUseCase({
+      serviceTypeRepo: buildFakeServiceTypeRepo({
+        findById: jest.fn().mockResolvedValue(serviceType),
+      }),
+      customerRepo: buildFakeCustomerRepo({
+        findById: jest.fn().mockResolvedValue(minor),
+      }),
+    });
+
+    await expect(
+      useCase.execute({
+        ...baseInput,
+        customerId: minor.id,
+        serviceTypeId: serviceType.id,
+        performedAt: new Date("2026-07-01T10:00:00Z"),
+        materials: [{ materialId: "material-1", quantity: 1 }],
+      }),
+    ).rejects.toBeInstanceOf(ServiceAgeVerificationRequiredException);
+  });
+
+  it("permite no dia exato em que o cliente completa 18 anos (limite mês/dia, não só ano)", async () => {
+    const serviceType = buildServiceType({ requiresAgeVerification: true });
+    // Aniversário de 18 anos é em 2026-07-02.
+    const adult = buildCustomer({ birthDate: "2008-07-02" });
+    const material = buildMaterial({ shareable: false, stockQuantity: "10" });
+    const created = buildService();
+    const { useCase } = buildUseCase({
+      serviceTypeRepo: buildFakeServiceTypeRepo({
+        findById: jest.fn().mockResolvedValue(serviceType),
+      }),
+      customerRepo: buildFakeCustomerRepo({
+        findById: jest.fn().mockResolvedValue(adult),
+      }),
+      materialRepo: buildFakeMaterialRepo({
+        findById: jest.fn().mockResolvedValue(material),
+      }),
+      serviceRepo: buildFakeServiceRepo({
+        create: jest.fn().mockResolvedValue(created),
+        findById: jest.fn().mockResolvedValue(created),
+      }),
+    });
+
+    const result = await useCase.execute({
+      ...baseInput,
+      customerId: adult.id,
+      serviceTypeId: serviceType.id,
+      performedAt: new Date("2026-07-02T10:00:00Z"),
+      materials: [{ materialId: material.id, quantity: 2 }],
+    });
+
+    expect(result).toBe(created);
+  });
+
+  it("bloqueia no dia anterior ao 18º aniversário (ainda 17, não é só subtração de anos)", async () => {
+    const serviceType = buildServiceType({ requiresAgeVerification: true });
+    // Aniversário de 18 anos é em 2026-07-02; véspera ainda é 17.
+    const almostAdult = buildCustomer({ birthDate: "2008-07-02" });
+    const { useCase } = buildUseCase({
+      serviceTypeRepo: buildFakeServiceTypeRepo({
+        findById: jest.fn().mockResolvedValue(serviceType),
+      }),
+      customerRepo: buildFakeCustomerRepo({
+        findById: jest.fn().mockResolvedValue(almostAdult),
+      }),
+    });
+
+    await expect(
+      useCase.execute({
+        ...baseInput,
+        customerId: almostAdult.id,
+        serviceTypeId: serviceType.id,
+        performedAt: new Date("2026-07-01T10:00:00Z"),
+        materials: [{ materialId: "material-1", quantity: 1 }],
+      }),
+    ).rejects.toBeInstanceOf(ServiceAgeVerificationRequiredException);
   });
 });
