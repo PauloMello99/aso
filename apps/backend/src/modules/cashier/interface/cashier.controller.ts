@@ -21,7 +21,11 @@ import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { ListTransactionsUseCase } from "../application/use-cases/list-transactions.use-case";
 import { ExportTransactionsUseCase } from "../application/use-cases/export-transactions.use-case";
-import { parseFields } from "../../../common/csv/csv.util";
+import {
+  parseFields,
+  resolveCsvDelimiter,
+  resolveExportFormat,
+} from "../../../common/csv/csv.util";
 import { CreateTransactionUseCase } from "../application/use-cases/create-transaction.use-case";
 import { ReverseTransactionUseCase } from "../application/use-cases/reverse-transaction.use-case";
 import { CorrectTransactionUseCase } from "../application/use-cases/correct-transaction.use-case";
@@ -135,8 +139,11 @@ export class CashierController {
     @Query("q") q?: string,
     @Query("customerId") customerId?: string,
     @Query("fields") fields?: string,
+    @Query("format") format?: string,
+    @Query("delimiter") delimiter?: string,
   ) {
-    const csv = await this.exportTransactions.execute(
+    const exportFormat = resolveExportFormat(format);
+    const file = await this.exportTransactions.execute(
       orgId,
       user.id,
       {
@@ -156,14 +163,27 @@ export class CashierController {
         customerId: customerId || undefined,
       },
       parseFields(fields),
+      exportFormat,
+      resolveCsvDelimiter(delimiter),
     );
     const date = new Date().toISOString().slice(0, 10);
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="caixa-${date}.csv"`,
-    );
-    res.send(csv);
+    if (exportFormat === "xlsx") {
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="caixa-${date}.xlsx"`,
+      );
+    } else {
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="caixa-${date}.csv"`,
+      );
+    }
+    res.send(file);
   }
 
   @Post("transactions")

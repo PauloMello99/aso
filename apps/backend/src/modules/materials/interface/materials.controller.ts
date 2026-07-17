@@ -38,7 +38,11 @@ import { CreateMaterialUseCase } from "../application/use-cases/create-material.
 import { DeleteMaterialUseCase } from "../application/use-cases/delete-material.use-case";
 import { ListMaterialsUseCase } from "../application/use-cases/list-materials.use-case";
 import { ExportMaterialsUseCase } from "../application/use-cases/export-materials.use-case";
-import { parseFields } from "../../../common/csv/csv.util";
+import {
+  parseFields,
+  resolveCsvDelimiter,
+  resolveExportFormat,
+} from "../../../common/csv/csv.util";
 import { ListStockMovementsUseCase } from "../application/use-cases/list-stock-movements.use-case";
 import { RestockMaterialUseCase } from "../application/use-cases/restock-material.use-case";
 import { UpdateMaterialUseCase } from "../application/use-cases/update-material.use-case";
@@ -154,8 +158,11 @@ export class MaterialsController {
     @Query("minCost") minCost?: string,
     @Query("maxCost") maxCost?: string,
     @Query("fields") fields?: string,
+    @Query("format") format?: string,
+    @Query("delimiter") delimiter?: string,
   ) {
-    const csv = await this.exportMaterials.execute(
+    const exportFormat = resolveExportFormat(format);
+    const file = await this.exportMaterials.execute(
       orgId,
       {
         categoryId: categoryId || undefined,
@@ -173,14 +180,27 @@ export class MaterialsController {
       },
       parseFields(fields),
       user.id,
+      exportFormat,
+      resolveCsvDelimiter(delimiter),
     );
     const date = new Date().toISOString().slice(0, 10);
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="estoque-${date}.csv"`,
-    );
-    res.send(csv);
+    if (exportFormat === "xlsx") {
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="estoque-${date}.xlsx"`,
+      );
+    } else {
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="estoque-${date}.csv"`,
+      );
+    }
+    res.send(file);
   }
 
   @Post()

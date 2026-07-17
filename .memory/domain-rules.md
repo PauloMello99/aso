@@ -470,6 +470,39 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
 - **Gotcha de migration/Storage**: `DELETE FROM storage.buckets`/`storage.objects` direto via SQL **falha** no Supabase local ("Direct deletion from storage tables is not allowed"). `.down.sql` de migration que cria bucket **não deve** tentar apagá-lo — deixar o bucket órfão após rollback é seguro (o `up` é idempotente via `ON CONFLICT DO UPDATE`). Bug idêntico (não corrigido, tarefa em backlog) existe nas migrations `0010` e `0012`, nunca exercitado antes desta sessão.
 - **Migration manual**: mesma situação da `0026` — `0027` escrita à mão (drizzle-kit generate quebrado desde `0011`).
 
+### M8 — Exportação de dados (A5, 2026-07-17)
+
+- **Formato configurável**: os 4 endpoints de export existentes (services, cashier,
+  customers, materials — RPT-2, 2026-06-27) ganharam query params opcionais `format`
+  (`'csv'|'xlsx'`, default `'csv'`) e `delimiter` (`'comma'|'semicolon'|'tab'`, só
+  relevante quando `format=csv`, default `'comma'`). **Retrocompatível**: nenhum
+  parâmetro novo = comportamento idêntico ao anterior (CSV com vírgula).
+  Normalização de valores inválidos/ausentes cai sempre no default — nunca lança erro por
+  `format`/`delimiter` desconhecido.
+- **`common/csv/csv.util.ts`**: `buildCsv()` ganhou 4º parâmetro opcional
+  `delimiterChar` (`,`/`;`/`\t`); `csvCell()` escapa o delimitador ativo além do escape
+  fixo já existente (`/[",\n;]/`) — superset estrito do comportamento anterior. Nova
+  `resolveColumns()` extraída (seleção/ordem via `fields`) para ser reusada tanto por
+  `buildCsv` quanto pela nova geração de Excel.
+- **`common/csv/xlsx.util.ts`** (novo): `buildXlsx<T>(rows, columns, fields?): Promise<Buffer>`
+  via **`exceljs`** — reusa a mesma `CsvColumn<T>[]`/`resolveColumns()` do CSV, escreve
+  valores com tipo nativo do Excel (number/Date/string conforme o que
+  `column.value(row)` já retorna), freeze da primeira linha, largura de coluna
+  automática. **Decisão de lib**: `exceljs`, não `xlsx`/SheetJS — o pacote `xlsx`
+  publicado no npm tem vulnerabilidade conhecida (prototype pollution/ReDoS) sem correção
+  no próprio registro (só corrigida no CDN deles, fora do fluxo normal de instalação).
+- **Content-Type/Content-Disposition por formato**: CSV mantém `text/csv; charset=utf-8`
+  + `.csv`; Excel usa
+  `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` + `.xlsx`.
+  `res.send()` aceita tanto `string` (CSV) quanto `Buffer` (Excel) sem tratamento
+  especial.
+- **Frontend**: `export-menu.tsx` (componente único reusado pelas 4 páginas) ganhou
+  `Select` de Formato (CSV/Excel) + `Select` de Delimitador (só visível quando CSV,
+  espelhando o padrão de campo condicional já usado no projeto). Textos renomeados:
+  "Exportar CSV" → "Exportar dados"; "Baixar CSV" → dinâmico conforme o formato
+  ("Baixar CSV"/"Baixar Excel"). `download-csv.ts` renomeado para `download-export.ts`
+  (função `downloadExport`), extensão do arquivo baixado derivada do formato escolhido.
+
 ### Notificações — núcleo reutilizável (2026-06-15)
 - **Módulo `modules/notifications/`**: `NotificationService.notify({userId, orgId?, type, title, body?, data?, email?, actionUrl?, actionLabel?})` cria a notificação **in-app** (tabela `notifications`, migration `0008`) e dispara **e-mail** via `MailService.sendNotification` (best-effort em `try/catch` — falha nunca quebra agenda/estoque/cron). **Outros módulos injetam `NotificationService`** (exportado).
 - **E-mail transacional centralizado (ADR-0012)**: módulo dedicado `modules/mail/` (sem dep de auth/notifications → evita ciclo) é dono do port `IEmailSender`/`ResendEmailSender` e do `MailService` (`sendOrgInvite`/`sendPasswordReset`/`sendWelcome`/`sendNotification`). Templates **React Email** `.tsx` em `modules/mail/templates/` (preview: `pnpm --filter backend email:dev`). **`IEmailSender.send`**: `false` = desabilitado (no-op, dev), `true` = enviado, **lança** em falha real. **Críticos (abortam):** convite (cria→envia→em falha **reverte** o convite + `InvitationEmailFailedException`/HTTP 502) e **reset de senha**. **Best-effort:** notificações/crons e welcome. **Reset de senha saiu do GoTrue**: `IAuthProvider.generatePasswordResetLink` (`admin.generateLink type=recovery`, sem enviar) → enviamos via Resend; `null` p/ user inexistente (sem enumeração). Welcome no sign-up. `NOTIFICATIONS_FROM_EMAIL` exige domínio verificado no Resend.

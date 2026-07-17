@@ -5,9 +5,13 @@ import { ServiceEntity } from "../../domain/service.entity";
 import {
   buildCsv,
   csvDate,
+  csvDelimiterChar,
   csvMoneyCents,
   type CsvColumn,
+  type CsvDelimiter,
+  type ExportFormat,
 } from "../../../../common/csv/csv.util";
+import { buildXlsx } from "../../../../common/csv/xlsx.util";
 
 const METHOD_LABELS: Record<string, string> = {
   cash: "Dinheiro",
@@ -59,12 +63,22 @@ export class ExportServicesUseCase {
     authId: string,
     filter?: ListServicesFilter,
     fields?: string[],
-  ): Promise<string> {
+    format?: ExportFormat,
+    delimiter?: CsvDelimiter,
+  ): Promise<string | Buffer> {
     const services = await this.listServices.execute({
       orgId,
       authId,
       filter,
     });
-    return buildCsv(services, SERVICE_CSV_COLUMNS, fields);
+    if (format === "xlsx") {
+      return buildXlsx(services, SERVICE_CSV_COLUMNS, fields);
+    }
+    return buildCsv(
+      services,
+      SERVICE_CSV_COLUMNS,
+      fields,
+      csvDelimiterChar(delimiter ?? "comma"),
+    );
   }
 }

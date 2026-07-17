@@ -16,8 +16,12 @@ import {
   FilterField,
   RangeInputs,
 } from "@/shared/components/ui/filter-popover"
-import { ExportMenu } from "@/shared/components/ui/export-menu"
-import { downloadCsv } from "@/shared/lib/download-csv"
+import {
+  ExportMenu,
+  type ExportFormat,
+  type ExportDelimiter,
+} from "@/shared/components/ui/export-menu"
+import { downloadExport } from "@/shared/lib/download-export"
 import { useMaterials, isLowStock } from "../hooks/use-materials"
 import { MaterialList } from "./material-list"
 import { MaterialForm } from "./material-form"
@@ -68,10 +72,15 @@ export function StockPage({ orgId }: StockPageProps) {
     setAdvanced({ minCost: "", maxCost: "" })
   }
 
-  async function handleExport(fields: string[]) {
-    await downloadCsv(
+  async function handleExport(
+    fields: string[],
+    format: ExportFormat,
+    delimiter: ExportDelimiter,
+  ) {
+    await downloadExport(
       `/orgs/${orgId}/materials/export`,
-      `estoque-${new Date().toISOString().slice(0, 10)}.csv`,
+      `estoque-${new Date().toISOString().slice(0, 10)}`,
+      format,
       {
         q: search || undefined,
         archived: showArchived ? "true" : undefined,
@@ -86,6 +95,7 @@ export function StockPage({ orgId }: StockPageProps) {
           ? advanced.maxCost.replace(",", ".")
           : undefined,
         fields: fields.join(","),
+        delimiter: format === "csv" ? delimiter : undefined,
       },
     )
   }
