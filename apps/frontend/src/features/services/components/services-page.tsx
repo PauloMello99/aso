@@ -29,7 +29,11 @@ import { useServices } from "../hooks/use-services"
 import { useServiceTypes } from "../hooks/use-service-types"
 import { ServiceList } from "./service-list"
 import { ServiceForm } from "./service-form"
-import type { ServiceFormValues } from "../schemas/services.schemas"
+import { ServicePaymentCorrectionSheet } from "./service-payment-correction-sheet"
+import type {
+  CorrectServicePaymentFormValues,
+  ServiceFormValues,
+} from "../schemas/services.schemas"
 import {
   SERVICE_STATUS_LABELS,
   SERVICE_PAYMENT_METHODS,
@@ -146,6 +150,7 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
     updateService,
     cancelService,
     payService,
+    correctPayment,
   } = useServices(orgId, filter)
   const { serviceTypes, createServiceType } = useServiceTypes(orgId)
   const { customers } = useCustomers(orgId, { enabledOnly: true })
@@ -164,6 +169,9 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
 
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Service | null>(null)
+  const [correctingPayment, setCorrectingPayment] = useState<Service | null>(
+    null,
+  )
 
   function openCreate() {
     setEditing(null)
@@ -173,6 +181,10 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
   function openEdit(s: Service) {
     setEditing(s)
     setFormOpen(true)
+  }
+
+  function openCorrectPayment(s: Service) {
+    setCorrectingPayment(s)
   }
 
   async function handleSubmit(values: ServiceFormValues) {
@@ -199,6 +211,22 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
       await payService(s.id)
     } catch (err) {
       alert(err instanceof Error ? err.message : "Não foi possível registrar.")
+    }
+  }
+
+  async function handleCorrectPayment(values: CorrectServicePaymentFormValues) {
+    if (!correctingPayment) return
+    try {
+      await correctPayment(correctingPayment.id, {
+        grossCents: parseReaisToCents(values.amount),
+        paymentMethod: values.paymentMethod,
+        description: values.description || undefined,
+        transactedAt: values.transactedAt
+          ? new Date(values.transactedAt).toISOString()
+          : undefined,
+      })
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Não foi possível corrigir.")
     }
   }
 
@@ -432,9 +460,11 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
       ) : (
         <ServiceList
           services={services}
+          isOwner={isOwner}
           onEdit={openEdit}
           onPay={handlePay}
           onCancel={handleCancel}
+          onCorrectPayment={openCorrectPayment}
         />
       )}
 
@@ -451,6 +481,13 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
         onCreateType={createServiceType}
         onCreateMaterial={handleCreateMaterial}
         onSubmit={handleSubmit}
+      />
+
+      <ServicePaymentCorrectionSheet
+        open={!!correctingPayment}
+        onOpenChange={(v) => !v && setCorrectingPayment(null)}
+        service={correctingPayment}
+        onSubmit={handleCorrectPayment}
       />
     </div>
   )

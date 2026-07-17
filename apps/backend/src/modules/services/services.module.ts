@@ -12,6 +12,7 @@ import { CreateServiceUseCase } from "./application/use-cases/create-service.use
 import { UpdateServiceUseCase } from "./application/use-cases/update-service.use-case";
 import { CancelServiceUseCase } from "./application/use-cases/cancel-service.use-case";
 import { RegisterPaymentUseCase } from "./application/use-cases/register-payment.use-case";
+import { CorrectServicePaymentUseCase } from "./application/use-cases/correct-service-payment.use-case";
 import { ListServiceTypesUseCase } from "./application/use-cases/list-service-types.use-case";
 import { CreateServiceTypeUseCase } from "./application/use-cases/create-service-type.use-case";
 import { ServicesController } from "./interface/services.controller";
@@ -34,6 +35,7 @@ import { ServicesController } from "./interface/services.controller";
     UpdateServiceUseCase,
     CancelServiceUseCase,
     RegisterPaymentUseCase,
+    CorrectServicePaymentUseCase,
     ListServiceTypesUseCase,
     CreateServiceTypeUseCase,
   ],

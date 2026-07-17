@@ -58,7 +58,15 @@ export interface IServiceRepository {
     filter?: ListServicesFilter,
   ): Promise<ServiceEntity[]>;
   setPaymentTransaction(id: string, transactionId: string): Promise<void>;
+  /** Usado pela guarda do Caixa: impede errata genérica de transação vinculada a serviço. */
+  existsByPaymentTransactionId(transactionId: string): Promise<boolean>;
   markCanceled(id: string): Promise<void>;
+  /** Sincroniza valor/método/ponteiro de transação após uma errata de pagamento. */
+  correctPayment(
+    id: string,
+    data: { amountCents: number; paymentMethod: PaymentMethod },
+    transactionId: string,
+  ): Promise<void>;
   update(id: string, data: UpdateServiceData): Promise<ServiceEntity>;
   /**
    * Custo total (em centavos) dos materiais consumidos pelos serviços não

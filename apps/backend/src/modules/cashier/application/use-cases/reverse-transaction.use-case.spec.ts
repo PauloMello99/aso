@@ -4,6 +4,8 @@ import { TransactionEntity } from "../../domain/transaction.entity";
 import { TransactionNotFoundException } from "../../domain/exceptions/transaction-not-found.exception";
 import { TransactionAlreadyReversedException } from "../../domain/exceptions/transaction-already-reversed.exception";
 import { TransactionNotReversibleException } from "../../domain/exceptions/transaction-not-reversible.exception";
+import { TransactionIsServicePaymentException } from "../../domain/exceptions/transaction-is-service-payment.exception";
+import { IServiceRepository } from "../../../services/domain/service.repository.interface";
 
 function buildTransaction(
   overrides: Partial<Parameters<typeof TransactionEntity.create>[0]> = {},
@@ -43,6 +45,25 @@ function buildFakeRepo(
   } as unknown as jest.Mocked<ITransactionRepository>;
 }
 
+function buildFakeServiceRepo(
+  overrides: Partial<jest.Mocked<IServiceRepository>> = {},
+): jest.Mocked<IServiceRepository> {
+  return {
+    create: jest.fn(),
+    findById: jest.fn(),
+    findAllByOrg: jest.fn(),
+    setPaymentTransaction: jest.fn(),
+    existsByPaymentTransactionId: jest.fn().mockResolvedValue(false),
+    markCanceled: jest.fn(),
+    correctPayment: jest.fn(),
+    update: jest.fn(),
+    materialCostCentsByPeriod: jest.fn(),
+    countAndRevenueByType: jest.fn(),
+    countAndRevenueByProfessional: jest.fn(),
+    ...overrides,
+  } as unknown as jest.Mocked<IServiceRepository>;
+}
+
 describe("ReverseTransactionUseCase", () => {
   it("cria a linha de estorno com tipo invertido e vínculo com a original", async () => {
     const original = buildTransaction();
@@ -57,7 +78,8 @@ describe("ReverseTransactionUseCase", () => {
       findReversalOf: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockResolvedValue(reversal),
     });
-    const useCase = new ReverseTransactionUseCase(repo);
+    const serviceRepo = buildFakeServiceRepo();
+    const useCase = new ReverseTransactionUseCase(repo, serviceRepo);
 
     const result = await useCase.execute({
       orgId: "org-1",
@@ -80,7 +102,8 @@ describe("ReverseTransactionUseCase", () => {
     const repo = buildFakeRepo({
       findById: jest.fn().mockResolvedValue(null),
     });
-    const useCase = new ReverseTransactionUseCase(repo);
+    const serviceRepo = buildFakeServiceRepo();
+    const useCase = new ReverseTransactionUseCase(repo, serviceRepo);
 
     await expect(
       useCase.execute({ orgId: "org-1", transactionId: "missing" }),
@@ -95,7 +118,8 @@ describe("ReverseTransactionUseCase", () => {
     const repo = buildFakeRepo({
       findById: jest.fn().mockResolvedValue(alreadyReversal),
     });
-    const useCase = new ReverseTransactionUseCase(repo);
+    const serviceRepo = buildFakeServiceRepo();
+    const useCase = new ReverseTransactionUseCase(repo, serviceRepo);
 
     await expect(
       useCase.execute({ orgId: "org-1", transactionId: alreadyReversal.id }),
@@ -109,11 +133,28 @@ describe("ReverseTransactionUseCase", () => {
       findById: jest.fn().mockResolvedValue(original),
       findReversalOf: jest.fn().mockResolvedValue(buildTransaction({ id: "tx-2" })),
     });
-    const useCase = new ReverseTransactionUseCase(repo);
+    const serviceRepo = buildFakeServiceRepo();
+    const useCase = new ReverseTransactionUseCase(repo, serviceRepo);
 
     await expect(
       useCase.execute({ orgId: "org-1", transactionId: original.id }),
     ).rejects.toBeInstanceOf(TransactionAlreadyReversedException);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it("lança TransactionIsServicePaymentException e não estorna quando a transação é pagamento de serviço", async () => {
+    const original = buildTransaction();
+    const repo = buildFakeRepo({
+      findById: jest.fn().mockResolvedValue(original),
+    });
+    const serviceRepo = buildFakeServiceRepo({
+      existsByPaymentTransactionId: jest.fn().mockResolvedValue(true),
+    });
+    const useCase = new ReverseTransactionUseCase(repo, serviceRepo);
+
+    await expect(
+      useCase.execute({ orgId: "org-1", transactionId: original.id }),
+    ).rejects.toBeInstanceOf(TransactionIsServicePaymentException);
     expect(repo.create).not.toHaveBeenCalled();
   });
 });

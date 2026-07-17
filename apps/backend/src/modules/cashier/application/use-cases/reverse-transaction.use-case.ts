@@ -7,6 +7,11 @@ import {
 import { TransactionNotFoundException } from "../../domain/exceptions/transaction-not-found.exception";
 import { TransactionAlreadyReversedException } from "../../domain/exceptions/transaction-already-reversed.exception";
 import { TransactionNotReversibleException } from "../../domain/exceptions/transaction-not-reversible.exception";
+import { TransactionIsServicePaymentException } from "../../domain/exceptions/transaction-is-service-payment.exception";
+import {
+  IServiceRepository,
+  SERVICE_REPOSITORY,
+} from "../../../services/domain/service.repository.interface";
 
 export interface ReverseTransactionInput {
   orgId: string;
@@ -19,6 +24,8 @@ export class ReverseTransactionUseCase {
   constructor(
     @Inject(TRANSACTION_REPOSITORY)
     private readonly transactionRepo: ITransactionRepository,
+    @Inject(SERVICE_REPOSITORY)
+    private readonly serviceRepo: IServiceRepository,
   ) {}
 
   async execute(input: ReverseTransactionInput): Promise<TransactionEntity> {
@@ -27,6 +34,15 @@ export class ReverseTransactionUseCase {
       input.orgId,
     );
     if (!original) throw new TransactionNotFoundException(input.transactionId);
+
+    // Lançamento vinculado a um serviço só pode ser estornado pelo fluxo
+    // dedicado (PATCH /services/:id/payment), que mantém amount_cents e
+    // payment_transaction_id do serviço em sincronia com o caixa.
+    if (
+      await this.serviceRepo.existsByPaymentTransactionId(input.transactionId)
+    ) {
+      throw new TransactionIsServicePaymentException(input.transactionId);
+    }
 
     // Não se estorna um estorno.
     if (original.isReversal) {
