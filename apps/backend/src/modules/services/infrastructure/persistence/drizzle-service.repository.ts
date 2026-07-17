@@ -215,10 +215,35 @@ export class DrizzleServiceRepository implements IServiceRepository {
       .where(eq(schema.services.id, id));
   }
 
+  async existsByPaymentTransactionId(transactionId: string): Promise<boolean> {
+    const result = await this.db
+      .select({ id: schema.services.id })
+      .from(schema.services)
+      .where(eq(schema.services.paymentTransactionId, transactionId))
+      .limit(1);
+    return result.length > 0;
+  }
+
   async markCanceled(id: string): Promise<void> {
     await this.db
       .update(schema.services)
       .set({ canceledAt: new Date(), updatedAt: new Date() })
+      .where(eq(schema.services.id, id));
+  }
+
+  async correctPayment(
+    id: string,
+    data: { amountCents: number; paymentMethod: PaymentMethod },
+    transactionId: string,
+  ): Promise<void> {
+    await this.db
+      .update(schema.services)
+      .set({
+        amountCents: data.amountCents,
+        paymentMethod: data.paymentMethod,
+        paymentTransactionId: transactionId,
+        updatedAt: new Date(),
+      })
       .where(eq(schema.services.id, id));
   }
 

@@ -72,3 +72,16 @@ export const createServiceSchema = serviceSchema
 
 export type ServiceFormValues = z.infer<typeof serviceSchema>
 export type ServiceMaterialLineValues = z.infer<typeof serviceMaterialLineSchema>
+
+// Correção de pagamento (estorno + relançamento): mesmos campos do lançamento
+// original de pagamento, sem materiais/estoque (não são afetados pela correção).
+export const correctServicePaymentSchema = z.object({
+  amount: moneyString,
+  paymentMethod: z.enum(PAYMENT_METHODS),
+  description: z.string().max(500).optional().or(z.literal("")),
+  transactedAt: z.string().optional().or(z.literal("")),
+})
+
+export type CorrectServicePaymentFormValues = z.infer<
+  typeof correctServicePaymentSchema
+>

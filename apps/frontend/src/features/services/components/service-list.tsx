@@ -1,6 +1,6 @@
 "use client"
 
-import { MoreVertical, Pencil, Undo2, Wallet } from "lucide-react"
+import { Coins, MoreVertical, Pencil, Undo2, Wallet } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Badge } from "@/shared/components/ui/badge"
 import {
@@ -28,9 +28,11 @@ import {
 
 interface ServiceListProps {
   services: Service[]
+  isOwner: boolean
   onEdit: (s: Service) => void
   onPay: (s: Service) => void
   onCancel: (s: Service) => void
+  onCorrectPayment: (s: Service) => void
 }
 
 export function formatDate(iso: string): string {
@@ -57,14 +59,18 @@ export function StatusBadge({ status }: { status: ServiceStatus }) {
 
 function ActionMenu({
   service,
+  isOwner,
   onEdit,
   onPay,
   onCancel,
+  onCorrectPayment,
 }: {
   service: Service
+  isOwner: boolean
   onEdit: (s: Service) => void
   onPay: (s: Service) => void
   onCancel: (s: Service) => void
+  onCorrectPayment: (s: Service) => void
 }) {
   const status = serviceStatus(service)
   if (status === "canceled") return null
@@ -92,6 +98,12 @@ function ActionMenu({
             Registrar pagamento
           </DropdownMenuItem>
         )}
+        {status === "paid" && isOwner && (
+          <DropdownMenuItem onClick={() => onCorrectPayment(service)}>
+            <Coins className="h-3.5 w-3.5 shrink-0" />
+            Corrigir valor
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem variant="destructive" onClick={() => onCancel(service)}>
           <Undo2 className="h-3.5 w-3.5 shrink-0" />
           Cancelar
@@ -103,14 +115,18 @@ function ActionMenu({
 
 function MobileCard({
   service,
+  isOwner,
   onEdit,
   onPay,
   onCancel,
+  onCorrectPayment,
 }: {
   service: Service
+  isOwner: boolean
   onEdit: (s: Service) => void
   onPay: (s: Service) => void
   onCancel: (s: Service) => void
+  onCorrectPayment: (s: Service) => void
 }) {
   const status = serviceStatus(service)
   const struck = status === "canceled"
@@ -146,9 +162,11 @@ function MobileCard({
       </div>
       <ActionMenu
         service={service}
+        isOwner={isOwner}
         onEdit={onEdit}
         onPay={onPay}
         onCancel={onCancel}
+        onCorrectPayment={onCorrectPayment}
       />
     </div>
   )
@@ -156,9 +174,11 @@ function MobileCard({
 
 export function ServiceList({
   services,
+  isOwner,
   onEdit,
   onPay,
   onCancel,
+  onCorrectPayment,
 }: ServiceListProps) {
   if (services.length === 0) {
     return (
@@ -179,9 +199,11 @@ export function ServiceList({
           <MobileCard
             key={s.id}
             service={s}
+            isOwner={isOwner}
             onEdit={onEdit}
             onPay={onPay}
             onCancel={onCancel}
+            onCorrectPayment={onCorrectPayment}
           />
         ))}
       </div>
@@ -235,9 +257,11 @@ export function ServiceList({
                     <div className="flex justify-end">
                       <ActionMenu
                         service={s}
+                        isOwner={isOwner}
                         onEdit={onEdit}
                         onPay={onPay}
                         onCancel={onCancel}
+                        onCorrectPayment={onCorrectPayment}
                       />
                     </div>
                   </TableCell>

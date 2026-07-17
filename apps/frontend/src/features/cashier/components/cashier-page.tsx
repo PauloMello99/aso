@@ -167,7 +167,13 @@ export function CashierPage({ orgId }: CashierPageProps) {
 
   async function handleCorrect(values: CorrectionFormValues) {
     if (!active) return
-    await correctTransaction(active.id, toApiBody(values))
+    try {
+      await correctTransaction(active.id, toApiBody(values))
+    } catch (err) {
+      alert(
+        err instanceof Error ? err.message : "Não foi possível corrigir.",
+      )
+    }
   }
 
   async function handleReverse() {

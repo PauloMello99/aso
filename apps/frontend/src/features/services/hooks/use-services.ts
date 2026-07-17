@@ -31,6 +31,13 @@ export interface UpdateServiceBody {
   performedAt?: string
 }
 
+export interface CorrectPaymentBody {
+  grossCents: number
+  paymentMethod: ServicePaymentMethod
+  description?: string
+  transactedAt?: string
+}
+
 export function useServices(orgId: string, filter?: ServicesFilter) {
   const queryClient = useQueryClient()
 
@@ -97,6 +104,23 @@ export function useServices(orgId: string, filter?: ServicesFilter) {
     onSuccess: invalidate,
   })
 
+  const correctPaymentMutation = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: CorrectPaymentBody }) =>
+      apiRequest<Service>(`/orgs/${orgId}/services/${id}/payment`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      invalidate()
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.cashier.all(orgId),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.overview.detail(orgId),
+      })
+    },
+  })
+
   return {
     services: data,
     loading: isLoading,
@@ -107,5 +131,7 @@ export function useServices(orgId: string, filter?: ServicesFilter) {
       updateMutation.mutateAsync({ id, body }),
     cancelService: (id: string) => cancelMutation.mutateAsync(id),
     payService: (id: string) => payMutation.mutateAsync(id),
+    correctPayment: (id: string, body: CorrectPaymentBody) =>
+      correctPaymentMutation.mutateAsync({ id, body }),
   }
 }

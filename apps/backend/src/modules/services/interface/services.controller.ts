@@ -13,6 +13,7 @@ import {
 import type { Response } from "express";
 import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
+import { OrgOwnerGuard } from "../../auth/guards/org-owner.guard";
 import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
 import { RequireModule } from "../../auth/decorators/require-module.decorator";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
@@ -25,6 +26,7 @@ import { CreateServiceUseCase } from "../application/use-cases/create-service.us
 import { UpdateServiceUseCase } from "../application/use-cases/update-service.use-case";
 import { CancelServiceUseCase } from "../application/use-cases/cancel-service.use-case";
 import { RegisterPaymentUseCase } from "../application/use-cases/register-payment.use-case";
+import { CorrectServicePaymentUseCase } from "../application/use-cases/correct-service-payment.use-case";
 import { ListServiceTypesUseCase } from "../application/use-cases/list-service-types.use-case";
 import { CreateServiceTypeUseCase } from "../application/use-cases/create-service-type.use-case";
 import {
@@ -32,6 +34,7 @@ import {
   SERVICE_PAYMENT_METHODS,
 } from "./dto/create-service.dto";
 import { UpdateServiceDto } from "./dto/update-service.dto";
+import { CorrectServicePaymentDto } from "./dto/correct-service-payment.dto";
 import { CreateServiceTypeDto } from "./dto/create-service-type.dto";
 import type { ServiceStatusFilter } from "../domain/service.repository.interface";
 import type { PaymentMethod } from "../domain/service.entity";
@@ -63,6 +66,7 @@ export class ServicesController {
     private readonly updateService: UpdateServiceUseCase,
     private readonly cancelService: CancelServiceUseCase,
     private readonly registerPayment: RegisterPaymentUseCase,
+    private readonly correctServicePayment: CorrectServicePaymentUseCase,
     private readonly listTypes: ListServiceTypesUseCase,
     private readonly createType: CreateServiceTypeUseCase,
   ) {}
@@ -248,6 +252,25 @@ export class ServicesController {
       orgId,
       serviceId: id,
       authId: user.id,
+    });
+  }
+
+  @Patch(":id/payment")
+  @UseGuards(OrgOwnerGuard)
+  async correctPayment(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: CorrectServicePaymentDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.correctServicePayment.execute({
+      orgId,
+      serviceId: id,
+      authId: user.id,
+      grossCents: dto.grossCents,
+      paymentMethod: dto.paymentMethod,
+      description: dto.description,
+      transactedAt: dto.transactedAt ? new Date(dto.transactedAt) : undefined,
     });
   }
 }
