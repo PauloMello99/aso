@@ -33,6 +33,7 @@ import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { DatePicker } from "@/shared/components/ui/date-picker"
+import { centsToReaisInput } from "@/features/cashier/lib/money"
 import type { Customer } from "@/features/clients/types"
 import type { Member } from "@/features/organizations/types"
 import type { Material } from "@/features/stock/types"
@@ -115,7 +116,7 @@ export function ServiceForm({
         serviceTypeId: service.serviceTypeId ?? "",
         performedBy: service.performedBy ?? "",
         description: service.description ?? "",
-        amount: (service.amountCents / 100).toFixed(2),
+        amount: centsToReaisInput(service.amountCents),
         paymentMethod: service.paymentMethod,
         paymentStatus: service.paymentTransactionId ? "paid" : "pending",
         performedAt: service.performedAt ? service.performedAt.slice(0, 10) : "",
