@@ -85,6 +85,8 @@ export const queryKeys = {
       ["cashier", orgId, "history", from ?? "", to ?? ""] as const,
     /** Payment fee configuration */
     fees: (orgId: string) => ["cashier", orgId, "fees"] as const,
+    /** Configurable transaction categories */
+    categories: (orgId: string) => ["cashier", orgId, "categories"] as const,
   },
 
   // ─── Admin (plataforma / super_admin) ──────────────────────────────────────

@@ -28,6 +28,7 @@ export interface TransactionCategory {
   id: string
   orgId: string
   name: string
+  isProtected: boolean
   createdAt: string
 }
 

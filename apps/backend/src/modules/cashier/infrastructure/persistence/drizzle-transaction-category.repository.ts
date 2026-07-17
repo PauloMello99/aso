@@ -15,6 +15,7 @@ function toDomain(row: typeof schema.transactionCategories.$inferSelect) {
     id: row.id,
     orgId: row.orgId,
     name: row.name,
+    isProtected: row.isProtected,
     createdAt: row.createdAt,
   });
 }
@@ -70,5 +71,36 @@ export class DrizzleTransactionCategoryRepository
       .returning();
     this.cache.del(categoriesKey(orgId));
     return toDomain(row!);
+  }
+
+  async update(
+    id: string,
+    orgId: string,
+    name: string,
+  ): Promise<TransactionCategoryEntity> {
+    const [row] = await this.db
+      .update(schema.transactionCategories)
+      .set({ name })
+      .where(
+        and(
+          eq(schema.transactionCategories.id, id),
+          eq(schema.transactionCategories.orgId, orgId),
+        ),
+      )
+      .returning();
+    this.cache.del(categoriesKey(orgId));
+    return toDomain(row!);
+  }
+
+  async delete(id: string, orgId: string): Promise<void> {
+    await this.db
+      .delete(schema.transactionCategories)
+      .where(
+        and(
+          eq(schema.transactionCategories.id, id),
+          eq(schema.transactionCategories.orgId, orgId),
+        ),
+      );
+    this.cache.del(categoriesKey(orgId));
   }
 }
