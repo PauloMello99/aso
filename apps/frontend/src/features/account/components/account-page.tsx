@@ -5,6 +5,8 @@ import Link from "next/link"
 import { useRouter } from "next/router"
 import { ArrowLeft, User, KeyRound, Palette, Trash2 } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
+import { useOrgs } from "@/features/dashboard/hooks/use-orgs"
+import { shouldShowDeleteAccount } from "@/features/account/lib/can-delete-account"
 import {
   AccessSection,
   AppearanceSection,
@@ -21,7 +23,18 @@ const SECTIONS = [
 
 export function AccountPage() {
   const router = useRouter()
+  const { orgs, loading: orgsLoading } = useOrgs()
   const [active, setActive] = React.useState<string>(SECTIONS[0].id)
+
+  // A3 — funcionários puros (sem nenhuma organização própria) não veem "Apagar Conta".
+  // Enquanto orgs carrega, mantém visível para evitar flash/layout-shift.
+  const sections = React.useMemo(
+    () =>
+      SECTIONS.filter(
+        ({ id }) => id !== "danger" || orgsLoading || shouldShowDeleteAccount(orgs),
+      ),
+    [orgs, orgsLoading],
+  )
 
   // Item 7 — volta para onde estávamos; fallback p/ as organizações.
   function handleBack() {
@@ -56,12 +69,12 @@ export function AccountPage() {
       },
       { rootMargin: "-20% 0px -70% 0px", threshold: 0 },
     )
-    SECTIONS.forEach(({ id }) => {
+    sections.forEach(({ id }) => {
       const el = document.getElementById(id)
       if (el) observer.observe(el)
     })
     return () => observer.disconnect()
-  }, [])
+  }, [sections])
 
   return (
     <div className="space-y-6">
@@ -78,7 +91,7 @@ export function AccountPage() {
       <div className="flex min-h-full flex-col gap-6 md:flex-row md:gap-8">
         {/* Mobile: barra de âncoras horizontal */}
         <nav className="flex gap-1 overflow-x-auto border-b border-foreground/[0.06] pb-3 md:hidden">
-          {SECTIONS.map(({ id, label }) => {
+          {sections.map(({ id, label }) => {
             const isDanger = id === "danger"
             const isActive = active === id
             return (
@@ -109,7 +122,7 @@ export function AccountPage() {
               Minha Conta
             </p>
             <ul className="space-y-0.5">
-              {SECTIONS.map(({ id, label, icon: Icon }) => {
+              {sections.map(({ id, label, icon: Icon }) => {
                 const isDanger = id === "danger"
                 const isActive = active === id
                 return (
@@ -151,7 +164,7 @@ export function AccountPage() {
         {/* Sections empilhadas — conteúdo centralizado, com largura máxima */}
         <div className="min-w-0 flex-1">
           <div className="mx-auto max-w-3xl space-y-12">
-            {SECTIONS.map(({ id, Section }) => (
+            {sections.map(({ id, Section }) => (
               <section key={id} id={id} className="scroll-mt-20">
                 <Section />
               </section>
