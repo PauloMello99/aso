@@ -1,4 +1,10 @@
-import { IsEmail, IsOptional, IsString, MaxLength } from "class-validator";
+import {
+  IsEmail,
+  IsISO8601,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from "class-validator";
 
 export class UpdateMeDto {
   @IsString()
@@ -13,4 +19,8 @@ export class UpdateMeDto {
   @IsString()
   @IsOptional()
   avatarUrl?: string | null;
+
+  @IsOptional()
+  @IsISO8601()
+  onboardingCompletedAt?: string | null;
 }

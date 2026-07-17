@@ -71,6 +71,9 @@ export class DrizzleUserRepository implements IUserRepository {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.email !== undefined && { email: data.email }),
         ...(data.avatarUrl !== undefined && { avatarUrl: data.avatarUrl }),
+        ...(data.onboardingCompletedAt !== undefined && {
+          onboardingCompletedAt: data.onboardingCompletedAt,
+        }),
         updatedAt: new Date(),
       })
       .where(eq(schema.users.authId, authId))

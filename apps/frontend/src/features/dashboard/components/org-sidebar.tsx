@@ -144,6 +144,7 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
                         <Link
                           href={`${basePath}/${item.href}`}
                           onClick={onMobileClose}
+                          data-tour={`nav-${item.href}`}
                           className={cn(
                             "flex items-center rounded-md py-2 text-sm transition-colors",
                             // Desktop collapsed: icon only, centered

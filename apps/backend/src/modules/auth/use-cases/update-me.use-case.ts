@@ -16,6 +16,7 @@ export interface UpdateMeInput {
   name?: string;
   email?: string;
   avatarUrl?: string | null;
+  onboardingCompletedAt?: string | null;
 }
 
 @Injectable()
@@ -40,6 +41,15 @@ export class UpdateMeUseCase {
       name: input.name,
       email: emailChanged ? input.email : undefined,
       avatarUrl: input.avatarUrl,
+      // Valor vem do cliente só como sinal (presença = "concluir/dispensar"); o
+      // timestamp em si é sempre derivado no servidor (new Date()), nunca confiado
+      // do cliente — evita gravar uma data arbitrária de passado/futuro.
+      onboardingCompletedAt:
+        input.onboardingCompletedAt === undefined
+          ? undefined
+          : input.onboardingCompletedAt === null
+            ? null
+            : new Date(),
     });
 
     const changedFields = Object.keys(input).filter(

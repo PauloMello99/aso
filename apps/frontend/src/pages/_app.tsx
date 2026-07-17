@@ -6,6 +6,7 @@ import { AppProviders } from "@/providers"
 import { ErrorBoundary } from "@/shared/components/error-boundary"
 import { installGlobalErrorHandlers } from "@/infrastructure/telemetry/telemetry"
 import "@/styles/globals.css"
+import "driver.js/dist/driver.css"
 
 // Allow pages to declare a custom layout via getLayout
 export type NextPageWithLayout<P = object, IP = P> = NextPage<P, IP> & {

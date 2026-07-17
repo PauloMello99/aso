@@ -9,6 +9,7 @@ import { OrgSidebar } from "@/features/dashboard/components/org-sidebar"
 import { OrgSwitcher } from "@/features/dashboard/components/org-switcher"
 import { OrgProvider } from "@/features/dashboard/components/org-context"
 import { useOrgs, useResolveOrgBySlug } from "@/features/dashboard/hooks/use-orgs"
+import { useOnboardingTour } from "@/features/dashboard/hooks/use-onboarding-tour"
 import { useMe } from "@/features/auth/hooks/use-me"
 import {
   PAGE_LABELS,
@@ -116,6 +117,10 @@ export function OrgLayout({ children }: OrgLayoutProps) {
   React.useEffect(() => {
     setMobileOpen(false)
   }, [router.pathname])
+
+  // Tour de onboarding: dispara sozinho no primeiro acesso (ou em modo replay via
+  // ?tour=1) — hook lida com `org` ainda undefined internamente.
+  useOnboardingTour({ me, org, setMobileOpen })
 
   if (!org) return null
 

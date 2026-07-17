@@ -15,6 +15,7 @@ export interface Me {
   avatarUrl: string | null
   birthDate: string | null
   gender: "male" | "female" | "other" | null
+  onboardingCompletedAt: string | null
   createdAt: string
   updatedAt: string
 }
