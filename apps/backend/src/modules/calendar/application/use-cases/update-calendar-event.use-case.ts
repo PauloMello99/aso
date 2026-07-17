@@ -3,6 +3,7 @@ import {
   CalendarEventEntity,
   CalendarEventStatus,
   CalendarEventType,
+  CalendarEventVisibility,
 } from "../../domain/calendar-event.entity";
 import {
   CALENDAR_EVENT_REPOSITORY,
@@ -25,6 +26,7 @@ export interface UpdateCalendarEventInput {
   startsAt?: Date;
   endsAt?: Date;
   allDay?: boolean;
+  visibility?: CalendarEventVisibility;
 }
 
 @Injectable()
@@ -71,6 +73,7 @@ export class UpdateCalendarEventUseCase {
       startsAt: input.startsAt,
       endsAt: input.endsAt,
       allDay: input.allDay,
+      visibility: input.visibility,
     });
   }
 }

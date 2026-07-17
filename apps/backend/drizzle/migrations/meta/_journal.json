@@ -183,6 +183,13 @@
       "when": 1782001500000,
       "tag": "0025_transaction_categories_protected",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1782001600000,
+      "tag": "0026_calendar_event_sharing",
+      "breakpoints": true
     }
   ]
 }

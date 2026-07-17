@@ -41,4 +41,8 @@ export class CreateCalendarEventDto {
   @IsBoolean()
   @IsOptional()
   allDay?: boolean;
+
+  @IsIn(["private", "shared"])
+  @IsOptional()
+  visibility?: "private" | "shared";
 }

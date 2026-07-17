@@ -10,6 +10,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from "@nestjs/common";
@@ -23,8 +24,11 @@ import { ListCalendarEventsUseCase } from "../application/use-cases/list-calenda
 import { CreateCalendarEventUseCase } from "../application/use-cases/create-calendar-event.use-case";
 import { UpdateCalendarEventUseCase } from "../application/use-cases/update-calendar-event.use-case";
 import { DeleteCalendarEventUseCase } from "../application/use-cases/delete-calendar-event.use-case";
+import { SetEventRsvpUseCase } from "../application/use-cases/set-event-rsvp.use-case";
+import { ListEventAttendeesUseCase } from "../application/use-cases/list-event-attendees.use-case";
 import { CreateCalendarEventDto } from "./dto/create-calendar-event.dto";
 import { UpdateCalendarEventDto } from "./dto/update-calendar-event.dto";
+import { SetRsvpDto } from "./dto/set-rsvp.dto";
 
 function parseDate(value: string | undefined, field: string): Date {
   if (!value) throw new BadRequestException(`${field} is required`);
@@ -44,6 +48,8 @@ export class CalendarController {
     private readonly createEvent: CreateCalendarEventUseCase,
     private readonly updateEvent: UpdateCalendarEventUseCase,
     private readonly deleteEvent: DeleteCalendarEventUseCase,
+    private readonly setEventRsvp: SetEventRsvpUseCase,
+    private readonly listEventAttendees: ListEventAttendeesUseCase,
   ) {}
 
   @Get()
@@ -80,6 +86,7 @@ export class CalendarController {
       startsAt: parseDate(dto.startsAt, "startsAt"),
       endsAt: parseDate(dto.endsAt, "endsAt"),
       allDay: dto.allDay,
+      visibility: dto.visibility,
     });
   }
 
@@ -102,6 +109,7 @@ export class CalendarController {
       startsAt: dto.startsAt ? parseDate(dto.startsAt, "startsAt") : undefined,
       endsAt: dto.endsAt ? parseDate(dto.endsAt, "endsAt") : undefined,
       allDay: dto.allDay,
+      visibility: dto.visibility,
     });
   }
 
@@ -113,5 +121,33 @@ export class CalendarController {
     @CurrentUser() user: AuthUser,
   ) {
     await this.deleteEvent.execute({ id, orgId, authId: user.id });
+  }
+
+  @Put(":id/rsvp")
+  async rsvp(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: SetRsvpDto,
+  ) {
+    await this.setEventRsvp.execute({
+      orgId,
+      authId: user.id,
+      eventId: id,
+      status: dto.status,
+    });
+  }
+
+  @Get(":id/attendees")
+  async attendees(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.listEventAttendees.execute({
+      orgId,
+      authId: user.id,
+      eventId: id,
+    });
   }
 }

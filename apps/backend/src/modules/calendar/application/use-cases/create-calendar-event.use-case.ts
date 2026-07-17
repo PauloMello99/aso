@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import {
   CalendarEventEntity,
   CalendarEventType,
+  CalendarEventVisibility,
 } from "../../domain/calendar-event.entity";
 import {
   CALENDAR_EVENT_REPOSITORY,
@@ -26,6 +27,7 @@ export interface CreateCalendarEventInput {
   startsAt: Date;
   endsAt: Date;
   allDay?: boolean;
+  visibility?: CalendarEventVisibility;
 }
 
 @Injectable()
@@ -72,6 +74,7 @@ export class CreateCalendarEventUseCase {
       startsAt: input.startsAt,
       endsAt: input.endsAt,
       allDay: input.allDay ?? false,
+      visibility: input.visibility ?? "private",
     });
 
     // Indisponibilidade → avisa os admins (owners) da org, exceto o autor.

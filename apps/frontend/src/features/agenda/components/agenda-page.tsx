@@ -198,6 +198,7 @@ function AgendaInner() {
         ownerName={ownerName}
         isOwner={isOwner}
         members={members}
+        currentUserId={myUserId}
         onSubmit={handleSubmit}
         onDelete={handleDelete}
         onSetStatus={handleSetStatus}

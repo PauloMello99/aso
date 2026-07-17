@@ -30,6 +30,18 @@ export interface ListCalendarEventsFilter {
   end: Date;
   /** users.id — restringe a um membro específico (usado por owner/admin). */
   assignedTo?: string;
+  /**
+   * users.id do usuário da sessão — quando presente (e `assignedTo` ausente),
+   * inclui os eventos do próprio usuário (qualquer visibility) + os shared de
+   * qualquer membro da org. Usado pelo funcionário na listagem.
+   */
+  includeSharedForUserId?: string;
+}
+
+export interface AttendeeRow {
+  userId: string;
+  name: string;
+  status: "going" | "not_going";
 }
 
 export interface ICalendarEventRepository {
@@ -64,4 +76,17 @@ export interface ICalendarEventRepository {
   /** Agendamentos (scheduled) que começam em (now, until] e ainda não foram lembrados. */
   findDueReminders(now: Date, until: Date): Promise<DueReminder[]>;
   markReminderSent(id: string): Promise<void>;
+
+  /** Cria ou atualiza o RSVP (going/not_going) do membro para o evento. */
+  upsertAttendee(
+    eventId: string,
+    userId: string,
+    status: "going" | "not_going",
+  ): Promise<void>;
+
+  /** RSVPs já registrados para o evento (sem os "pending", derivados na composição). */
+  listAttendees(eventId: string): Promise<AttendeeRow[]>;
+
+  /** Membros ativos da org (userId + nome) — base do roster de presença. */
+  listOrgMembersBasic(orgId: string): Promise<{ userId: string; name: string }[]>;
 }

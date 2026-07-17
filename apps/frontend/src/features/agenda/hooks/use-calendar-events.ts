@@ -15,6 +15,7 @@ export interface CalendarEventBody {
   startsAt: string // ISO
   endsAt: string // ISO
   allDay?: boolean
+  visibility?: "private" | "shared"
 }
 
 interface UseCalendarEventsArgs {

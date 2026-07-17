@@ -8,6 +8,8 @@ import { DeleteCalendarEventUseCase } from "./application/use-cases/delete-calen
 import { SendAgendaRemindersUseCase } from "./application/use-cases/send-agenda-reminders.use-case";
 import { GetCalendarConnectionUseCase } from "./application/use-cases/get-calendar-connection.use-case";
 import { DisconnectCalendarUseCase } from "./application/use-cases/disconnect-calendar.use-case";
+import { SetEventRsvpUseCase } from "./application/use-cases/set-event-rsvp.use-case";
+import { ListEventAttendeesUseCase } from "./application/use-cases/list-event-attendees.use-case";
 import { CalendarInfrastructureModule } from "./infrastructure/calendar-infrastructure.module";
 import { CalendarController } from "./interface/calendar.controller";
 import { CalendarConnectionController } from "./interface/calendar-connection.controller";
@@ -23,6 +25,8 @@ import { CalendarConnectionController } from "./interface/calendar-connection.co
     SendAgendaRemindersUseCase,
     GetCalendarConnectionUseCase,
     DisconnectCalendarUseCase,
+    SetEventRsvpUseCase,
+    ListEventAttendeesUseCase,
   ],
   exports: [CalendarInfrastructureModule, SendAgendaRemindersUseCase],
 })

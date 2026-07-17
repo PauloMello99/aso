@@ -1,5 +1,6 @@
 export type CalendarEventType = "appointment" | "unavailability";
 export type CalendarEventStatus = "scheduled" | "canceled";
+export type CalendarEventVisibility = "private" | "shared";
 
 export interface CalendarEventProps {
   id: string;
@@ -14,6 +15,8 @@ export interface CalendarEventProps {
   startsAt: Date;
   endsAt: Date;
   allDay: boolean;
+  // private: só o dono do horário vê; shared: visível para a organização inteira.
+  visibility: CalendarEventVisibility;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -29,6 +32,7 @@ export interface CreateCalendarEventData {
   startsAt: Date;
   endsAt: Date;
   allDay?: boolean;
+  visibility?: CalendarEventVisibility;
 }
 
 export interface UpdateCalendarEventData {
@@ -40,6 +44,7 @@ export interface UpdateCalendarEventData {
   startsAt?: Date;
   endsAt?: Date;
   allDay?: boolean;
+  visibility?: CalendarEventVisibility;
 }
 
 export class CalendarEventEntity {
@@ -55,6 +60,7 @@ export class CalendarEventEntity {
   readonly startsAt: Date;
   readonly endsAt: Date;
   readonly allDay: boolean;
+  readonly visibility: CalendarEventVisibility;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 
@@ -71,6 +77,7 @@ export class CalendarEventEntity {
     this.startsAt = props.startsAt;
     this.endsAt = props.endsAt;
     this.allDay = props.allDay;
+    this.visibility = props.visibility;
     this.createdAt = props.createdAt;
     this.updatedAt = props.updatedAt;
   }
