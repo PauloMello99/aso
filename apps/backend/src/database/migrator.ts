@@ -21,6 +21,16 @@ interface JournalEntry {
 /**
  * Replica o hash exato que drizzle-orm grava em __drizzle_migrations.
  * Fonte: drizzle-orm/migrator.ts → readMigrationFiles()
+ *
+ * Usado apenas como diagnostico informativo (arquivo mudou desde que foi
+ * aplicado?) — NAO decide mais o estado "applied". drizzle-orm's proprio
+ * PgDialect.migrate() (pg-core/dialect.ts) nunca compara hash para decidir
+ * o que ja rodou: ele usa apenas `created_at` (= journal `when`, aka
+ * folderMillis) contra a ultima linha da tabela. Migrations escritas a mao
+ * quase sempre sao ajustadas depois do primeiro `db:migrate` de teste local
+ * (formatacao, guards IF NOT EXISTS, etc.), o que muda o hash do arquivo
+ * permanentemente sem que o DDL precise re-rodar — usar hash como chave de
+ * "applied" torna o estado falso-pending de forma irreversivel.
  */
 function computeMigrationHash(tag: string): string {
   const sqlPath = path.join(MIGRATIONS_FOLDER, `${tag}.sql`);
@@ -55,11 +65,12 @@ async function down(steps: number): Promise<void> {
   for (const entry of entries) {
     if (rolledBack >= steps) break;
 
-    const hash = computeMigrationHash(entry.tag);
-
+    // Identidade de "applied" = created_at gravado igual ao journal `when`
+    // (folderMillis), o mesmo campo que o migrate() do drizzle-orm usa —
+    // nao o hash, que muda se o .sql for editado apos a aplicacao original.
     const { rowCount } = await pool.query(
-      `SELECT id FROM ${DRIZZLE_SCHEMA}.${DRIZZLE_TABLE} WHERE hash = $1`,
-      [hash],
+      `SELECT id FROM ${DRIZZLE_SCHEMA}.${DRIZZLE_TABLE} WHERE created_at = $1`,
+      [entry.when],
     );
 
     if (!rowCount) continue; // migration not applied, skip
@@ -81,8 +92,8 @@ async function down(steps: number): Promise<void> {
     try {
       await pool.query(downSql);
       await pool.query(
-        `DELETE FROM ${DRIZZLE_SCHEMA}.${DRIZZLE_TABLE} WHERE hash = $1`,
-        [hash],
+        `DELETE FROM ${DRIZZLE_SCHEMA}.${DRIZZLE_TABLE} WHERE created_at = $1`,
+        [entry.when],
       );
       await pool.query("COMMIT");
     } catch (err) {
@@ -110,18 +121,27 @@ async function status(): Promise<void> {
     `SELECT hash, created_at FROM ${DRIZZLE_SCHEMA}.${DRIZZLE_TABLE} ORDER BY created_at ASC`,
   );
 
-  const appliedHashes = new Set(rows.map((r) => r.hash));
+  // created_at é gravado a partir do journal `when` (folderMillis) — é essa
+  // a chave de identidade que o migrate() do drizzle-orm usa para decidir o
+  // que já rodou. O hash por linha é só o que foi calculado NAQUELE momento;
+  // comparar contra o hash atual do arquivo serve só de diagnóstico abaixo.
+  const hashByCreatedAt = new Map(rows.map((r) => [Number(r.created_at), r.hash]));
 
   console.log("\nMigrations status:\n");
 
   for (const entry of entries) {
-    const hash = computeMigrationHash(entry.tag);
-    const applied = appliedHashes.has(hash);
+    const dbHash = hashByCreatedAt.get(entry.when);
+    const applied = dbHash !== undefined;
     const downExists = fs.existsSync(
       path.join(MIGRATIONS_FOLDER, `${entry.tag}.down.sql`),
     );
     const downLabel = downExists ? "" : " (no .down.sql)";
-    const status = applied ? `✓ applied${downLabel}` : "○ pending";
+
+    let status = applied ? `✓ applied${downLabel}` : "○ pending";
+    if (applied && dbHash !== computeMigrationHash(entry.tag)) {
+      status += " (file changed since applied)";
+    }
+
     console.log(`  [${status}] ${entry.tag}`);
   }
 
