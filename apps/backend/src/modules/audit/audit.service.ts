@@ -12,7 +12,8 @@ export type AuditAction =
   | "delete"
   | "invite_sent"
   | "invite_accepted"
-  | "subscription_changed";
+  | "subscription_changed"
+  | "anamnesis_invite_sent";
 
 export interface AuditEntry {
   actorId: string | null;

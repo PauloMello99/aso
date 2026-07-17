@@ -94,4 +94,12 @@ export const auditActionEnum = pgEnum("audit_action", [
   "invite_sent",
   "invite_accepted",
   "subscription_changed",
+  "anamnesis_invite_sent",
 ]);
+
+// Só 2 valores persistidos — "expired" é derivado em runtime comparando
+// expiresAt < now(), nunca gravado no banco.
+export const anamnesisResponseStatusEnum = pgEnum(
+  "anamnesis_response_status",
+  ["pending", "submitted"],
+);

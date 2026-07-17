@@ -13,6 +13,8 @@ export interface ServiceEntityProps {
   customerId: string | null;
   /** Transação de pagamento vinculada (null = pendente). */
   paymentTransactionId: string | null;
+  /** Resposta de anamnese vinculada (M10b). */
+  anamnesisResponseId: string | null;
   performedBy: string | null;
   createdBy: string | null;
   description: string | null;
@@ -36,6 +38,7 @@ export class ServiceEntity {
   readonly serviceTypeId: string | null;
   readonly customerId: string | null;
   readonly paymentTransactionId: string | null;
+  readonly anamnesisResponseId: string | null;
   readonly performedBy: string | null;
   readonly createdBy: string | null;
   readonly description: string | null;
@@ -56,6 +59,7 @@ export class ServiceEntity {
     this.serviceTypeId = props.serviceTypeId;
     this.customerId = props.customerId;
     this.paymentTransactionId = props.paymentTransactionId;
+    this.anamnesisResponseId = props.anamnesisResponseId;
     this.performedBy = props.performedBy;
     this.createdBy = props.createdBy;
     this.description = props.description;

@@ -12,6 +12,10 @@ import { ServiceAlreadyCanceledException } from "../../domain/exceptions/service
 import { ServiceForbiddenException } from "../../domain/exceptions/service-forbidden.exception";
 import { ServicePerformedAtFutureException } from "../../domain/exceptions/service-performed-at-future.exception";
 import { ServiceAgeVerificationRequiredException } from "../../domain/exceptions/service-age-verification-required.exception";
+import { IAnamnesisResponseRepository } from "../../../anamnesis/domain/anamnesis-response.repository.interface";
+import { AnamnesisResponseEntity } from "../../../anamnesis/domain/anamnesis-response.entity";
+import { AnamnesisResponseNotFoundException } from "../../../anamnesis/domain/exceptions/anamnesis-response-not-found.exception";
+import { AnamnesisResponseNotLinkableException } from "../../../anamnesis/domain/exceptions/anamnesis-response-not-linkable.exception";
 
 function buildService(
   overrides: Partial<Parameters<typeof ServiceEntity.create>[0]> = {},
@@ -22,6 +26,7 @@ function buildService(
     serviceTypeId: null,
     customerId: null,
     paymentTransactionId: null,
+    anamnesisResponseId: null,
     performedBy: "user-1",
     createdBy: "user-1",
     description: null,
@@ -94,6 +99,42 @@ function buildCustomer(
   });
 }
 
+function buildAnamnesisResponse(
+  overrides: Partial<Parameters<typeof AnamnesisResponseEntity.create>[0]> = {},
+): AnamnesisResponseEntity {
+  return AnamnesisResponseEntity.create({
+    id: "anamnesis-response-1",
+    orgId: "org-1",
+    formVersionId: "form-version-1",
+    serviceTypeId: null,
+    customerId: null,
+    questionsSnapshot: [],
+    token: "token-1",
+    expiresAt: new Date("2026-12-31T00:00:00Z"),
+    status: "submitted",
+    answers: [],
+    submittedAt: new Date("2026-07-01T09:00:00Z"),
+    createdBy: "user-1",
+    createdAt: new Date("2026-06-30T00:00:00Z"),
+    ...overrides,
+  });
+}
+
+function buildFakeAnamnesisResponseRepo(
+  overrides: Partial<jest.Mocked<IAnamnesisResponseRepository>> = {},
+): jest.Mocked<IAnamnesisResponseRepository> {
+  return {
+    create: jest.fn(),
+    deletePendingFor: jest.fn(),
+    delete: jest.fn(),
+    findByToken: jest.fn(),
+    markSubmitted: jest.fn(),
+    findById: jest.fn(),
+    findLinkable: jest.fn(),
+    ...overrides,
+  } as unknown as jest.Mocked<IAnamnesisResponseRepository>;
+}
+
 function buildFakeServiceTypeRepo(
   overrides: Partial<jest.Mocked<IServiceTypeRepository>> = {},
 ): jest.Mocked<IServiceTypeRepository> {
@@ -160,6 +201,7 @@ interface Fakes {
   serviceTypeRepo: jest.Mocked<IServiceTypeRepository>;
   customerRepo: jest.Mocked<ICustomerRepository>;
   memberRepo: jest.Mocked<IMemberRepository>;
+  anamnesisResponseRepo: jest.Mocked<IAnamnesisResponseRepository>;
 }
 
 function buildUseCase(overrides: Partial<Fakes> = {}) {
@@ -168,6 +210,7 @@ function buildUseCase(overrides: Partial<Fakes> = {}) {
     serviceTypeRepo: buildFakeServiceTypeRepo(),
     customerRepo: buildFakeCustomerRepo(),
     memberRepo: buildFakeMemberRepo(),
+    anamnesisResponseRepo: buildFakeAnamnesisResponseRepo(),
     ...overrides,
   };
   const useCase = new UpdateServiceUseCase(
@@ -175,6 +218,7 @@ function buildUseCase(overrides: Partial<Fakes> = {}) {
     fakes.serviceTypeRepo,
     fakes.customerRepo,
     fakes.memberRepo,
+    fakes.anamnesisResponseRepo,
   );
   return { useCase, ...fakes };
 }
@@ -353,5 +397,99 @@ describe("UpdateServiceUseCase", () => {
 
     expect(serviceRepo.update).toHaveBeenCalled();
     expect(result).toBe(updated);
+  });
+
+  describe("vínculo de resposta de anamnese (M10b)", () => {
+    it("atualiza normalmente quando a resposta existe, está submitted e tipo/cliente batem", async () => {
+      const customer = buildCustomer();
+      const serviceType = buildServiceType();
+      const existing = buildService({
+        customerId: customer.id,
+        serviceTypeId: serviceType.id,
+      });
+      const response = buildAnamnesisResponse({
+        customerId: customer.id,
+        serviceTypeId: serviceType.id,
+      });
+      const updated = buildService({
+        customerId: customer.id,
+        serviceTypeId: serviceType.id,
+        anamnesisResponseId: response.id,
+      });
+      const { useCase, serviceRepo, anamnesisResponseRepo } = buildUseCase({
+        serviceRepo: buildFakeServiceRepo({
+          findById: jest
+            .fn()
+            .mockResolvedValueOnce(existing)
+            .mockResolvedValueOnce(updated),
+          update: jest.fn().mockResolvedValue(updated),
+        }),
+        serviceTypeRepo: buildFakeServiceTypeRepo({
+          findById: jest.fn().mockResolvedValue(serviceType),
+        }),
+        customerRepo: buildFakeCustomerRepo({
+          findById: jest.fn().mockResolvedValue(customer),
+        }),
+        anamnesisResponseRepo: buildFakeAnamnesisResponseRepo({
+          findById: jest.fn().mockResolvedValue(response),
+        }),
+      });
+
+      const result = await useCase.execute({
+        ...baseInput,
+        anamnesisResponseId: response.id,
+      });
+
+      expect(anamnesisResponseRepo.findById).toHaveBeenCalledWith(
+        response.id,
+        "org-1",
+      );
+      expect(serviceRepo.update).toHaveBeenCalledWith(
+        existing.id,
+        expect.objectContaining({ anamnesisResponseId: response.id }),
+      );
+      expect(result).toBe(updated);
+    });
+
+    it("lança AnamnesisResponseNotFoundException quando a resposta não existe na org", async () => {
+      const existing = buildService();
+      const { useCase, serviceRepo } = buildUseCase({
+        serviceRepo: buildFakeServiceRepo({
+          findById: jest.fn().mockResolvedValue(existing),
+        }),
+        anamnesisResponseRepo: buildFakeAnamnesisResponseRepo({
+          findById: jest.fn().mockResolvedValue(null),
+        }),
+      });
+
+      await expect(
+        useCase.execute({
+          ...baseInput,
+          anamnesisResponseId: "missing-response",
+        }),
+      ).rejects.toBeInstanceOf(AnamnesisResponseNotFoundException);
+      expect(serviceRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("lança AnamnesisResponseNotLinkableException quando a resposta ainda está pendente", async () => {
+      const existing = buildService();
+      const response = buildAnamnesisResponse({ status: "pending" });
+      const { useCase, serviceRepo } = buildUseCase({
+        serviceRepo: buildFakeServiceRepo({
+          findById: jest.fn().mockResolvedValue(existing),
+        }),
+        anamnesisResponseRepo: buildFakeAnamnesisResponseRepo({
+          findById: jest.fn().mockResolvedValue(response),
+        }),
+      });
+
+      await expect(
+        useCase.execute({
+          ...baseInput,
+          anamnesisResponseId: response.id,
+        }),
+      ).rejects.toBeInstanceOf(AnamnesisResponseNotLinkableException);
+      expect(serviceRepo.update).not.toHaveBeenCalled();
+    });
   });
 });

@@ -39,10 +39,15 @@ import { CustomerDisabledException } from "../../domain/exceptions/customer-disa
 import { MaterialNotFoundException } from "../../../materials/domain/exceptions/material-not-found.exception";
 import { InsufficientStockException } from "../../../materials/domain/exceptions/insufficient-stock.exception";
 import { ServiceMaterialRequiredException } from "../../domain/exceptions/service-material-required.exception";
+import {
+  IAnamnesisResponseRepository,
+  ANAMNESIS_RESPONSE_REPOSITORY,
+} from "../../../anamnesis/domain/anamnesis-response.repository.interface";
 import { resolvePerformer } from "./resolve-performer";
 import { resolveMembership } from "./resolve-membership";
 import { assertPerformedAtNotFuture } from "./assert-performed-at-not-future";
 import { assertAgeVerification } from "./assert-age-verification";
+import { assertAnamnesisResponseLinkable } from "./assert-anamnesis-response-linkable";
 
 /** Linha de material no lançamento. */
 export interface ServiceMaterialInput {
@@ -62,6 +67,8 @@ export interface CreateServiceInput {
   /** App users.id do profissional (só owner escolhe; funcionário força = self). */
   performedBy?: string | null;
   description?: string | null;
+  /** Resposta de anamnese vinculada a este atendimento (M10b). */
+  anamnesisResponseId?: string | null;
   amountCents: number;
   paymentMethod: PaymentMethod;
   /** "paid" gera transação líquida no caixa; "pending" não. */
@@ -89,6 +96,8 @@ export class CreateServiceUseCase {
     private readonly transactionRepo: ITransactionRepository,
     @Inject(PAYMENT_FEE_REPOSITORY)
     private readonly feeRepo: IPaymentFeeRepository,
+    @Inject(ANAMNESIS_RESPONSE_REPOSITORY)
+    private readonly anamnesisResponseRepo: IAnamnesisResponseRepository,
   ) {}
 
   async execute(input: CreateServiceInput): Promise<ServiceEntity> {
@@ -122,6 +131,18 @@ export class CreateServiceUseCase {
       customer,
       input.performedAt ?? new Date(),
     );
+
+    // 1c. Resposta de anamnese vinculada (M10b): precisa existir, estar
+    // submitted e (se já tiver tipo/cliente) bater com os do serviço.
+    if (input.anamnesisResponseId) {
+      await assertAnamnesisResponseLinkable(
+        this.anamnesisResponseRepo,
+        input.orgId,
+        input.anamnesisResponseId,
+        input.customerId ?? null,
+        input.serviceTypeId ?? null,
+      );
+    }
 
     // 2. Profissional: funcionário força self; owner escolhe (membro ativo).
     const performedBy = await resolvePerformer(
@@ -178,6 +199,7 @@ export class CreateServiceUseCase {
         performedBy,
         createdBy: currentUserId,
         description: input.description ?? null,
+        anamnesisResponseId: input.anamnesisResponseId ?? null,
         amountCents: input.amountCents,
         paymentMethod: input.paymentMethod,
         performedAt: input.performedAt,

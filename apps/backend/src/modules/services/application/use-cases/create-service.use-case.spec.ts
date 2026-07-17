@@ -16,6 +16,10 @@ import { ServiceMaterialRequiredException } from "../../domain/exceptions/servic
 import { ServicePerformedAtFutureException } from "../../domain/exceptions/service-performed-at-future.exception";
 import { ServiceAgeVerificationRequiredException } from "../../domain/exceptions/service-age-verification-required.exception";
 import { InsufficientStockException } from "../../../materials/domain/exceptions/insufficient-stock.exception";
+import { IAnamnesisResponseRepository } from "../../../anamnesis/domain/anamnesis-response.repository.interface";
+import { AnamnesisResponseEntity } from "../../../anamnesis/domain/anamnesis-response.entity";
+import { AnamnesisResponseNotFoundException } from "../../../anamnesis/domain/exceptions/anamnesis-response-not-found.exception";
+import { AnamnesisResponseNotLinkableException } from "../../../anamnesis/domain/exceptions/anamnesis-response-not-linkable.exception";
 
 function buildService(
   overrides: Partial<Parameters<typeof ServiceEntity.create>[0]> = {},
@@ -26,6 +30,7 @@ function buildService(
     serviceTypeId: null,
     customerId: null,
     paymentTransactionId: null,
+    anamnesisResponseId: null,
     performedBy: "user-1",
     createdBy: "user-1",
     description: null,
@@ -116,6 +121,42 @@ function buildCustomer(
     updatedAt: new Date("2026-01-01T00:00:00Z"),
     ...overrides,
   });
+}
+
+function buildAnamnesisResponse(
+  overrides: Partial<Parameters<typeof AnamnesisResponseEntity.create>[0]> = {},
+): AnamnesisResponseEntity {
+  return AnamnesisResponseEntity.create({
+    id: "anamnesis-response-1",
+    orgId: "org-1",
+    formVersionId: "form-version-1",
+    serviceTypeId: null,
+    customerId: null,
+    questionsSnapshot: [],
+    token: "token-1",
+    expiresAt: new Date("2026-12-31T00:00:00Z"),
+    status: "submitted",
+    answers: [],
+    submittedAt: new Date("2026-07-01T09:00:00Z"),
+    createdBy: "user-1",
+    createdAt: new Date("2026-06-30T00:00:00Z"),
+    ...overrides,
+  });
+}
+
+function buildFakeAnamnesisResponseRepo(
+  overrides: Partial<jest.Mocked<IAnamnesisResponseRepository>> = {},
+): jest.Mocked<IAnamnesisResponseRepository> {
+  return {
+    create: jest.fn(),
+    deletePendingFor: jest.fn(),
+    delete: jest.fn(),
+    findByToken: jest.fn(),
+    markSubmitted: jest.fn(),
+    findById: jest.fn(),
+    findLinkable: jest.fn(),
+    ...overrides,
+  } as unknown as jest.Mocked<IAnamnesisResponseRepository>;
 }
 
 function buildFakeServiceTypeRepo(
@@ -243,6 +284,7 @@ interface Fakes {
   movementRepo: jest.Mocked<IStockMovementRepository>;
   transactionRepo: jest.Mocked<ITransactionRepository>;
   feeRepo: jest.Mocked<IPaymentFeeRepository>;
+  anamnesisResponseRepo: jest.Mocked<IAnamnesisResponseRepository>;
 }
 
 function buildUseCase(overrides: Partial<Fakes> = {}) {
@@ -255,6 +297,7 @@ function buildUseCase(overrides: Partial<Fakes> = {}) {
     movementRepo: buildFakeMovementRepo(),
     transactionRepo: buildFakeTransactionRepo(),
     feeRepo: buildFakeFeeRepo(),
+    anamnesisResponseRepo: buildFakeAnamnesisResponseRepo(),
     ...overrides,
   };
   const useCase = new CreateServiceUseCase(
@@ -266,6 +309,7 @@ function buildUseCase(overrides: Partial<Fakes> = {}) {
     fakes.movementRepo,
     fakes.transactionRepo,
     fakes.feeRepo,
+    fakes.anamnesisResponseRepo,
   );
   return { useCase, ...fakes };
 }
@@ -452,5 +496,124 @@ describe("CreateServiceUseCase", () => {
         materials: [{ materialId: "material-1", quantity: 1 }],
       }),
     ).rejects.toBeInstanceOf(ServiceAgeVerificationRequiredException);
+  });
+
+  describe("vínculo de resposta de anamnese (M10b)", () => {
+    it("cria o serviço quando a resposta existe, está submitted e tipo/cliente batem", async () => {
+      const customer = buildCustomer();
+      const serviceType = buildServiceType();
+      const response = buildAnamnesisResponse({
+        customerId: customer.id,
+        serviceTypeId: serviceType.id,
+      });
+      const material = buildMaterial({ shareable: false, stockQuantity: "10" });
+      const created = buildService({ anamnesisResponseId: response.id });
+      const { useCase, serviceRepo, anamnesisResponseRepo } = buildUseCase({
+        customerRepo: buildFakeCustomerRepo({
+          findById: jest.fn().mockResolvedValue(customer),
+        }),
+        serviceTypeRepo: buildFakeServiceTypeRepo({
+          findById: jest.fn().mockResolvedValue(serviceType),
+        }),
+        materialRepo: buildFakeMaterialRepo({
+          findById: jest.fn().mockResolvedValue(material),
+        }),
+        anamnesisResponseRepo: buildFakeAnamnesisResponseRepo({
+          findById: jest.fn().mockResolvedValue(response),
+        }),
+        serviceRepo: buildFakeServiceRepo({
+          create: jest.fn().mockResolvedValue(created),
+          findById: jest.fn().mockResolvedValue(created),
+        }),
+      });
+
+      const result = await useCase.execute({
+        ...baseInput,
+        customerId: customer.id,
+        serviceTypeId: serviceType.id,
+        anamnesisResponseId: response.id,
+        materials: [{ materialId: material.id, quantity: 2 }],
+      });
+
+      expect(anamnesisResponseRepo.findById).toHaveBeenCalledWith(
+        response.id,
+        "org-1",
+      );
+      expect(serviceRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ anamnesisResponseId: response.id }),
+        expect.any(Array),
+      );
+      expect(result).toBe(created);
+    });
+
+    it("lança AnamnesisResponseNotFoundException quando a resposta não existe na org", async () => {
+      const material = buildMaterial({ shareable: false, stockQuantity: "10" });
+      const { useCase, serviceRepo } = buildUseCase({
+        materialRepo: buildFakeMaterialRepo({
+          findById: jest.fn().mockResolvedValue(material),
+        }),
+        anamnesisResponseRepo: buildFakeAnamnesisResponseRepo({
+          findById: jest.fn().mockResolvedValue(null),
+        }),
+      });
+
+      await expect(
+        useCase.execute({
+          ...baseInput,
+          anamnesisResponseId: "missing-response",
+          materials: [{ materialId: material.id, quantity: 2 }],
+        }),
+      ).rejects.toBeInstanceOf(AnamnesisResponseNotFoundException);
+      expect(serviceRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("lança AnamnesisResponseNotLinkableException quando a resposta ainda está pendente", async () => {
+      const response = buildAnamnesisResponse({ status: "pending" });
+      const material = buildMaterial({ shareable: false, stockQuantity: "10" });
+      const { useCase, serviceRepo } = buildUseCase({
+        materialRepo: buildFakeMaterialRepo({
+          findById: jest.fn().mockResolvedValue(material),
+        }),
+        anamnesisResponseRepo: buildFakeAnamnesisResponseRepo({
+          findById: jest.fn().mockResolvedValue(response),
+        }),
+      });
+
+      await expect(
+        useCase.execute({
+          ...baseInput,
+          anamnesisResponseId: response.id,
+          materials: [{ materialId: material.id, quantity: 2 }],
+        }),
+      ).rejects.toBeInstanceOf(AnamnesisResponseNotLinkableException);
+      expect(serviceRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("lança AnamnesisResponseNotLinkableException quando o cliente da resposta não bate com o do serviço", async () => {
+      const customer = buildCustomer();
+      const response = buildAnamnesisResponse({ customerId: "customer-2" });
+      const material = buildMaterial({ shareable: false, stockQuantity: "10" });
+      const { useCase, serviceRepo } = buildUseCase({
+        customerRepo: buildFakeCustomerRepo({
+          findById: jest.fn().mockResolvedValue(customer),
+        }),
+        materialRepo: buildFakeMaterialRepo({
+          findById: jest.fn().mockResolvedValue(material),
+        }),
+        anamnesisResponseRepo: buildFakeAnamnesisResponseRepo({
+          findById: jest.fn().mockResolvedValue(response),
+        }),
+      });
+
+      await expect(
+        useCase.execute({
+          ...baseInput,
+          customerId: customer.id,
+          anamnesisResponseId: response.id,
+          materials: [{ materialId: material.id, quantity: 2 }],
+        }),
+      ).rejects.toBeInstanceOf(AnamnesisResponseNotLinkableException);
+      expect(serviceRepo.create).not.toHaveBeenCalled();
+    });
   });
 });

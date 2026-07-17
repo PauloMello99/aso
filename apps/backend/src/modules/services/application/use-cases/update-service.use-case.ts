@@ -21,10 +21,15 @@ import { ServiceNotFoundException } from "../../domain/exceptions/service-not-fo
 import { ServiceAlreadyCanceledException } from "../../domain/exceptions/service-already-canceled.exception";
 import { CustomerDisabledException } from "../../domain/exceptions/customer-disabled.exception";
 import { ServiceForbiddenException } from "../../domain/exceptions/service-forbidden.exception";
+import {
+  IAnamnesisResponseRepository,
+  ANAMNESIS_RESPONSE_REPOSITORY,
+} from "../../../anamnesis/domain/anamnesis-response.repository.interface";
 import { resolvePerformer } from "./resolve-performer";
 import { resolveMembership } from "./resolve-membership";
 import { assertPerformedAtNotFuture } from "./assert-performed-at-not-future";
 import { assertAgeVerification } from "./assert-age-verification";
+import { assertAnamnesisResponseLinkable } from "./assert-anamnesis-response-linkable";
 
 /**
  * Edita apenas campos **não-financeiros** do serviço. Valor, método e estoque
@@ -38,6 +43,8 @@ export interface UpdateServiceInput {
   customerId?: string | null;
   performedBy?: string | null;
   description?: string | null;
+  /** Resposta de anamnese vinculada a este atendimento (M10b). */
+  anamnesisResponseId?: string | null;
   performedAt?: Date;
 }
 
@@ -52,6 +59,8 @@ export class UpdateServiceUseCase {
     private readonly customerRepo: ICustomerRepository,
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepo: IMemberRepository,
+    @Inject(ANAMNESIS_RESPONSE_REPOSITORY)
+    private readonly anamnesisResponseRepo: IAnamnesisResponseRepository,
   ) {}
 
   async execute(input: UpdateServiceInput): Promise<ServiceEntity> {
@@ -119,6 +128,18 @@ export class UpdateServiceUseCase {
       effectivePerformedAt,
     );
 
+    // Resposta de anamnese (M10b): só valida quando o patch está de fato
+    // (re)vinculando uma resposta — `null` explícito só desvincula.
+    if (input.anamnesisResponseId) {
+      await assertAnamnesisResponseLinkable(
+        this.anamnesisResponseRepo,
+        input.orgId,
+        input.anamnesisResponseId,
+        effectiveCustomerId,
+        effectiveServiceTypeId,
+      );
+    }
+
     // Profissional só muda se enviado; funcionário continua restrito a si.
     const performedBy =
       input.performedBy !== undefined
@@ -137,6 +158,7 @@ export class UpdateServiceUseCase {
       performedBy,
       description: input.description,
       performedAt: input.performedAt,
+      anamnesisResponseId: input.anamnesisResponseId,
     });
 
     const fresh = await this.serviceRepo.findById(service.id, input.orgId);

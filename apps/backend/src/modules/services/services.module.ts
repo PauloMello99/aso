@@ -4,6 +4,7 @@ import { CashierInfrastructureModule } from "../cashier/infrastructure/cashier-i
 import { MaterialsInfrastructureModule } from "../materials/infrastructure/materials-infrastructure.module";
 import { CustomersInfrastructureModule } from "../customers/infrastructure/customers-infrastructure.module";
 import { OrgsInfrastructureModule } from "../organizations/infrastructure/orgs-infrastructure.module";
+import { AnamnesisInfrastructureModule } from "../anamnesis/infrastructure/anamnesis-infrastructure.module";
 import { ServicesInfrastructureModule } from "./infrastructure/services-infrastructure.module";
 import { ListServicesUseCase } from "./application/use-cases/list-services.use-case";
 import { ExportServicesUseCase } from "./application/use-cases/export-services.use-case";
@@ -30,6 +31,7 @@ import { ServicesController } from "./interface/services.controller";
     MaterialsInfrastructureModule,
     CustomersInfrastructureModule,
     OrgsInfrastructureModule,
+    AnamnesisInfrastructureModule,
     AuthModule,
   ],
   controllers: [ServicesController],

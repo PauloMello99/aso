@@ -18,6 +18,11 @@ export class UpdateServiceDto {
   @IsOptional()
   description?: string | null;
 
+  /** Resposta de anamnese vinculada a este atendimento (M10b). */
+  @IsUUID()
+  @IsOptional()
+  anamnesisResponseId?: string | null;
+
   @IsString()
   @IsOptional()
   performedAt?: string;

@@ -12,6 +12,7 @@ export interface CreateServiceData {
   amountCents: number;
   paymentMethod: PaymentMethod;
   performedAt?: Date;
+  anamnesisResponseId?: string | null;
 }
 
 export interface CreateServiceMaterialData {
@@ -25,6 +26,7 @@ export interface UpdateServiceData {
   performedBy?: string | null;
   description?: string | null;
   performedAt?: Date;
+  anamnesisResponseId?: string | null;
 }
 
 export type ServiceStatusFilter = "pending" | "paid" | "canceled";

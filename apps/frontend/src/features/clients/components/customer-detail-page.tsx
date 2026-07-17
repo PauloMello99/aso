@@ -2,9 +2,12 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Loader2, Pencil } from "lucide-react"
+import { ArrowLeft, FileHeart, Loader2, Pencil } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Separator } from "@/shared/components/ui/separator"
+import { useCurrentOrg } from "@/features/dashboard"
+import { canAccessModule } from "@/features/dashboard/lib/nav"
+import { SendAnamnesisInviteDialog } from "@/features/anamnesis"
 import { useCustomerDetail } from "../hooks/use-customer-detail"
 import { useCustomers } from "../hooks/use-customers"
 import { useCustomerOrigins } from "../hooks/use-customer-origins"
@@ -70,8 +73,15 @@ export function CustomerDetailPage({
   )
   const { origins } = useCustomerOrigins(orgId)
   const { updateCustomer } = useCustomers(orgId)
+  const { org } = useCurrentOrg()
+  const canSendAnamnesisInvite = canAccessModule(
+    org.role,
+    org.permissions,
+    "services",
+  )
 
   const [formOpen, setFormOpen] = useState(false)
+  const [anamnesisDialogOpen, setAnamnesisDialogOpen] = useState(false)
 
   const originName = useMemo(() => {
     if (!customer?.originId) return "Não informado"
@@ -144,9 +154,20 @@ export function CustomerDetailPage({
             <StatusBadge enabled={customer.enabled} />
           </div>
         </div>
-        <Button onClick={() => setFormOpen(true)} className="shrink-0">
-          <Pencil className="h-4 w-4" /> Editar
-        </Button>
+        <div className="flex flex-col gap-2 sm:shrink-0 sm:flex-row">
+          {canSendAnamnesisInvite && (
+            <Button
+              variant="outline"
+              onClick={() => setAnamnesisDialogOpen(true)}
+              className="w-full sm:w-auto"
+            >
+              <FileHeart className="h-4 w-4" /> Enviar ficha de anamnese
+            </Button>
+          )}
+          <Button onClick={() => setFormOpen(true)} className="w-full sm:w-auto">
+            <Pencil className="h-4 w-4" /> Editar
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -250,6 +271,16 @@ export function CustomerDetailPage({
         origins={origins}
         onSubmit={handleSubmit}
       />
+
+      {canSendAnamnesisInvite && (
+        <SendAnamnesisInviteDialog
+          open={anamnesisDialogOpen}
+          onOpenChange={setAnamnesisDialogOpen}
+          orgId={orgId}
+          customerId={customer.id}
+          customerName={customer.name}
+        />
+      )}
     </div>
   )
 }
