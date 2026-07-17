@@ -17,8 +17,12 @@ import {
   FilterPopover,
   FilterField,
 } from "@/shared/components/ui/filter-popover"
-import { ExportMenu } from "@/shared/components/ui/export-menu"
-import { downloadCsv } from "@/shared/lib/download-csv"
+import {
+  ExportMenu,
+  type ExportFormat,
+  type ExportDelimiter,
+} from "@/shared/components/ui/export-menu"
+import { downloadExport } from "@/shared/lib/download-export"
 import { useCurrentOrg } from "@/features/dashboard"
 import { useCustomers } from "../hooks/use-customers"
 import { useCustomerOrigins } from "../hooks/use-customer-origins"
@@ -176,10 +180,15 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
     await deleteCustomer(customer.id)
   }
 
-  async function handleExport(fields: string[]) {
-    await downloadCsv(
+  async function handleExport(
+    fields: string[],
+    format: ExportFormat,
+    delimiter: ExportDelimiter,
+  ) {
+    await downloadExport(
       `/orgs/${orgId}/customers/export`,
-      `clientes-${new Date().toISOString().slice(0, 10)}.csv`,
+      `clientes-${new Date().toISOString().slice(0, 10)}`,
+      format,
       {
         search,
         status: advanced.status,
@@ -191,6 +200,7 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
         city: advanced.city,
         state: advanced.state,
         fields: fields.join(","),
+        delimiter: format === "csv" ? delimiter : undefined,
       },
     )
   }

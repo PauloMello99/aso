@@ -7,8 +7,12 @@ import { ListMaterialsFilter } from "../../domain/material.repository.interface"
 import {
   buildCsv,
   csvDate,
+  csvDelimiterChar,
   type CsvColumn,
+  type CsvDelimiter,
+  type ExportFormat,
 } from "../../../../common/csv/csv.util";
+import { buildXlsx } from "../../../../common/csv/xlsx.util";
 
 /** Colunas exportáveis de materiais (chaves usadas no seletor `?fields=`). */
 export const MATERIAL_CSV_COLUMNS: CsvColumn<MaterialListItemView>[] = [
@@ -51,8 +55,18 @@ export class ExportMaterialsUseCase {
     filter?: ListMaterialsFilter,
     fields?: string[],
     authId?: string,
-  ): Promise<string> {
+    format?: ExportFormat,
+    delimiter?: CsvDelimiter,
+  ): Promise<string | Buffer> {
     const materials = await this.listMaterials.execute(orgId, filter, authId);
-    return buildCsv(materials, MATERIAL_CSV_COLUMNS, fields);
+    if (format === "xlsx") {
+      return buildXlsx(materials, MATERIAL_CSV_COLUMNS, fields);
+    }
+    return buildCsv(
+      materials,
+      MATERIAL_CSV_COLUMNS,
+      fields,
+      csvDelimiterChar(delimiter ?? "comma"),
+    );
   }
 }

@@ -17,8 +17,12 @@ import {
   FilterField,
   RangeInputs,
 } from "@/shared/components/ui/filter-popover"
-import { ExportMenu } from "@/shared/components/ui/export-menu"
-import { downloadCsv } from "@/shared/lib/download-csv"
+import {
+  ExportMenu,
+  type ExportFormat,
+  type ExportDelimiter,
+} from "@/shared/components/ui/export-menu"
+import { downloadExport } from "@/shared/lib/download-export"
 import { useCurrentOrg } from "@/features/dashboard"
 import { useCustomers } from "@/features/clients/hooks/use-customers"
 import { useMembers } from "@/features/organizations/hooks/use-members"
@@ -234,10 +238,15 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
     setFilter((f) => ({ ...f, q: search || undefined }))
   }
 
-  async function handleExport(fields: string[]) {
-    await downloadCsv(
+  async function handleExport(
+    fields: string[],
+    format: ExportFormat,
+    delimiter: ExportDelimiter,
+  ) {
+    await downloadExport(
       `/orgs/${orgId}/services/export`,
-      `servicos-${new Date().toISOString().slice(0, 10)}.csv`,
+      `servicos-${new Date().toISOString().slice(0, 10)}`,
+      format,
       {
         from: filter.from,
         to: filter.to,
@@ -250,6 +259,7 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
         maxCents: filter.maxCents,
         q: filter.q,
         fields: fields.join(","),
+        delimiter: format === "csv" ? delimiter : undefined,
       },
     )
   }

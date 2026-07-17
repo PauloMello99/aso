@@ -44,7 +44,11 @@ import {
 import { CreateCustomerDto } from "./dto/create-customer.dto";
 import { UpdateCustomerDto } from "./dto/update-customer.dto";
 import type { ListCustomersFilter } from "../domain/customer.repository.interface";
-import { parseFields } from "../../../common/csv/csv.util";
+import {
+  parseFields,
+  resolveCsvDelimiter,
+  resolveExportFormat,
+} from "../../../common/csv/csv.util";
 
 interface UploadedDoc {
   buffer: Buffer;
@@ -164,8 +168,11 @@ export class CustomersController {
     @Query("city") city?: string,
     @Query("state") state?: string,
     @Query("fields") fields?: string,
+    @Query("format") format?: string,
+    @Query("delimiter") delimiter?: string,
   ) {
-    const csv = await this.exportCustomers.execute(
+    const exportFormat = resolveExportFormat(format);
+    const file = await this.exportCustomers.execute(
       orgId,
       buildCustomersFilter({
         search,
@@ -180,14 +187,27 @@ export class CustomersController {
         state,
       }),
       parseFields(fields),
+      exportFormat,
+      resolveCsvDelimiter(delimiter),
     );
     const date = new Date().toISOString().slice(0, 10);
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="clientes-${date}.csv"`,
-    );
-    res.send(csv);
+    if (exportFormat === "xlsx") {
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="clientes-${date}.xlsx"`,
+      );
+    } else {
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="clientes-${date}.csv"`,
+      );
+    }
+    res.send(file);
   }
 
   @Get(":id")

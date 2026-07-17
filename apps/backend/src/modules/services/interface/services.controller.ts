@@ -30,7 +30,11 @@ import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { ListServicesUseCase } from "../application/use-cases/list-services.use-case";
 import { ExportServicesUseCase } from "../application/use-cases/export-services.use-case";
 import { GetServiceUseCase } from "../application/use-cases/get-service.use-case";
-import { parseFields } from "../../../common/csv/csv.util";
+import {
+  parseFields,
+  resolveCsvDelimiter,
+  resolveExportFormat,
+} from "../../../common/csv/csv.util";
 import { CreateServiceUseCase } from "../application/use-cases/create-service.use-case";
 import { UpdateServiceUseCase } from "../application/use-cases/update-service.use-case";
 import { CancelServiceUseCase } from "../application/use-cases/cancel-service.use-case";
@@ -190,8 +194,11 @@ export class ServicesController {
     @Query("maxCents") maxCents?: string,
     @Query("q") q?: string,
     @Query("fields") fields?: string,
+    @Query("format") format?: string,
+    @Query("delimiter") delimiter?: string,
   ) {
-    const csv = await this.exportServices.execute(
+    const exportFormat = resolveExportFormat(format);
+    const file = await this.exportServices.execute(
       orgId,
       user.id,
       {
@@ -213,14 +220,27 @@ export class ServicesController {
         q: q || undefined,
       },
       parseFields(fields),
+      exportFormat,
+      resolveCsvDelimiter(delimiter),
     );
     const date = new Date().toISOString().slice(0, 10);
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="servicos-${date}.csv"`,
-    );
-    res.send(csv);
+    if (exportFormat === "xlsx") {
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="servicos-${date}.xlsx"`,
+      );
+    } else {
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="servicos-${date}.csv"`,
+      );
+    }
+    res.send(file);
   }
 
   @Get(":id")
