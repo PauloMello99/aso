@@ -39,4 +39,28 @@ describe("CreateCustomerDto phone validation", () => {
 
     expect(errors.find((e) => e.property === "phone")).toBeUndefined();
   });
+
+  it("aceita fixo BR (8 dígitos + DDD)", async () => {
+    const errors = await validate(buildDto("+551133334444"));
+
+    expect(errors.find((e) => e.property === "phone")).toBeUndefined();
+  });
+
+  it("aceita celular BR de outro DDD (86 - Piauí)", async () => {
+    const errors = await validate(buildDto("+5586987654321"));
+
+    expect(errors.find((e) => e.property === "phone")).toBeUndefined();
+  });
+
+  it("rejeita celular BR sem o 9º dígito (formato antigo, pós-migração ANATEL)", async () => {
+    const errors = await validate(buildDto("+551187654321"));
+
+    expect(errors.find((e) => e.property === "phone")).toBeDefined();
+  });
+
+  it("rejeita número com dígitos insuficientes", async () => {
+    const errors = await validate(buildDto("+55119876543"));
+
+    expect(errors.find((e) => e.property === "phone")).toBeDefined();
+  });
 });
