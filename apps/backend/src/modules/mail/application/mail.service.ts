@@ -6,6 +6,7 @@ import {
   IEmailSender,
 } from "../domain/ports/email-sender.port";
 import { AnamnesisLinkEmail } from "../templates/anamnesis-link-email";
+import { AnamnesisSignedCopyEmail } from "../templates/anamnesis-signed-copy";
 import { InviteEmail } from "../templates/invite-email";
 import { NotificationEmail } from "../templates/notification-email";
 import { PasswordResetEmail } from "../templates/password-reset-email";
@@ -21,6 +22,12 @@ export interface SendAnamnesisLinkInput {
   to: string;
   customerName: string;
   fillUrl: string;
+}
+
+export interface SendSignedAnamnesisResponseCopyInput {
+  to: string;
+  customerName: string;
+  pdfUrl: string;
 }
 
 export interface SendPasswordResetInput {
@@ -70,6 +77,19 @@ export class MailService {
       AnamnesisLinkEmail({
         customerName: input.customerName,
         fillUrl: input.fillUrl,
+      }),
+    );
+  }
+
+  async sendSignedAnamnesisResponseCopy(
+    input: SendSignedAnamnesisResponseCopyInput,
+  ): Promise<boolean> {
+    return this.dispatch(
+      input.to,
+      "Sua ficha de anamnese assinada",
+      AnamnesisSignedCopyEmail({
+        customerName: input.customerName,
+        pdfUrl: input.pdfUrl,
       }),
     );
   }

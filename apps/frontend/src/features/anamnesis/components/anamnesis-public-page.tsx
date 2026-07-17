@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/shared/components/ui/card"
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { Label } from "@/shared/components/ui/label"
 import {
@@ -31,6 +32,7 @@ import {
   buildAnamnesisAnswersSchema,
   type AnamnesisAnswersFormValues,
 } from "../schemas/anamnesis-response.schemas"
+import { SignaturePadField } from "./signature-pad-field"
 import type { AnamnesisAnswerInput, AnamnesisQuestion } from "../types"
 
 const SUBMIT_ERROR_MESSAGES: Record<string, string> = {
@@ -38,6 +40,8 @@ const SUBMIT_ERROR_MESSAGES: Record<string, string> = {
   ANAMNESIS_RESPONSE_ALREADY_SUBMITTED: "Você já respondeu esta ficha, obrigado!",
   ANAMNESIS_INVALID_ANSWERS:
     "Não foi possível validar suas respostas. Revise os campos e tente novamente.",
+  ANAMNESIS_SIGNATURE_REQUIRED:
+    "Não foi possível processar a assinatura. Tente desenhar novamente.",
 }
 const DEFAULT_SUBMIT_ERROR_MESSAGE =
   "Não foi possível enviar suas respostas. Tente novamente."
@@ -157,7 +161,7 @@ function AnamnesisResponseForm({
     [questions],
   )
 
-  const { control, handleSubmit, formState } =
+  const { control, handleSubmit, formState, watch } =
     useForm<AnamnesisAnswersFormValues>({
       resolver: zodResolver(schema),
       defaultValues: {
@@ -165,8 +169,13 @@ function AnamnesisResponseForm({
           questionId: question.id,
           value: undefined,
         })),
+        signerFullName: "",
+        signerCpf: "",
+        signatureImageBase64: "",
       },
     })
+
+  const signatureValue = watch("signatureImageBase64")
 
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null)
@@ -181,8 +190,15 @@ function AnamnesisResponseForm({
         value: answer.value as string | boolean,
       }))
 
+    const cpfDigits = values.signerCpf?.replace(/\D/g, "") ?? ""
+
     try {
-      await submit({ answers })
+      await submit({
+        answers,
+        signerFullName: values.signerFullName.trim(),
+        signerCpf: cpfDigits.length > 0 ? cpfDigits : undefined,
+        signatureImageBase64: values.signatureImageBase64,
+      })
       onSubmitted()
     } catch (err) {
       setSubmitError(submitErrorMessage(err))
@@ -209,6 +225,59 @@ function AnamnesisResponseForm({
           />
         ))}
 
+        <div className="flex flex-col gap-1.5">
+          <Label>
+            Nome completo
+            <span className="ml-1 text-destructive">*</span>
+          </Label>
+          <Controller
+            control={control}
+            name="signerFullName"
+            render={({ field }) => (
+              <Input placeholder="Seu nome completo" {...field} />
+            )}
+          />
+          {formState.errors.signerFullName && (
+            <p className="text-xs text-destructive">
+              {formState.errors.signerFullName.message}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label>CPF (opcional)</Label>
+          <Controller
+            control={control}
+            name="signerCpf"
+            render={({ field }) => (
+              <Input placeholder="000.000.000-00" {...field} />
+            )}
+          />
+          {formState.errors.signerCpf && (
+            <p className="text-xs text-destructive">
+              {formState.errors.signerCpf.message}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label>
+            Assinatura
+            <span className="ml-1 text-destructive">*</span>
+          </Label>
+          <Controller
+            control={control}
+            name="signatureImageBase64"
+            render={({ field }) => (
+              <SignaturePadField
+                value={field.value}
+                onChange={field.onChange}
+                error={formState.errors.signatureImageBase64?.message}
+              />
+            )}
+          />
+        </div>
+
         {submitError && (
           <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {submitError}
@@ -220,7 +289,7 @@ function AnamnesisResponseForm({
         <Button
           type="submit"
           className="w-full bg-orange-500 text-white hover:bg-orange-600"
-          disabled={submitting}
+          disabled={submitting || !signatureValue}
         >
           {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Enviar respostas

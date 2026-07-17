@@ -1,8 +1,18 @@
-import { Body, Controller, Get, HttpCode, Param, Post } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Post,
+  Req,
+} from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
+import type { Request } from "express";
 import { GetAnamnesisResponseByTokenUseCase } from "../application/use-cases/get-anamnesis-response-by-token.use-case";
 import { SubmitAnamnesisResponseUseCase } from "../application/use-cases/submit-anamnesis-response.use-case";
 import { SubmitAnamnesisResponseDto } from "./dto/submit-anamnesis-response.dto";
+import { extractRequestContext } from "./request-context";
 
 /**
  * Sem login — o próprio token do link é o segredo (igual `InvitationsController#lookup`).
@@ -29,7 +39,17 @@ export class PublicAnamnesisController {
   async submit(
     @Param("token") token: string,
     @Body() dto: SubmitAnamnesisResponseDto,
+    @Req() req: Request,
   ) {
-    await this.submitResponse.execute({ token, answers: dto.answers });
+    const { ip, userAgent } = extractRequestContext(req);
+    await this.submitResponse.execute({
+      token,
+      answers: dto.answers,
+      signerFullName: dto.signerFullName,
+      signerCpf: dto.signerCpf ?? null,
+      signatureImageBase64: dto.signatureImageBase64,
+      requestIp: ip,
+      requestUserAgent: userAgent,
+    });
   }
 }

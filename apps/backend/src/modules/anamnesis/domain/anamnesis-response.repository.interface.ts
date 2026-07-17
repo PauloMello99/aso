@@ -17,10 +17,28 @@ export interface CreateAnamnesisResponseData {
   createdBy: string | null;
 }
 
-/** Resposta + primeiro nome do cliente, resolvidos pelo token público. */
+/**
+ * Resposta + nome e e-mail do cliente, resolvidos pelo token público.
+ * `customerEmail` é dado SERVER-SIDE ONLY — o use-case de lookup público
+ * (`GetAnamnesisResponseByTokenUseCase`) NUNCA deve incluí-lo no DTO
+ * retornado ao cliente; é usado só para o e-mail best-effort de cópia do PDF
+ * assinado, após o envio.
+ */
 export type AnamnesisResponseWithCustomerName = AnamnesisResponseEntity & {
   customerName: string;
+  customerEmail: string;
 };
+
+export interface MarkSubmittedData {
+  answers: AnamnesisAnswer[];
+  signerFullName: string;
+  signerCpf: string | null;
+  signatureStoragePath: string;
+  pdfStoragePath: string;
+  pdfHashSha256: string;
+  requestIp: string | null;
+  requestUserAgent: string | null;
+}
 
 export interface IAnamnesisResponseRepository {
   /** Ator autenticado envia o convite. RLS-enforced (DRIZZLE). */
@@ -54,10 +72,15 @@ export interface IAnamnesisResponseRepository {
   ): Promise<AnamnesisResponseWithCustomerName | null>;
 
   /**
-   * Única mutação pós-insert: marca como enviada. Sem ator autenticado no
-   * fluxo público → roda via DRIZZLE_ADMIN.
+   * Única mutação pós-insert: marca como enviada e grava a assinatura
+   * eletrônica (assinante, artefatos de storage, hash de integridade,
+   * proveniência da requisição). Sem ator autenticado no fluxo público →
+   * roda via DRIZZLE_ADMIN. `WHERE status='pending'` é a proteção contra
+   * dupla submissão — retorna `false` (0 linhas afetadas) quando outra
+   * requisição concorrente já submeteu primeiro, para o use-case detectar a
+   * corrida e não reportar sucesso sobre um upload que foi sobrescrito.
    */
-  markSubmitted(id: string, answers: AnamnesisAnswer[]): Promise<void>;
+  markSubmitted(id: string, data: MarkSubmittedData): Promise<boolean>;
 
   /** Consulta autenticada (ex.: tela do atendimento). RLS-enforced (DRIZZLE). */
   findById(id: string, orgId: string): Promise<AnamnesisResponseEntity | null>;

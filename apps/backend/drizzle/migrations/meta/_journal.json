@@ -225,6 +225,13 @@
       "when": 1782002100000,
       "tag": "0031_audit_action_anamnesis_invite_sent",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1782002200000,
+      "tag": "0032_anamnesis_signature",
+      "breakpoints": true
     }
   ]
 }
