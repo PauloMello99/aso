@@ -1,15 +1,24 @@
 import {
   Body,
   Controller,
+  Delete,
+  FileTypeValidator,
   Get,
+  HttpCode,
+  HttpStatus,
+  MaxFileSizeValidator,
   Param,
+  ParseFilePipe,
   ParseUUIDPipe,
   Patch,
   Post,
   Query,
   Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import type { Response } from "express";
 import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
@@ -29,6 +38,12 @@ import { RegisterPaymentUseCase } from "../application/use-cases/register-paymen
 import { CorrectServicePaymentUseCase } from "../application/use-cases/correct-service-payment.use-case";
 import { ListServiceTypesUseCase } from "../application/use-cases/list-service-types.use-case";
 import { CreateServiceTypeUseCase } from "../application/use-cases/create-service-type.use-case";
+import { UpdateServiceTypeUseCase } from "../application/use-cases/update-service-type.use-case";
+import {
+  UploadServiceMediaUseCase,
+  ListServiceMediaUseCase,
+  DeleteServiceMediaUseCase,
+} from "../application/use-cases/service-media.use-cases";
 import {
   CreateServiceDto,
   SERVICE_PAYMENT_METHODS,
@@ -36,8 +51,16 @@ import {
 import { UpdateServiceDto } from "./dto/update-service.dto";
 import { CorrectServicePaymentDto } from "./dto/correct-service-payment.dto";
 import { CreateServiceTypeDto } from "./dto/create-service-type.dto";
+import { UpdateServiceTypeDto } from "./dto/update-service-type.dto";
 import type { ServiceStatusFilter } from "../domain/service.repository.interface";
 import type { PaymentMethod } from "../domain/service.entity";
+
+interface UploadedImage {
+  buffer: Buffer;
+  mimetype: string;
+  originalname: string;
+  size: number;
+}
 
 const STATUS_VALUES: ServiceStatusFilter[] = ["pending", "paid", "canceled"];
 
@@ -69,6 +92,10 @@ export class ServicesController {
     private readonly correctServicePayment: CorrectServicePaymentUseCase,
     private readonly listTypes: ListServiceTypesUseCase,
     private readonly createType: CreateServiceTypeUseCase,
+    private readonly updateType: UpdateServiceTypeUseCase,
+    private readonly uploadMedia: UploadServiceMediaUseCase,
+    private readonly listMedia: ListServiceMediaUseCase,
+    private readonly deleteMedia: DeleteServiceMediaUseCase,
   ) {}
 
   /* ─── Tipos de serviço (criáveis inline) ─────────────────────── */
@@ -84,6 +111,22 @@ export class ServicesController {
     @Body() dto: CreateServiceTypeDto,
   ) {
     return this.createType.execute(orgId, dto.name, dto.description ?? null);
+  }
+
+  // Owner-only: marcar um tipo como exigindo verificação de idade é regra de
+  // negócio sensível (mesmo padrão de restrição de "categories" no cashier).
+  @Patch("types/:typeId")
+  @UseGuards(OrgOwnerGuard)
+  async updateTypeById(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("typeId", ParseUUIDPipe) typeId: string,
+    @Body() dto: UpdateServiceTypeDto,
+  ) {
+    return this.updateType.execute(orgId, typeId, {
+      name: dto.name,
+      description: dto.description,
+      requiresAgeVerification: dto.requiresAgeVerification,
+    });
   }
 
   /* ─── Serviços ───────────────────────────────────────────────── */
@@ -272,5 +315,50 @@ export class ServicesController {
       description: dto.description,
       transactedAt: dto.transactedAt ? new Date(dto.transactedAt) : undefined,
     });
+  }
+
+  /* ─── Mídia (fotos) ──────────────────────────────────────────── */
+
+  @Get(":id/media")
+  async media(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.listMedia.execute(id, orgId);
+  }
+
+  @Post(":id/media")
+  @UseInterceptors(FileInterceptor("file"))
+  async addMedia(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 307200 }),
+          new FileTypeValidator({ fileType: /^image\/(png|jpeg|webp)$/ }),
+        ],
+      }),
+    )
+    file: UploadedImage,
+  ) {
+    return this.uploadMedia.execute({
+      orgId,
+      serviceId: id,
+      fileName: file.originalname,
+      contentType: file.mimetype,
+      file: file.buffer,
+      uploadedBy: user.id,
+    });
+  }
+
+  @Delete(":id/media/:mediaId")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async removeMedia(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("mediaId", ParseUUIDPipe) mediaId: string,
+  ) {
+    await this.deleteMedia.execute(mediaId, orgId);
   }
 }

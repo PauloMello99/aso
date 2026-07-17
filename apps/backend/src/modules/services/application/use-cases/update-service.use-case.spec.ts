@@ -1,13 +1,17 @@
 import { UpdateServiceUseCase } from "./update-service.use-case";
 import { IServiceRepository } from "../../domain/service.repository.interface";
 import { ServiceEntity } from "../../domain/service.entity";
+import { IServiceTypeRepository } from "../../domain/service-type.repository.interface";
+import { ServiceTypeEntity } from "../../domain/service-type.entity";
 import { ICustomerRepository } from "../../../customers/domain/customer.repository.interface";
+import { CustomerEntity } from "../../../customers/domain/customer.entity";
 import { IMemberRepository } from "../../../organizations/domain/member.repository.interface";
 import { MemberEntity } from "../../../organizations/domain/member.entity";
 import { ServiceNotFoundException } from "../../domain/exceptions/service-not-found.exception";
 import { ServiceAlreadyCanceledException } from "../../domain/exceptions/service-already-canceled.exception";
 import { ServiceForbiddenException } from "../../domain/exceptions/service-forbidden.exception";
 import { ServicePerformedAtFutureException } from "../../domain/exceptions/service-performed-at-future.exception";
+import { ServiceAgeVerificationRequiredException } from "../../domain/exceptions/service-age-verification-required.exception";
 
 function buildService(
   overrides: Partial<Parameters<typeof ServiceEntity.create>[0]> = {},
@@ -46,6 +50,59 @@ function buildMember(
     joinedAt: new Date("2026-01-01T00:00:00Z"),
     ...overrides,
   });
+}
+
+function buildServiceType(
+  overrides: Partial<Parameters<typeof ServiceTypeEntity.create>[0]> = {},
+): ServiceTypeEntity {
+  return ServiceTypeEntity.create({
+    id: "service-type-1",
+    orgId: "org-1",
+    name: "Tatuagem",
+    description: null,
+    requiresAgeVerification: false,
+    ...overrides,
+  });
+}
+
+function buildCustomer(
+  overrides: Partial<Parameters<typeof CustomerEntity.create>[0]> = {},
+): CustomerEntity {
+  return CustomerEntity.create({
+    id: "customer-1",
+    orgId: "org-1",
+    userId: null,
+    originId: null,
+    createdBy: null,
+    name: "Cliente",
+    email: "cliente@example.com",
+    phone: null,
+    birthDate: "2000-01-01",
+    gender: null,
+    address: "Rua A",
+    number: "1",
+    addressLine2: null,
+    city: "Cidade",
+    state: "SP",
+    postalCode: null,
+    country: null,
+    notes: null,
+    enabled: true,
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    updatedAt: new Date("2026-01-01T00:00:00Z"),
+    ...overrides,
+  });
+}
+
+function buildFakeServiceTypeRepo(
+  overrides: Partial<jest.Mocked<IServiceTypeRepository>> = {},
+): jest.Mocked<IServiceTypeRepository> {
+  return {
+    findByOrg: jest.fn(),
+    findById: jest.fn(),
+    create: jest.fn(),
+    ...overrides,
+  } as unknown as jest.Mocked<IServiceTypeRepository>;
 }
 
 function buildFakeServiceRepo(
@@ -100,6 +157,7 @@ function buildFakeMemberRepo(
 
 interface Fakes {
   serviceRepo: jest.Mocked<IServiceRepository>;
+  serviceTypeRepo: jest.Mocked<IServiceTypeRepository>;
   customerRepo: jest.Mocked<ICustomerRepository>;
   memberRepo: jest.Mocked<IMemberRepository>;
 }
@@ -107,12 +165,14 @@ interface Fakes {
 function buildUseCase(overrides: Partial<Fakes> = {}) {
   const fakes: Fakes = {
     serviceRepo: buildFakeServiceRepo(),
+    serviceTypeRepo: buildFakeServiceTypeRepo(),
     customerRepo: buildFakeCustomerRepo(),
     memberRepo: buildFakeMemberRepo(),
     ...overrides,
   };
   const useCase = new UpdateServiceUseCase(
     fakes.serviceRepo,
+    fakes.serviceTypeRepo,
     fakes.customerRepo,
     fakes.memberRepo,
   );
@@ -227,5 +287,71 @@ describe("UpdateServiceUseCase", () => {
     await expect(useCase.execute({ ...baseInput })).rejects.toBeInstanceOf(
       ServiceForbiddenException,
     );
+  });
+
+  it("lança ServiceAgeVerificationRequiredException ao trocar só o cliente para um menor, sem reenviar serviceTypeId (usa o existente)", async () => {
+    const serviceType = buildServiceType({ requiresAgeVerification: true });
+    const existing = buildService({ serviceTypeId: serviceType.id });
+    const minor = buildCustomer({ birthDate: "2015-01-01" });
+    const { useCase, serviceRepo } = buildUseCase({
+      serviceRepo: buildFakeServiceRepo({
+        findById: jest.fn().mockResolvedValue(existing),
+      }),
+      serviceTypeRepo: buildFakeServiceTypeRepo({
+        findById: jest.fn().mockResolvedValue(serviceType),
+      }),
+      customerRepo: buildFakeCustomerRepo({
+        findById: jest.fn().mockResolvedValue(minor),
+      }),
+    });
+
+    await expect(
+      useCase.execute({ ...baseInput, customerId: minor.id }),
+    ).rejects.toBeInstanceOf(ServiceAgeVerificationRequiredException);
+    expect(serviceRepo.update).not.toHaveBeenCalled();
+  });
+
+  it("lança ServiceAgeVerificationRequiredException ao trocar só o tipo de serviço, mantendo o cliente existente (menor)", async () => {
+    const minor = buildCustomer({ id: "customer-2", birthDate: "2015-01-01" });
+    const existing = buildService({ customerId: minor.id });
+    const serviceType = buildServiceType({ requiresAgeVerification: true });
+    const { useCase, serviceRepo } = buildUseCase({
+      serviceRepo: buildFakeServiceRepo({
+        findById: jest.fn().mockResolvedValue(existing),
+      }),
+      serviceTypeRepo: buildFakeServiceTypeRepo({
+        findById: jest.fn().mockResolvedValue(serviceType),
+      }),
+      customerRepo: buildFakeCustomerRepo({
+        findById: jest.fn().mockResolvedValue(minor),
+      }),
+    });
+
+    await expect(
+      useCase.execute({ ...baseInput, serviceTypeId: serviceType.id }),
+    ).rejects.toBeInstanceOf(ServiceAgeVerificationRequiredException);
+    expect(serviceRepo.update).not.toHaveBeenCalled();
+  });
+
+  it("permite editar normalmente quando o tipo efetivo não exige verificação de idade", async () => {
+    const existing = buildService();
+    const updated = buildService({ description: "Atualizado" });
+    const { useCase, serviceRepo } = buildUseCase({
+      serviceRepo: buildFakeServiceRepo({
+        findById: jest
+          .fn()
+          .mockResolvedValueOnce(existing)
+          .mockResolvedValueOnce(updated),
+        update: jest.fn().mockResolvedValue(updated),
+      }),
+    });
+
+    const result = await useCase.execute({
+      ...baseInput,
+      description: "Atualizado",
+    });
+
+    expect(serviceRepo.update).toHaveBeenCalled();
+    expect(result).toBe(updated);
   });
 });

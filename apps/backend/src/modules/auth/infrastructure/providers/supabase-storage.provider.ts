@@ -65,10 +65,15 @@ export class SupabaseStorageProvider implements IStorageProvider {
     bucket: string,
     path: string,
     expiresInSeconds = 3600,
+    downloadFileName?: string,
   ): Promise<string> {
-    const { data, error } = await this.admin.storage
-      .from(bucket)
-      .createSignedUrl(path, expiresInSeconds);
+    const { data, error } = downloadFileName
+      ? await this.admin.storage
+          .from(bucket)
+          .createSignedUrl(path, expiresInSeconds, {
+            download: downloadFileName,
+          })
+      : await this.admin.storage.from(bucket).createSignedUrl(path, expiresInSeconds);
     if (error || !data) {
       throw new AvatarUploadFailedException(
         error?.message ?? "Failed to sign URL",

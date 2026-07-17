@@ -114,5 +114,8 @@ export const queryKeys = {
       ["services", orgId, "detail", id] as const,
     /** Configurable service types */
     types: (orgId: string) => ["services", orgId, "types"] as const,
+    /** Media (fotos) de um serviço */
+    media: (orgId: string, serviceId: string) =>
+      ["services", orgId, "detail", serviceId, "media"] as const,
   },
 } as const

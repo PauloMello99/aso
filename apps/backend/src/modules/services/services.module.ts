@@ -15,6 +15,12 @@ import { RegisterPaymentUseCase } from "./application/use-cases/register-payment
 import { CorrectServicePaymentUseCase } from "./application/use-cases/correct-service-payment.use-case";
 import { ListServiceTypesUseCase } from "./application/use-cases/list-service-types.use-case";
 import { CreateServiceTypeUseCase } from "./application/use-cases/create-service-type.use-case";
+import { UpdateServiceTypeUseCase } from "./application/use-cases/update-service-type.use-case";
+import {
+  UploadServiceMediaUseCase,
+  ListServiceMediaUseCase,
+  DeleteServiceMediaUseCase,
+} from "./application/use-cases/service-media.use-cases";
 import { ServicesController } from "./interface/services.controller";
 
 @Module({
@@ -38,6 +44,10 @@ import { ServicesController } from "./interface/services.controller";
     CorrectServicePaymentUseCase,
     ListServiceTypesUseCase,
     CreateServiceTypeUseCase,
+    UpdateServiceTypeUseCase,
+    UploadServiceMediaUseCase,
+    ListServiceMediaUseCase,
+    DeleteServiceMediaUseCase,
   ],
   exports: [ServicesInfrastructureModule],
 })

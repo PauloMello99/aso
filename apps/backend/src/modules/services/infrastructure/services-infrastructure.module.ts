@@ -2,8 +2,10 @@ import { Module } from "@nestjs/common";
 import { DatabaseModule } from "../../../database/database.module";
 import { SERVICE_REPOSITORY } from "../domain/service.repository.interface";
 import { SERVICE_TYPE_REPOSITORY } from "../domain/service-type.repository.interface";
+import { SERVICE_MEDIA_REPOSITORY } from "../domain/service-media.repository.interface";
 import { DrizzleServiceRepository } from "./persistence/drizzle-service.repository";
 import { DrizzleServiceTypeRepository } from "./persistence/drizzle-service-type.repository";
+import { DrizzleServiceMediaRepository } from "./persistence/drizzle-service-media.repository";
 
 @Module({
   imports: [DatabaseModule],
@@ -13,7 +15,15 @@ import { DrizzleServiceTypeRepository } from "./persistence/drizzle-service-type
       provide: SERVICE_TYPE_REPOSITORY,
       useClass: DrizzleServiceTypeRepository,
     },
+    {
+      provide: SERVICE_MEDIA_REPOSITORY,
+      useClass: DrizzleServiceMediaRepository,
+    },
   ],
-  exports: [SERVICE_REPOSITORY, SERVICE_TYPE_REPOSITORY],
+  exports: [
+    SERVICE_REPOSITORY,
+    SERVICE_TYPE_REPOSITORY,
+    SERVICE_MEDIA_REPOSITORY,
+  ],
 })
 export class ServicesInfrastructureModule {}

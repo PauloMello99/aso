@@ -472,6 +472,7 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
       <ServiceForm
         open={formOpen}
         onOpenChange={setFormOpen}
+        orgId={orgId}
         service={editing}
         isOwner={isOwner}
         customers={customers}
