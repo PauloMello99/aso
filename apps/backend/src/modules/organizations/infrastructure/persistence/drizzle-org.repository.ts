@@ -162,7 +162,7 @@ export class DrizzleOrgRepository implements IOrganizationRepository {
         .insert(schema.transactionCategories)
         .values(
           ["Serviço", "Funcionário", "Material", "Conta", "Reforma", "Transferência", "Outros"].map(
-            (name) => ({ orgId: org.id, name }),
+            (name) => ({ orgId: org.id, name, isProtected: true }),
           ),
         )
         .onConflictDoNothing();

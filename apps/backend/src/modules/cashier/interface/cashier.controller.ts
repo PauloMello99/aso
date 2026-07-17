@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -30,6 +31,8 @@ import { GetPaymentFeesUseCase } from "../application/use-cases/get-payment-fees
 import { UpsertPaymentFeesUseCase } from "../application/use-cases/upsert-payment-fees.use-case";
 import { ListTransactionCategoriesUseCase } from "../application/use-cases/list-transaction-categories.use-case";
 import { CreateTransactionCategoryUseCase } from "../application/use-cases/create-transaction-category.use-case";
+import { UpdateTransactionCategoryUseCase } from "../application/use-cases/update-transaction-category.use-case";
+import { DeleteTransactionCategoryUseCase } from "../application/use-cases/delete-transaction-category.use-case";
 import { TransferUseCase } from "../application/use-cases/transfer.use-case";
 import {
   CreateTransactionDto,
@@ -39,6 +42,7 @@ import {
 import { CorrectTransactionDto } from "./dto/correct-transaction.dto";
 import { UpsertFeesDto } from "./dto/upsert-fees.dto";
 import { CreateCategoryDto } from "./dto/create-category.dto";
+import { UpdateCategoryDto } from "./dto/update-category.dto";
 import { TransferDto } from "./dto/transfer.dto";
 
 type TransactionType = (typeof TRANSACTION_TYPES)[number];
@@ -72,6 +76,8 @@ export class CashierController {
     private readonly upsertPaymentFees: UpsertPaymentFeesUseCase,
     private readonly listCategories: ListTransactionCategoriesUseCase,
     private readonly createCategory: CreateTransactionCategoryUseCase,
+    private readonly updateCategory: UpdateTransactionCategoryUseCase,
+    private readonly deleteCategory: DeleteTransactionCategoryUseCase,
     private readonly transfer: TransferUseCase,
   ) {}
 
@@ -264,6 +270,25 @@ export class CashierController {
     @Body() dto: CreateCategoryDto,
   ) {
     return this.createCategory.execute(orgId, dto.name);
+  }
+
+  @Put("categories/:categoryId")
+  @UseGuards(OrgOwnerGuard)
+  async updateCategoryById(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("categoryId", ParseUUIDPipe) categoryId: string,
+    @Body() dto: UpdateCategoryDto,
+  ) {
+    return this.updateCategory.execute(orgId, categoryId, dto.name);
+  }
+
+  @Delete("categories/:categoryId")
+  @UseGuards(OrgOwnerGuard)
+  async deleteCategoryById(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("categoryId", ParseUUIDPipe) categoryId: string,
+  ) {
+    return this.deleteCategory.execute(orgId, categoryId);
   }
 
   @Post("transfers")

@@ -9,4 +9,10 @@ export interface ITransactionCategoryRepository {
   findById(id: string, orgId: string): Promise<TransactionCategoryEntity | null>;
   /** Cria (ou retorna a existente, por UNIQUE org+name). */
   create(orgId: string, name: string): Promise<TransactionCategoryEntity>;
+  update(
+    id: string,
+    orgId: string,
+    name: string,
+  ): Promise<TransactionCategoryEntity>;
+  delete(id: string, orgId: string): Promise<void>;
 }

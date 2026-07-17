@@ -14,6 +14,8 @@ import { GetPaymentFeesUseCase } from "./application/use-cases/get-payment-fees.
 import { UpsertPaymentFeesUseCase } from "./application/use-cases/upsert-payment-fees.use-case";
 import { ListTransactionCategoriesUseCase } from "./application/use-cases/list-transaction-categories.use-case";
 import { CreateTransactionCategoryUseCase } from "./application/use-cases/create-transaction-category.use-case";
+import { UpdateTransactionCategoryUseCase } from "./application/use-cases/update-transaction-category.use-case";
+import { DeleteTransactionCategoryUseCase } from "./application/use-cases/delete-transaction-category.use-case";
 import { TransferUseCase } from "./application/use-cases/transfer.use-case";
 import { CashierController } from "./interface/cashier.controller";
 
@@ -37,6 +39,8 @@ import { CashierController } from "./interface/cashier.controller";
     UpsertPaymentFeesUseCase,
     ListTransactionCategoriesUseCase,
     CreateTransactionCategoryUseCase,
+    UpdateTransactionCategoryUseCase,
+    DeleteTransactionCategoryUseCase,
     TransferUseCase,
   ],
   exports: [CashierInfrastructureModule],

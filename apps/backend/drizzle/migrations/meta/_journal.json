@@ -176,6 +176,13 @@
       "when": 1782001400000,
       "tag": "0024_customers_required_fields_and_number",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1782001500000,
+      "tag": "0025_transaction_categories_protected",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, RefreshCw, Search, ArrowLeftRight } from "lucide-react"
+import { Plus, RefreshCw, Search, ArrowLeftRight, Tag } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import {
@@ -31,6 +31,7 @@ import { TransactionForm } from "./transaction-form"
 import { CorrectionSheet } from "./correction-sheet"
 import { ReverseDialog } from "./reverse-dialog"
 import { TransferDialog } from "./transfer-dialog"
+import { CategoryManagerDialog } from "./category-manager-dialog"
 import { parseReaisToCents } from "../lib/money"
 import type {
   TransactionFormValues,
@@ -153,12 +154,18 @@ export function CashierPage({ orgId }: CashierPageProps) {
   } = useTransactions(orgId, filter)
   const { balance, loading: balanceLoading } = useBalance(orgId)
   const { fees } = usePaymentFees(orgId)
-  const { categories } = useTransactionCategories(orgId)
+  const {
+    categories,
+    createCategory,
+    updateCategory,
+    deleteCategory,
+  } = useTransactionCategories(orgId)
 
   const [formOpen, setFormOpen] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false)
   const [correctOpen, setCorrectOpen] = useState(false)
   const [reverseOpen, setReverseOpen] = useState(false)
+  const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [active, setActive] = useState<Transaction | null>(null)
 
   async function handleCreate(values: TransactionFormValues) {
@@ -216,14 +223,24 @@ export function CashierPage({ orgId }: CashierPageProps) {
           </Button>
           <ExportMenu columns={EXPORT_COLUMNS} onExport={handleExport} />
           {isOwner && (
-            <Button
-              variant="outline"
-              onClick={() => setTransferOpen(true)}
-              className="shrink-0"
-            >
-              <ArrowLeftRight className="h-4 w-4" />
-              <span className="hidden sm:inline">Transferir</span>
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setTransferOpen(true)}
+                className="shrink-0"
+              >
+                <ArrowLeftRight className="h-4 w-4" />
+                <span className="hidden sm:inline">Transferir</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setCategoriesOpen(true)}
+                className="shrink-0"
+              >
+                <Tag className="h-4 w-4" />
+                <span className="hidden sm:inline">Categorias</span>
+              </Button>
+            </>
           )}
           <Button onClick={() => setFormOpen(true)} className="flex-1 sm:flex-none">
             <Plus className="h-4 w-4" />
@@ -426,6 +443,14 @@ export function CashierPage({ orgId }: CashierPageProps) {
             onOpenChange={setReverseOpen}
             transaction={active}
             onConfirm={handleReverse}
+          />
+          <CategoryManagerDialog
+            open={categoriesOpen}
+            onOpenChange={setCategoriesOpen}
+            categories={categories}
+            onCreate={createCategory}
+            onUpdate={updateCategory}
+            onDelete={deleteCategory}
           />
         </>
       )}

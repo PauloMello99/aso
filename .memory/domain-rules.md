@@ -306,9 +306,18 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
 - **Caixa = owner-only:** `CashierController` usa **`OrgOwnerGuard`** (novo, em `auth/guards/`) —
   funcionário recebe 403 ("funcionário não tem acesso ao caixa"). Nav esconde Caixa p/ employee.
 - **Categoria de transação:** tabela `transaction_categories` (por org, UNIQUE org+name) +
-  `transactions.category_id` (FK). Seed default por org (Serviço/Funcionário/Material/Conta/
-  Reforma/Transferência/Outros) na criação de org + migration p/ orgs existentes. **Descrição
-  permanece.** Rotas `GET/POST /orgs/:orgId/cashier/categories`.
+  `transactions.category_id` (FK, `onDelete: set null`). Seed default por org (Serviço/
+  Funcionário/Material/Conta/Reforma/Transferência/Outros) na criação de org + migration p/
+  orgs existentes. **Descrição permanece.** Rotas `GET/POST /orgs/:orgId/cashier/categories`.
+- **CRUD completo de categorias (M5, migration 0025):** coluna `is_protected` (default
+  `false`) marca as 7 categorias seed como fixas. `PUT/DELETE /orgs/:orgId/cashier/categories/:id`
+  (owner-only). Regras de negócio: **renomear é permitido mesmo em categoria protegida**
+  (rename é cosmético, não afeta vínculos); **excluir categoria protegida** → 409
+  `TRANSACTION_CATEGORY_PROTECTED`; **excluir categoria em uso é permitido** — `category_id`
+  das transações antigas simplesmente vira `null` (decisão de produto, não bloqueia); renomear
+  para um nome já usado na org → 409 `TRANSACTION_CATEGORY_NAME_CONFLICT`. UI: dialog
+  "Categorias" em `cashier-page.tsx` (owner-only), categorias protegidas mostram badge e
+  ocultam o botão de excluir.
 - **Transferência entre meios:** `POST /orgs/:orgId/cashier/transfers` → `TransferUseCase` cria
   **2 transações** (saída no método origem + entrada no destino), sem taxa.
 - **Membro ativo/inativo:** `org_memberships.enabled` (default true). `SetMemberStatusUseCase`
