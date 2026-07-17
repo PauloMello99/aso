@@ -42,3 +42,27 @@ Drizzle's built-in `migrate()` is used internally for the `up` path, but the mig
 ## Key implementation detail
 
 The `computeMigrationHash` function must hash the raw SQL file content without modification. An early bug split on `"--> statement-breakpoint"` and rejoined — this produced a different hash than Drizzle stored. Fixed to: `createHash("sha256").update(rawSql).digest("hex")`.
+
+## Addendum (2026-07-17): applied-state no longer keyed on hash
+
+`status()`/`down()` originally decided "applied" by re-hashing the current `.sql`
+file and checking if that hash exists anywhere in `drizzle.__drizzle_migrations`.
+Reading drizzle-orm's actual `PgDialect.migrate()` (pg-core/dialect.ts) showed it
+**never does this** — it gates purely on `created_at` (= journal `when`, aka
+`folderMillis`) against the latest row, and only stores the hash as a side
+column it never reads back. Since hand-written migrations (required since
+drizzle-kit generate broke past 0011) routinely get tweaked after their first
+local `db:migrate` test-run but before commit, their on-disk hash permanently
+diverges from what was recorded at apply time — even though the DDL already
+ran. This left `db:status`/`db:rollback` reporting migrations 0022–0025
+as `[○ pending]` forever, and made `db:rollback` a silent, permanent no-op for
+them, despite the schema already reflecting their DDL.
+
+Fixed: `status()`/`down()` now match "applied" by `created_at = entry.when`
+(mirroring drizzle's own bookkeeping key). `computeMigrationHash` is kept only
+as a diagnostic — `status()` appends `(file changed since applied)` when the
+current file's hash no longer matches the recorded one, but this no longer
+gates the applied/pending determination. Practical effect: the "do NOT modify
+generated `.sql` files after creation" rule above is now advisory, not
+load-bearing — editing a migration after a local test-apply no longer breaks
+status/rollback bookkeeping.
