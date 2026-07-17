@@ -322,9 +322,14 @@ export function ServiceForm({
                     materials={materials}
                     onCreateMaterial={onCreateMaterial}
                   />
-                  {form.formState.errors.materials?.message && (
+                  {/* Erro de item vazio: errors.materials.message. Erro de
+                      superRefine no array inteiro (ex.: nenhuma linha com
+                      consumo real): react-hook-form aninha em .root. */}
+                  {(form.formState.errors.materials?.root?.message ??
+                    form.formState.errors.materials?.message) && (
                     <p className="text-sm text-red-400">
-                      {form.formState.errors.materials.message}
+                      {form.formState.errors.materials?.root?.message ??
+                        form.formState.errors.materials?.message}
                     </p>
                   )}
                 </section>

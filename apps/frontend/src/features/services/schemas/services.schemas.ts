@@ -38,13 +38,37 @@ export const serviceSchema = z.object({
   materials: z.array(serviceMaterialLineSchema),
 })
 
+/**
+ * Uma linha só gera consumo de fato para o backend (ver
+ * create-service.use-case) se: compartilhável com "Acabou?" marcado, ou
+ * não-compartilhável com quantidade > 0. Adicionar o material à lista sem
+ * satisfazer isso não registra nada — o backend rejeita com
+ * ServiceMaterialRequiredException, uma mensagem genérica que não deixa claro
+ * qual linha faltou marcar/preencher.
+ */
+function hasRealConsumption(line: ServiceMaterialLineValues): boolean {
+  if (line.shareable) return !!line.finished
+  return Number(line.quantity) > 0
+}
+
 // Lançamento (create): materiais são obrigatórios. Edição não mexe em
 // materiais/estoque (ver update-service.use-case), por isso usa serviceSchema puro.
-export const createServiceSchema = serviceSchema.extend({
-  materials: z
-    .array(serviceMaterialLineSchema)
-    .min(1, "Selecione ao menos um material consumido"),
-})
+export const createServiceSchema = serviceSchema
+  .extend({
+    materials: z
+      .array(serviceMaterialLineSchema)
+      .min(1, "Selecione ao menos um material consumido"),
+  })
+  .superRefine((values, ctx) => {
+    if (values.materials.length > 0 && !values.materials.some(hasRealConsumption)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["materials"],
+        message:
+          'Nenhum material terá consumo registrado: marque "Acabou?" nos compartilháveis ou informe a quantidade dos demais.',
+      })
+    }
+  })
 
 export type ServiceFormValues = z.infer<typeof serviceSchema>
 export type ServiceMaterialLineValues = z.infer<typeof serviceMaterialLineSchema>
