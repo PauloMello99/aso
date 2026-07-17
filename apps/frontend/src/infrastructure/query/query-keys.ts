@@ -127,5 +127,11 @@ export const queryKeys = {
     /** Histórico de versões de um tipo de serviço */
     versions: (orgId: string, serviceTypeId: string) =>
       ["anamnesis", orgId, serviceTypeId, "versions"] as const,
+    /**
+     * Consulta pública da ficha de anamnese pelo token (M10b, sem auth/org).
+     * "public" ocupa o lugar do orgId nas demais chaves — não colide com o
+     * prefixo `["anamnesis", orgId, ...]` usado para invalidação por org.
+     */
+    publicResponse: (token: string) => ["anamnesis", "public", token] as const,
   },
 } as const

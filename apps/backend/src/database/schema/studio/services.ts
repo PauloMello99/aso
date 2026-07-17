@@ -14,6 +14,7 @@ import { serviceTypes } from "./lookup";
 import { customers } from "./customers";
 import { materials } from "./materials";
 import { transactions } from "./transactions";
+import { anamnesisResponses } from "./anamnesis";
 
 export const services = pgTable("services", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -30,6 +31,13 @@ export const services = pgTable("services", {
   // Transactions são agnósticas — é o service quem sabe sua transação.
   paymentTransactionId: uuid("payment_transaction_id").references(
     () => transactions.id,
+    { onDelete: "set null" },
+  ),
+  // Resposta de anamnese vinculada a este atendimento (M10b). Nullable: nem todo
+  // serviço exige ficha; a mesma resposta só pode ser usada por um service (índice
+  // único parcial na migration, fora do schema Drizzle).
+  anamnesisResponseId: uuid("anamnesis_response_id").references(
+    () => anamnesisResponses.id,
     { onDelete: "set null" },
   ),
   performedBy: uuid("performed_by"),
@@ -83,6 +91,10 @@ export const servicesRelations = relations(services, ({ one, many }) => ({
   paymentTransaction: one(transactions, {
     fields: [services.paymentTransactionId],
     references: [transactions.id],
+  }),
+  anamnesisResponse: one(anamnesisResponses, {
+    fields: [services.anamnesisResponseId],
+    references: [anamnesisResponses.id],
   }),
   serviceMaterials: many(serviceMaterials),
 }));

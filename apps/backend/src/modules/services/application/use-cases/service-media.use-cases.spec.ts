@@ -22,6 +22,7 @@ function buildService(
     serviceTypeId: null,
     customerId: null,
     paymentTransactionId: null,
+    anamnesisResponseId: null,
     performedBy: "user-1",
     createdBy: "user-1",
     description: null,

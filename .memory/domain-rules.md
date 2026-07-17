@@ -580,6 +580,61 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   `settings/anamnesis` (owner-only) que lista os tipos existentes e permite configurar
   a ficha de cada um; NÃO é CRUD completo de tipos (fora de escopo).
 
+### M10b — Ficha de anamnese: link público sem login + submissão (F10, 2026-07-17)
+
+- **Gatilho do envio é ação manual do owner/funcionário** (decisão do usuário) — NÃO
+  automático via `calendar_events` (sem `serviceTypeId` pra resolver o form) nem via
+  `service` (só criado depois do atendimento, tarde demais pra ficha de saúde). Botão
+  "Enviar ficha de anamnese" cria uma resposta `pending` (token + snapshot da versão
+  vigente) e dispara e-mail; quando o `service` financeiro é lançado depois, ele pode
+  referenciar manualmente uma resposta já `submitted` do mesmo cliente/tipo. Módulo
+  `calendar` não foi tocado nesta fatia.
+- **`anamnesis_responses` é autocontida por design** (migration `0030`): copia
+  `questionsSnapshot` da versão vigente NO MOMENTO DO ENVIO, nunca lida de
+  `anamnesis_form_versions` depois. Isso resolve a pendência que M10a deixou pro
+  `database-guardian`: `anamnesis_forms.service_type_id` continua `ON DELETE CASCADE`
+  com segurança, porque excluir o tipo/form/versões não afeta respostas já enviadas —
+  `formVersionId` na resposta é só proveniência (`ON DELETE SET NULL`).
+- **Primeiro endpoint de escrita público do app** (`public/anamnesis-responses/:token` +
+  `:token/submit`, sem `AuthGuard`): repositório usa `DRIZZLE_ADMIN` (bypassa RLS) SÓ em
+  `findByToken`/`markSubmitted`/`delete`/`deletePendingFor` — o resto do módulo
+  (`create`/`findById`/`findLinkable`) usa `DRIZZLE` normal com `organization_id` da
+  sessão. RLS da tabela habilitada mas SEM policy de UPDATE/DELETE (dado de saúde é
+  append-only por convenção; a única mutação pós-insert, `markSubmitted`, roda sempre
+  via admin porque quem submete não tem sessão).
+- **Minimização de PII no GET público**: retorna só `questions`, primeiro nome do
+  cliente (`customerName.split(" ")[0]`), `status` derivado e `expiresAt` — nunca nome
+  da org, ids internos, outros dados do cliente ou as `answers`. `@Throttle` mais
+  restrito no submit (5/60s vs. 120/min global) — token é 256 bits (`gen_random_bytes(32)`
+  hex), enumeração inviável mesmo sem o throttle mais apertado.
+- **Vínculo `services.anamnesis_response_id`** (índice único parcial `WHERE
+  anamnesis_response_id IS NOT NULL`): `assertAnamnesisResponseLinkable` faz o
+  pré-check de aplicação (existe na org, `status=submitted`, cliente/tipo batem
+  quando a resposta já os tem preenchidos), mas a violação do índice único
+  (resposta já vinculada a OUTRO service) é responsabilidade exclusiva do catch de
+  unicidade no repositório — não há pré-check de aplicação pra esse caso específico.
+- **Gotcha real, achado só em teste manual (não pelo `reviewer` estático)**:
+  `drizzle-orm@0.45.2` envolve o erro do pg num `DrizzleQueryError` — o `code` real da
+  violação (`23505`) fica em `error.cause.code`, não em `error.code`. O padrão
+  `isUniqueViolation(error)` que só checava `error.code` (copiado de
+  `drizzle-customer.repository.ts`) **não pegava mais a violação** e deixava vazar um
+  500 cru em vez do 409 de domínio — silenciosamente "funcionava" pro caso de cliente
+  porque `create-customer.use-case.ts` tem um pré-check de aplicação que intercepta
+  antes do insert; pro caso de anamnese não há esse pré-check (documentado no próprio
+  código), então o bug era 100% visível. Corrigido em
+  `drizzle-service.repository.ts` (`isUniqueViolation` agora também verifica
+  `error.cause?.code`). **O mesmo bug ainda existe em `drizzle-customer.repository.ts`**
+  (mascarado, não corrigido nesta fatia — spinned off como task separada). Qualquer
+  repositório novo que capture `23505` via `catch` deve usar esse padrão corrigido, não
+  copiar o antigo.
+- Achados `low` do `reviewer` aceitos sem ação: sem `@MaxLength` por campo em
+  `AnamnesisAnswerDto.value` (bounded pelo limite padrão do body-parser, ~100kb); e-mail
+  do cliente em log de erro (PII leve, consistente com o resto do código);
+  `SendAnamnesisInviteUseCase` não compensa (não deleta a resposta pendente) quando o
+  canal de e-mail está desabilitado/no-op (`sendAnamnesisLink` retorna `false` sem
+  lançar) — só relevante se um canal mal configurado em produção retornar `false` em
+  vez de lançar.
+
 ### Notificações — núcleo reutilizável (2026-06-15)
 - **Módulo `modules/notifications/`**: `NotificationService.notify({userId, orgId?, type, title, body?, data?, email?, actionUrl?, actionLabel?})` cria a notificação **in-app** (tabela `notifications`, migration `0008`) e dispara **e-mail** via `MailService.sendNotification` (best-effort em `try/catch` — falha nunca quebra agenda/estoque/cron). **Outros módulos injetam `NotificationService`** (exportado).
 - **E-mail transacional centralizado (ADR-0012)**: módulo dedicado `modules/mail/` (sem dep de auth/notifications → evita ciclo) é dono do port `IEmailSender`/`ResendEmailSender` e do `MailService` (`sendOrgInvite`/`sendPasswordReset`/`sendWelcome`/`sendNotification`). Templates **React Email** `.tsx` em `modules/mail/templates/` (preview: `pnpm --filter backend email:dev`). **`IEmailSender.send`**: `false` = desabilitado (no-op, dev), `true` = enviado, **lança** em falha real. **Críticos (abortam):** convite (cria→envia→em falha **reverte** o convite + `InvitationEmailFailedException`/HTTP 502) e **reset de senha**. **Best-effort:** notificações/crons e welcome. **Reset de senha saiu do GoTrue**: `IAuthProvider.generatePasswordResetLink` (`admin.generateLink type=recovery`, sem enviar) → enviamos via Resend; `null` p/ user inexistente (sem enumeração). Welcome no sign-up. `NOTIFICATIONS_FROM_EMAIL` exige domínio verificado no Resend.

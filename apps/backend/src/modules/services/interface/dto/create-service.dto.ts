@@ -57,6 +57,11 @@ export class CreateServiceDto {
   @IsOptional()
   description?: string | null;
 
+  /** Resposta de anamnese vinculada a este atendimento (M10b). */
+  @IsUUID()
+  @IsOptional()
+  anamnesisResponseId?: string | null;
+
   /** Valor bruto em centavos. */
   @IsInt()
   @Min(0)

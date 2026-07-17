@@ -5,6 +5,7 @@ import {
   EMAIL_SENDER,
   IEmailSender,
 } from "../domain/ports/email-sender.port";
+import { AnamnesisLinkEmail } from "../templates/anamnesis-link-email";
 import { InviteEmail } from "../templates/invite-email";
 import { NotificationEmail } from "../templates/notification-email";
 import { PasswordResetEmail } from "../templates/password-reset-email";
@@ -14,6 +15,12 @@ export interface SendOrgInviteInput {
   to: string;
   orgName: string;
   acceptUrl: string;
+}
+
+export interface SendAnamnesisLinkInput {
+  to: string;
+  customerName: string;
+  fillUrl: string;
 }
 
 export interface SendPasswordResetInput {
@@ -53,6 +60,17 @@ export class MailService {
       input.to,
       `Convite para ${input.orgName} no Ink Ops`,
       InviteEmail({ orgName: input.orgName, acceptUrl: input.acceptUrl }),
+    );
+  }
+
+  async sendAnamnesisLink(input: SendAnamnesisLinkInput): Promise<boolean> {
+    return this.dispatch(
+      input.to,
+      "Preencha sua ficha de anamnese",
+      AnamnesisLinkEmail({
+        customerName: input.customerName,
+        fillUrl: input.fillUrl,
+      }),
     );
   }
 

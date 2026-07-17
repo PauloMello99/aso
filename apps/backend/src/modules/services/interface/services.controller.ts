@@ -265,6 +265,7 @@ export class ServicesController {
       serviceTypeId: dto.serviceTypeId ?? null,
       performedBy: dto.performedBy ?? null,
       description: dto.description ?? null,
+      anamnesisResponseId: dto.anamnesisResponseId ?? null,
       amountCents: dto.amountCents,
       paymentMethod: dto.paymentMethod,
       paymentStatus: dto.paymentStatus,
@@ -288,6 +289,7 @@ export class ServicesController {
       serviceTypeId: dto.serviceTypeId,
       performedBy: dto.performedBy,
       description: dto.description,
+      anamnesisResponseId: dto.anamnesisResponseId,
       performedAt: dto.performedAt ? new Date(dto.performedAt) : undefined,
     });
   }

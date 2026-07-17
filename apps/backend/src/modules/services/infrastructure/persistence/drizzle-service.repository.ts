@@ -14,8 +14,26 @@ import {
   ListServicesFilter,
   UpdateServiceData,
 } from "../../domain/service.repository.interface";
+import { AnamnesisResponseAlreadyLinkedException } from "../../../anamnesis/domain/exceptions/anamnesis-response-already-linked.exception";
 
 type ServiceRow = typeof schema.services.$inferSelect;
+
+function pgErrorCode(error: unknown): unknown {
+  if (typeof error !== "object" || error === null) return undefined;
+  if ("code" in error) return (error as { code?: unknown }).code;
+  return undefined;
+}
+
+// drizzle-orm envolve o erro do pg num DrizzleQueryError — o code real da
+// violação (23505) fica em `error.cause`, não na propriedade `code` do erro
+// lançado.
+function isUniqueViolation(error: unknown): boolean {
+  if (pgErrorCode(error) === "23505") return true;
+  if (typeof error === "object" && error !== null && "cause" in error) {
+    return pgErrorCode((error as { cause?: unknown }).cause) === "23505";
+  }
+  return false;
+}
 
 interface JoinedNames {
   customerName: string | null;
@@ -34,6 +52,7 @@ function toDomain(
     serviceTypeId: row.serviceTypeId ?? null,
     customerId: row.customerId ?? null,
     paymentTransactionId: row.paymentTransactionId ?? null,
+    anamnesisResponseId: row.anamnesisResponseId ?? null,
     performedBy: row.performedBy ?? null,
     createdBy: row.createdBy ?? null,
     description: row.description ?? null,
@@ -58,20 +77,31 @@ export class DrizzleServiceRepository implements IServiceRepository {
     data: CreateServiceData,
     materials: CreateServiceMaterialData[],
   ): Promise<ServiceEntity> {
-    const [row] = await this.db
-      .insert(schema.services)
-      .values({
-        orgId: data.orgId,
-        serviceTypeId: data.serviceTypeId ?? null,
-        customerId: data.customerId ?? null,
-        performedBy: data.performedBy ?? null,
-        createdBy: data.createdBy ?? null,
-        description: data.description ?? null,
-        amountCents: data.amountCents,
-        paymentMethod: data.paymentMethod,
-        ...(data.performedAt ? { performedAt: data.performedAt } : {}),
-      })
-      .returning();
+    let row: ServiceRow | undefined;
+    try {
+      [row] = await this.db
+        .insert(schema.services)
+        .values({
+          orgId: data.orgId,
+          serviceTypeId: data.serviceTypeId ?? null,
+          customerId: data.customerId ?? null,
+          performedBy: data.performedBy ?? null,
+          createdBy: data.createdBy ?? null,
+          description: data.description ?? null,
+          amountCents: data.amountCents,
+          paymentMethod: data.paymentMethod,
+          anamnesisResponseId: data.anamnesisResponseId ?? null,
+          ...(data.performedAt ? { performedAt: data.performedAt } : {}),
+        })
+        .returning();
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new AnamnesisResponseAlreadyLinkedException(
+          data.anamnesisResponseId ?? "",
+        );
+      }
+      throw error;
+    }
 
     if (materials.length > 0) {
       await this.db.insert(schema.serviceMaterials).values(
@@ -248,19 +278,31 @@ export class DrizzleServiceRepository implements IServiceRepository {
   }
 
   async update(id: string, data: UpdateServiceData): Promise<ServiceEntity> {
-    await this.db
-      .update(schema.services)
-      .set({
-        ...(data.serviceTypeId !== undefined && {
-          serviceTypeId: data.serviceTypeId,
-        }),
-        ...(data.customerId !== undefined && { customerId: data.customerId }),
-        ...(data.performedBy !== undefined && { performedBy: data.performedBy }),
-        ...(data.description !== undefined && { description: data.description }),
-        ...(data.performedAt !== undefined && { performedAt: data.performedAt }),
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.services.id, id));
+    try {
+      await this.db
+        .update(schema.services)
+        .set({
+          ...(data.serviceTypeId !== undefined && {
+            serviceTypeId: data.serviceTypeId,
+          }),
+          ...(data.customerId !== undefined && { customerId: data.customerId }),
+          ...(data.performedBy !== undefined && { performedBy: data.performedBy }),
+          ...(data.description !== undefined && { description: data.description }),
+          ...(data.performedAt !== undefined && { performedAt: data.performedAt }),
+          ...(data.anamnesisResponseId !== undefined && {
+            anamnesisResponseId: data.anamnesisResponseId,
+          }),
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.services.id, id));
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new AnamnesisResponseAlreadyLinkedException(
+          data.anamnesisResponseId ?? "",
+        );
+      }
+      throw error;
+    }
 
     // orgId garantido pelo caller (use-case já validou findById).
     const [row] = await this.db
