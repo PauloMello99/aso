@@ -6,14 +6,12 @@ import {
   type DrizzleDB,
 } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
-import type {
-  AnamnesisAnswer,
-  AnamnesisResponseEntity,
-} from "../../domain/anamnesis-response.entity";
+import type { AnamnesisResponseEntity } from "../../domain/anamnesis-response.entity";
 import type {
   CreateAnamnesisResponseData,
   IAnamnesisResponseRepository,
   AnamnesisResponseWithCustomerName,
+  MarkSubmittedData,
 } from "../../domain/anamnesis-response.repository.interface";
 import { AnamnesisResponseMapper } from "./anamnesis-response.mapper";
 
@@ -84,6 +82,7 @@ export class DrizzleAnamnesisResponseRepository
       .select({
         response: schema.anamnesisResponses,
         customerName: schema.customers.name,
+        customerEmail: schema.customers.email,
       })
       .from(schema.anamnesisResponses)
       .leftJoin(
@@ -96,21 +95,44 @@ export class DrizzleAnamnesisResponseRepository
     if (!row) return null;
 
     const entity = AnamnesisResponseMapper.toDomain(row.response);
-    return Object.assign(entity, { customerName: row.customerName ?? "" });
+    return Object.assign(entity, {
+      customerName: row.customerName ?? "",
+      customerEmail: row.customerEmail ?? "",
+    });
   }
 
-  async markSubmitted(id: string, answers: AnamnesisAnswer[]): Promise<void> {
+  async markSubmitted(
+    id: string,
+    data: MarkSubmittedData,
+  ): Promise<boolean> {
     // Única mutação pós-insert do fluxo público — sem ator autenticado, roda
     // via admin (dado de saúde é append-only; ver comentário no schema).
-    await this.admin
+    // `.returning()` + checagem de linhas afetadas: o WHERE status='pending'
+    // é a proteção contra dupla submissão concorrente — se 0 linhas forem
+    // afetadas, outra requisição já venceu a corrida (ver uso no use-case).
+    const updated = await this.admin
       .update(schema.anamnesisResponses)
-      .set({ status: "submitted", answers, submittedAt: new Date() })
+      .set({
+        status: "submitted",
+        answers: data.answers,
+        signerFullName: data.signerFullName,
+        signerCpf: data.signerCpf,
+        signatureStoragePath: data.signatureStoragePath,
+        pdfStoragePath: data.pdfStoragePath,
+        pdfHashSha256: data.pdfHashSha256,
+        requestIp: data.requestIp,
+        requestUserAgent: data.requestUserAgent,
+        submittedAt: new Date(),
+      })
       .where(
         and(
           eq(schema.anamnesisResponses.id, id),
           eq(schema.anamnesisResponses.status, "pending"),
         ),
-      );
+      )
+      .returning({ id: schema.anamnesisResponses.id });
+
+    return updated.length > 0;
   }
 
   async findById(

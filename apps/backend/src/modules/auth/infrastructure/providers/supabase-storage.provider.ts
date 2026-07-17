@@ -56,7 +56,7 @@ export class SupabaseStorageProvider implements IStorageProvider {
   ): Promise<string> {
     const { error } = await this.admin.storage
       .from(bucket)
-      .upload(path, file, { contentType, upsert: false });
+      .upload(path, file, { contentType });
     if (error) throw new AvatarUploadFailedException(error.message);
     return path;
   }

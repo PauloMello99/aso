@@ -25,6 +25,9 @@ export function useAnamnesisPublicLookup(token: string | undefined) {
 
 interface SubmitAnamnesisResponseBody {
   answers: AnamnesisAnswerInput[]
+  signerFullName: string
+  signerCpf?: string
+  signatureImageBase64: string
 }
 
 /** Envio público das respostas da ficha de anamnese (sem auth, throttled no backend). */

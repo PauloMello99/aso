@@ -635,6 +635,71 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   lançar) — só relevante se um canal mal configurado em produção retornar `false` em
   vez de lançar.
 
+### M10c — Ficha de anamnese: assinatura eletrônica (F10, parte 3/3, final, 2026-07-17)
+
+- **Pesquisa jurídica concluída antes de codar** (bloqueio explícito desde M10, decisão
+  do usuário): assinatura eletrônica SIMPLES (não ICP-Brasil) é válida no Brasil pra
+  este termo de consentimento — jurisprudência STJ 2024-2026 (REsp 2.197.156, STJ
+  03/12/2024, TJSP Ap. 1011554-80.2024.8.26.0451) valida assinatura em plataforma
+  própria/não certificada quando integridade é demonstrável. gov.br Assinador é
+  inviável (API restrita a órgãos públicos). Optou-se por implementação própria (DIY)
+  em vez de ClickSign/DocuSign: mesmo nível jurídico, custo zero, sem dependência
+  externa nova. **Isso é pesquisa registrada, não parecer jurídico formal.**
+- **Novas dependências**: `pdfkit` (+ `@types/pdfkit`, backend) pra geração de PDF
+  server-side sem DOM/browser; `signature_pad` (frontend) pro canvas de assinatura —
+  nenhuma tinha precedente no projeto antes desta fatia.
+- **Evidências gravadas na submissão** (migration `0032`, colunas nullable em
+  `anamnesis_responses`): `signer_full_name`, `signer_cpf` (opcional, só regex de 11
+  dígitos, sem checagem de dígito verificador), `signature_storage_path`,
+  `pdf_storage_path`, `pdf_hash_sha256`, `request_ip`, `request_user_agent`. Bucket
+  privado novo `anamnesis-documents` (1MB, `image/png`+`application/pdf`), mesmo padrão
+  de `service_media` (0027) — path com signed URL, nunca público.
+- **Caminho de storage inclui nonce por tentativa** (`{orgId}/{responseId}/{randomUUID}-signature.png`
+  e `...-signed-form.pdf`, não um path fixo por `responseId`): decisão pós-`reviewer`.
+  Path fixo + `upsert:true` permitia que duas submissões concorrentes do mesmo token
+  (double-tap, replay de rede) sobrescrevessem os artefatos uma da outra no Storage de
+  forma independente de qual `markSubmitted` vencesse a corrida no Postgres — o hash
+  gravado no banco podia não bater com o arquivo fisicamente armazenado. Com paths
+  únicos por tentativa, cada chamada só referencia os próprios arquivos; a tentativa
+  perdedora fica com blobs órfãos (inofensivos, nunca lidos) em vez de corromper a
+  integridade da vencedora. **`IStorageProvider.uploadFile` não tem mais parâmetro
+  `upsert`** (foi adicionado e depois revertido nesta mesma fatia — ver histórico do
+  PR — porque deixou de ser necessário uma vez que os paths são únicos).
+- **`markSubmitted` retorna `boolean`** (linhas afetadas > 0), não mais `void`: o
+  `WHERE status='pending'` já existia desde M10b como proteção contra dupla submissão,
+  mas o use-case não checava o resultado — uma submissão concorrente perdedora
+  reportava sucesso (200) mesmo sem ter sido persistida. Agora, 0 linhas afetadas ⇒
+  `AnamnesisResponseAlreadySubmittedException` (409), e o e-mail best-effort não é
+  disparado pra essa tentativa. Achado do `reviewer` (severidade high) só descoberto em
+  teste manual com duas requisições concorrentes de verdade — revisão estática de
+  código não pega essa classe de bug.
+- **Sem commit parcial**: ordem estrita no use-case — validar respostas → validar
+  magic-number PNG da assinatura (`0x89 0x50 0x4E 0x47`) → gerar PDF (falha aqui também
+  vira `AnamnesisSignatureRequiredException`, não 500 cru) → hash SHA-256 do PDF →
+  upload de assinatura+PDF → `markSubmitted` (só aqui a linha muda de estado) → e-mail
+  de cópia best-effort por último, nunca antes.
+- **E-mail de cópia é best-effort, NUNCA reverte a submissão** — diferente do padrão de
+  `send-anamnesis-invite.use-case.ts` (que reverte/compensa em falha de e-mail): aqui a
+  evidência (hash+storage+DB) já está durável antes da tentativa de e-mail, então uma
+  falha de envio só é logada (com `response.id`, nunca o e-mail do cliente em texto —
+  PII em log). `customerEmail` é carregado por `findByToken` mas NUNCA exposto pelo
+  DTO do GET público (`GetAnamnesisResponseByTokenUseCase`) — só usado internamente
+  pelo `submit`.
+- **`signatureImageBase64`**: data URI `data:image/png;base64,...`, `@MaxLength(80_000)`
+  no DTO. Canvas do frontend limita `devicePixelRatio` a no máximo 2x (não o valor real
+  do dispositivo, que pode chegar a 3-4x em celulares) — sem esse teto, uma assinatura
+  densa em tela HiDPI podia gerar um PNG grande o bastante pra flertar com o limite.
+- **Hash do formulário vs. hash do PDF**: o PDF gerado imprime um "Hash do formulário"
+  (SHA-256 do `questionsSnapshot` serializado com chaves em ordem fixa — prova QUAL
+  conjunto de perguntas foi assinado). O hash do PRÓPRIO PDF (`pdf_hash_sha256`,
+  gravado no banco, não impresso no documento — seria autorreferente) é a prova de
+  integridade do arquivo de evidência.
+- **CPF em texto puro, sem criptografia adicional** — sinalizado pelo
+  `database-guardian` como decisão de produto (LGPD: CPF é PII, legível por qualquer
+  membro da org via RLS `is_org_member`), não bloqueante. Não resolvido nesta fatia.
+- **F10 está completo**: M10a (construtor+versionamento) + M10b (link público+submissão)
+  + M10c (assinatura) cobrem o fluxo inteiro de ficha de anamnese.
+
 ### Notificações — núcleo reutilizável (2026-06-15)
 - **Módulo `modules/notifications/`**: `NotificationService.notify({userId, orgId?, type, title, body?, data?, email?, actionUrl?, actionLabel?})` cria a notificação **in-app** (tabela `notifications`, migration `0008`) e dispara **e-mail** via `MailService.sendNotification` (best-effort em `try/catch` — falha nunca quebra agenda/estoque/cron). **Outros módulos injetam `NotificationService`** (exportado).
 - **E-mail transacional centralizado (ADR-0012)**: módulo dedicado `modules/mail/` (sem dep de auth/notifications → evita ciclo) é dono do port `IEmailSender`/`ResendEmailSender` e do `MailService` (`sendOrgInvite`/`sendPasswordReset`/`sendWelcome`/`sendNotification`). Templates **React Email** `.tsx` em `modules/mail/templates/` (preview: `pnpm --filter backend email:dev`). **`IEmailSender.send`**: `false` = desabilitado (no-op, dev), `true` = enviado, **lança** em falha real. **Críticos (abortam):** convite (cria→envia→em falha **reverte** o convite + `InvitationEmailFailedException`/HTTP 502) e **reset de senha**. **Best-effort:** notificações/crons e welcome. **Reset de senha saiu do GoTrue**: `IAuthProvider.generatePasswordResetLink` (`admin.generateLink type=recovery`, sem enviar) → enviamos via Resend; `null` p/ user inexistente (sem enumeração). Welcome no sign-up. `NOTIFICATIONS_FROM_EMAIL` exige domínio verificado no Resend.

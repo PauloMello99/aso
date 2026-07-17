@@ -108,6 +108,16 @@ export const anamnesisResponses = pgTable("anamnesis_responses", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+  // M10c — assinatura eletrônica: identificação do assinante, artefatos gerados no
+  // envio (imagem da assinatura + PDF consolidado + hash de integridade) e
+  // proveniência da requisição. Tudo nullable: respostas antigas (M10b) não têm.
+  signerFullName: text("signer_full_name"),
+  signerCpf: text("signer_cpf"),
+  signatureStoragePath: text("signature_storage_path"),
+  pdfStoragePath: text("pdf_storage_path"),
+  pdfHashSha256: text("pdf_hash_sha256"),
+  requestIp: text("request_ip"),
+  requestUserAgent: text("request_user_agent"),
 });
 
 export const anamnesisFormsRelations = relations(
