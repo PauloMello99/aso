@@ -5,6 +5,31 @@ portal, webhook, comp/desconto admin) contra a API real do Stripe em **modo test
 sem precisar expor a porta local via ngrok/túnel. Racional do mecanismo em
 [`.memory/adr/0016-billing-stripe-assinatura.md`](../.memory/adr/0016-billing-stripe-assinatura.md).
 
+## Separação por ambiente (staging vs produção)
+
+Não há namespacing de `lookup_key`/produto por ambiente no código — a fronteira de
+ambiente é a **separação test/live do próprio Stripe** (mesmo modelo do Larmony):
+
+- **Staging** usa uma chave `sk_test_...` → todos os produtos/preços/assinaturas vivem no
+  **modo test** da conta Stripe.
+- **Produção** usa uma chave `sk_live_...` → tudo no **modo live**.
+
+Test e live são bancos de dados separados dentro do Stripe, então o mesmo `lookup_key`
+literal (`ink-ops-standard-monthly`) nunca colide entre os dois. O `PlanCatalogService`
+no boot é idempotente (resolve o produto por id determinístico `ink-ops-standard` e o
+preço por `lookup_key`), então múltiplos ambientes no mesmo modo **convergem** nos mesmos
+objetos em vez de duplicar.
+
+> **Preço**: mudar `priceCents` no `plan-catalog.ts` dispara uma rotação de preço no boot
+> (preços do Stripe são imutáveis) — o service cria um preço novo com
+> `transfer_lookup_key: true`, movendo o `lookup_key` do preço antigo pro novo. Antes de
+> configurar **produção** (modo live), garanta que o `priceCents` reflete o valor real
+> (hoje R$400,00 = `40000`), senão o boot cria um plano cobrável errado.
+
+> **Webhook secret de produção**: NÃO é o secret do Stripe CLI. É o signing secret do
+> endpoint de webhook criado no dashboard/API do Stripe em **modo live**, apontando pro
+> backend deployado (`https://<backend>/webhooks/stripe`). Idem staging, em modo test.
+
 ## Pré-requisitos
 
 - Conta Stripe em modo teste, com chave secreta (`sk_test_...`).
