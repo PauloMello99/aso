@@ -158,6 +158,14 @@ export class DrizzleOrgRepository implements IOrganizationRepository {
         )
         .onConflictDoNothing();
 
+      await tx.insert(schema.subscriptions).values({
+        orgId: org.id,
+        type: "free",
+        status: "canceled",
+        gracePeriodDays: 14,
+        trialConsumed: false,
+      });
+
       return OrgMapper.toDomain({ ...org, role: "owner" as const });
     });
   }

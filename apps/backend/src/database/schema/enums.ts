@@ -100,3 +100,8 @@ export const anamnesisResponseStatusEnum = pgEnum(
   "anamnesis_response_status",
   ["pending", "submitted"],
 );
+
+export const billingInvoiceEventTypeEnum = pgEnum(
+  "billing_invoice_event_type",
+  ["paid", "payment_failed"],
+);

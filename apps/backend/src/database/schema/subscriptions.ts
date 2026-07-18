@@ -4,6 +4,8 @@ import {
   text,
   timestamp,
   integer,
+  smallint,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import {
@@ -12,6 +14,7 @@ import {
   billingIntervalEnum,
 } from "./enums";
 import { organizations } from "./organizations";
+import { users } from "./users";
 
 export const subscriptions = pgTable("subscriptions", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -32,6 +35,15 @@ export const subscriptions = pgTable("subscriptions", {
   currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
   gracePeriodDays: integer("grace_period_days").notNull().default(14),
   canceledAt: timestamp("canceled_at", { withTimezone: true }),
+  stripePriceId: text("stripe_price_id"),
+  stripeCouponId: text("stripe_coupon_id"),
+  discountPercent: smallint("discount_percent"),
+  compReason: text("comp_reason"),
+  compGrantedBy: uuid("comp_granted_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  compExpiresAt: timestamp("comp_expires_at", { withTimezone: true }),
+  trialConsumed: boolean("trial_consumed").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
