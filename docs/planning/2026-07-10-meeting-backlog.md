@@ -5,12 +5,12 @@
 > conter dado pessoal, ver "Pendencias de repositorio" no final).
 > Participantes: Paulo (dev), Ruan (stakeholder).
 >
-> **STATUS DESTE DOCUMENTO (atualizado em 2026-07-17): M0 a M10 estao implementados,
-> testados, revisados e MERGEADOS em `development`** (M10 em 3 fatias: M10a/M10b/M10c,
-> todas mergeadas). Versao atual (`apps/backend` e `apps/frontend`): **0.15.0**. **Só
-> resta M11 (Stripe: trial + assinatura)**, ainda NAO iniciado. Este arquivo continua
-> sendo a fonte de verdade — a secao "Estado atual" abaixo tem o resumo de cada
-> milestone concluida; leia-a antes de iniciar o M11.
+> **STATUS DESTE DOCUMENTO (atualizado em 2026-07-18): M0 a M11 estao implementados,
+> testados, revisados e MERGEADOS em `development`** (M10 em 3 fatias: M10a/M10b/M10c;
+> M11 em 3 fatias: M11a/M11b/M11c — todas mergeadas). Versao atual (`apps/backend` e
+> `apps/frontend`): **0.18.0**. **Backlog original desta reuniao encerrado** — M11
+> (Stripe: trial + assinatura) era o unico item restante. Este arquivo continua sendo a
+> fonte de verdade historica; para o proximo ciclo de trabalho, ver `.memory/roadmap.md`.
 
 ## Contexto
 
@@ -260,10 +260,30 @@ subestimava o escopo real):
   (Resend) + botao copiar link ✅, sem WhatsApp no MVP ✅ (conforme decisao ja registrada
   em "Decisoes tomadas").
 
-### M11 — Stripe: trial + assinatura — NAO iniciado
+### M11 — Stripe: trial + assinatura — CONCLUIDO (fatiado em M11a/M11b/M11c)
 
-Unico item do backlog original ainda pendente. Ver detalhes na tabela de milestones e em
-"Decisoes tomadas" (item 4).
+Ultimo item do backlog original — **encerra o backlog desta reuniao**. Seguiu o modelo
+real do Larmony (ADR-0026/0029 la, [`.memory/adr/0016-billing-stripe-assinatura.md`](../../.memory/adr/0016-billing-stripe-assinatura.md)
+aqui), nao o texto literal do item original (trial via cupom 100%): trial nativo do
+Stripe Checkout, comp/isencao 100% local, desconto parcial via Coupon API.
+
+- **M11a** — catalogo de planos + checkout hospedado + webhook publico idempotente +
+  `EntitlementsService` read-only. Migration `0033` (7 colunas novas em `subscriptions`
+  + `stripe_webhook_events`/`billing_plans`/`billing_invoice_events`, RLS sem policy).
+- **M11b** — trial self-serve (60 dias, cartao obrigatorio, write-once) + Stripe Billing
+  Portal + `ActiveSubscriptionGuard` (nao-global) gateando escrita em
+  cashier/services/customers/materials/calendar/anamnesis + frontend da pagina de
+  assinatura.
+- **M11c** — admin: conceder/revogar isencao, aplicar/remover desconto, listar faturas
+  (`admin/orgs/:orgId/subscription/*`, `PlatformAdminGuard`) + cron
+  (`billing-reconciliation`, `billing-expiry-sweep`) + painel `/admin/billing` real +
+  runbook de teste local ([`docs/billing-local-testing.md`](../billing-local-testing.md)).
+
+Validado com Stripe CLI real em modo teste (checkout, trial, portal, webhook,
+comp/desconto, cron) em todas as 3 fatias — nao so unit tests com mocks. Pendencia
+conhecida: o plano `standard` sobe com `priceCents=0` (placeholder) — preencher o valor
+real exige rotacionar o `lookup_key` do Price no Stripe antes de qualquer ambiente real
+(precos sao imutaveis no Stripe).
 
 ---
 
@@ -335,7 +355,7 @@ nunca `@repo/*` nos testes de frontend (linking quebrado neste ambiente, ver ADR
 | F8 | **Fotos no servico**: ate 3 imagens, max 300KB cada (limite rigido para custo de storage). | M | services/storage | Part I 46:19–48:18 | ✅ **M7 concluido, mergeado** |
 | F9 | **Tour de onboarding**: auto-exibir no primeiro login; replay em Configuracoes. Substitui manual de usuario estatico. | M/G | frontend (transversal) | Part II 11:52–14:00 | ✅ **M9 concluido, mergeado (PR #26)** — replay em "Minha Conta", nao em Configuracoes da org |
 | F10 | **Construtor de ficha de anamnese**: perguntas texto e sim/nao; ficha por tipo de servico; **versionamento** (servico referencia a versao usada); **assinatura digital**; envio de link publico (preenchimento sem login) via e-mail + botao copiar link (decisao: sem WhatsApp API no MVP). | **G** | novo modulo | Part I 36:29–44:49 | ✅ **M10 concluido, mergeado em 3 PRs** (M10a PR #27, M10b PR #28, M10c PR #29) |
-| F11 | **Trial links + assinatura via Stripe**: link de trial de 2 meses, assinatura com desconto para pilotos, tudo gerenciado no Stripe e espelhado no sistema (trials/descontos/isencoes = cupons; isencao = cupom de 100%; assinatura sempre criada no Stripe). Basear na implementacao existente do projeto Larmony. | **G** | novo modulo (billing) | Part II 21:32–25:24 | ⏳ **NAO iniciado** (M11 — **por ultimo, unico item restante**) |
+| F11 | **Trial links + assinatura via Stripe**: link de trial de 2 meses, assinatura com desconto para pilotos, tudo gerenciado no Stripe e espelhado no sistema (trials/descontos/isencoes = cupons; isencao = cupom de 100%; assinatura sempre criada no Stripe). Basear na implementacao existente do projeto Larmony. | **G** | novo modulo (billing) | Part II 21:32–25:24 | ✅ **M11 concluido, mergeado (M11a/b/c)** — modelo real do Larmony (trial nativo + comp local + cupom so pra desconto), nao o texto literal do item |
 
 ### Alinhamentos / decisoes de produto (documentar, sem codigo)
 
@@ -380,7 +400,7 @@ Paulo), bump de versao minor nos dois apps, testes obrigatorios.
 | **M8 — Exportacao de dados** (A5) | "Exportar dados": CSV com delimitador configuravel + Excel (.xlsx). | intermediaria | ✅ concluido, mergeado (`370f6db`, PR #25) |
 | **M9 — Onboarding tour** (F9) | Tour interativo, primeira entrada + replay em config. Mobile-first. | intermediaria (so frontend) | ✅ concluido, mergeado (`2960c53`, PR #26) |
 | **M10 — Ficha de anamnese** (F10) | Form builder (texto/sim-nao) por tipo de servico, versionado (servico referencia versao imutavel), assinatura digital, link publico sem login, envio por e-mail (Resend) + copiar link. | **complexa** (novo modulo, contrato publico) + database-guardian | ✅ concluido, mergeado em 3 PRs (M10a #27, M10b #28, M10c #29) |
-| **M11 — Stripe: trial + assinatura** (F11) | Basear no Larmony. Assinatura sempre criada no Stripe; trials/descontos/isencoes vem do Stripe (isencao = cupom 100%); links de trial para pilotos de 2 meses. Executar por ultimo. | **complexa** (dinheiro, integracao externa) + database-guardian | ⏳ **nao iniciado — unico item restante do backlog** — provedor ja decidido: Stripe |
+| **M11 — Stripe: trial + assinatura** (F11) | Basear no Larmony. Assinatura sempre criada no Stripe; trials/descontos/isencoes vem do Stripe (isencao = cupom 100%); links de trial para pilotos de 2 meses. Executar por ultimo. | **complexa** (dinheiro, integracao externa) + database-guardian | ✅ **concluido, mergeado (M11a/b/c)** — encerra o backlog original desta reuniao |
 
 ---
 

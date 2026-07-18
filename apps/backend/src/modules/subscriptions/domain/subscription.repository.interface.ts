@@ -58,6 +58,15 @@ export interface ISubscriptionRepository {
     stripeSubscriptionId: string,
   ): Promise<SubscriptionEntity | null>;
   findAllStripeLinked(): Promise<SubscriptionEntity[]>;
+  /** Comp (custom) subscriptions whose compExpiresAt has already passed. */
+  findExpiredComps(): Promise<SubscriptionEntity[]>;
+  /**
+   * past_due subscriptions whose grace period has already elapsed. Since
+   * the schema has no exact "entered past_due at" timestamp, the repository
+   * uses `currentPeriodEnd + gracePeriodDays` (or `updatedAt + gracePeriodDays`
+   * when currentPeriodEnd is null) as a proxy for that deadline.
+   */
+  findExpiredPastDue(): Promise<SubscriptionEntity[]>;
   create(data: CreateSubscriptionData): Promise<SubscriptionEntity>;
   update(
     orgId: string,
