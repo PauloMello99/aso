@@ -1,10 +1,19 @@
 "use client"
 
 import { useState } from "react"
-import { Loader2 } from "lucide-react"
-import { cn } from "@/shared/lib/utils"
+import { Loader2, Pencil, Plus } from "lucide-react"
+import { Button } from "@/shared/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select"
 import { AnamnesisFormBuilder } from "@/features/anamnesis"
 import { useServiceTypes } from "../hooks/use-service-types"
+import { ServiceTypeDialog } from "./service-type-dialog"
+import { EditServiceTypeDialog } from "./edit-service-type-dialog"
 
 interface ServiceTypesSettingsPageProps {
   orgId: string
@@ -13,8 +22,11 @@ interface ServiceTypesSettingsPageProps {
 export function ServiceTypesSettingsPage({
   orgId,
 }: ServiceTypesSettingsPageProps) {
-  const { serviceTypes, loading } = useServiceTypes(orgId)
+  const { serviceTypes, loading, createServiceType, updateServiceType } =
+    useServiceTypes(orgId)
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
 
   if (loading) {
     return (
@@ -25,35 +37,60 @@ export function ServiceTypesSettingsPage({
     )
   }
 
-  if (serviceTypes.length === 0) {
-    return (
-      <p className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-4 text-sm text-foreground/40">
-        Nenhum tipo de serviço cadastrado ainda. Tipos são criados ao lançar
-        um serviço em Serviços — depois disso, volte aqui para configurar a
-        ficha de anamnese de cada um.
-      </p>
-    )
-  }
+  const selectedType =
+    serviceTypes.find((type) => type.id === selectedTypeId) ?? null
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-2">
-        {serviceTypes.map((type) => (
-          <button
-            key={type.id}
-            type="button"
-            onClick={() => setSelectedTypeId(type.id)}
-            className={cn(
-              "rounded-full border px-3 py-1.5 text-sm transition-colors",
-              selectedTypeId === type.id
-                ? "border-orange-400/40 bg-orange-400/10 text-foreground"
-                : "border-foreground/[0.08] text-foreground/60 hover:bg-foreground/[0.04]",
-            )}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        {serviceTypes.length > 0 && (
+          <Select
+            value={selectedTypeId ?? undefined}
+            onValueChange={(value) => setSelectedTypeId(value)}
           >
-            {type.name}
-          </button>
-        ))}
+            <SelectTrigger className="sm:max-w-xs">
+              <SelectValue placeholder="Selecione um tipo de serviço" />
+            </SelectTrigger>
+            <SelectContent>
+              {serviceTypes.map((type) => (
+                <SelectItem key={type.id} value={type.id}>
+                  {type.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setCreateDialogOpen(true)}
+          >
+            <Plus className="mr-1 h-4 w-4" />
+            Novo tipo
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            disabled={!selectedType}
+            onClick={() => setEditDialogOpen(true)}
+            aria-label="Editar tipo de serviço"
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
+
+      {serviceTypes.length === 0 && (
+        <p className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-4 text-sm text-foreground/40">
+          Nenhum tipo de serviço cadastrado ainda. Use o botão &quot;Novo
+          tipo&quot; acima para criar o primeiro e configurar sua ficha de
+          anamnese.
+        </p>
+      )}
 
       {selectedTypeId ? (
         <AnamnesisFormBuilder
@@ -62,10 +99,28 @@ export function ServiceTypesSettingsPage({
           serviceTypeId={selectedTypeId}
         />
       ) : (
-        <p className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-4 text-sm text-foreground/40">
-          Selecione um tipo de serviço acima para configurar sua ficha de
-          anamnese.
-        </p>
+        serviceTypes.length > 0 && (
+          <p className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-4 text-sm text-foreground/40">
+            Selecione um tipo de serviço acima para configurar sua ficha de
+            anamnese.
+          </p>
+        )
+      )}
+
+      <ServiceTypeDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onCreate={createServiceType}
+        onCreated={(type) => setSelectedTypeId(type.id)}
+      />
+
+      {selectedType && (
+        <EditServiceTypeDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          serviceType={selectedType}
+          onSave={updateServiceType}
+        />
       )}
     </div>
   )

@@ -33,9 +33,39 @@ export function useServiceTypes(orgId: string) {
     },
   })
 
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string
+      data: { name?: string; description?: string | null }
+    }) =>
+      apiRequest<ServiceType>(`/orgs/${orgId}/services/types/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<ServiceType[]>(
+        queryKeys.services.types(orgId),
+        (old) =>
+          old
+            ? old.map((type) => (type.id === updated.id ? updated : type))
+            : [updated],
+      )
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.services.types(orgId),
+      })
+    },
+  })
+
   return {
     serviceTypes: data ?? EMPTY,
     loading: isLoading,
     createServiceType: (name: string) => createMutation.mutateAsync(name),
+    updateServiceType: (
+      id: string,
+      data: { name?: string; description?: string | null },
+    ) => updateMutation.mutateAsync({ id, data }),
   }
 }
