@@ -9,10 +9,6 @@ import type { Material } from "@/features/stock/types"
 import type { Customer } from "@/features/clients/types"
 import type { TransactionView, TransactionCategory } from "@/features/cashier/types"
 
-/**
- * Resposta agregada do Overview (PERF-2). Cada lista já vem ordenada e fatiada
- * pelo servidor; seções owner-only chegam vazias para funcionário.
- */
 export interface OverviewData {
   recentServices: Service[]
   upcomingEvents: CalendarEvent[]

@@ -40,7 +40,6 @@ export class GetServiceUseCase {
     );
     if (!service) throw new ServiceNotFoundException(input.serviceId);
 
-    // Funcionário só acessa os próprios atendimentos.
     if (!isOwner && service.performedBy !== currentUserId) {
       throw new ServiceForbiddenException();
     }

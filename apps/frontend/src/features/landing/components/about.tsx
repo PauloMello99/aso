@@ -22,7 +22,6 @@ export function About() {
     <section id="sobre" className="py-16 md:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-16">
-          {/* Left: text */}
           <div>
             <div className="mb-4">
               <Badge
@@ -55,7 +54,6 @@ export function About() {
             </ul>
           </div>
 
-          {/* Right: stats */}
           <div className="grid grid-cols-2 gap-4">
             {STATS.map((stat) => (
               <div

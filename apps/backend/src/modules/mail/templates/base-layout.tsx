@@ -12,15 +12,10 @@ import {
 import type { ReactNode } from "react";
 
 interface BaseLayoutProps {
-  /** Texto curto exibido na prévia da caixa de entrada. */
   preview: string;
   children: ReactNode;
 }
 
-/**
- * Layout/branding compartilhado por todos os e-mails transacionais do Ink Ops.
- * Mantém header, footer, tipografia e cores num só lugar.
- */
 export function BaseLayout({ preview, children }: BaseLayoutProps) {
   return (
     <Html lang="pt-BR">
@@ -102,7 +97,6 @@ const footerLink: React.CSSProperties = {
   textDecoration: "underline",
 };
 
-/** Estilos reutilizados pelos templates concretos. */
 export const sharedStyles = {
   heading: {
     fontSize: "20px",

@@ -71,8 +71,6 @@ export class MaterialsController {
     private readonly listVerifications: ListStockVerificationsUseCase,
   ) {}
 
-  /* ─── Conferência periódica de estoque ──────────────────────── */
-
   @Get("stock-settings")
   async stockSettings(@Param("orgId", ParseUUIDPipe) orgId: string) {
     return this.getStockSettings.execute(orgId);
@@ -107,9 +105,6 @@ export class MaterialsController {
     });
   }
 
-  // Seleção de material no lançamento de serviço precisa listar mesmo sem a
-  // flag do módulo (B1): leitura para seleção fica liberada a qualquer membro
-  // habilitado; RLS já isola por organização.
   @Get()
   @AllowAnyOrgMember()
   async list(

@@ -2,8 +2,6 @@ import { useEffect } from "react"
 import { useRouter } from "next/router"
 import { useOrgs } from "@/features/dashboard/hooks/use-orgs"
 
-// /dashboard/org/[orgSlug]/settings → redireciona por papel:
-// owner → settings/general; funcionário → settings/agenda (única seção que ele acessa).
 export default function SettingsIndex() {
   const router = useRouter()
   const { orgSlug } = router.query as { orgSlug?: string }

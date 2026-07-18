@@ -8,7 +8,6 @@ import {
 } from "class-validator";
 import { PAYMENT_METHODS, TRANSACTION_TYPES } from "./create-transaction.dto";
 
-/** Novos valores do lançamento corrigido (estorno + relançamento). */
 export class CorrectTransactionDto {
   @IsString()
   @IsNotEmpty()

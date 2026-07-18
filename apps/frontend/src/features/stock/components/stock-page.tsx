@@ -35,7 +35,6 @@ interface StockPageProps {
   orgId: string
 }
 
-/** Colunas exportáveis (chaves espelham o backend). */
 const EXPORT_COLUMNS = [
   { key: "name", label: "Material" },
   { key: "stock", label: "Estoque" },
@@ -140,10 +139,8 @@ export function StockPage({ orgId }: StockPageProps) {
     setDialogs((d) => ({ ...d, [key]: false }))
   }
 
-  /* ─── Summary stats ─────────────────────────────────────────── */
   const lowStockCount = materials.filter(isLowStock).length
 
-  /* ─── Form handlers ─────────────────────────────────────────── */
   async function handleMaterialSubmit(values: MaterialFormValues) {
     const body = {
       name: values.name,
@@ -165,7 +162,6 @@ export function StockPage({ orgId }: StockPageProps) {
 
   async function handleAdjust(values: AdjustStockFormValues) {
     if (!activeMaterial) return
-    // O schema separa direção (+/−) e quantidade só-número; montamos o delta com sinal.
     const delta =
       values.direction === "remove" ? `-${values.quantity}` : values.quantity
     await adjustStock(activeMaterial.id, delta, values.note || null)
@@ -176,8 +172,6 @@ export function StockPage({ orgId }: StockPageProps) {
     try {
       await deleteMaterial(material.id)
     } catch (err) {
-      // ex.: material vinculado a serviço → 409 MATERIAL_IN_USE_BY_SERVICES.
-      // Sugere arquivar em vez de excluir.
       const msg =
         err instanceof Error ? err.message : "Não foi possível excluir o material."
       if (confirm(`${msg}\n\nDeseja arquivar "${material.name}" em vez disso?`)) {
@@ -190,10 +184,8 @@ export function StockPage({ orgId }: StockPageProps) {
     await archiveMaterial(material.id, !material.archivedAt)
   }
 
-  /* ─── Render ────────────────────────────────────────────────── */
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Estoque</h1>
@@ -223,7 +215,6 @@ export function StockPage({ orgId }: StockPageProps) {
         </div>
       </div>
 
-      {/* Search + filters */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/30" />
@@ -280,7 +271,6 @@ export function StockPage({ orgId }: StockPageProps) {
         </FilterPopover>
       </div>
 
-      {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <SummaryCard
           icon={<Package className="h-4 w-4 text-foreground/40" />}
@@ -297,14 +287,12 @@ export function StockPage({ orgId }: StockPageProps) {
         />
       </div>
 
-      {/* Error */}
       {error && (
         <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
           {error}
         </div>
       )}
 
-      {/* List */}
       {loading && materials.length === 0 ? (
         <div className="flex items-center justify-center py-16 text-foreground/30">
           <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
@@ -322,7 +310,6 @@ export function StockPage({ orgId }: StockPageProps) {
         />
       )}
 
-      {/* Dialogs */}
       <MaterialForm
         open={dialogs.materialForm}
         onOpenChange={(open) => !open && closeDialog("materialForm")}
@@ -351,7 +338,6 @@ export function StockPage({ orgId }: StockPageProps) {
   )
 }
 
-/* ─── Summary card sub-component ────────────────────────────── */
 function SummaryCard({
   icon,
   label,

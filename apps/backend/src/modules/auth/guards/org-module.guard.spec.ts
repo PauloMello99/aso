@@ -11,7 +11,6 @@ import type { AuthUser } from "../application/ports/auth-provider.interface";
 import { CustomersController } from "../../customers/interface/customers.controller";
 import { MaterialsController } from "../../materials/interface/materials.controller";
 
-/** Simula `db.select(...).from(...).innerJoin(...).where(...).limit(1)`. */
 function buildDb(rows: unknown[]): DrizzleDB {
   const queryBuilder = {
     from: jest.fn().mockReturnThis(),
@@ -114,7 +113,6 @@ describe("@AllowAnyOrgMember() aplicado nos handlers de seleção (B1)", () => {
     expect(
       Reflect.getMetadata(REQUIRE_MODULE_KEY, MaterialsController.prototype.list),
     ).toBe(ALLOW_ANY_ORG_MEMBER);
-    // A classe continua exigindo o módulo (write handlers permanecem restritos).
     expect(Reflect.getMetadata(REQUIRE_MODULE_KEY, CustomersController)).toBe(
       "clients",
     );

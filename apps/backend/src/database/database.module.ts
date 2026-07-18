@@ -5,35 +5,20 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "./schema";
 
-/** RLS-aware Drizzle. Per request it resolves to a connection whose
- *  `request.jwt.claims` is set, so the 0000 RLS policies enforce org
- *  isolation at the DB layer. Inject this in normal repositories. */
 export const DRIZZLE = Symbol("DRIZZLE");
 
-/** Privileged Drizzle (BYPASSRLS — `postgres`). Use ONLY where RLS cannot
- *  apply: guards that query before the interceptor runs, and bootstrap paths
- *  (sign-up user insert, create-org owner membership). */
 export const DRIZZLE_ADMIN = Symbol("DRIZZLE_ADMIN");
 
-/** Internal: the NOBYPASSRLS connection pool (`app_user`). */
 const RLS_POOL = Symbol("RLS_POOL");
 
 export type DrizzleDB = ReturnType<typeof drizzle<typeof schema>>;
 
 type RlsStore = {
   db: DrizzleDB;
-  /** Memo por request: dedup de lookups repetidos (ex.: findByAuthId). */
   memo: Map<string, Promise<unknown>>;
 };
 const rlsStorage = new AsyncLocalStorage<RlsStore>();
 
-/**
- * Memoiza `factory` pela duração do request atual (a mesma store do RLS). Fora
- * de um request (sem store ativa — ex.: guards antes do interceptor, crons)
- * apenas executa `factory`, sem cache. Útil para lookups idênticos repetidos no
- * mesmo request: o overview, por exemplo, resolve `findByAuthId` ~3x por carga.
- * Guarda a Promise (não o valor) → chamadas concorrentes compartilham a mesma.
- */
 export function requestMemo<T>(
   key: string,
   factory: () => Promise<T>,
@@ -47,14 +32,6 @@ export function requestMemo<T>(
   return p;
 }
 
-/**
- * Owns the per-request RLS connection lifecycle. The {@link RlsInterceptor}
- * calls {@link runWithClaims} so every query issued through the {@link DRIZZLE}
- * proxy during a request runs on a connection that has set
- *   request.jwt.claims = {"sub": <auth_id>, "role": "authenticated"}
- * inside a transaction (`set_config(..., true)` is transaction-local, so it
- * cleans itself up and never leaks to the next pooled checkout).
- */
 @Injectable()
 export class RlsContext {
   constructor(@Inject(RLS_POOL) private readonly pool: Pool) {}
@@ -75,7 +52,7 @@ export class RlsContext {
       try {
         await client.query("ROLLBACK");
       } catch {
-        /* connection already broken — release will discard it */
+        void 0;
       }
       throw err;
     } finally {
@@ -112,9 +89,6 @@ export class RlsContext {
       provide: DRIZZLE,
       inject: [RLS_POOL],
       useFactory: (pool: Pool) => {
-        // Fallback (no active request context): the app_user pool WITHOUT
-        // claims. auth.uid() is null there, so RLS denies everything — the
-        // safe default if a repo is ever reached outside a request.
         const fallback = drizzle(pool, { schema });
         return new Proxy(fallback, {
           get(_target, prop, receiver) {

@@ -21,20 +21,11 @@ import { resolveActor, resolveCreatedBy } from "./resolve-actor";
 
 export interface CreateTransactionInput {
   orgId: string;
-  /** Auth id (Supabase) de quem está lançando. */
   authId: string;
-  /** users.id do membro atribuído (só owner; funcionário força = self). */
   createdBy?: string | null;
-  /**
-   * Atribuição confiável: quando definido, é usado direto como created_by, pulando
-   * resolveActor/resolveCreatedBy. Só para chamadas internas que **preservam** a
-   * autoria existente (ex.: errata de transação preserva o created_by original),
-   * mesmo que o membro esteja inativo. Nunca exposto via API.
-   */
   trustedCreatedBy?: string | null;
   description: string;
   type: TransactionType;
-  /** Valor cheio lançado, em centavos. */
   grossCents: number;
   paymentMethod: PaymentMethod;
   categoryId?: string | null;
@@ -53,7 +44,6 @@ export class CreateTransactionUseCase {
   ) {}
 
   async execute(input: CreateTransactionInput): Promise<TransactionEntity> {
-    // Atribuição confiável (errata): preserva a autoria original sem revalidar membro.
     let createdBy: string | null;
     if (input.trustedCreatedBy !== undefined) {
       createdBy = input.trustedCreatedBy;
@@ -63,7 +53,6 @@ export class CreateTransactionUseCase {
         input.orgId,
         input.authId,
       );
-      // Funcionário força self; owner pode lançar em nome de um membro ativo.
       createdBy = await resolveCreatedBy(
         this.memberRepo,
         input.orgId,
@@ -73,7 +62,6 @@ export class CreateTransactionUseCase {
       );
     }
 
-    // Taxa de cartão só faz sentido em entradas (dinheiro recebido).
     const fee =
       input.type === "income"
         ? await this.feeRepo.findByOrgAndMethod(input.orgId, input.paymentMethod)

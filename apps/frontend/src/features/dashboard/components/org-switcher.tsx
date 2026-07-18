@@ -22,11 +22,10 @@ export function OrgSwitcher({ org }: OrgSwitcherProps) {
   const { orgs } = useOrgs()
   const router = useRouter()
 
-  // Keep the same sub-path in the new org by replacing the slug in the query.
   const handleSelect = (slug: string) => {
     if (slug === org.slug) return
     void router.push({
-      pathname: router.pathname, // e.g. /dashboard/org/[orgSlug]/members
+      pathname: router.pathname,
       query: { ...router.query, orgSlug: slug },
     })
   }

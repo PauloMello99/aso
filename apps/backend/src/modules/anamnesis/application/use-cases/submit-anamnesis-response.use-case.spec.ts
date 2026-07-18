@@ -14,7 +14,6 @@ import { IStorageProvider } from "../../../auth/application/ports/storage-provid
 import { IAnamnesisDocumentGenerator } from "../../domain/ports/anamnesis-document-generator.port";
 import { MailService } from "../../../mail/application/mail.service";
 
-// PNG 1x1 transparente conhecido — usado como assinatura válida nos testes.
 const VALID_SIGNATURE_BASE64 =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
 
@@ -217,8 +216,6 @@ describe("SubmitAnamnesisResponseUseCase", () => {
 
     await useCase.execute(buildInput());
 
-    // Caminhos incluem um nonce por tentativa (randomUUID) — não são mais
-    // determinísticos, então casamos por padrão em vez de string exata.
     const signaturePathPattern =
       /^org-1\/response-1\/[0-9a-f-]{36}-signature\.png$/;
     const pdfPathPattern =

@@ -19,7 +19,6 @@ export interface AnamnesisDocumentInput {
   requestUserAgent: string | null;
 }
 
-/** Gera o PDF consolidado (perguntas/respostas + assinatura + evidências) do termo de consentimento. */
 export interface IAnamnesisDocumentGenerator {
   generate(input: AnamnesisDocumentInput): Promise<Buffer>;
 }

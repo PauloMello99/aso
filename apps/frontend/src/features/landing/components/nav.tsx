@@ -25,14 +25,11 @@ export function Nav() {
         "transition-all",
       )}
     >
-      {/* Main nav bar */}
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        {/* Logo */}
         <Link href="/" className="text-xl font-bold tracking-tight text-white">
           ink<span className="text-orange-500">ops</span>
         </Link>
 
-        {/* Center links — desktop only */}
         <ul className="hidden items-center gap-6 md:flex">
           {NAV_LINKS.map((link) => (
             <li key={link.href}>
@@ -46,7 +43,6 @@ export function Nav() {
           ))}
         </ul>
 
-        {/* Right: CTAs + hamburger */}
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -64,7 +60,6 @@ export function Nav() {
             <Link href="/auth/signup">Começar grátis</Link>
           </Button>
 
-          {/* Hamburger — mobile only */}
           <button
             onClick={() => setMobileOpen((v) => !v)}
             className="flex h-9 w-9 items-center justify-center rounded-md text-white/60 transition-colors hover:bg-white/[0.06] hover:text-white md:hidden"
@@ -76,7 +71,6 @@ export function Nav() {
         </div>
       </div>
 
-      {/* Mobile drawer — slides open below nav bar */}
       {mobileOpen && (
         <div className="border-t border-white/5 md:hidden">
           <nav className="flex flex-col gap-1 px-4 py-4">

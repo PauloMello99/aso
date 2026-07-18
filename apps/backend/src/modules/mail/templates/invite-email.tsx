@@ -29,7 +29,6 @@ export function InviteEmail({ orgName, acceptUrl }: InviteEmailProps) {
   );
 }
 
-// Default export para a preview do `react-email` (email dev).
 export default function InviteEmailPreview() {
   return (
     <InviteEmail

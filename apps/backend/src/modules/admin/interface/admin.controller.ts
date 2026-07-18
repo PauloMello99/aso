@@ -27,10 +27,6 @@ import { SetSuspendedDto } from "./dto/set-suspended.dto";
 import { SetPlatformRoleDto } from "./dto/set-platform-role.dto";
 import { AuditLogsQueryDto } from "./dto/audit-logs-query.dto";
 
-/**
- * Painel da plataforma (PLAT-1). Rotas NÃO org-scoped, restritas ao super_admin
- * via {@link PlatformAdminGuard}.
- */
 @Controller("admin")
 @UseGuards(AuthGuard, PlatformAdminGuard)
 export class AdminController {

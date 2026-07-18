@@ -17,7 +17,6 @@ export interface CorrectTransactionInput {
   orgId: string;
   transactionId: string;
   correctedBy?: string | null;
-  // Novos valores do lançamento corrigido.
   description: string;
   type: TransactionType;
   grossCents: number;
@@ -30,11 +29,6 @@ export interface CorrectTransactionResult {
   replacement: TransactionEntity;
 }
 
-/**
- * Errata combinada: estorna a transação original e cria um novo lançamento
- * corrigido — preservando o append-only (nada é editado). Reaproveita os
- * use-cases de estorno e criação, então todas as validações se aplicam.
- */
 @Injectable()
 export class CorrectTransactionUseCase {
   constructor(
@@ -49,17 +43,12 @@ export class CorrectTransactionUseCase {
   async execute(
     input: CorrectTransactionInput,
   ): Promise<CorrectTransactionResult> {
-    // Autoria a preservar no lançamento corrigido (errata mantém quem lançou,
-    // não migra para o owner que corrige). Lido antes do estorno.
     const original = await this.transactionRepo.findById(
       input.transactionId,
       input.orgId,
     );
     if (!original) throw new TransactionNotFoundException(input.transactionId);
 
-    // Lançamento vinculado a um serviço só pode ser corrigido pelo fluxo
-    // dedicado (PATCH /services/:id/payment), que mantém amount_cents e
-    // payment_transaction_id do serviço em sincronia com o caixa.
     if (
       await this.serviceRepo.existsByPaymentTransactionId(input.transactionId)
     ) {
@@ -72,8 +61,6 @@ export class CorrectTransactionUseCase {
       reversedBy: input.correctedBy,
     });
 
-    // Correção é owner-only (guard). O lançamento corrigido **preserva** o
-    // created_by original (atribuição confiável — não revalida membro).
     const replacement = await this.createTransaction.execute({
       orgId: input.orgId,
       authId: input.correctedBy ?? "",

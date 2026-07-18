@@ -20,9 +20,6 @@ function pgErrorCode(error: unknown): unknown {
   return undefined;
 }
 
-// drizzle-orm envolve o erro do pg num DrizzleQueryError — o code real da
-// violação (23505) fica em `error.cause`, não na propriedade `code` do erro
-// lançado.
 function isUniqueViolation(error: unknown): boolean {
   if (pgErrorCode(error) === "23505") return true;
   if (typeof error === "object" && error !== null && "cause" in error) {

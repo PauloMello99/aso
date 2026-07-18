@@ -11,14 +11,6 @@ interface SignaturePadFieldProps {
   error?: string
 }
 
-/**
- * Canvas de assinatura via `signature_pad` (biblioteca pura, sem wrapper
- * React) — inicializado/destruído no ciclo de vida do componente. Escala o
- * canvas pelo `devicePixelRatio` (capado em 2x) para não borrar em telas
- * HiDPI sem deixar o PNG exportado grande demais para o
- * `@MaxLength(80_000)` do DTO — em telas com DPR 3-4x (comum em celulares),
- * um traço denso sem o cap poderia se aproximar do limite.
- */
 export function SignaturePadField({
   value,
   onChange,
@@ -38,7 +30,6 @@ export function SignaturePadField({
 
     const pad = new SignaturePad(canvas)
     padRef.current = pad
-    // Redimensionar o canvas o limpa; garante que isEmpty() fique correto.
     pad.clear()
 
     if (value) {

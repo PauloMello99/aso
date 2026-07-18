@@ -10,7 +10,6 @@ export interface OrgSummary {
   slug: string
   logoUrl: string | null
   role: "owner" | "employee"
-  /** Módulos liberados ao funcionário (owner = acesso total, ignora). */
   permissions: string[]
 }
 
@@ -27,11 +26,6 @@ export function useOrgs() {
   }
 }
 
-/**
- * Resolve uma org pela slug mesmo quando o usuário não é membro — usado pelo
- * super_admin ao gerenciar uma org alheia (backend devolve role "owner").
- * 404 → org inexistente ou sem acesso.
- */
 export function useResolveOrgBySlug(slug: string | undefined, enabled: boolean) {
   const { data, isLoading, isError } = useQuery({
     queryKey: queryKeys.orgs.bySlug(slug ?? ""),
@@ -50,7 +44,6 @@ export function useOrg(orgId: string) {
   const { data, isLoading, isError } = useQuery({
     queryKey: queryKeys.orgs.detail(orgId),
     queryFn: () => apiRequest<OrgSummary>(`/orgs/${orgId}`),
-    // Don't run when orgId is empty (e.g. OrgLayout before query param resolves)
     enabled: !!orgId,
   })
 

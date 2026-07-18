@@ -52,7 +52,6 @@ export function FeaturesSection() {
   return (
     <section id="recursos" className="py-16 md:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        {/* Header */}
         <div className="mb-16 text-center">
           <div className="mb-4 flex justify-center">
             <Badge
@@ -71,7 +70,6 @@ export function FeaturesSection() {
           </p>
         </div>
 
-        {/* Grid */}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((feature) => {
             const Icon = feature.icon

@@ -6,8 +6,6 @@ export interface AnamnesisLinkEmailProps {
   fillUrl: string;
 }
 
-// Sem nome da organização de propósito (minimização de dados) — o link já
-// carrega o contexto necessário.
 export function AnamnesisLinkEmail({
   customerName,
   fillUrl,
@@ -34,7 +32,6 @@ export function AnamnesisLinkEmail({
   );
 }
 
-// Default export para a preview do `react-email` (email dev).
 export default function AnamnesisLinkEmailPreview() {
   return (
     <AnamnesisLinkEmail

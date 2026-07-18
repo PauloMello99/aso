@@ -59,7 +59,6 @@ interface UploadedDoc {
 
 const GENDERS = ["male", "female", "other"] as const;
 
-/** Monta o filtro de listagem/export a partir dos query params (compartilhado). */
 function buildCustomersFilter(q: {
   search?: string;
   enabled?: string;
@@ -112,9 +111,6 @@ export class CustomersController {
     private readonly deleteAttachment: DeleteCustomerAttachmentUseCase,
   ) {}
 
-  // Seleção de cliente no lançamento de serviço precisa listar mesmo sem a flag
-  // do módulo (B1): leitura para seleção fica liberada a qualquer membro
-  // habilitado; RLS já isola por organização.
   @Get()
   @AllowAnyOrgMember()
   async list(
@@ -244,8 +240,6 @@ export class CustomersController {
   ) {
     await this.deleteCustomer.execute(id, orgId);
   }
-
-  /* ─── Anexos ────────────────────────────────────────────────── */
 
   @Get(":id/attachments")
   async attachments(

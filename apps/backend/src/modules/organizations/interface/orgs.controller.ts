@@ -61,8 +61,6 @@ export class OrgsController {
     private readonly cancelInvitation: CancelInvitationUseCase,
   ) {}
 
-  /* ─── Org CRUD ──────────────────────────────────────────────── */
-
   @Get()
   list(@CurrentUser() user: AuthUser) {
     return this.listUserOrgs.execute(user.id);
@@ -73,7 +71,6 @@ export class OrgsController {
     return this.createOrg.execute(dto.name, user.id);
   }
 
-  /** Resolve por slug (membro ou super_admin). Antes de `:orgId` por ser path fixo. */
   @Get("by-slug/:slug")
   bySlug(@Param("slug") slug: string, @CurrentUser() user: AuthUser) {
     return this.resolveOrgBySlug.execute(slug, user.id);
@@ -114,8 +111,6 @@ export class OrgsController {
   ) {
     await this.transferOwnership.execute(orgId, dto.memberId, user.id);
   }
-
-  /* ─── Members ───────────────────────────────────────────────── */
 
   @Get(":orgId/members")
   @UseGuards(OrgMembershipGuard)
@@ -183,8 +178,6 @@ export class OrgsController {
   ) {
     await this.removeMember.execute(orgId, memberId, user.id);
   }
-
-  /* ─── Invitations ───────────────────────────────────────────── */
 
   @Get(":orgId/invitations")
   getInvitations(

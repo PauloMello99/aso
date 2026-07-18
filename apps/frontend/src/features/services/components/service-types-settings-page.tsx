@@ -10,11 +10,6 @@ interface ServiceTypesSettingsPageProps {
   orgId: string
 }
 
-/**
- * Lista os tipos de serviço da org e permite configurar a ficha de anamnese
- * do tipo selecionado. CRUD completo de tipos de serviço é fora de escopo
- * aqui — tipos são criados inline ao lançar um serviço (ver ServiceTypeDialog).
- */
 export function ServiceTypesSettingsPage({
   orgId,
 }: ServiceTypesSettingsPageProps) {

@@ -49,29 +49,22 @@ import { assertPerformedAtNotFuture } from "./assert-performed-at-not-future";
 import { assertAgeVerification } from "./assert-age-verification";
 import { assertAnamnesisResponseLinkable } from "./assert-anamnesis-response-linkable";
 
-/** Linha de material no lançamento. */
 export interface ServiceMaterialInput {
   materialId: string;
-  /** Quantidade consumida (material não-compartilhável). */
   quantity?: number;
-  /** "Acabou?" — material compartilhável: marca consumo de 1 embalagem. */
   finished?: boolean;
 }
 
 export interface CreateServiceInput {
   orgId: string;
-  /** Auth id (Supabase) de quem está lançando. */
   authId: string;
   customerId?: string | null;
   serviceTypeId?: string | null;
-  /** App users.id do profissional (só owner escolhe; funcionário força = self). */
   performedBy?: string | null;
   description?: string | null;
-  /** Resposta de anamnese vinculada a este atendimento (M10b). */
   anamnesisResponseId?: string | null;
   amountCents: number;
   paymentMethod: PaymentMethod;
-  /** "paid" gera transação líquida no caixa; "pending" não. */
   paymentStatus: "paid" | "pending";
   performedAt?: Date;
   materials: ServiceMaterialInput[];
@@ -109,7 +102,6 @@ export class CreateServiceUseCase {
       input.authId,
     );
 
-    // 1. Cliente da org e ativo.
     let customer: CustomerEntity | null = null;
     if (input.customerId) {
       customer = await this.customerRepo.findById(
@@ -122,7 +114,6 @@ export class CreateServiceUseCase {
       }
     }
 
-    // 1b. Tipo de serviço pode exigir confirmação de maioridade do cliente.
     const serviceType = input.serviceTypeId
       ? await this.serviceTypeRepo.findById(input.serviceTypeId, input.orgId)
       : null;
@@ -132,8 +123,6 @@ export class CreateServiceUseCase {
       input.performedAt ?? new Date(),
     );
 
-    // 1c. Resposta de anamnese vinculada (M10b): precisa existir, estar
-    // submitted e (se já tiver tipo/cliente) bater com os do serviço.
     if (input.anamnesisResponseId) {
       await assertAnamnesisResponseLinkable(
         this.anamnesisResponseRepo,
@@ -144,7 +133,6 @@ export class CreateServiceUseCase {
       );
     }
 
-    // 2. Profissional: funcionário força self; owner escolhe (membro ativo).
     const performedBy = await resolvePerformer(
       this.memberRepo,
       input.orgId,
@@ -153,7 +141,6 @@ export class CreateServiceUseCase {
       input.performedBy,
     );
 
-    // 3. Resolver consumo de materiais (valida estoque antes de gravar).
     const debits: { materialId: string; delta: string }[] = [];
     const toRecord: CreateServiceMaterialData[] = [];
 
@@ -166,7 +153,6 @@ export class CreateServiceUseCase {
 
       let qty: number;
       if (material.shareable) {
-        // Compartilhável: só consome se "acabou?" marcado (1 embalagem).
         if (!line.finished) continue;
         qty = 1;
       } else {
@@ -190,7 +176,6 @@ export class CreateServiceUseCase {
       throw new ServiceMaterialRequiredException();
     }
 
-    // 4. Criar serviço + service_materials.
     const service = await this.serviceRepo.create(
       {
         orgId: input.orgId,
@@ -207,7 +192,6 @@ export class CreateServiceUseCase {
       toRecord,
     );
 
-    // 5. Baixar estoque (movimento + saldo + lastUsed).
     for (const debit of debits) {
       await this.materialRepo.updateStockQuantity(debit.materialId, debit.delta);
       await this.movementRepo.create({
@@ -221,7 +205,6 @@ export class CreateServiceUseCase {
       await this.materialRepo.touchLastUsed(debit.materialId);
     }
 
-    // 6. Pagamento à vista: transação líquida no caixa.
     if (input.paymentStatus === "paid") {
       const fee = await this.feeRepo.findByOrgAndMethod(
         input.orgId,
@@ -246,7 +229,6 @@ export class CreateServiceUseCase {
       await this.serviceRepo.setPaymentTransaction(service.id, tx.id);
     }
 
-    // Re-ler para refletir materiais/nomes/transação anotados.
     const fresh = await this.serviceRepo.findById(service.id, input.orgId);
     return fresh ?? service;
   }

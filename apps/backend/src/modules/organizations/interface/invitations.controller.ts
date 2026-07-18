@@ -25,7 +25,6 @@ export class InvitationsController {
     private readonly declineInvitation: DeclineInvitationUseCase,
   ) {}
 
-  /** Público — a tela de aceite consulta o convite pelo token (o segredo é o token). */
   @Get("lookup")
   lookup(@Query("token") token?: string) {
     if (!token) throw new BadRequestException("token is required");
@@ -38,7 +37,6 @@ export class InvitationsController {
     return this.acceptInvitation.execute({ authUser: user, token: dto.token });
   }
 
-  /** Recusa: remove o convite (permite reenviar o fluxo). Só o convidado. */
   @Post("decline")
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(AuthGuard)

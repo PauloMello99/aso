@@ -7,11 +7,6 @@ import {
 } from "../../domain/org.repository.interface";
 import { AuditService } from "../../../audit/audit.service";
 
-/**
- * Generates a 20-character random lowercase alphabetic slug.
- * Matches the style used by Supabase (e.g. "wmnqustozicaluqgmvnr").
- * 26^20 ≈ 2×10^28 possible values — collision probability is negligible.
- */
 function generateSlug(): string {
   const alphabet = "abcdefghijklmnopqrstuvwxyz";
   const bytes = randomBytes(20);

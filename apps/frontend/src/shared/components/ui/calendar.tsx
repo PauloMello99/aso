@@ -100,7 +100,6 @@ function Calendar({
           d.month_caption,
           "flex h-8 items-center justify-center",
         ),
-        // Hidden because we always render the month/year dropdowns (captionLayout="dropdown").
         caption_label: cn(d.caption_label, "hidden"),
         dropdowns: cn(d.dropdowns, "flex items-center justify-center gap-1.5"),
         dropdown_root: cn(d.dropdown_root, "relative"),

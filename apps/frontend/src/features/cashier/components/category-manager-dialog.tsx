@@ -25,7 +25,6 @@ interface CategoryManagerDialogProps {
   onDelete: (id: string) => Promise<void>
 }
 
-/** Diálogo owner-only para criar, renomear e excluir categorias de lançamento. */
 export function CategoryManagerDialog({
   open,
   onOpenChange,

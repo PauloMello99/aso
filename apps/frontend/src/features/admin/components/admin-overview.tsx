@@ -27,10 +27,10 @@ import { fmtMonth } from "../lib/format"
 import { usePrefersReducedMotion } from "../lib/use-prefers-reduced-motion"
 
 const COLORS = {
-  orgs: "#fb923c", // orange-400 (accent)
-  users: "#60a5fa", // blue-400
-  active: "#22c55e", // green-500
-  suspended: "#ef4444", // red-500
+  orgs: "#fb923c",
+  users: "#60a5fa",
+  active: "#22c55e",
+  suspended: "#ef4444",
   axis: "rgba(255,255,255,0.4)",
   grid: "rgba(255,255,255,0.06)",
 }
@@ -63,7 +63,6 @@ function StatCard({
   )
 }
 
-/** Tooltip escuro consistente com o tema (o padrão do recharts é claro). */
 function ChartTooltip({
   active,
   payload,
@@ -135,7 +134,6 @@ export function AdminOverview() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        {/* Crescimento (últimos 12 meses) */}
         <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4 lg:col-span-2">
           <div className="mb-3 flex items-center gap-1.5 text-sm font-medium text-foreground">
             <TrendingUp className="h-4 w-4 text-orange-400" />
@@ -174,7 +172,6 @@ export function AdminOverview() {
           )}
         </div>
 
-        {/* Organizações por status */}
         <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4">
           <div className="mb-3 flex items-center gap-1.5 text-sm font-medium text-foreground">
             <Building2 className="h-4 w-4 text-orange-400" />

@@ -9,7 +9,6 @@ export interface InvitationEntityProps {
   email: string;
   role: OrgRole;
   status: InvitationStatus;
-  /** Token secreto do link de aceite. */
   token: string;
   expiresAt: Date;
   createdAt: Date;
@@ -38,7 +37,6 @@ export class InvitationEntity {
     this.createdAt = props.createdAt;
   }
 
-  /** Convite ainda aproveitável (pendente e não expirado). */
   isAcceptable(now: Date = new Date()): boolean {
     return this.status === "pending" && this.expiresAt > now;
   }

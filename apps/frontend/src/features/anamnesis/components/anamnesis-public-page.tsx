@@ -141,11 +141,6 @@ interface AnamnesisResponseFormProps {
   onSubmitted: () => void
 }
 
-/**
- * Formulário da ficha de anamnese pública. Componente interno (não exportado
- * fora do arquivo): só é montado quando `questions` já está disponível, então
- * o schema zod (dependente das perguntas) é estável desde o primeiro render.
- */
 function AnamnesisResponseForm({
   token,
   questions,
@@ -303,7 +298,6 @@ interface AnamnesisPublicPageProps {
   token: string | undefined
 }
 
-/** Página pública (sem login) de resposta à ficha de anamnese via link. */
 export function AnamnesisPublicPage({ token }: AnamnesisPublicPageProps) {
   const { data: lookup, isLoading, error } = useAnamnesisPublicLookup(token)
   const [submitted, setSubmitted] = React.useState(false)

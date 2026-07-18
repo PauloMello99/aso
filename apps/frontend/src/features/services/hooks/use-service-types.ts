@@ -23,8 +23,6 @@ export function useServiceTypes(orgId: string) {
         body: JSON.stringify({ name }),
       }),
     onSuccess: (created) => {
-      // Insere já no cache para que o novo tipo apareça no seletor de imediato
-      // (permite auto-selecioná-lo após criar pela modal, sem esperar refetch).
       queryClient.setQueryData<ServiceType[]>(
         queryKeys.services.types(orgId),
         (old) => (old ? [...old, created] : [created]),

@@ -31,7 +31,6 @@ export const ANAMNESIS_QUESTION_TYPE_LABELS: Record<
 
 export type AnamnesisPublicStatus = "pending" | "submitted" | "expired"
 
-/** Retorno da consulta pública da ficha de anamnese pelo token (M10b, sem auth). */
 export interface AnamnesisPublicLookup {
   questions: AnamnesisQuestion[]
   customerName: string
@@ -39,7 +38,6 @@ export interface AnamnesisPublicLookup {
   expiresAt: string
 }
 
-/** Uma resposta enviada no submit público da ficha de anamnese. */
 export interface AnamnesisAnswerInput {
   questionId: string
   value: string | boolean

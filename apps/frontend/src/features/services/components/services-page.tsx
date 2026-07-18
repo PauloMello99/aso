@@ -54,7 +54,6 @@ interface ServicesPageProps {
 
 const STATUS_VALUES: ServiceStatus[] = ["pending", "paid", "canceled"]
 
-/** Colunas exportáveis (chaves espelham o backend). */
 const EXPORT_COLUMNS = [
   { key: "date", label: "Data" },
   { key: "customer", label: "Cliente" },
@@ -161,7 +160,6 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
   const { materials, createMaterial } = useMaterials(orgId)
   const { members } = useMembers(orgId)
 
-  // Item 5 — cria um material a partir do form de serviço.
   async function handleCreateMaterial(values: MaterialFormValues) {
     return createMaterial({
       name: values.name,
@@ -266,7 +264,6 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Serviços</h1>
@@ -293,7 +290,6 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/30" />
@@ -454,14 +450,12 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
         </FilterPopover>
       </div>
 
-      {/* Error */}
       {error && (
         <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
           {error}
         </div>
       )}
 
-      {/* List */}
       {loading && services.length === 0 ? (
         <div className="flex items-center justify-center py-16 text-foreground/30">
           <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
@@ -478,7 +472,6 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
         />
       )}
 
-      {/* Form */}
       <ServiceForm
         open={formOpen}
         onOpenChange={setFormOpen}

@@ -9,7 +9,6 @@ import {
 } from "class-validator";
 import { SERVICE_PAYMENT_METHODS } from "./create-service.dto";
 
-/** Novos valores do pagamento corrigido (estorno + relançamento). */
 export class CorrectServicePaymentDto {
   @IsInt()
   @Min(1)

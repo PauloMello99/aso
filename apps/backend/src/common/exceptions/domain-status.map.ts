@@ -1,10 +1,5 @@
 import { HttpStatus } from "@nestjs/common";
 
-/**
- * Mapa código-de-domínio → HTTP status. Códigos ausentes caem em 500 (tratados
- * como falha inesperada e reportados ao error tracking). Mantido fora dos
- * filtros para ser reutilizável e testável isoladamente.
- */
 export const DOMAIN_CODE_TO_STATUS: Record<string, number> = {
   USER_NOT_FOUND: HttpStatus.NOT_FOUND,
   INVALID_CREDENTIALS: HttpStatus.UNAUTHORIZED,

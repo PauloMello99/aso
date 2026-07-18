@@ -3,7 +3,6 @@ import { BaseLayout, sharedStyles } from "./base-layout";
 
 export interface WelcomeEmailProps {
   name: string;
-  /** Link de acesso ao app (opcional). */
   appUrl?: string;
 }
 
@@ -30,7 +29,6 @@ export function WelcomeEmail({ name, appUrl }: WelcomeEmailProps) {
   );
 }
 
-// Default export para a preview do `react-email` (email dev).
 export default function WelcomeEmailPreview() {
   return <WelcomeEmail name="Paulo" appUrl="https://app.inkops.app" />;
 }

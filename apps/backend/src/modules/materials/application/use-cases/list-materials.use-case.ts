@@ -20,15 +20,6 @@ export type MaterialListItemView = Omit<
   isLowStock?: boolean;
 };
 
-/**
- * Listagem explícita em vez de `{ ...material }`: um rest spread só copia
- * propriedades próprias enumeráveis, e um destructuring de `costPerUnit` sem
- * uso dispara `no-unused-vars` (rest siblings não são ignorados por padrão).
- * `isArchived`/`isLowStock` ficam de fora de propósito — são getters no
- * protótipo de `MaterialEntity`, nunca serializados hoje quando a entidade
- * completa é devolvida (JSON.stringify só itera propriedades próprias); copiar
- * o valor aqui adicionaria 2 campos ao payload que o shape com custo não tem.
- */
 export function toMaterialListItemView(
   material: MaterialEntity,
   canSeeCost: boolean,

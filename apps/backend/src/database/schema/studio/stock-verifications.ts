@@ -9,8 +9,6 @@ import { relations } from "drizzle-orm";
 import { organizations } from "../organizations";
 import { materials } from "./materials";
 
-// Conferência física de estoque (cabeçalho). Cada conferência registra a contagem
-// física vs. o que o sistema tinha, por material (itens). Discrepância = físico − sistema.
 export const stockVerifications = pgTable("stock_verifications", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id")

@@ -115,7 +115,6 @@ export function AdminOrgDetail({ id }: { id: string | undefined }) {
         </div>
       </div>
 
-      {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <InfoCard icon={Users} label="Membros" value={String(org.memberCount)} />
         <InfoCard
@@ -131,7 +130,6 @@ export function AdminOrgDetail({ id }: { id: string | undefined }) {
         />
       </div>
 
-      {/* Membros */}
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-foreground">Membros</h2>
         <div className="overflow-hidden rounded-xl border border-foreground/[0.06]">
@@ -178,7 +176,6 @@ export function AdminOrgDetail({ id }: { id: string | undefined }) {
         </div>
       </section>
 
-      {/* Convites pendentes */}
       {org.pendingInvitations.length > 0 && (
         <section className="space-y-3">
           <h2 className="text-sm font-medium text-foreground">Convites pendentes</h2>

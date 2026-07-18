@@ -74,7 +74,6 @@ interface ServiceFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   orgId: string
-  /** Quando presente, é edição (só campos não-financeiros). */
   service?: Service | null
   isOwner: boolean
   customers: Customer[]
@@ -82,7 +81,6 @@ interface ServiceFormProps {
   serviceTypes: ServiceType[]
   materials: Material[]
   onCreateType: (name: string) => Promise<ServiceType>
-  /** Cria um material a partir do form de serviço (modal reusa o MaterialForm). */
   onCreateMaterial: (values: MaterialFormValues) => Promise<Material>
   onSubmit: (values: ServiceFormValues) => Promise<void>
 }
@@ -162,7 +160,6 @@ export function ServiceForm({
             </SheetHeader>
 
             <SheetBody className="flex flex-col gap-6 py-6">
-              {/* ── Seção: Dados do serviço ───────────────────────── */}
               <section className="flex flex-col gap-4">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/40">
                   Dados
@@ -195,7 +192,6 @@ export function ServiceForm({
                   )}
                 />
 
-                {/* Profissional: só owner escolhe; funcionário lança para si. */}
                 {isOwner && (
                   <FormField
                     control={form.control}
@@ -239,8 +235,6 @@ export function ServiceForm({
                         value={field.value || TYPE_NONE}
                         onValueChange={(v) => {
                           if (v === TYPE_CREATE) {
-                            // Defer p/ o Select fechar antes do Dialog abrir
-                            // (evita corrida de foco entre os dois portais Radix).
                             setTimeout(() => setTypeDialogOpen(true), 0)
                             return
                           }
@@ -253,7 +247,6 @@ export function ServiceForm({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {/* Primeira opção: criar um novo tipo (abre modal). */}
                           <SelectItem value={TYPE_CREATE}>
                             <span className="flex items-center gap-2 text-orange-400">
                               <Plus className="h-4 w-4" />
@@ -315,8 +308,6 @@ export function ServiceForm({
                 />
               </section>
 
-              {/* ── Seção: Fotos (só na edição — precisa de um serviço já
-                  existente para anexar mídia) ─────────────────────── */}
               {isEdit && service && (
                 <section className="flex flex-col gap-4">
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/40">
@@ -326,7 +317,6 @@ export function ServiceForm({
                 </section>
               )}
 
-              {/* ── Seção: Materiais (só no lançamento) ───────────── */}
               {!isEdit && (
                 <section className="flex flex-col gap-4">
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/40">
@@ -336,9 +326,6 @@ export function ServiceForm({
                     materials={materials}
                     onCreateMaterial={onCreateMaterial}
                   />
-                  {/* Erro de item vazio: errors.materials.message. Erro de
-                      superRefine no array inteiro (ex.: nenhuma linha com
-                      consumo real): react-hook-form aninha em .root. */}
                   {(form.formState.errors.materials?.root?.message ??
                     form.formState.errors.materials?.message) && (
                     <p className="text-sm text-red-400">
@@ -349,7 +336,6 @@ export function ServiceForm({
                 </section>
               )}
 
-              {/* ── Seção: Pagamento (só no lançamento) ───────────── */}
               {!isEdit && (
                 <section className="flex flex-col gap-4">
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/40">
@@ -472,14 +458,11 @@ export function ServiceForm({
       </SheetContent>
     </Sheet>
 
-      {/* Item 4 — criar tipo de serviço numa modal, sem sair do form. */}
       <ServiceTypeDialog
         open={typeDialogOpen}
         onOpenChange={setTypeDialogOpen}
         onCreate={onCreateType}
         onCreated={(type) =>
-          // Defer p/ a option recém-cacheada já estar no seletor quando o valor
-          // controlado mudar (senão o Radix Select ignora um value sem item).
           setTimeout(() => form.setValue("serviceTypeId", type.id), 0)
         }
       />

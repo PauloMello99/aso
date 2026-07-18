@@ -57,7 +57,6 @@ export function WeekView({
   return (
     <div className="overflow-x-auto overflow-y-hidden rounded-xl border border-foreground/[0.06]">
       <div className="min-w-[680px]">
-        {/* Header com os dias */}
         <div className="grid grid-cols-[56px_repeat(7,1fr)] border-b border-foreground/[0.06]">
           <div />
           {days.map((d) => {
@@ -83,7 +82,6 @@ export function WeekView({
           })}
         </div>
 
-        {/* Linha de eventos de dia inteiro (separada do grid de horários) */}
         <div className="grid grid-cols-[56px_repeat(7,1fr)] border-b border-foreground/[0.06]">
           <div className="flex items-center justify-end pr-2 text-[10px] uppercase text-foreground/30">
             Dia todo
@@ -118,9 +116,7 @@ export function WeekView({
           })}
         </div>
 
-        {/* Corpo: eixo de horas + colunas */}
         <div className="grid grid-cols-[56px_repeat(7,1fr)]">
-          {/* Eixo de horas */}
           <div>
             {HOURS.map((h) => (
               <div
@@ -133,7 +129,6 @@ export function WeekView({
             ))}
           </div>
 
-          {/* Colunas por dia */}
           {days.map((day) => {
             const dayEvents = events.filter(
               (ev) => !ev.allDay && isSameDay(parseISO(ev.startsAt), day),
@@ -146,7 +141,6 @@ export function WeekView({
                 style={{ height: HOURS.length * HOUR_PX }}
                 onClick={(e) => handleColumnClick(day, e)}
               >
-                {/* linhas de hora */}
                 {HOURS.map((h) => (
                   <div
                     key={h}
@@ -154,7 +148,6 @@ export function WeekView({
                     className="border-b border-foreground/[0.04]"
                   />
                 ))}
-                {/* eventos */}
                 {dayEvents.map((ev) => {
                   const s = parseISO(ev.startsAt)
                   const e = parseISO(ev.endsAt)

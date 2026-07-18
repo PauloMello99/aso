@@ -43,7 +43,6 @@ export interface MaterialsFilter {
   name?: string
   archived?: boolean
   shareable?: boolean
-  /** Custo unitário (reais, string decimal). */
   minCost?: string
   maxCost?: string
 }

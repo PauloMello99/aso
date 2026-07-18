@@ -3,11 +3,6 @@ import type { ExportFormat } from "@/shared/components/ui/export-menu"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"
 
-/**
- * Baixa uma exportação (CSV ou XLSX) de um endpoint autenticado (RPT-2, M8).
- * Monta os query params (ignorando vazios), inclui `format` na query e
- * dispara o download do blob retornado com a extensão correta.
- */
 export async function downloadExport(
   path: string,
   filenameBase: string,

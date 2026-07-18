@@ -14,7 +14,6 @@ interface SendAnamnesisInviteResponse {
     token: string
     status: "pending" | "submitted"
   }
-  /** Link de preenchimento — não usado na UI autenticada, só em dev/manual. */
   fillUrl: string
 }
 
@@ -27,7 +26,6 @@ const SEND_INVITE_ERROR_MESSAGES: Record<string, string> = {
 const DEFAULT_SEND_INVITE_ERROR_MESSAGE =
   "Não foi possível enviar a ficha de anamnese. Tente novamente."
 
-/** Traduz o erro da API para uma mensagem amigável, com casos específicos mapeados. */
 export function sendAnamnesisInviteErrorMessage(err: unknown): string {
   if (err instanceof ApiError && err.code) {
     return SEND_INVITE_ERROR_MESSAGES[err.code] ?? DEFAULT_SEND_INVITE_ERROR_MESSAGE
@@ -35,7 +33,6 @@ export function sendAnamnesisInviteErrorMessage(err: unknown): string {
   return DEFAULT_SEND_INVITE_ERROR_MESSAGE
 }
 
-/** Envia o convite de ficha de anamnese por e-mail para um cliente (M10b). */
 export function useSendAnamnesisInvite(orgId: string) {
   return useMutation({
     mutationFn: (body: SendAnamnesisInviteBody) =>

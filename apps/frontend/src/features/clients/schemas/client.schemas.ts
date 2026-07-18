@@ -4,7 +4,6 @@ import { isValidPhoneNumber } from "libphonenumber-js/max"
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const GENDERS = ["male", "female", "other"] as const
 
-/** Required e-mail field validated with zod's own e-mail validator. */
 export const requiredEmail = z
   .string()
   .min(1, "E-mail é obrigatório")
@@ -17,10 +16,6 @@ export const customerSchema = z.object({
     .min(1, "Nome é obrigatório")
     .max(120, "Máximo 120 caracteres"),
   email: requiredEmail,
-  // Telefone armazenado em E.164 (ex: +5511999990000) pelo PhoneInput. Mesma
-  // checagem do backend (@IsPhoneNumber via libphonenumber-js/max) — um regex
-  // de forma E.164 sozinho aceita números com DDD/formato inválidos (ex.:
-  // celular BR sem o 9º dígito) que o backend rejeitaria só no submit.
   phone: z
     .string()
     .max(30, "Máximo 30 caracteres")

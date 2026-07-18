@@ -8,11 +8,6 @@ export interface RequestContext {
   userAgent: string | null;
 }
 
-/**
- * Extrai IP e User-Agent da requisição pra fins de proveniência (evidência
- * de assinatura eletrônica). Truncado defensivamente — nunca confiar
- * cegamente em headers vindos do cliente.
- */
 export function extractRequestContext(req: Request): RequestContext {
   const forwardedFor = req.headers["x-forwarded-for"];
   const forwardedIp = Array.isArray(forwardedFor)

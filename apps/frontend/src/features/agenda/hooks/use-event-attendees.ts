@@ -7,7 +7,6 @@ import type { Attendee, AttendeeStatus } from "../types"
 interface UseEventAttendeesArgs {
   orgId: string
   eventId: string | undefined
-  /** Só busca/permite RSVP quando o evento é `shared`. */
   enabled?: boolean
 }
 

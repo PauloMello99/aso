@@ -31,10 +31,6 @@ import { assertPerformedAtNotFuture } from "./assert-performed-at-not-future";
 import { assertAgeVerification } from "./assert-age-verification";
 import { assertAnamnesisResponseLinkable } from "./assert-anamnesis-response-linkable";
 
-/**
- * Edita apenas campos **não-financeiros** do serviço. Valor, método e estoque
- * são imutáveis — para alterá-los, cancele (estorno) e recrie.
- */
 export interface UpdateServiceInput {
   orgId: string;
   serviceId: string;
@@ -43,7 +39,6 @@ export interface UpdateServiceInput {
   customerId?: string | null;
   performedBy?: string | null;
   description?: string | null;
-  /** Resposta de anamnese vinculada a este atendimento (M10b). */
   anamnesisResponseId?: string | null;
   performedAt?: Date;
 }
@@ -76,7 +71,6 @@ export class UpdateServiceUseCase {
     );
     if (!service) throw new ServiceNotFoundException(input.serviceId);
 
-    // Funcionário só edita os próprios atendimentos.
     if (!isOwner && service.performedBy !== currentUserId) {
       throw new ServiceForbiddenException();
     }
@@ -86,9 +80,6 @@ export class UpdateServiceUseCase {
 
     assertPerformedAtNotFuture(input.performedAt);
 
-    // Cliente: só valida "enabled" quando o patch troca de cliente de verdade
-    // (customerId enviado e não-nulo). Reaproveitado abaixo para o cálculo de
-    // idade efetivo se for o mesmo cliente resultante.
     let customer: CustomerEntity | null = null;
     if (input.customerId) {
       customer = await this.customerRepo.findById(
@@ -100,9 +91,6 @@ export class UpdateServiceUseCase {
       }
     }
 
-    // Verificação de idade considera os valores EFETIVOS pós-merge (existente
-    // ⊕ patch), não só os campos presentes no DTO — ex.: trocar só o cliente
-    // para um menor ainda deve bloquear mesmo sem reenviar serviceTypeId.
     const effectiveCustomerId =
       input.customerId !== undefined ? input.customerId : service.customerId;
     const effectiveServiceTypeId =
@@ -128,8 +116,6 @@ export class UpdateServiceUseCase {
       effectivePerformedAt,
     );
 
-    // Resposta de anamnese (M10b): só valida quando o patch está de fato
-    // (re)vinculando uma resposta — `null` explícito só desvincula.
     if (input.anamnesisResponseId) {
       await assertAnamnesisResponseLinkable(
         this.anamnesisResponseRepo,
@@ -140,7 +126,6 @@ export class UpdateServiceUseCase {
       );
     }
 
-    // Profissional só muda se enviado; funcionário continua restrito a si.
     const performedBy =
       input.performedBy !== undefined
         ? await resolvePerformer(

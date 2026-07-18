@@ -85,7 +85,6 @@ export function Pricing() {
   return (
     <section id="precos" className="py-16 md:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        {/* Header */}
         <div className="mb-10 text-center sm:mb-16">
           <div className="mb-4 flex justify-center">
             <Badge
@@ -103,7 +102,6 @@ export function Pricing() {
           </p>
         </div>
 
-        {/* Cards */}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {PLANS.map((plan) => (
             <div

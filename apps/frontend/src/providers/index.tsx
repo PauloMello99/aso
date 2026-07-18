@@ -11,8 +11,6 @@ interface AppProvidersProps {
 
 export function AppProviders({ children }: AppProvidersProps) {
   return (
-    // Tema via classe `.dark`/`.light` no <html> (next-themes). Default dark
-    // preserva a aparência atual; `system` segue a preferência do SO. THEME-1.
     <ThemeProvider
       attribute="class"
       defaultTheme="dark"

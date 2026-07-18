@@ -18,7 +18,6 @@ import {
 import { Input } from "@/shared/components/ui/input"
 import { cn } from "@/shared/lib/utils"
 
-// BR + US first (matches the fastix reference), then the rest alphabetically.
 const PRIORITY: CountryCode[] = ["BR", "US"]
 const ORDERED_COUNTRIES: CountryCode[] = [
   ...PRIORITY,
@@ -27,7 +26,6 @@ const ORDERED_COUNTRIES: CountryCode[] = [
 
 const DEFAULT_COUNTRY: CountryCode = "BR"
 
-/** ISO-3166 alpha-2 → regional-indicator flag emoji. */
 function flagEmoji(cc: string): string {
   return cc
     .toUpperCase()
@@ -35,19 +33,13 @@ function flagEmoji(cc: string): string {
 }
 
 interface PhoneInputProps {
-  /** E.164 string (e.g. "+5511999990000") or "". */
   value?: string
-  /** Called with the E.164 string ("" when empty/invalid-so-far). */
   onChange?: (value: string) => void
   id?: string
   placeholder?: string
   className?: string
 }
 
-/**
- * Country selector + masked national input that stores the value as a single
- * E.164 string. Based on the fastix-web PhoneInput, simplified for ink-ops.
- */
 export function PhoneInput({
   value = "",
   onChange,
@@ -61,7 +53,7 @@ export function PhoneInput({
         const parsed = parsePhoneNumber(value)
         if (parsed?.country) return parsed.country
       } catch {
-        /* fall through */
+        void 0
       }
     }
     return DEFAULT_COUNTRY
@@ -72,13 +64,12 @@ export function PhoneInput({
       try {
         return parsePhoneNumber(value)?.formatNational() ?? ""
       } catch {
-        /* fall through */
+        void 0
       }
     }
     return ""
   })
 
-  // Re-sync when the form value is reset externally (e.g. opening edit/new).
   React.useEffect(() => {
     if (!value) {
       setDisplay("")
@@ -91,7 +82,7 @@ export function PhoneInput({
         setDisplay(parsed.formatNational())
       }
     } catch {
-      /* ignore */
+      void 0
     }
   }, [value])
 

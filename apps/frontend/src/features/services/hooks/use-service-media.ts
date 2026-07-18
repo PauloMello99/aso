@@ -27,8 +27,6 @@ export function useServiceMedia(orgId: string, serviceId: string | null) {
     void queryClient.invalidateQueries({ queryKey: key })
   }
 
-  // O upload não devolve `url` (signed URL é gerada só na listagem) — não
-  // renderizar a partir deste retorno; a grid depende sempre do refetch do GET.
   const uploadMutation = useMutation({
     mutationFn: (file: File) => {
       const form = new FormData()

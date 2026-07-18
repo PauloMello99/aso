@@ -17,7 +17,6 @@ export interface CalendarConnection {
 }
 
 export interface CalendarConnectionResult {
-  /** Flag global: a integração viva (OAuth/sync) está atrás dela. */
   enabled: boolean
   connection: CalendarConnection | null
 }

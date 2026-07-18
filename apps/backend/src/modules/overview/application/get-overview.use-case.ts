@@ -21,7 +21,6 @@ import type { CalendarEventEntity } from "../../calendar/domain/calendar-event.e
 import type { CustomerEntity } from "../../customers/domain/customer.entity";
 import type { TransactionCategoryEntity } from "../../cashier/domain/transaction-category.entity";
 
-/** Limites por seção — espelham o que o Overview já renderizava no cliente. */
 const LIMITS = {
   services: 10,
   events: 10,
@@ -30,7 +29,6 @@ const LIMITS = {
   customers: 10,
 } as const;
 
-/** Janela de eventos futuros considerada (em dias). */
 const UPCOMING_WINDOW_DAYS = 90;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -38,18 +36,11 @@ export interface OverviewResult {
   recentServices: ServiceEntity[];
   upcomingEvents: CalendarEventEntity[];
   lowStock: MaterialListItemView[];
-  /** Owner-only — funcionário recebe lista vazia. */
   recentTransactions: TransactionView[];
   transactionCategories: TransactionCategoryEntity[];
   recentCustomers: CustomerEntity[];
 }
 
-/**
- * Agrega num único request as seções do Overview, com scoping no servidor:
- * - funcionário enxerga só os próprios serviços/eventos (reusa os list use-cases);
- * - seções owner-only (transações, categorias, clientes) saem vazias p/ funcionário.
- * Substitui os ~6 requests que o cliente fazia, fatiando no front (PERF-2).
- */
 @Injectable()
 export class GetOverviewUseCase {
   constructor(
@@ -88,7 +79,6 @@ export class GetOverviewUseCase {
 
     const lowStock = materials.slice(0, LIMITS.lowStock);
 
-    // Seções exclusivas do owner.
     let recentTransactions: TransactionView[] = [];
     let transactionCategories: TransactionCategoryEntity[] = [];
     let recentCustomers: CustomerEntity[] = [];

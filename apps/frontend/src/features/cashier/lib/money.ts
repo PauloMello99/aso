@@ -1,6 +1,3 @@
-/** Helpers de dinheiro: o estado/representação canônica é sempre em centavos. */
-
-/** Formata centavos como BRL: 123456 → "R$ 1.234,56". */
 export function formatBRL(cents: number): string {
   return (cents / 100).toLocaleString("pt-BR", {
     style: "currency",
@@ -8,7 +5,6 @@ export function formatBRL(cents: number): string {
   })
 }
 
-/** Formata centavos sem símbolo: 123456 → "1.234,56". */
 export function formatCents(cents: number): string {
   return (cents / 100).toLocaleString("pt-BR", {
     minimumFractionDigits: 2,
@@ -16,14 +12,6 @@ export function formatCents(cents: number): string {
   })
 }
 
-/**
- * Converte uma string em reais para centavos. Aceita os formatos validados pelo
- * schema zod `moneyString`: agrupamento de milhar por ponto ("1.234" = 1234,00)
- * e separador decimal por ponto OU vírgula com 1-2 dígitos ("1234.56"/"1234,56").
- * O último separador só é tratado como decimal se for seguido de 1-2 dígitos —
- * senão é agrupamento de milhar (ex.: "1.234" ≠ "1,234.00", ver domain-rules).
- * Retorna NaN se inválida — o schema zod valida antes de chegar aqui.
- */
 export function parseReaisToCents(input: string): number {
   const trimmed = input.trim().replace(/\s/g, "")
   if (!trimmed) return Number.NaN
@@ -56,7 +44,6 @@ export function parseReaisToCents(input: string): number {
   return Number.parseInt(integerPart, 10) * 100 + Number.parseInt(centsFraction, 10)
 }
 
-/** Converte centavos para string editável em reais com vírgula decimal: 123456 → "1234,56". */
 export function centsToReaisInput(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",")
 }

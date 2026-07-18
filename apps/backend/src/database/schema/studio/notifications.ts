@@ -11,17 +11,13 @@ import { notificationTypeEnum } from "../enums";
 import { organizations } from "../organizations";
 import { users } from "../users";
 
-// Inbox in-app por usuário. Sem RLS — acesso só pelo módulo de notificações,
-// sempre escopado por user_id no código (via DRIZZLE_ADMIN).
 export const notifications = pgTable(
   "notifications",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    // Destinatário.
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    // Contexto opcional da org (algumas notificações são da plataforma).
     orgId: uuid("org_id").references(() => organizations.id, {
       onDelete: "cascade",
     }),

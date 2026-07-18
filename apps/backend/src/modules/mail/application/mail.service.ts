@@ -50,12 +50,6 @@ export interface SendNotificationInput {
   actionLabel?: string;
 }
 
-/**
- * Camada de aplicação de e-mail: renderiza os templates React Email e delega o
- * envio ao IEmailSender. Os métodos **propagam** falha real de envio — cabe ao
- * caller decidir se é crítico (aborta o fluxo) ou best-effort (try/catch).
- * Retornam `false` quando o canal está desabilitado (no-op em dev).
- */
 @Injectable()
 export class MailService {
   constructor(

@@ -8,7 +8,6 @@ import { installGlobalErrorHandlers } from "@/infrastructure/telemetry/telemetry
 import "@/styles/globals.css"
 import "driver.js/dist/driver.css"
 
-// Allow pages to declare a custom layout via getLayout
 export type NextPageWithLayout<P = object, IP = P> = NextPage<P, IP> & {
   getLayout?: (page: ReactElement) => ReactNode
 }
@@ -20,7 +19,6 @@ type AppPropsWithLayout = AppProps & {
 export default function App({ Component, pageProps }: AppPropsWithLayout) {
   const getLayout = Component.getLayout ?? ((page) => page)
 
-  // Captura erros globais não tratados (window.onerror / unhandledrejection).
   useEffect(() => {
     installGlobalErrorHandlers()
   }, [])

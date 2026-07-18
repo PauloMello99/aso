@@ -33,7 +33,6 @@ interface SendAnamnesisInviteDialogProps {
   customerName: string
 }
 
-/** Modal para disparar por e-mail o link de preenchimento da ficha de anamnese (M10b). */
 export function SendAnamnesisInviteDialog({
   open,
   onOpenChange,

@@ -62,7 +62,6 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
 
   return (
     <div className="grid gap-10">
-      {/* General info */}
       <section>
         <div className="mb-4">
           <h2 className="text-lg font-semibold">Informações gerais</h2>
@@ -87,7 +86,6 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
         )}
       </section>
 
-      {/* Members */}
       <section>
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -127,7 +125,6 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
         />
       </section>
 
-      {/* Transfer organization — owner only */}
       {isOwner && (
         <section>
           <div className="mb-4">
@@ -154,7 +151,6 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
         </section>
       )}
 
-      {/* Danger zone — owner only */}
       {isOwner && (
         <section>
           <div className="rounded-lg border border-red-500/20 p-4 sm:p-6">

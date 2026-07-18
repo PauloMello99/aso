@@ -68,14 +68,12 @@ interface UploadedImage {
 
 const STATUS_VALUES: ServiceStatusFilter[] = ["pending", "paid", "canceled"];
 
-/** Converte um query param numérico (centavos) em inteiro, ou undefined. */
 function parseCents(value?: string): number | undefined {
   if (value === undefined || value === "") return undefined;
   const n = Number(value);
   return Number.isFinite(n) ? Math.round(n) : undefined;
 }
 
-/** Primeiro dia do mês vigente (filtro default da listagem). */
 function startOfCurrentMonth(): Date {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -102,8 +100,6 @@ export class ServicesController {
     private readonly deleteMedia: DeleteServiceMediaUseCase,
   ) {}
 
-  /* ─── Tipos de serviço (criáveis inline) ─────────────────────── */
-
   @Get("types")
   async types(@Param("orgId", ParseUUIDPipe) orgId: string) {
     return this.listTypes.execute(orgId);
@@ -117,8 +113,6 @@ export class ServicesController {
     return this.createType.execute(orgId, dto.name, dto.description ?? null);
   }
 
-  // Owner-only: marcar um tipo como exigindo verificação de idade é regra de
-  // negócio sensível (mesmo padrão de restrição de "categories" no cashier).
   @Patch("types/:typeId")
   @UseGuards(OrgOwnerGuard)
   async updateTypeById(
@@ -132,8 +126,6 @@ export class ServicesController {
       requiresAgeVerification: dto.requiresAgeVerification,
     });
   }
-
-  /* ─── Serviços ───────────────────────────────────────────────── */
 
   @Get()
   async list(
@@ -150,7 +142,6 @@ export class ServicesController {
     @Query("maxCents") maxCents?: string,
     @Query("q") q?: string,
   ) {
-    // Default = mês vigente (1º do mês → agora), não "hoje − 30 dias".
     const fromDate = from ? new Date(from) : startOfCurrentMonth();
     const toDate = to ? new Date(to) : undefined;
 
@@ -338,8 +329,6 @@ export class ServicesController {
       transactedAt: dto.transactedAt ? new Date(dto.transactedAt) : undefined,
     });
   }
-
-  /* ─── Mídia (fotos) ──────────────────────────────────────────── */
 
   @Get(":id/media")
   async media(

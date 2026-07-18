@@ -38,7 +38,6 @@ import {
 } from "../schemas/stock.schemas";
 import type { Material } from "../types";
 
-/** Allow digits and a single decimal separator only. */
 function sanitizeQuantity(raw: string): string {
   const cleaned = raw.replace(/[^\d.]/g, "");
   const [int = "", ...rest] = cleaned.split(".");

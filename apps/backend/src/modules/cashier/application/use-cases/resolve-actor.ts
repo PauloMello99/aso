@@ -2,15 +2,10 @@ import type { IMemberRepository } from "../../../organizations/domain/member.rep
 import { CashierForbiddenException } from "../../domain/exceptions/cashier-forbidden.exception";
 
 export interface ResolvedActor {
-  /** users.id (app) do usuário logado — usado em created_by. */
   userId: string;
   isOwner: boolean;
 }
 
-/**
- * Converte o auth id (Supabase) na associação da org → { userId (app), isOwner }.
- * O `OrgMembershipGuard` já garante associação ativa; aqui resolvemos o papel.
- */
 export async function resolveActor(
   memberRepo: IMemberRepository,
   orgId: string,
@@ -21,11 +16,6 @@ export async function resolveActor(
   return { userId: member.userId, isOwner: member.role === "owner" };
 }
 
-/**
- * Decide o `created_by` de um lançamento no caixa.
- * - **Funcionário**: força sempre o próprio usuário (não lança em nome de outro).
- * - **Owner**: pode atribuir a qualquer membro **ativo**; default = ele mesmo.
- */
 export async function resolveCreatedBy(
   memberRepo: IMemberRepository,
   orgId: string,

@@ -23,11 +23,6 @@ export interface TransferResult {
   income: TransactionEntity;
 }
 
-/**
- * Transferência entre meios (ex.: dinheiro → banco): cria duas transações —
- * uma saída no método de origem e uma entrada no destino, mesmo valor, sem taxa.
- * Substitui o vai-e-vem manual de lançar saída + entrada (e o risco de erro).
- */
 @Injectable()
 export class TransferUseCase {
   constructor(

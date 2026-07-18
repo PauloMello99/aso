@@ -25,7 +25,6 @@ export const calendarEvents = pgTable(
     orgId: uuid("org_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    // O membro (usuário) dono do horário — agenda é sempre de um membro.
     assignedTo: uuid("assigned_to")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -35,17 +34,14 @@ export const calendarEvents = pgTable(
     createdBy: uuid("created_by").references(() => users.id, {
       onDelete: "set null",
     }),
-    // appointment (com cliente) | unavailability (bloqueio do membro)
     type: calendarEventTypeEnum("type").notNull().default("appointment"),
     status: calendarEventStatusEnum("status").notNull().default("scheduled"),
-    // Idempotência do lembrete de agenda (cron): setado ao notificar.
     reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
     title: text("title").notNull(),
     description: text("description"),
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
     endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
     allDay: boolean("all_day").notNull().default(false),
-    // private: só o dono do horário vê; shared: visível para a organização inteira.
     visibility: calendarEventVisibilityEnum("visibility")
       .notNull()
       .default("private"),
@@ -93,7 +89,6 @@ export const calendarEventAttendees = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    // going | not_going — "pending" é derivado no DTO (ausência de linha), nunca gravado.
     status: calendarAttendeeStatusEnum("status").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

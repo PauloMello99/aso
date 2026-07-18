@@ -13,11 +13,6 @@ interface ApiOptions extends RequestInit {
   skipAuth?: boolean
 }
 
-/**
- * Erro tipado de uma chamada à API. Carrega `status`/`code`/`path` para que as
- * camadas acima (React Query, error tracking) distingam falha de servidor (5xx,
- * reportável) de erro de negócio esperado (4xx). `status === 0` = falha de rede.
- */
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -30,7 +25,6 @@ export class ApiError extends Error {
   }
 }
 
-/** Primeiro segmento do path como módulo/feature (ex.: /materials/… → materials). */
 function moduleFromPath(path: string): string {
   return path.split("?")[0]?.split("/").filter(Boolean)[0] ?? "root"
 }
@@ -61,7 +55,6 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const { skipAuth = false, ...fetchOptions } = options
   const method = (fetchOptions.method ?? "GET").toUpperCase()
-  // Para FormData, deixe o browser definir o Content-Type (com boundary).
   const isFormData =
     typeof FormData !== "undefined" && fetchOptions.body instanceof FormData
   const headers: Record<string, string> = {
@@ -85,7 +78,6 @@ export async function apiRequest<T>(
   try {
     res = await fetch(`${API_URL}${path}`, { ...fetchOptions, headers })
   } catch (networkError) {
-    // Falha de rede / CORS / servidor inacessível — sempre reportável.
     captureError(networkError, {
       source: "api",
       module: moduleFromPath(path),
@@ -111,8 +103,6 @@ export async function apiRequest<T>(
       body.message ?? `Request failed with status ${res.status}`
     const apiError = new ApiError(message, res.status, path, body.code)
 
-    // Apenas falhas de servidor (5xx) vão ao error tracking; 4xx são erros de
-    // negócio esperados, tratados pela UI.
     if (res.status >= 500) {
       captureError(apiError, {
         source: "api",

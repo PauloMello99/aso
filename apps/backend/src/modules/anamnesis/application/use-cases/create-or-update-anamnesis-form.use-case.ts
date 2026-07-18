@@ -19,7 +19,6 @@ import { resolveMembership } from "../../../services/application/use-cases/resol
 export interface CreateOrUpdateAnamnesisFormInput {
   orgId: string;
   serviceTypeId: string;
-  /** Auth id (Supabase) de quem está salvando. */
   authId: string;
   questions: AnamnesisQuestion[];
 }

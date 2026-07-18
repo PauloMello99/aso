@@ -5,15 +5,15 @@ export type CalendarEventVisibility = "private" | "shared"
 export interface CalendarEvent {
   id: string
   orgId: string
-  assignedTo: string // users.id do membro
+  assignedTo: string
   customerId: string | null
   createdBy: string | null
   type: CalendarEventType
   status: CalendarEventStatus
   title: string
   description: string | null
-  startsAt: string // ISO
-  endsAt: string // ISO
+  startsAt: string
+  endsAt: string
   allDay: boolean
   visibility: CalendarEventVisibility
   createdAt: string

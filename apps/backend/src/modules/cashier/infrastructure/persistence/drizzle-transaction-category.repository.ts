@@ -6,8 +6,7 @@ import * as schema from "../../../../database/schema";
 import { TransactionCategoryEntity } from "../../domain/transaction-category.entity";
 import { ITransactionCategoryRepository } from "../../domain/transaction-category.repository.interface";
 
-/** Categorias mudam raramente e aparecem em todo form de lançamento. */
-const CATEGORIES_TTL_MS = 60 * 60 * 1000; // 1h
+const CATEGORIES_TTL_MS = 60 * 60 * 1000;
 const categoriesKey = (orgId: string) => `categories:${orgId}`;
 
 function toDomain(row: typeof schema.transactionCategories.$inferSelect) {

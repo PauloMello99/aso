@@ -17,7 +17,7 @@ import {
 } from "date-fns"
 import type { CalendarView } from "../types"
 
-const WEEK_OPTS = { weekStartsOn: 1 } as const // segunda-feira
+const WEEK_OPTS = { weekStartsOn: 1 } as const
 
 interface Range {
   start: Date

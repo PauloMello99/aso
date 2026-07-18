@@ -16,11 +16,6 @@ import {
   PlatformStats,
 } from "../domain/admin.repository.interface";
 
-/**
- * Repositório de leitura/gestão da plataforma (PLAT-1). Usa a conexão
- * privilegiada (BYPASSRLS) — o acesso já é restrito ao super_admin pelo
- * {@link PlatformAdminGuard}, e as consultas são cross-org por natureza.
- */
 @Injectable()
 export class DrizzleAdminRepository implements IAdminRepository {
   constructor(@Inject(DRIZZLE_ADMIN) private readonly db: DrizzleDB) {}
@@ -51,8 +46,6 @@ export class DrizzleAdminRepository implements IAdminRepository {
   }
 
   async getGrowthSeries(): Promise<GrowthPoint[]> {
-    // Novos orgs/users por mês nos últimos 12 meses. generate_series garante os
-    // meses vazios (sem cadastros) também apareçam, p/ um eixo contínuo.
     const { rows } = await this.db.execute<{
       month: string;
       new_orgs: number;

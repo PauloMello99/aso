@@ -28,8 +28,6 @@ export const restockSchema = z.object({
 export type RestockFormValues = z.infer<typeof restockSchema>
 
 export const adjustStockSchema = z.object({
-  // Separado e travado: direção (+/−) + quantidade só-número. O delta com sinal
-  // é montado na submissão (ver stock-page handleAdjust).
   direction: z.enum(["add", "remove"]),
   quantity: positiveNumericString,
   note: z.string().max(255).optional().or(z.literal("")),

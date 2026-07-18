@@ -58,8 +58,6 @@ export const customerOrigins = pgTable(
   (t) => [unique().on(t.orgId, t.name)],
 );
 
-// Categorias de transação por org (pré-definidas + criáveis). Padroniza descrições
-// divergentes e alimenta relatórios. A `transactions.description` permanece.
 export const transactionCategories = pgTable(
   "transaction_categories",
   {

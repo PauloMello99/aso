@@ -1,18 +1,7 @@
 import { log } from "@logtail/next"
 
-/**
- * Error tracking do frontend sobre o Better Stack (@logtail/next).
- *
- * `log` é o logger singleton do pacote: detecta o ambiente (browser/SSR),
- * envia para a application "frontend" (id 2554582) e vira no-op quando as vars
- * NEXT_PUBLIC_BETTER_STACK_* não estão setadas. Centralizamos aqui a
- * normalização de Error e a convenção de contexto (`module`, `source`).
- */
-
 export interface TelemetryContext {
-  /** Feature/módulo de origem (ex.: "materials", "cashier"). */
   module?: string
-  /** Camada que capturou o erro (ex.: "react-render", "api", "react-query"). */
   source?: string
   [key: string]: unknown
 }
@@ -37,7 +26,6 @@ function normalizeError(error: unknown): {
   return { message: String(error), name: "NonError", stack: null }
 }
 
-/** Reporta uma exceção ao Better Stack. Best-effort: nunca lança. */
 export function captureError(
   error: unknown,
   context: TelemetryContext = {},
@@ -46,11 +34,10 @@ export function captureError(
     const err = normalizeError(error)
     log.error(err.message, { ...baseContext, ...context, error: err })
   } catch {
-    // telemetria nunca pode quebrar a aplicação
+    void 0
   }
 }
 
-/** Reporta uma mensagem arbitrária. Best-effort. */
 export function captureMessage(
   message: string,
   context: TelemetryContext = {},
@@ -58,17 +45,12 @@ export function captureMessage(
   try {
     log.info(message, { ...baseContext, ...context })
   } catch {
-    /* no-op */
+    void 0
   }
 }
 
 let handlersInstalled = false
 
-/**
- * Captura erros globais do browser que escapam aos error boundaries do React:
- * exceções síncronas (window.onerror) e Promises rejeitadas sem catch.
- * Idempotente — chamar uma vez no boot do app.
- */
 export function installGlobalErrorHandlers(): void {
   if (handlersInstalled || typeof window === "undefined") return
   handlersInstalled = true

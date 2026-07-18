@@ -4,9 +4,7 @@ import { captureError } from "@/infrastructure/telemetry/telemetry"
 
 interface ErrorBoundaryProps {
   children: ReactNode
-  /** Identifica a região da árvore que falhou no error tracking. */
   module?: string
-  /** UI alternativa; se ausente, renderiza o fallback padrão. */
   fallback?: ReactNode
 }
 
@@ -14,11 +12,6 @@ interface ErrorBoundaryState {
   hasError: boolean
 }
 
-/**
- * Captura erros de renderização do React (que escapam a try/catch e aos
- * handlers globais) e os reporta ao Better Stack via captureError, exibindo um
- * fallback ao invés de uma tela branca.
- */
 export class ErrorBoundary extends Component<
   ErrorBoundaryProps,
   ErrorBoundaryState

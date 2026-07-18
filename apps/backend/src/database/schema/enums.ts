@@ -69,7 +69,6 @@ export const calendarEventVisibilityEnum = pgEnum(
   ["private", "shared"],
 );
 
-// Só 2 valores persistidos — "pending" é derivado depois, no DTO, nunca gravado no banco.
 export const calendarAttendeeStatusEnum = pgEnum("calendar_attendee_status", [
   "going",
   "not_going",
@@ -97,8 +96,6 @@ export const auditActionEnum = pgEnum("audit_action", [
   "anamnesis_invite_sent",
 ]);
 
-// Só 2 valores persistidos — "expired" é derivado em runtime comparando
-// expiresAt < now(), nunca gravado no banco.
 export const anamnesisResponseStatusEnum = pgEnum(
   "anamnesis_response_status",
   ["pending", "submitted"],

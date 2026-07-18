@@ -36,10 +36,6 @@ interface AnamnesisFormBuilderProps {
   serviceTypeId: string
 }
 
-/**
- * Construtor da ficha de anamnese de um tipo de serviço. Cada "Salvar" cria
- * uma nova versão imutável no backend (nunca edita a anterior).
- */
 export function AnamnesisFormBuilder({
   orgId,
   serviceTypeId,
@@ -54,9 +50,6 @@ export function AnamnesisFormBuilder({
     defaultValues: { questions: [] },
   })
   const { control, reset } = form
-  // keyName customizado: o default ("id") sobrescreveria o id (UUID) de cada
-  // pergunta no array `fields`, com um valor gerado pelo RHF que não é UUID —
-  // isso vazaria pro payload do POST e o backend rejeitaria (@IsUUID em id).
   const { fields, append, remove, move } = useFieldArray({
     control,
     name: "questions",

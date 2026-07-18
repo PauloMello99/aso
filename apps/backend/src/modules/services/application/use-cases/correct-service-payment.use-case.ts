@@ -27,19 +27,12 @@ export interface CorrectServicePaymentInput {
   orgId: string;
   serviceId: string;
   authId: string;
-  // Novos valores do pagamento corrigido.
   grossCents: number;
   paymentMethod: PaymentMethod;
   description?: string | null;
   transactedAt?: Date;
 }
 
-/**
- * Errata de pagamento de serviço: estorna a transação original e lança uma
- * nova, corrigida — preservando o append-only do caixa (nada é editado).
- * Owner-only. O serviço só passa a apontar para a nova transação depois que
- * ela é criada (nunca fica referenciando uma transação estornada).
- */
 @Injectable()
 export class CorrectServicePaymentUseCase {
   constructor(
@@ -60,7 +53,6 @@ export class CorrectServicePaymentUseCase {
       input.authId,
     );
 
-    // Correção de pagamento é owner-only.
     if (!isOwner) throw new ServiceForbiddenException();
 
     const service = await this.serviceRepo.findById(
@@ -73,7 +65,6 @@ export class CorrectServicePaymentUseCase {
       throw new ServiceAlreadyCanceledException(input.serviceId);
     }
 
-    // Pendente (sem pagamento ainda) não é correção — é registro de pagamento.
     if (!service.paymentTransactionId) {
       throw new ServicePaymentNotCorrectableException(input.serviceId);
     }
@@ -86,7 +77,6 @@ export class CorrectServicePaymentUseCase {
       throw new ServicePaymentNotCorrectableException(input.serviceId);
     }
 
-    // Já estornada por outra via (ex.: correção direta pelo caixa).
     const existingReversal = await this.transactionRepo.findReversalOf(
       original.id,
     );
@@ -94,8 +84,6 @@ export class CorrectServicePaymentUseCase {
       throw new ServicePaymentNotCorrectableException(input.serviceId);
     }
 
-    // 1. Estorna a transação original (errata: linha oposta), atribuída ao
-    // ator que está corrigindo (não ao autor original).
     await this.transactionRepo.create({
       orgId: input.orgId,
       createdBy: currentUserId,
@@ -108,7 +96,6 @@ export class CorrectServicePaymentUseCase {
       reversesTransactionId: original.id,
     });
 
-    // 2. Lança o valor corrigido (fee/net recalculados no novo método/valor).
     const fee = await this.feeRepo.findByOrgAndMethod(
       input.orgId,
       input.paymentMethod,
@@ -130,7 +117,6 @@ export class CorrectServicePaymentUseCase {
       transactedAt: input.transactedAt,
     });
 
-    // 3. Só agora o serviço passa a apontar para a nova transação.
     await this.serviceRepo.correctPayment(
       service.id,
       { amountCents: input.grossCents, paymentMethod: input.paymentMethod },

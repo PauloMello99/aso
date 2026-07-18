@@ -3,7 +3,6 @@ import type { ServiceMaterialEntity } from "./service-material.entity";
 
 export type { PaymentMethod };
 
-/** Estado derivado do serviço (não é coluna). */
 export type ServiceStatus = "pending" | "paid" | "canceled";
 
 export interface ServiceEntityProps {
@@ -11,21 +10,17 @@ export interface ServiceEntityProps {
   orgId: string;
   serviceTypeId: string | null;
   customerId: string | null;
-  /** Transação de pagamento vinculada (null = pendente). */
   paymentTransactionId: string | null;
-  /** Resposta de anamnese vinculada (M10b). */
   anamnesisResponseId: string | null;
   performedBy: string | null;
   createdBy: string | null;
   description: string | null;
-  /** Valor bruto lançado, em centavos. */
   amountCents: number;
   paymentMethod: PaymentMethod;
   performedAt: Date;
   canceledAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
-  // Anotações de leitura (joins) — não persistidas pela própria entidade.
   materials?: ServiceMaterialEntity[];
   customerName?: string | null;
   employeeName?: string | null;

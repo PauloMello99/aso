@@ -25,7 +25,6 @@ const METHOD_LABELS: Record<string, string> = {
   debit_card: "Cartão de débito",
 };
 
-/** Colunas exportáveis do caixa (chaves usadas no seletor `?fields=`). */
 export const TRANSACTION_CSV_COLUMNS: CsvColumn<TransactionEntity>[] = [
   { key: "date", header: "Data", value: (t) => csvDate(t.transactedAt) },
   { key: "description", header: "Descrição", value: (t) => t.description },

@@ -36,7 +36,6 @@ export class SupabaseStorageProvider implements IStorageProvider {
       );
     }
 
-    // Caminho fixo por usuário → upsert sobrescreve a foto anterior.
     const path = `${authId}/avatar.${ext}`;
     const { error } = await this.admin.storage
       .from(this.bucket)
@@ -44,7 +43,6 @@ export class SupabaseStorageProvider implements IStorageProvider {
     if (error) throw new AvatarUploadFailedException(error.message);
 
     const { data } = this.admin.storage.from(this.bucket).getPublicUrl(path);
-    // Cache-bust: a URL é estável (mesmo caminho), então versionamos por tempo.
     return `${data.publicUrl}?t=${Date.now()}`;
   }
 

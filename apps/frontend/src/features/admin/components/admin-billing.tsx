@@ -2,11 +2,6 @@
 
 import { CreditCard, Lock, TrendingUp, Receipt } from "lucide-react"
 
-/**
- * Seção de Assinaturas & Financeiro da plataforma (PLAT-1). O dado de billing
- * ainda não existe (Stripe = PLAT-2), então mostramos um shell explícito em vez
- * de números falsos — pronto para ser preenchido quando o billing existir.
- */
 export function AdminBilling() {
   return (
     <div className="space-y-6">
@@ -19,7 +14,6 @@ export function AdminBilling() {
         </p>
       </div>
 
-      {/* Placeholders dos KPIs financeiros (desabilitados até o billing existir) */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { label: "MRR", icon: TrendingUp },

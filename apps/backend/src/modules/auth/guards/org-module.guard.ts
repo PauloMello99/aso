@@ -21,11 +21,6 @@ import {
   REQUIRE_MODULE_KEY,
 } from "../decorators/require-module.decorator";
 
-/**
- * Autoriza acesso a um **módulo** da org: owner sempre passa; funcionário precisa
- * do módulo nas suas permissões (PERM-1). O módulo vem do `@RequireModule(...)`.
- * Usar após {@link AuthGuard} e {@link OrgMembershipGuard}.
- */
 @Injectable()
 export class OrgModuleGuard implements CanActivate {
   constructor(
@@ -37,7 +32,6 @@ export class OrgModuleGuard implements CanActivate {
     const required = this.reflector.getAllAndOverride<
       ModuleKey | typeof ALLOW_ANY_ORG_MEMBER | undefined
     >(REQUIRE_MODULE_KEY, [context.getHandler(), context.getClass()]);
-    // Sem módulo exigido → nada a checar aqui (membership já garante acesso).
     if (!required) return true;
 
     const request = context
@@ -67,13 +61,10 @@ export class OrgModuleGuard implements CanActivate {
       .limit(1);
 
     if (!row) {
-      // super_admin age como owner (acesso a todos os módulos).
       if (await isSuperAdmin(this.db, user.id)) return true;
       throw new ForbiddenException("You do not have access to this organization");
     }
 
-    // `@AllowAnyOrgMember()` no handler: já validamos membership/enabled acima;
-    // não exige a flag de módulo.
     if (required === ALLOW_ANY_ORG_MEMBER) return true;
 
     const role = row.role as "owner" | "employee";

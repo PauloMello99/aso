@@ -1,6 +1,5 @@
 import type { AnamnesisQuestion } from "./anamnesis-question";
 
-/** Resposta a uma pergunta — o `value` casa com o `type` da pergunta (`yes_no` → boolean, `text` → string). */
 export type AnamnesisAnswer = {
   questionId: string;
   value: string | boolean;
@@ -55,12 +54,10 @@ export class AnamnesisResponseEntity {
     this.createdAt = props.createdAt;
   }
 
-  /** Ainda pendente e a data de expiração já passou. */
   get isExpired(): boolean {
     return this.status === "pending" && this.expiresAt < new Date();
   }
 
-  /** "expired" é derivado em runtime — nunca persistido (só 2 valores no enum do banco). */
   get displayStatus(): AnamnesisResponseStatus | "expired" {
     return this.isExpired ? "expired" : this.status;
   }

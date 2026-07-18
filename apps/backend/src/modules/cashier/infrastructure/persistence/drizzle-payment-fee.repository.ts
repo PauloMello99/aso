@@ -11,8 +11,7 @@ import {
 } from "../../domain/payment-fee.repository.interface";
 import { PaymentFeeMapper } from "./payment-fee.mapper";
 
-/** Taxas raramente mudam (admin configura) e são lidas em todo form de caixa. */
-const FEES_TTL_MS = 60 * 60 * 1000; // 1h
+const FEES_TTL_MS = 60 * 60 * 1000;
 const feesKey = (orgId: string) => `fees:${orgId}`;
 
 @Injectable()

@@ -19,7 +19,6 @@ export interface InvitationLookupView {
   role: OrgRole;
   status: InvitationStatus;
   expired: boolean;
-  /** Se já existe conta para o e-mail convidado (drive login × cadastro). */
   hasAccount: boolean;
 }
 

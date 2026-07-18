@@ -5,11 +5,6 @@ import type {
   IAnamnesisDocumentGenerator,
 } from "../../domain/ports/anamnesis-document-generator.port";
 
-/**
- * Gera o PDF consolidado (termo de consentimento) do fluxo de assinatura
- * eletrônica via `pdfkit`. Tudo em memória — sem I/O de disco: os chunks são
- * coletados do evento `data` e a Promise resolve no `end` com `Buffer.concat`.
- */
 @Injectable()
 export class PdfKitAnamnesisDocumentGenerator
   implements IAnamnesisDocumentGenerator

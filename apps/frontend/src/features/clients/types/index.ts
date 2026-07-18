@@ -30,13 +30,9 @@ export interface CustomersFilter {
   status?: "active" | "inactive"
   originId?: string
   gender?: Gender
-  /** Faixa de data de cadastro (YYYY-MM-DD). */
   from?: string
   to?: string
-  /** Mês de nascimento (1-12), ignora ano/dia. */
   birthMonth?: number
-  /** Match exato no backend. */
   city?: string
-  /** Match exato no backend. */
   state?: string
 }

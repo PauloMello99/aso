@@ -20,10 +20,7 @@ export class DrizzleAnamnesisResponseRepository
   implements IAnamnesisResponseRepository
 {
   constructor(
-    // Métodos autenticados (create/findById/findLinkable): RLS-enforced.
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    // Fluxo público (findByToken/markSubmitted) + compensação (delete/deletePendingFor):
-    // rodam sem sessão de org autenticada → bypass RLS.
     @Inject(DRIZZLE_ADMIN) private readonly admin: DrizzleDB,
   ) {}
 
@@ -51,9 +48,6 @@ export class DrizzleAnamnesisResponseRepository
     serviceTypeId: string,
     orgId: string,
   ): Promise<void> {
-    // Dedupe pré-envio: o ator ainda está autenticado, mas rodamos via admin
-    // pelo mesmo motivo do `delete` — é uma limpeza de estado, não uma leitura
-    // que precise refletir a visão RLS do ator.
     await this.admin
       .delete(schema.anamnesisResponses)
       .where(
@@ -67,7 +61,6 @@ export class DrizzleAnamnesisResponseRepository
   }
 
   async delete(id: string): Promise<void> {
-    // Compensação após falha de e-mail — mesmo padrão do InviteMemberUseCase.
     await this.admin
       .delete(schema.anamnesisResponses)
       .where(eq(schema.anamnesisResponses.id, id));
@@ -76,8 +69,6 @@ export class DrizzleAnamnesisResponseRepository
   async findByToken(
     token: string,
   ): Promise<AnamnesisResponseWithCustomerName | null> {
-    // O cliente que abre o link público não é membro autenticado da org —
-    // bypassa RLS. LEFT JOIN pois customerId é SET NULL se o cliente for excluído.
     const [row] = await this.admin
       .select({
         response: schema.anamnesisResponses,
@@ -105,11 +96,6 @@ export class DrizzleAnamnesisResponseRepository
     id: string,
     data: MarkSubmittedData,
   ): Promise<boolean> {
-    // Única mutação pós-insert do fluxo público — sem ator autenticado, roda
-    // via admin (dado de saúde é append-only; ver comentário no schema).
-    // `.returning()` + checagem de linhas afetadas: o WHERE status='pending'
-    // é a proteção contra dupla submissão concorrente — se 0 linhas forem
-    // afetadas, outra requisição já venceu a corrida (ver uso no use-case).
     const updated = await this.admin
       .update(schema.anamnesisResponses)
       .set({

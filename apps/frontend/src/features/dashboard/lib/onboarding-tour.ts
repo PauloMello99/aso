@@ -1,22 +1,12 @@
 import { ORG_NAV_SECTIONS, canAccessModule, type NavItem } from "./nav"
 import type { OrgSummary } from "../hooks/use-orgs"
 
-/**
- * Um passo do tour de onboarding. `selector: null` = popover central sem elemento
- * ancorado (usado para boas-vindas/despedida); demais passos apontam para um item de
- * navegação via `data-tour`.
- */
 export interface TourStep {
   selector: string | null
   title: string
   description: string
 }
 
-/**
- * Descrição curta por item de navegação, usada como corpo do passo do tour. Chave =
- * `NavItem.href`. Itens sem entrada aqui não deveriam existir em `ORG_NAV_SECTIONS`,
- * mas caem num fallback genérico para nunca deixar a descrição vazia.
- */
 const NAV_STEP_DESCRIPTIONS: Record<string, string> = {
   overview: "Veja um resumo do dia a dia da sua organização.",
   services: "Registre atendimentos e acompanhe pagamentos.",
@@ -33,7 +23,6 @@ function getNavStepDescription(item: NavItem): string {
   )
 }
 
-/** Mesmo filtro de visibilidade usado por `org-sidebar.tsx` para os itens de nav. */
 function isNavItemVisible(item: NavItem, org: OrgSummary): boolean {
   return (
     (!item.roles || item.roles.includes(org.role)) &&
@@ -41,12 +30,6 @@ function isNavItemVisible(item: NavItem, org: OrgSummary): boolean {
   )
 }
 
-/**
- * Monta os passos do tour de onboarding para a organização atual: boas-vindas, um
- * passo por item de navegação visível para o papel/permissões do usuário (mesma regra
- * de `org-sidebar.tsx`), e despedida apontando para o menu do usuário. Função pura —
- * sem `driver.js`, sem DOM, sem hooks.
- */
 export function getTourSteps(org: OrgSummary): TourStep[] {
   const navItems = ORG_NAV_SECTIONS.flatMap((section) => section.items).filter((item) =>
     isNavItemVisible(item, org),

@@ -131,13 +131,11 @@ export function MemberList({
 
   return (
     <div className="grid gap-6">
-      {/* Members section */}
       <section>
         <h3 className="mb-3 text-sm font-medium text-foreground/50 uppercase tracking-wide">
           Membros ({members.length})
         </h3>
 
-        {/* Desktop table */}
         <div className="hidden sm:block overflow-hidden rounded-lg border border-foreground/10">
           <Table>
             <TableHeader>
@@ -198,7 +196,6 @@ export function MemberList({
           </Table>
         </div>
 
-        {/* Mobile cards */}
         <div className="grid gap-2 sm:hidden">
           {members.map((member) => {
             const isSelf = member.userEmail === currentUserEmail
@@ -243,7 +240,6 @@ export function MemberList({
         </div>
       </section>
 
-      {/* Pending invitations */}
       {invitations.length > 0 && (
         <section>
           <h3 className="mb-3 text-sm font-medium text-foreground/50 uppercase tracking-wide">
@@ -284,7 +280,6 @@ export function MemberList({
         </section>
       )}
 
-      {/* Change role dialog */}
       <Dialog open={!!roleDialog} onOpenChange={(v) => !v && setRoleDialog(null)}>
         <DialogContent>
           <DialogHeader>
@@ -323,7 +318,6 @@ export function MemberList({
         </DialogContent>
       </Dialog>
 
-      {/* Permissions dialog (employee module access) */}
       <Dialog open={!!permsDialog} onOpenChange={(v) => !v && setPermsDialog(null)}>
         <DialogContent>
           <DialogHeader>
@@ -366,7 +360,6 @@ export function MemberList({
         </DialogContent>
       </Dialog>
 
-      {/* Remove member dialog */}
       <Dialog open={!!removeDialog} onOpenChange={(v) => !v && setRemoveDialog(null)}>
         <DialogContent>
           <DialogHeader>

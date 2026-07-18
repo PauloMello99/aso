@@ -61,7 +61,6 @@ interface TransactionFormProps {
   onOpenChange: (open: boolean) => void
   fees: PaymentFee[]
   categories: TransactionCategory[]
-  /** Owner pode lançar em nome de um membro; funcionário não vê o seletor. */
   isOwner?: boolean
   members?: Member[]
   onSubmit: (values: TransactionFormValues) => Promise<void>
@@ -110,7 +109,6 @@ export function TransactionForm({
     onOpenChange(false)
   })
 
-  // Preview do líquido (taxa de cartão) — reativo aos campos.
   const amount = form.watch("amount")
   const method = form.watch("paymentMethod")
   const type = form.watch("type")
@@ -271,7 +269,6 @@ export function TransactionForm({
                 )}
               />
 
-              {/* Owner: lançar em nome de um membro (funcionário força = self). */}
               {isOwner && (
                 <FormField
                   control={form.control}
@@ -329,7 +326,6 @@ export function TransactionForm({
                 )}
               />
 
-              {/* Preview de taxa de cartão → líquido no caixa */}
               {preview?.hasFee && (
                 <div className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3 text-sm">
                   <div className="flex items-center justify-between text-foreground/50">

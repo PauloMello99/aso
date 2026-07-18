@@ -104,7 +104,6 @@ describe("UpdateMeUseCase", () => {
     const { useCase, userRepo } = buildUseCase();
     const before = Date.now();
 
-    // Timestamp arbitrário (passado) enviado pelo cliente — deve ser ignorado.
     await useCase.execute(authUser, {
       onboardingCompletedAt: "2000-01-01T00:00:00.000Z",
     });

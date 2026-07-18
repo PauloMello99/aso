@@ -17,10 +17,6 @@ export class SetUserPlatformRoleUseCase {
     private readonly auditService: AuditService,
   ) {}
 
-  /**
-   * @param actingAuthId auth id do super_admin que executa a ação (impede que
-   *   ele altere o próprio papel e cause lockout).
-   */
   async execute(
     targetUserId: string,
     role: PlatformRole,

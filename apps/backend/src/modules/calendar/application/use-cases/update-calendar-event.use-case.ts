@@ -43,7 +43,6 @@ export class UpdateCalendarEventUseCase {
     const existing = await this.repo.findById(input.id, input.orgId);
     if (!existing) throw new EventNotFoundException(input.id);
 
-    // Só o dono do evento pode editar (mesmo owner não edita de terceiros).
     if (existing.assignedTo !== membership.userId) {
       throw new EventForbiddenException();
     }

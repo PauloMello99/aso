@@ -95,7 +95,6 @@ function ActionMenu({
   )
 }
 
-/* ─── Mobile card ─────────────────────────────────────────────── */
 function CustomerCard({
   customer,
   onEdit,
@@ -145,7 +144,6 @@ function CustomerCard({
   )
 }
 
-/* ─── Desktop table row ──────────────────────────────────────── */
 function CustomerRow({
   customer,
   onEdit,
@@ -186,7 +184,6 @@ function CustomerRow({
   )
 }
 
-/* ─── Main list ──────────────────────────────────────────────── */
 export function CustomerList({
   customers,
   onEdit,
@@ -207,7 +204,6 @@ export function CustomerList({
 
   return (
     <>
-      {/* Mobile: card list */}
       <div className="grid gap-3 sm:hidden">
         {customers.map((c) => (
           <CustomerCard
@@ -221,7 +217,6 @@ export function CustomerList({
         ))}
       </div>
 
-      {/* Desktop: table */}
       <div className="hidden rounded-xl border border-foreground/[0.06] sm:block">
         <Table className="min-w-[600px]">
           <TableHeader>

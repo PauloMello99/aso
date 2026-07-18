@@ -43,8 +43,6 @@ import type { CalendarEvent } from "@/features/agenda/types"
 import type { Material } from "@/features/stock/types"
 import type { Customer } from "@/features/clients/types"
 
-/* ── helpers ─────────────────────────────────────────────────────── */
-
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR", {
     day: "2-digit",
@@ -104,7 +102,6 @@ function SectionCard({
   )
 }
 
-/** Estado vazio como convite: ícone + frase + ação opcional. */
 function EmptyState({
   icon: Icon,
   title,
@@ -141,8 +138,6 @@ function Loading() {
 function Rows({ children }: { children: React.ReactNode }) {
   return <ul className="divide-y divide-foreground/[0.05]">{children}</ul>
 }
-
-/* ── Serviços recentes ───────────────────────────────────────────── */
 
 function RecentServicesSection({
   services,
@@ -211,8 +206,6 @@ function RecentServicesSection({
     </SectionCard>
   )
 }
-
-/* ── Transações recentes (owner) ─────────────────────────────────── */
 
 function RecentTransactionsSection({
   transactions,
@@ -293,15 +286,11 @@ function RecentTransactionsSection({
   )
 }
 
-/* ── Estoque baixo ───────────────────────────────────────────────── */
-
-/** Quantidade a repor para voltar ao mínimo (nunca negativa). */
 function restockQty(m: Material): number {
   const deficit = parseFloat(m.minimumQuantity) - parseFloat(m.stockQuantity)
   return deficit > 0 ? deficit : 0
 }
 
-/** Custo estimado (centavos) para repor um material até o mínimo. */
 function restockCents(m: Material): number | null {
   if (m.costPerUnit == null) return null
   const cost = parseFloat(m.costPerUnit)
@@ -309,7 +298,6 @@ function restockCents(m: Material): number | null {
   return Math.round(restockQty(m) * cost * 100)
 }
 
-/** Soma a estimativa de reposição (RPT-3) e conta itens sem custo cadastrado. */
 function restockEstimate(materials: Material[]): {
   totalCents: number
   missingCost: number
@@ -394,8 +382,6 @@ function LowStockSection({
   )
 }
 
-/* ── Próximos eventos de agenda ──────────────────────────────────── */
-
 function UpcomingEventsSection({
   events,
   loading,
@@ -444,8 +430,6 @@ function UpcomingEventsSection({
   )
 }
 
-/* ── Clientes recentes (owner) ───────────────────────────────────── */
-
 function RecentCustomersSection({
   customers,
   loading,
@@ -488,10 +472,6 @@ function RecentCustomersSection({
     </SectionCard>
   )
 }
-
-/* ── Página ──────────────────────────────────────────────────────── */
-
-/* ── Saldo do caixa (owner) ──────────────────────────────────────── */
 
 function BalanceRow({ label, cents }: { label: string; cents: number }) {
   return (
@@ -550,9 +530,7 @@ export function OverviewPage() {
   const [periodKey, setPeriodKey] = React.useState<PeriodKey>("month")
   const range = React.useMemo(() => periodRange(periodKey), [periodKey])
 
-  // Um único request agregado (PERF-2) substitui os ~6 antigos.
   const { data, loading } = useOverview(orgId)
-  // KPIs + gráficos do período (role-aware): owner vê tudo, funcionário só o seu.
   const { data: analytics, loading: analyticsLoading } = useOverviewAnalytics(
     orgId,
     range,
@@ -569,7 +547,6 @@ export function OverviewPage() {
         </p>
       </div>
 
-      {/* Faixa 1 · Operações — grid uniforme (sm:2 / xl:3), linhas alinhadas */}
       <section className="space-y-3">
         <BandLabel>Operações</BandLabel>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -611,7 +588,6 @@ export function OverviewPage() {
         </div>
       </section>
 
-      {/* Faixa 2 · Desempenho */}
       {isOwner ? (
         <PerformanceSection
           data={analytics}

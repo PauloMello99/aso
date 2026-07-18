@@ -8,8 +8,6 @@ import type { Customer, CustomersFilter, Gender } from "../types"
 export function useCustomers(orgId: string, filter?: CustomersFilter) {
   const queryClient = useQueryClient()
 
-  // ── Query ──────────────────────────────────────────────────────────────────
-
   const { data = [], isLoading, error, refetch } = useQuery({
     queryKey: queryKeys.customers.list(orgId, filter),
     queryFn: () => {
@@ -29,8 +27,6 @@ export function useCustomers(orgId: string, filter?: CustomersFilter) {
     },
     enabled: !!orgId,
   })
-
-  // ── Mutations ──────────────────────────────────────────────────────────────
 
   type CreateBody = {
     name: string
@@ -75,8 +71,6 @@ export function useCustomers(orgId: string, filter?: CustomersFilter) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.customers.all(orgId) })
     },
   })
-
-  // ── Stable wrappers ─────────────────────────────────────────────────────────
 
   async function createCustomer(body: CreateBody): Promise<Customer> {
     return createCustomerMutation.mutateAsync(body)
