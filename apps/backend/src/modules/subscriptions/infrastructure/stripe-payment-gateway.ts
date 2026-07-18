@@ -125,7 +125,7 @@ export class StripePaymentGateway implements IPaymentGateway {
 
   async findPriceByLookupKey(
     lookupKey: string,
-  ): Promise<{ priceId: string; productId: string } | null> {
+  ): Promise<{ priceId: string; productId: string; unitAmount: number | null } | null> {
     const result = await this.stripe.prices.list({
       lookup_keys: [lookupKey],
       active: true,
@@ -135,20 +135,23 @@ export class StripePaymentGateway implements IPaymentGateway {
     if (!price) return null;
     const productId =
       typeof price.product === "string" ? price.product : price.product.id;
-    return { priceId: price.id, productId };
+    return { priceId: price.id, productId, unitAmount: price.unit_amount };
   }
 
   async ensureProduct(
     params: EnsureProductParams,
   ): Promise<{ productId: string }> {
-    const existing = await this.stripe.products.list({
-      active: true,
-      limit: 100,
-    });
-    const match = existing.data.find((p) => p.name === params.name);
-    if (match) return { productId: match.id };
+    // Idempotent by deterministic id: retrieve by id, create with that id if
+    // missing. Avoids the fragile match-by-name (a rename would orphan it).
+    try {
+      const existing = await this.stripe.products.retrieve(params.id);
+      return { productId: existing.id };
+    } catch (error) {
+      if (!isResourceMissing(error)) throw error;
+    }
 
     const created = await this.stripe.products.create({
+      id: params.id,
       name: params.name,
       description: params.description,
     });
@@ -166,6 +169,9 @@ export class StripePaymentGateway implements IPaymentGateway {
         ...(intervalCount ? { interval_count: intervalCount } : {}),
       },
       lookup_key: params.lookupKey,
+      // Stripe prices are immutable; moving the lookup_key from the old price
+      // onto this one is how a price change is applied.
+      ...(params.transferLookupKey ? { transfer_lookup_key: true } : {}),
     });
     return { priceId: price.id };
   }

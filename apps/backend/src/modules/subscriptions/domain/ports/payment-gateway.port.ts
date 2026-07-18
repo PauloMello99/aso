@@ -29,6 +29,8 @@ export interface CreatePortalSessionParams {
 }
 
 export interface EnsureProductParams {
+  /** Deterministic Stripe Product id (custom id). */
+  id: string;
   name: string;
   description?: string;
 }
@@ -39,6 +41,12 @@ export interface CreatePriceParams {
   currency: string;
   interval: BillingInterval;
   lookupKey: string;
+  /**
+   * When true, moves `lookupKey` from any existing price that currently holds
+   * it onto this new price (Stripe prices are immutable, so a price change is
+   * modeled as a new price that inherits the lookup_key).
+   */
+  transferLookupKey?: boolean;
 }
 
 export interface CreateCouponParams {
@@ -69,7 +77,11 @@ export interface IPaymentGateway {
 
   findPriceByLookupKey(
     lookupKey: string,
-  ): Promise<{ priceId: string; productId: string } | null>;
+  ): Promise<{
+    priceId: string;
+    productId: string;
+    unitAmount: number | null;
+  } | null>;
 
   ensureProduct(params: EnsureProductParams): Promise<{ productId: string }>;
 

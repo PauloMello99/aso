@@ -27,12 +27,16 @@ export class PlanCatalogService implements OnModuleInit {
   async onModuleInit(): Promise<void> {
     for (const entry of PLAN_CATALOG) {
       try {
-        let price = await this.gateway.findPriceByLookupKey(entry.lookupKey);
+        const existing = await this.gateway.findPriceByLookupKey(
+          entry.lookupKey,
+        );
+        const { productId } = await this.gateway.ensureProduct({
+          id: entry.productKey,
+          name: entry.name,
+        });
 
-        if (!price) {
-          const { productId } = await this.gateway.ensureProduct({
-            name: entry.name,
-          });
+        let price: { priceId: string; productId: string };
+        if (!existing) {
           const { priceId } = await this.gateway.createPrice({
             productId,
             amountCents: entry.priceCents,
@@ -41,6 +45,23 @@ export class PlanCatalogService implements OnModuleInit {
             lookupKey: entry.lookupKey,
           });
           price = { priceId, productId };
+        } else if (existing.unitAmount !== entry.priceCents) {
+          // Price changed in the catalog: Stripe prices are immutable, so mint
+          // a new price and transfer the lookup_key from the stale one onto it.
+          this.logger.log(
+            `Rotating price for "${entry.key}" (${existing.unitAmount} → ${entry.priceCents})`,
+          );
+          const { priceId } = await this.gateway.createPrice({
+            productId,
+            amountCents: entry.priceCents,
+            currency: entry.currency,
+            interval: entry.interval,
+            lookupKey: entry.lookupKey,
+            transferLookupKey: true,
+          });
+          price = { priceId, productId };
+        } else {
+          price = { priceId: existing.priceId, productId };
         }
 
         await this.billingPlanRepo.upsert({
