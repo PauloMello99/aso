@@ -36,3 +36,11 @@ export interface CheckoutSessionResponse {
 export interface PortalSessionResponse {
   url: string
 }
+
+export interface NormalizedInvoice {
+  stripeInvoiceId: string
+  type: "paid" | "payment_failed"
+  amountCents: number
+  currency: string
+  occurredAt: string
+}

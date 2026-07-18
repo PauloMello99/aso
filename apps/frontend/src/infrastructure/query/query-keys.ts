@@ -86,4 +86,9 @@ export const queryKeys = {
   billing: {
     subscription: (orgId: string) => ["billing", orgId, "subscription"] as const,
   },
+
+  adminSubscription: {
+    detail: (orgId: string) => ["admin", orgId, "subscription"] as const,
+    invoices: (orgId: string) => ["admin", orgId, "subscription", "invoices"] as const,
+  },
 } as const

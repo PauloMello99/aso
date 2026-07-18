@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, isNotNull, lt } from "drizzle-orm";
 import {
   DRIZZLE_ADMIN,
   type DrizzleDB,
@@ -94,6 +94,42 @@ export class DrizzleSubscriptionRepository implements ISubscriptionRepository {
         ),
       );
     return rows.map(toDomain);
+  }
+
+  async findExpiredComps(): Promise<SubscriptionEntity[]> {
+    const now = new Date();
+    const rows = await this.db
+      .select()
+      .from(schema.subscriptions)
+      .where(
+        and(
+          eq(schema.subscriptions.type, "custom"),
+          isNotNull(schema.subscriptions.compExpiresAt),
+          lt(schema.subscriptions.compExpiresAt, now),
+        ),
+      );
+    return rows.map(toDomain);
+  }
+
+  async findExpiredPastDue(): Promise<SubscriptionEntity[]> {
+    const now = new Date();
+    const rows = await this.db
+      .select()
+      .from(schema.subscriptions)
+      .where(eq(schema.subscriptions.status, "past_due"));
+    // gracePeriodDays varies per row, so the deadline is computed in
+    // application code rather than in SQL. Proxy: currentPeriodEnd (or
+    // updatedAt when it is null, e.g. a comp/manual subscription that never
+    // had a Stripe period) + gracePeriodDays.
+    return rows
+      .map(toDomain)
+      .filter((sub) => {
+        const base = sub.currentPeriodEnd ?? sub.updatedAt;
+        const deadline = new Date(
+          base.getTime() + sub.gracePeriodDays * 24 * 60 * 60 * 1000,
+        );
+        return deadline < now;
+      });
   }
 
   async create(data: CreateSubscriptionData): Promise<SubscriptionEntity> {
