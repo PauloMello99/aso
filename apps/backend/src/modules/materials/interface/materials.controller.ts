@@ -18,6 +18,7 @@ import type { Response } from "express";
 import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
+import { ActiveSubscriptionGuard } from "../../subscriptions/interface/guards/active-subscription.guard";
 import {
   AllowAnyOrgMember,
   RequireModule,
@@ -77,6 +78,7 @@ export class MaterialsController {
   }
 
   @Put("stock-settings")
+  @UseGuards(ActiveSubscriptionGuard)
   async saveStockSettings(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Body() dto: SetStockIntervalDto,
@@ -91,6 +93,7 @@ export class MaterialsController {
   }
 
   @Post("verifications")
+  @UseGuards(ActiveSubscriptionGuard)
   async addVerification(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Body() dto: CreateVerificationDto,
@@ -199,6 +202,7 @@ export class MaterialsController {
   }
 
   @Post()
+  @UseGuards(ActiveSubscriptionGuard)
   async create(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Body() dto: CreateMaterialDto,
@@ -207,6 +211,7 @@ export class MaterialsController {
   }
 
   @Patch(":id")
+  @UseGuards(ActiveSubscriptionGuard)
   async update(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -216,6 +221,7 @@ export class MaterialsController {
   }
 
   @Delete(":id")
+  @UseGuards(ActiveSubscriptionGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
     @Param("orgId", ParseUUIDPipe) orgId: string,
@@ -225,6 +231,7 @@ export class MaterialsController {
   }
 
   @Post(":id/restock")
+  @UseGuards(ActiveSubscriptionGuard)
   async restock(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -241,6 +248,7 @@ export class MaterialsController {
   }
 
   @Post(":id/adjust")
+  @UseGuards(ActiveSubscriptionGuard)
   async adjust(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -257,6 +265,7 @@ export class MaterialsController {
   }
 
   @Post(":id/archive")
+  @UseGuards(ActiveSubscriptionGuard)
   async archive(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -265,6 +274,7 @@ export class MaterialsController {
   }
 
   @Post(":id/unarchive")
+  @UseGuards(ActiveSubscriptionGuard)
   async unarchive(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,

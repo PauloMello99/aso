@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
 import { NotificationsModule } from "../notifications/notifications.module";
+import { SubscriptionsModule } from "../subscriptions/subscriptions.module";
 import { ListCalendarEventsUseCase } from "./application/use-cases/list-calendar-events.use-case";
 import { CreateCalendarEventUseCase } from "./application/use-cases/create-calendar-event.use-case";
 import { UpdateCalendarEventUseCase } from "./application/use-cases/update-calendar-event.use-case";
@@ -15,7 +16,12 @@ import { CalendarController } from "./interface/calendar.controller";
 import { CalendarConnectionController } from "./interface/calendar-connection.controller";
 
 @Module({
-  imports: [CalendarInfrastructureModule, AuthModule, NotificationsModule],
+  imports: [
+    CalendarInfrastructureModule,
+    AuthModule,
+    NotificationsModule,
+    SubscriptionsModule,
+  ],
   controllers: [CalendarController, CalendarConnectionController],
   providers: [
     ListCalendarEventsUseCase,

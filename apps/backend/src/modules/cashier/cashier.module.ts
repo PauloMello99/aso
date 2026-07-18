@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
 import { OrgsInfrastructureModule } from "../organizations/infrastructure/orgs-infrastructure.module";
 import { ServicesInfrastructureModule } from "../services/infrastructure/services-infrastructure.module";
+import { SubscriptionsModule } from "../subscriptions/subscriptions.module";
 import { CashierInfrastructureModule } from "./infrastructure/cashier-infrastructure.module";
 import { ListTransactionsUseCase } from "./application/use-cases/list-transactions.use-case";
 import { ExportTransactionsUseCase } from "./application/use-cases/export-transactions.use-case";
@@ -25,6 +26,7 @@ import { CashierController } from "./interface/cashier.controller";
     OrgsInfrastructureModule,
     ServicesInfrastructureModule,
     AuthModule,
+    SubscriptionsModule,
   ],
   controllers: [CashierController],
   providers: [

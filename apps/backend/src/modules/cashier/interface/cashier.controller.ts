@@ -16,6 +16,7 @@ import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { OrgOwnerGuard } from "../../auth/guards/org-owner.guard";
 import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
+import { ActiveSubscriptionGuard } from "../../subscriptions/interface/guards/active-subscription.guard";
 import { RequireModule } from "../../auth/decorators/require-module.decorator";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
@@ -182,6 +183,7 @@ export class CashierController {
   }
 
   @Post("transactions")
+  @UseGuards(ActiveSubscriptionGuard)
   async create(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Body() dto: CreateTransactionDto,
@@ -201,7 +203,7 @@ export class CashierController {
   }
 
   @Post("transactions/:id/reverse")
-  @UseGuards(OrgOwnerGuard)
+  @UseGuards(OrgOwnerGuard, ActiveSubscriptionGuard)
   async reverse(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -215,7 +217,7 @@ export class CashierController {
   }
 
   @Post("transactions/:id/correct")
-  @UseGuards(OrgOwnerGuard)
+  @UseGuards(OrgOwnerGuard, ActiveSubscriptionGuard)
   async correct(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -260,7 +262,7 @@ export class CashierController {
   }
 
   @Put("fees")
-  @UseGuards(OrgOwnerGuard)
+  @UseGuards(OrgOwnerGuard, ActiveSubscriptionGuard)
   async setFees(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Body() dto: UpsertFeesDto,
@@ -279,7 +281,7 @@ export class CashierController {
   }
 
   @Post("categories")
-  @UseGuards(OrgOwnerGuard)
+  @UseGuards(OrgOwnerGuard, ActiveSubscriptionGuard)
   async addCategory(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Body() dto: CreateCategoryDto,
@@ -288,7 +290,7 @@ export class CashierController {
   }
 
   @Put("categories/:categoryId")
-  @UseGuards(OrgOwnerGuard)
+  @UseGuards(OrgOwnerGuard, ActiveSubscriptionGuard)
   async updateCategoryById(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("categoryId", ParseUUIDPipe) categoryId: string,
@@ -298,7 +300,7 @@ export class CashierController {
   }
 
   @Delete("categories/:categoryId")
-  @UseGuards(OrgOwnerGuard)
+  @UseGuards(OrgOwnerGuard, ActiveSubscriptionGuard)
   async deleteCategoryById(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("categoryId", ParseUUIDPipe) categoryId: string,
@@ -307,7 +309,7 @@ export class CashierController {
   }
 
   @Post("transfers")
-  @UseGuards(OrgOwnerGuard)
+  @UseGuards(OrgOwnerGuard, ActiveSubscriptionGuard)
   async makeTransfer(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Body() dto: TransferDto,

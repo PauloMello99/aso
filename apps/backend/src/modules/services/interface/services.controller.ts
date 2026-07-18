@@ -24,6 +24,7 @@ import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { OrgOwnerGuard } from "../../auth/guards/org-owner.guard";
 import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
+import { ActiveSubscriptionGuard } from "../../subscriptions/interface/guards/active-subscription.guard";
 import { RequireModule } from "../../auth/decorators/require-module.decorator";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
@@ -106,6 +107,7 @@ export class ServicesController {
   }
 
   @Post("types")
+  @UseGuards(ActiveSubscriptionGuard)
   async addType(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Body() dto: CreateServiceTypeDto,
@@ -114,7 +116,7 @@ export class ServicesController {
   }
 
   @Patch("types/:typeId")
-  @UseGuards(OrgOwnerGuard)
+  @UseGuards(OrgOwnerGuard, ActiveSubscriptionGuard)
   async updateTypeById(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("typeId", ParseUUIDPipe) typeId: string,
@@ -244,6 +246,7 @@ export class ServicesController {
   }
 
   @Post()
+  @UseGuards(ActiveSubscriptionGuard)
   async create(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @CurrentUser() user: AuthUser,
@@ -266,6 +269,7 @@ export class ServicesController {
   }
 
   @Patch(":id")
+  @UseGuards(ActiveSubscriptionGuard)
   async update(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -286,6 +290,7 @@ export class ServicesController {
   }
 
   @Post(":id/cancel")
+  @UseGuards(ActiveSubscriptionGuard)
   async cancel(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -299,6 +304,7 @@ export class ServicesController {
   }
 
   @Post(":id/pay")
+  @UseGuards(ActiveSubscriptionGuard)
   async pay(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -312,7 +318,7 @@ export class ServicesController {
   }
 
   @Patch(":id/payment")
-  @UseGuards(OrgOwnerGuard)
+  @UseGuards(OrgOwnerGuard, ActiveSubscriptionGuard)
   async correctPayment(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -339,6 +345,7 @@ export class ServicesController {
   }
 
   @Post(":id/media")
+  @UseGuards(ActiveSubscriptionGuard)
   @UseInterceptors(FileInterceptor("file"))
   async addMedia(
     @Param("orgId", ParseUUIDPipe) orgId: string,
@@ -365,6 +372,7 @@ export class ServicesController {
   }
 
   @Delete(":id/media/:mediaId")
+  @UseGuards(ActiveSubscriptionGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeMedia(
     @Param("orgId", ParseUUIDPipe) orgId: string,

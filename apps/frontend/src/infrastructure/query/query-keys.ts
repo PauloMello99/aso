@@ -82,4 +82,8 @@ export const queryKeys = {
       ["anamnesis", orgId, serviceTypeId, "versions"] as const,
     publicResponse: (token: string) => ["anamnesis", "public", token] as const,
   },
+
+  billing: {
+    subscription: (orgId: string) => ["billing", orgId, "subscription"] as const,
+  },
 } as const
