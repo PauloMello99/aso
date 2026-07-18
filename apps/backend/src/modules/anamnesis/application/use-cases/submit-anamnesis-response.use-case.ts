@@ -29,7 +29,6 @@ export interface SubmitAnamnesisResponseInput {
   answers: AnamnesisAnswer[];
   signerFullName: string;
   signerCpf: string | null;
-  /** Data URI `data:image/png;base64,...` — validado estruturalmente no DTO. */
   signatureImageBase64: string;
   requestIp: string | null;
   requestUserAgent: string | null;
@@ -65,9 +64,6 @@ export class SubmitAnamnesisResponseUseCase {
       input.answers,
     );
 
-    // Decodifica a assinatura e valida o magic number PNG — guarda de domínio
-    // contra payload corrompido ou de outro content-type que tenha passado do
-    // `@Matches` estrutural do DTO.
     const base64Payload = input.signatureImageBase64.replace(
       /^data:image\/png;base64,/,
       "",
@@ -80,9 +76,6 @@ export class SubmitAnamnesisResponseUseCase {
       throw new AnamnesisSignatureRequiredException(response.id);
     }
 
-    // Hash canônico: serializa cada pergunta com um shape fixo de chaves, pra
-    // não depender da ordem de inserção do jsonb (a ordem do array, essa sim
-    // semântica, é preservada).
     const canonicalQuestions = response.questionsSnapshot.map((question) => ({
       id: question.id,
       type: question.type,
@@ -110,19 +103,12 @@ export class SubmitAnamnesisResponseUseCase {
         requestUserAgent: input.requestUserAgent,
       });
     } catch {
-      // O magic number PNG já foi validado, mas o corpo da imagem pode ainda
-      // estar corrompido (pdfkit falha ao decodificar) — mesma exceção de
-      // domínio do payload ausente, para um contrato de erro consistente.
       throw new AnamnesisSignatureRequiredException(response.id);
     }
     const pdfHashSha256 = createHash("sha256")
       .update(pdfBuffer)
       .digest("hex");
 
-    // Nonce por tentativa: evita que duas submissões concorrentes do mesmo
-    // token sobrescrevam os artefatos uma da outra no Storage. Só a tentativa
-    // cujo `markSubmitted` vencer a corrida (abaixo) terá seus caminhos
-    // referenciados pela linha; a outra fica com arquivos órfãos e inofensivos.
     const attempt = randomUUID();
     const signaturePath = `${response.orgId}/${response.id}/${attempt}-signature.png`;
     const pdfPath = `${response.orgId}/${response.id}/${attempt}-signed-form.pdf`;
@@ -139,10 +125,6 @@ export class SubmitAnamnesisResponseUseCase {
       "application/pdf",
     );
 
-    // `markSubmitted` só afeta a linha se `status` ainda for 'pending' — se
-    // outra submissão concorrente já venceu a corrida entre o `findByToken` e
-    // aqui, 0 linhas são afetadas. Tratar como já submetida em vez de reportar
-    // sucesso sobre artefatos que nunca serão referenciados pela linha.
     const claimed = await this.responseRepo.markSubmitted(response.id, {
       answers: normalizedAnswers,
       signerFullName: input.signerFullName,
@@ -157,10 +139,6 @@ export class SubmitAnamnesisResponseUseCase {
       throw new AnamnesisResponseAlreadySubmittedException();
     }
 
-    // Best-effort, fora do caminho crítico: a evidência já está durável antes
-    // desta tentativa — diferente de `send-anamnesis-invite.use-case.ts`
-    // (que reverte em falha de e-mail), aqui uma falha de envio NUNCA deve
-    // reverter a submissão já registrada.
     if (response.customerEmail) {
       try {
         const signedUrl = await this.storage.createSignedUrl(

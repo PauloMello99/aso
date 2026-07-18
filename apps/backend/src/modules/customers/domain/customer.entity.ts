@@ -9,7 +9,7 @@ export interface CustomerEntityProps {
   name: string;
   email: string;
   phone: string | null;
-  birthDate: string; // date string (YYYY-MM-DD)
+  birthDate: string;
   gender: Gender | null;
   address: string;
   number: string;

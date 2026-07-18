@@ -13,10 +13,6 @@ import { OrgForbiddenException } from "../../domain/exceptions/org-forbidden.exc
 import { MemberNotFoundException } from "../../domain/exceptions/member-not-found.exception";
 import { MODULE_KEYS, isModuleKey } from "../../domain/member-permissions";
 
-/**
- * Owner configura os módulos liberados a um **funcionário** (on/off). Owners não
- * usam permissões (acesso total) — atualizar as de um owner é no-op de efeito.
- */
 @Injectable()
 export class UpdateMemberPermissionsUseCase {
   constructor(
@@ -39,7 +35,6 @@ export class UpdateMemberPermissionsUseCase {
     const member = await this.memberRepo.findByMemberId(memberId, orgId);
     if (!member) throw new MemberNotFoundException(memberId);
 
-    // Normaliza: só chaves válidas e sem duplicatas; preserva a ordem canônica.
     const valid = MODULE_KEYS.filter(
       (m) => permissions.includes(m) && isModuleKey(m),
     );

@@ -49,18 +49,12 @@ interface EventFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   orgId: string
-  /** Evento em edição, ou null para criação. */
   event: CalendarEvent | null
-  /** Slot inicial ao criar (clicar num horário do grid). */
   defaultSlot?: { date: string; startTime: string; endTime: string } | null
-  /** Somente leitura (ex.: admin vendo evento de outro membro). */
   readOnly?: boolean
-  /** Nome do membro dono do evento (exibido em modo leitura). */
   ownerName?: string | null
-  /** Owner pode criar em nome de um membro; funcionário não vê o seletor. */
   isOwner?: boolean
   members?: Member[]
-  /** users.id do usuário logado — usado para o RSVP em eventos compartilhados. */
   currentUserId?: string
   onSubmit: (body: CalendarEventBody, id?: string) => Promise<void>
   onDelete?: (id: string) => Promise<void>
@@ -151,7 +145,6 @@ export function EventForm({
       startsAt: startsAt.toISOString(),
       endsAt: endsAt.toISOString(),
       allDay: v.allDay ?? false,
-      // Só relevante na criação; o owner pode atribuir a outro membro.
       assignedTo: v.assignedTo || null,
       visibility: v.visibility,
     }
@@ -206,7 +199,6 @@ export function EventForm({
                 )}
               />
 
-              {/* Owner: criar evento em nome de um membro (só na criação). */}
               {isOwner && !isEditing && (
                 <FormField
                   control={form.control}

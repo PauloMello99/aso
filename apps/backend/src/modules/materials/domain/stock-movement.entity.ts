@@ -5,7 +5,7 @@ export interface StockMovementEntityProps {
   orgId: string;
   materialId: string;
   type: StockMovementType;
-  quantityDelta: string; // numeric string â€” positive = in, negative = out
+  quantityDelta: string;
   serviceId: string | null;
   note: string | null;
   createdBy: string | null;

@@ -15,7 +15,6 @@ const ROWS: Row[] = [
   { name: 'Contém "aspas", vírgula', amount: 200 },
 ];
 
-/** Remove o BOM (U+FEFF) prefixado por `buildCsv` para facilitar as asserções. */
 function stripBom(csv: string): string[] {
   const withoutBom = csv.charCodeAt(0) === 0xfeff ? csv.slice(1) : csv;
   return withoutBom.split("\r\n");
@@ -41,7 +40,6 @@ describe("buildCsv", () => {
       buildCsv(ROWS, COLUMNS, undefined, csvDelimiterChar("tab")),
     );
     expect(lines[0]).toBe("Nome\tValor");
-    // Aspas duplas e a vírgula continuam sendo escapadas independente do delimitador ativo.
     expect(lines[2]).toBe('"Contém ""aspas"", vírgula"\t200');
   });
 

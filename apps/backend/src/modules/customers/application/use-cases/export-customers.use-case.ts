@@ -18,7 +18,6 @@ const GENDER_LABELS: Record<string, string> = {
   other: "Outro",
 };
 
-/** Colunas exportáveis de clientes (chaves usadas no seletor `?fields=`). */
 export const CUSTOMER_CSV_COLUMNS: CsvColumn<CustomerEntity>[] = [
   { key: "name", header: "Nome", value: (c) => c.name },
   { key: "email", header: "E-mail", value: (c) => c.email ?? "" },

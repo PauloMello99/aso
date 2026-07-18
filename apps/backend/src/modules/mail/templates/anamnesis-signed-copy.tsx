@@ -32,7 +32,6 @@ export function AnamnesisSignedCopyEmail({
   );
 }
 
-// Default export para a preview do `react-email` (email dev).
 export default function AnamnesisSignedCopyEmailPreview() {
   return (
     <AnamnesisSignedCopyEmail

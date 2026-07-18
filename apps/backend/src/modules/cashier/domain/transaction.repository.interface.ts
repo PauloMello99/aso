@@ -12,33 +12,21 @@ export interface ListTransactionsFilter {
   to?: Date;
   type?: TransactionType;
   paymentMethod?: PaymentMethod;
-  /** Categoria do lançamento. */
   categoryId?: string;
-  /** Faixa de valor líquido (centavos): mínimo inclusivo. */
   minCents?: number;
-  /** Faixa de valor líquido (centavos): máximo inclusivo. */
   maxCents?: number;
-  /** Busca textual na descrição. */
   q?: string;
-  /** users.id — restringe aos lançamentos do membro (funcionário vê só os seus). */
   createdBy?: string;
-  /**
-   * customers.id — transactions não tem coluna própria; filtra por transações
-   * cujo id é o payment_transaction_id de algum serviço deste cliente.
-   */
   customerId?: string;
 }
 
-/** Saldos correntes por bucket (todos em centavos, líquido com sinal). */
 export interface BalanceSnapshot {
   cashCents: number;
   digitalCents: number;
   totalCents: number;
 }
 
-/** Último saldo acumulado de cada dia (para o gráfico do dashboard). */
 export interface DailyBalancePoint {
-  /** Data no formato YYYY-MM-DD. */
   day: string;
   cashCents: number;
   digitalCents: number;
@@ -52,11 +40,8 @@ export interface ITransactionRepository {
     orgId: string,
     filter?: ListTransactionsFilter,
   ): Promise<TransactionEntity[]>;
-  /** Retorna o estorno de uma transação, se existir. */
   findReversalOf(originalId: string): Promise<TransactionEntity | null>;
-  /** Conjunto de ids de transações que já possuem estorno (para a lista). */
   findReversedIds(orgId: string): Promise<Set<string>>;
-  /** Saldo corrente; `createdBy` restringe aos lançamentos de um membro. */
   balance(orgId: string, createdBy?: string): Promise<BalanceSnapshot>;
   dailyBalanceHistory(
     orgId: string,
@@ -64,13 +49,11 @@ export interface ITransactionRepository {
     to: Date,
     createdBy?: string,
   ): Promise<DailyBalancePoint[]>;
-  /** Entradas (income) líquidas por método de pagamento no período (overview). */
   incomeByPaymentMethod(
     orgId: string,
     from: Date,
     to: Date,
   ): Promise<PaymentMethodTotal[]>;
-  /** Entradas e saídas líquidas por dia no período (overview). */
   incomeExpenseSeries(
     orgId: string,
     from: Date,

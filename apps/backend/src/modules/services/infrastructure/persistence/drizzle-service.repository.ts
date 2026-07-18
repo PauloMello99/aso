@@ -24,9 +24,6 @@ function pgErrorCode(error: unknown): unknown {
   return undefined;
 }
 
-// drizzle-orm envolve o erro do pg num DrizzleQueryError — o code real da
-// violação (23505) fica em `error.cause`, não na propriedade `code` do erro
-// lançado.
 function isUniqueViolation(error: unknown): boolean {
   if (pgErrorCode(error) === "23505") return true;
   if (typeof error === "object" && error !== null && "cause" in error) {
@@ -304,7 +301,6 @@ export class DrizzleServiceRepository implements IServiceRepository {
       throw error;
     }
 
-    // orgId garantido pelo caller (use-case já validou findById).
     const [row] = await this.db
       .select({ orgId: schema.services.orgId })
       .from(schema.services)
@@ -319,7 +315,6 @@ export class DrizzleServiceRepository implements IServiceRepository {
     from: Date,
     to: Date,
   ): Promise<number> {
-    // cost_per_unit é numeric (reais); ×100 → centavos. Serviços cancelados fora.
     const { rows } = await this.db.execute<{ cost_cents: string }>(sql`
       SELECT COALESCE(
         ROUND(SUM(sm.quantity * m.cost_per_unit) * 100),

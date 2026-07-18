@@ -37,7 +37,6 @@ import { DeleteAccountUseCase } from "./use-cases/delete-account.use-case";
 import { UpdateMeDto } from "./dto/update-me.dto";
 import { GetMeUseCase } from "../user/application/use-cases/get-me.use-case";
 
-/** Subconjunto do arquivo multer que usamos (evita depender de @types/multer). */
 interface UploadedImage {
   buffer: Buffer;
   mimetype: string;
@@ -60,7 +59,6 @@ export class AuthController {
     private readonly deleteAccountUseCase: DeleteAccountUseCase,
   ) {}
 
-  // Endpoints de credenciais: limites apertados contra brute-force/abuso (SEC-4).
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post("sign-up")
   signUp(@Body() dto: SignUpDto) {

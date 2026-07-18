@@ -94,10 +94,6 @@ describe("ListMaterialsUseCase", () => {
   });
 
   it("super_admin sem membership real (membro sintético owner) recebe costPerUnit presente", async () => {
-    // Simula o que drizzle-member.repository.ts#findByAuthId faz de verdade: quando o
-    // usuário é super_admin mas não tem linha de membership na org, sintetiza um
-    // MemberEntity com role "owner" e permissions vazias. Este teste documenta que o
-    // caminho de "owner" no use-case cobre corretamente esse cenário sintético também.
     const materialRepo = buildFakeMaterialRepo({
       findAllByOrg: jest.fn().mockResolvedValue([buildMaterial()]),
     });

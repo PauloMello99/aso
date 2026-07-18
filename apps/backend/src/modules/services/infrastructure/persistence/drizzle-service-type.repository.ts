@@ -62,11 +62,6 @@ export class DrizzleServiceTypeRepository implements IServiceTypeRepository {
         description: description ?? null,
         requiresAgeVerification,
       })
-      // Conflito (UNIQUE org+name) só refresca o nome — este create() é o
-      // "get-or-create" idempotente usado inline ao lançar um serviço; ele
-      // não deve poder alterar requiresAgeVerification por engano (qualquer
-      // membro pode chamá-lo). Para alterar a flag, use
-      // UpdateServiceTypeUseCase (restrito a owner).
       .onConflictDoUpdate({
         target: [schema.serviceTypes.orgId, schema.serviceTypes.name],
         set: { name },
@@ -80,9 +75,6 @@ export class DrizzleServiceTypeRepository implements IServiceTypeRepository {
     orgId: string,
     data: UpdateServiceTypeData,
   ): Promise<ServiceTypeEntity | null> {
-    // PATCH com corpo vazio: nenhum campo definido, nada a fazer no SET —
-    // evita um UPDATE ... SET sem colunas (serviceTypes não tem updatedAt
-    // para "encher" o SET como outras tabelas do projeto).
     if (
       data.name === undefined &&
       data.description === undefined &&

@@ -77,7 +77,6 @@ export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
         </p>
       </div>
 
-      {/* Interval setting */}
       <section className="grid max-w-md gap-2">
         <Label>Lembrar de conferir a cada (dias)</Label>
         <div className="flex gap-2">
@@ -101,7 +100,6 @@ export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
         )}
       </section>
 
-      {/* Conference action */}
       <section>
         <Button onClick={openConference}>
           <ClipboardCheck className="h-4 w-4" />
@@ -109,7 +107,6 @@ export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
         </Button>
       </section>
 
-      {/* History */}
       <section className="grid gap-2">
         <h3 className="flex items-center gap-1.5 text-sm font-medium text-foreground/70">
           <History className="h-3.5 w-3.5" /> Histórico
@@ -142,7 +139,6 @@ export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
         )}
       </section>
 
-      {/* Conference sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent side="right" className="gap-0 sm:max-w-md">
           <SheetHeader>

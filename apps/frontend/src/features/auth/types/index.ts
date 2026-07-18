@@ -4,7 +4,6 @@ export interface AuthUser {
   emailVerified: boolean
 }
 
-/** Perfil completo do usuário (GET /auth/me). */
 export interface Me {
   id: string
   authId: string

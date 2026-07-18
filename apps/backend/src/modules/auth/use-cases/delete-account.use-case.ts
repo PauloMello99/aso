@@ -29,12 +29,9 @@ export class DeleteAccountUseCase {
     const user = await this.userRepo.findByAuthId(authUser.id);
     if (!user) throw new UserNotFoundException(authUser.id);
 
-    // Regra ACC-1: não pode haver org da qual o usuário ainda é proprietário.
     const owned = await this.memberRepo.countOwnedOrgs(user.id);
     if (owned > 0) throw new OwnsOrganizationException();
 
-    // Remove vínculos de funcionário em outras orgs, o registro do usuário e a
-    // identidade no provedor de auth (dados pessoais). Ordem: dados → identidade.
     await this.memberRepo.removeAllByUserId(user.id);
     await this.userRepo.delete(authUser.id);
     await this.authProvider.deleteUser(authUser.id);

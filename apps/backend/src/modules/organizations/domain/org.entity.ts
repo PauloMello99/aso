@@ -6,7 +6,6 @@ export interface OrgEntityProps {
   slug: string;
   logoUrl: string | null;
   role: OrgRole;
-  /** Módulos liberados (só relevante p/ employee; owner = acesso total). */
   permissions: string[];
   createdAt: Date;
   updatedAt: Date;

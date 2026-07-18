@@ -6,12 +6,6 @@ const anamnesisAnswerFieldSchema = z.object({
   value: z.union([z.string(), z.boolean()]).optional(),
 })
 
-/**
- * Schema dinâmico, dependente das perguntas carregadas do backend: cada
- * pergunta `required: true` precisa de um valor preenchido — texto não
- * vazio para `text`, `true`/`false` explícito para `yes_no`. `answers` deve
- * estar na mesma ordem/tamanho de `questions` (defaultValues do formulário).
- */
 export function buildAnamnesisAnswersSchema(questions: AnamnesisQuestion[]) {
   return z
     .object({

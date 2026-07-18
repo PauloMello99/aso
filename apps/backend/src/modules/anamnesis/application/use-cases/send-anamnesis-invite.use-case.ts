@@ -23,7 +23,6 @@ import { AuditService } from "../../../audit/audit.service";
 
 export interface SendAnamnesisInviteInput {
   orgId: string;
-  /** Auth id (Supabase) de quem está enviando o convite. */
   authId: string;
   customerId: string;
   serviceTypeId: string;
@@ -31,7 +30,6 @@ export interface SendAnamnesisInviteInput {
 
 export interface SendAnamnesisInviteResult {
   response: AnamnesisResponseEntity;
-  /** Link de preenchimento — exposto para teste manual em dev. */
   fillUrl: string;
 }
 
@@ -75,7 +73,6 @@ export class SendAnamnesisInviteUseCase {
       throw new AnamnesisFormNotConfiguredException(input.serviceTypeId);
     }
 
-    // Dedupe: remove convite pendente anterior pro mesmo par antes de criar um novo.
     await this.responseRepo.deletePendingFor(
       input.customerId,
       input.serviceTypeId,
@@ -97,8 +94,6 @@ export class SendAnamnesisInviteUseCase {
     );
     const fillUrl = `${frontendUrl}/anamnesis/${response.token}`;
 
-    // Envio CRÍTICO: o cliente só recebe o link por e-mail. Se falhar, revertemos
-    // a resposta (saga c/ compensação, igual ao convite de org) e abortamos.
     try {
       await this.mail.sendAnamnesisLink({
         to: customer.email,
@@ -127,7 +122,6 @@ export class SendAnamnesisInviteUseCase {
     return { response, fillUrl };
   }
 
-  /** Compensação best-effort: remove a resposta órfã após falha de e-mail. */
   private async compensate(responseId: string): Promise<void> {
     try {
       await this.responseRepo.delete(responseId);

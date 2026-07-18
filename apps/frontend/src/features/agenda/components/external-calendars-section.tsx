@@ -43,7 +43,6 @@ export function ExternalCalendarsSection({ orgId, isOwner }: Props) {
   }
 
   function handleConnect(name: string) {
-    // A integração OAuth viva é futura (flag EXTERNAL_CALENDARS_ENABLED).
     alert(`A conexão com ${name} ainda está em desenvolvimento.`)
   }
 

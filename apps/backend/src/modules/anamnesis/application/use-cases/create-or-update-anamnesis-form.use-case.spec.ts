@@ -182,9 +182,6 @@ describe("CreateOrUpdateAnamnesisFormUseCase", () => {
 
     expect(formRepo.createVersion).toHaveBeenCalledTimes(1);
     expect(result).toBe(version);
-    // IAnamnesisFormRepository não expõe update/delete de versão — prova
-    // estrutural de que a única forma de "editar" o formulário é criar uma
-    // nova versão (imutabilidade por design).
     expect((formRepo as Record<string, unknown>)["updateVersion"]).toBeUndefined();
   });
 });

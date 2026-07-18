@@ -25,8 +25,6 @@ import { CalendarEventMapper } from "./calendar-event.mapper";
 export class DrizzleCalendarEventRepository implements ICalendarEventRepository {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    // Para queries de sistema que cruzam usuários/orgs (RLS bloquearia) ou
-    // rodam fora de contexto de request (cron): owners e lembretes.
     @Inject(DRIZZLE_ADMIN) private readonly admin: DrizzleDB,
   ) {}
 
@@ -104,7 +102,6 @@ export class DrizzleCalendarEventRepository implements ICalendarEventRepository 
     orgId: string,
     filter: ListCalendarEventsFilter,
   ): Promise<CalendarEventEntity[]> {
-    // Eventos que intersectam a janela [start, end): startsAt < end AND endsAt > start
     const conditions: (SQL | undefined)[] = [
       eq(schema.calendarEvents.orgId, orgId),
       lt(schema.calendarEvents.startsAt, filter.end),
@@ -113,7 +110,6 @@ export class DrizzleCalendarEventRepository implements ICalendarEventRepository 
     if (filter.assignedTo) {
       conditions.push(eq(schema.calendarEvents.assignedTo, filter.assignedTo));
     } else if (filter.includeSharedForUserId) {
-      // Funcionário: os próprios eventos (qualquer visibility) + shared de qualquer membro.
       conditions.push(
         or(
           eq(schema.calendarEvents.assignedTo, filter.includeSharedForUserId),

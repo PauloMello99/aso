@@ -54,12 +54,10 @@ export class RegisterPaymentUseCase {
     );
     if (!service) throw new ServiceNotFoundException(input.serviceId);
 
-    // Funcionário só registra pagamento dos próprios atendimentos.
     if (!isOwner && service.performedBy !== currentUserId) {
       throw new ServiceForbiddenException();
     }
 
-    // Só pendente vira pago (não cancelado, sem transação ainda).
     if (service.status !== "pending") {
       throw new ServiceNotPayableException(input.serviceId);
     }

@@ -14,13 +14,18 @@ import {
 import { CustomerEmailAlreadyExistsException } from "../../domain/exceptions/customer-email-already-exists.exception";
 import { CustomerMapper } from "./customer.mapper";
 
+function pgErrorCode(error: unknown): unknown {
+  if (typeof error !== "object" || error === null) return undefined;
+  if ("code" in error) return (error as { code?: unknown }).code;
+  return undefined;
+}
+
 function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === "23505"
-  );
+  if (pgErrorCode(error) === "23505") return true;
+  if (typeof error === "object" && error !== null && "cause" in error) {
+    return pgErrorCode((error as { cause?: unknown }).cause) === "23505";
+  }
+  return false;
 }
 
 @Injectable()

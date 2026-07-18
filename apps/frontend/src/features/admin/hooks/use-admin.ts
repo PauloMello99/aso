@@ -65,7 +65,6 @@ export function useAdminUserDetail(id: string | undefined) {
   }
 }
 
-/** Mutation isolada (usada nas telas de detalhe — não busca a lista inteira). */
 export function useSetOrgSuspended() {
   const queryClient = useQueryClient()
   const mutation = useMutation({

@@ -5,7 +5,6 @@ import {
   NOTIFICATION_REPOSITORY,
 } from "../domain/notification.repository.interface";
 
-/** Operações da caixa de entrada do usuário atual (resolve auth_id → users.id). */
 @Injectable()
 export class NotificationInboxService {
   constructor(

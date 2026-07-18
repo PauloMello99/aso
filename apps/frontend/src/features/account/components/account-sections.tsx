@@ -63,8 +63,6 @@ function SectionHeader({
   )
 }
 
-/* ── Perfil ─────────────────────────────────────────────────────── */
-
 const profileSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório").max(120),
   email: z.string().email("E-mail inválido"),
@@ -268,8 +266,6 @@ export function ProfileSection() {
   )
 }
 
-/* ── Acesso ─────────────────────────────────────────────────────── */
-
 export function AccessSection() {
   const { user, forgotPassword } = useAuth()
   const [sent, setSent] = useState(false)
@@ -331,8 +327,6 @@ export function AccessSection() {
   )
 }
 
-/* ── Tema / Aparência ───────────────────────────────────────────── */
-
 const THEME_OPTIONS = [
   { value: "light", label: "Claro", icon: Sun },
   { value: "dark", label: "Escuro", icon: Moon },
@@ -341,7 +335,6 @@ const THEME_OPTIONS = [
 
 export function AppearanceSection() {
   const { theme, setTheme } = useTheme()
-  // next-themes só resolve no cliente; evita mismatch de hidratação.
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   const current = mounted ? (theme ?? "system") : undefined
@@ -392,8 +385,6 @@ export function AppearanceSection() {
   )
 }
 
-/* ── Zona de perigo ─────────────────────────────────────────────── */
-
 export function DangerSection() {
   const router = useRouter()
   const { user } = useAuth()
@@ -406,7 +397,6 @@ export function DangerSection() {
   const email = user?.email ?? ""
   const isConfirmed = confirmation.trim().toLowerCase() === email.toLowerCase()
 
-  // A3 — funcionários puros (sem organização própria) não veem a Zona de perigo.
   if (!orgsLoading && !shouldShowDeleteAccount(orgs)) return null
 
   async function handleDelete() {

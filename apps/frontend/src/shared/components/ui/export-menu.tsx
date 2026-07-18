@@ -26,9 +26,7 @@ export type ExportFormat = "csv" | "xlsx"
 export type ExportDelimiter = "comma" | "semicolon" | "tab"
 
 interface ExportMenuProps {
-  /** Colunas disponíveis (chaves espelham o backend `?fields=`). */
   columns: ExportColumn[]
-  /** Dispara o download com as chaves e o formato/delimitador escolhidos. */
   onExport: (
     fields: string[],
     format: ExportFormat,
@@ -37,11 +35,6 @@ interface ExportMenuProps {
   disabled?: boolean
 }
 
-/**
- * Botão "Exportar" + seletor de colunas, formato e delimitador (RPT-2).
- * Por padrão todas as colunas marcadas e formato CSV; o usuário ajusta o
- * que vai no arquivo e baixa pelo backend (respeita filtros ativos).
- */
 export function ExportMenu({ columns, onExport, disabled }: ExportMenuProps) {
   const [selected, setSelected] = React.useState<Set<string>>(
     () => new Set(columns.map((c) => c.key)),

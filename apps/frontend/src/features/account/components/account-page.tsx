@@ -26,8 +26,6 @@ export function AccountPage() {
   const { orgs, loading: orgsLoading } = useOrgs()
   const [active, setActive] = React.useState<string>(SECTIONS[0].id)
 
-  // A3 — funcionários puros (sem nenhuma organização própria) não veem "Apagar Conta".
-  // Enquanto orgs carrega, mantém visível para evitar flash/layout-shift.
   const sections = React.useMemo(
     () =>
       SECTIONS.filter(
@@ -36,15 +34,11 @@ export function AccountPage() {
     [orgs, orgsLoading],
   )
 
-  // Item 7 — volta para onde estávamos; fallback p/ as organizações.
   function handleBack() {
     if (window.history.length > 1) router.back()
     else void router.push("/dashboard/organizations")
   }
 
-  // Deep-link via #hash: rola para a seção ao montar e quando o hash muda.
-  // Reexecuta após um curto atraso porque seções com carga assíncrona (ex.: Perfil)
-  // alteram a altura da página depois do primeiro paint.
   React.useEffect(() => {
     function scrollToHash() {
       const id = window.location.hash.replace("#", "")
@@ -59,7 +53,6 @@ export function AccountPage() {
     }
   }, [])
 
-  // Scroll-spy: marca a seção visível como ativa na nav.
   React.useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -78,7 +71,6 @@ export function AccountPage() {
 
   return (
     <div className="space-y-6">
-      {/* Item 7 — botão voltar */}
       <button
         type="button"
         onClick={handleBack}
@@ -89,7 +81,6 @@ export function AccountPage() {
       </button>
 
       <div className="flex min-h-full flex-col gap-6 md:flex-row md:gap-8">
-        {/* Mobile: barra de âncoras horizontal */}
         <nav className="flex gap-1 overflow-x-auto border-b border-foreground/[0.06] pb-3 md:hidden">
           {sections.map(({ id, label }) => {
             const isDanger = id === "danger"
@@ -115,7 +106,6 @@ export function AccountPage() {
           })}
         </nav>
 
-        {/* Desktop: submenu de âncoras fixo à esquerda (sticky) */}
         <aside className="hidden w-48 shrink-0 md:block">
           <div className="sticky top-6">
             <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-foreground/25">
@@ -161,7 +151,6 @@ export function AccountPage() {
           </div>
         </aside>
 
-        {/* Sections empilhadas — conteúdo centralizado, com largura máxima */}
         <div className="min-w-0 flex-1">
           <div className="mx-auto max-w-3xl space-y-12">
             {sections.map(({ id, Section }) => (

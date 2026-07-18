@@ -29,7 +29,6 @@ export function Integrations() {
       <Separator className="bg-white/5" />
 
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 md:py-24">
-        {/* Header */}
         <div className="mb-10 text-center sm:mb-16">
           <div className="mb-4 flex justify-center">
             <Badge
@@ -48,7 +47,6 @@ export function Integrations() {
           </p>
         </div>
 
-        {/* Grid */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {INTEGRATIONS.map((item) => {
             const Icon = item.icon

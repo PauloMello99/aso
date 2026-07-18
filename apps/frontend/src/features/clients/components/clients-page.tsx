@@ -36,7 +36,6 @@ interface ClientsPageProps {
   orgId: string
 }
 
-/** Colunas exportáveis (chaves espelham o backend). */
 const EXPORT_COLUMNS = [
   { key: "name", label: "Nome" },
   { key: "email", label: "E-mail" },
@@ -56,7 +55,6 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
   const [searchInput, setSearchInput] = useState("")
   const [search, setSearch] = useState("")
 
-  // Debounce the search input → query filter
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput.trim()), 300)
     return () => clearTimeout(t)
@@ -76,7 +74,6 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
   const [cityInput, setCityInput] = useState("")
   const [stateInput, setStateInput] = useState("")
 
-  // Debounce city/state free-text inputs → advanced filter (mirrors search)
   useEffect(() => {
     const t = setTimeout(() => {
       setAdvanced((a) => ({ ...a, city: cityInput.trim() || undefined }))
@@ -207,7 +204,6 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Clientes</h1>
@@ -234,7 +230,6 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
         </div>
       </div>
 
-      {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <SummaryCard
           icon={<Users className="h-4 w-4 text-foreground/40" />}
@@ -250,7 +245,6 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
         />
       </div>
 
-      {/* Search + filters */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/30" />
@@ -392,14 +386,12 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
         </FilterPopover>
       </div>
 
-      {/* Error */}
       {error && (
         <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
           {error}
         </div>
       )}
 
-      {/* List */}
       {loading && customers.length === 0 ? (
         <div className="flex items-center justify-center py-16 text-foreground/30">
           <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
@@ -415,7 +407,6 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
         />
       )}
 
-      {/* Dialog */}
       <CustomerForm
         open={formOpen}
         onOpenChange={setFormOpen}
@@ -428,7 +419,6 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
   )
 }
 
-/* ─── Summary card sub-component ────────────────────────────── */
 function SummaryCard({
   icon,
   label,

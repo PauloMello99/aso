@@ -1,6 +1,5 @@
 import * as React from "react"
 
-/** True quando o usuário pede menos animação (prefers-reduced-motion). */
 export function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = React.useState(false)
   React.useEffect(() => {

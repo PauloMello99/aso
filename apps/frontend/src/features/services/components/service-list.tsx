@@ -193,7 +193,6 @@ export function ServiceList({
 
   return (
     <>
-      {/* Mobile: cards */}
       <div className="grid gap-3 sm:hidden">
         {services.map((s) => (
           <MobileCard
@@ -208,7 +207,6 @@ export function ServiceList({
         ))}
       </div>
 
-      {/* Desktop: table */}
       <div className="hidden rounded-xl border border-foreground/[0.06] sm:block">
         <Table className="min-w-[680px]">
           <TableHeader>

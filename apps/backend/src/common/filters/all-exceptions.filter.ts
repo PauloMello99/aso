@@ -15,16 +15,6 @@ interface AuthedRequest extends Request {
   user?: { id?: string; authId?: string; sub?: string };
 }
 
-/**
- * Filtro global único de exceções. Consolida o tratamento de:
- *  - DomainException → status via DOMAIN_CODE_TO_STATUS (resposta com `code`)
- *  - HttpException   → status/mensagem do próprio Nest
- *  - qualquer outra  → 500 genérico (mensagem do erro NÃO vaza ao cliente)
- *
- * Error tracking (Better Stack): reporta apenas falhas reais — 5xx, códigos de
- * domínio não mapeados e exceções inesperadas. Erros de negócio esperados (4xx)
- * são logados localmente em debug, mas não enviados, mantendo o stream limpo.
- */
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
@@ -68,7 +58,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
       return;
     }
 
-    // Exceção inesperada (não-HTTP): nunca vaza a mensagem interna ao cliente.
     const status = HttpStatus.INTERNAL_SERVER_ERROR;
     response.status(status).json({
       statusCode: status,
@@ -80,10 +69,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
     this.maybeReport(status, exception, request);
   }
 
-  /**
-   * Reporta a falha ao error tracking quando relevante (status >= 500).
-   * 4xx são apenas logados em debug.
-   */
   private maybeReport(
     status: number,
     exception: unknown,
@@ -118,7 +103,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
     });
   }
 
-  /** Primeiro segmento da rota como nome do módulo/feature (ex.: /materials/… → materials). */
   private moduleFromPath(url: string): string {
     const segment = url.split("?")[0]?.split("/").filter(Boolean)[0];
     return segment ?? "root";

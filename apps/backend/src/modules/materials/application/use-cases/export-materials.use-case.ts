@@ -14,7 +14,6 @@ import {
 } from "../../../../common/csv/csv.util";
 import { buildXlsx } from "../../../../common/csv/xlsx.util";
 
-/** Colunas exportáveis de materiais (chaves usadas no seletor `?fields=`). */
 export const MATERIAL_CSV_COLUMNS: CsvColumn<MaterialListItemView>[] = [
   { key: "name", header: "Material", value: (m) => m.name },
   { key: "stock", header: "Estoque", value: (m) => m.stockQuantity },

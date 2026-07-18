@@ -1,0 +1,137 @@
+# ADR-0016 — Billing (Stripe): trial + assinatura + entitlements (M11)
+
+**Status:** Aceito
+**Data:** 2026-07-18
+
+## Contexto
+
+M11 é o último milestone do backlog original (`docs/planning/2026-07-10-meeting-backlog.md`,
+F11) — todos os demais (M0–M10) estão concluídos e mergeados. O ink-ops precisa de billing
+real via Stripe (trial + assinatura paga); hoje não existe nenhum módulo de billing: a tabela
+`subscriptions` já existe desde a migration baseline
+(`apps/backend/drizzle/migrations/0000_magenta_swarm.sql`, `apps/backend/src/database/schema/subscriptions.ts`)
+com os enums `subscription_type` (`free|trial|standard|custom`) e `subscription_status`
+(`active|trialing|past_due|canceled|cancelled`), mas nenhum código a usa — é puro shell,
+igual ao ponto de partida do Larmony antes do seu ADR-0026.
+
+Referência de implementação (decisão do responsável, registrada no backlog): basear-se no
+projeto separado Larmony (`C:\Users\Paulo\Documents\Repos\Pessoal\larmony`), especificamente
+`.memory/adr/0026-billing-stripe-entitlements.md` (mecanismo original: comp/desconto,
+webhook idempotente, `EntitlementsService`) e sua evolução
+`.memory/adr/0029-subscription-paid-only-2-tiers.md` (fim do freemium, trial self-serve via
+Checkout, `ActiveSubscriptionGuard` não-global). O ink-ops adapta o modelo household→org e
+simplifica para **tier único** (o Larmony evoluiu para 2 tiers — Essencial/Completo — por
+decisão de produto própria dele; o ink-ops não tem esse requisito).
+
+## Decisão
+
+1. **Reaproveitar a tabela `subscriptions` existente, sem novo enum de tier.** O enum
+   `subscription_type` (`free|trial|standard|custom`) já cobre o necessário: `standard` é o
+   único tier pago, `custom` é usado para comp/isenção, `trial`/`free` para os estados sem
+   cobrança ativa. **Decisão explícita do responsável**: não criar um enum
+   `subscription_tier` novo — multi-tier fica fácil de adicionar depois (como o Larmony fez
+   via ADR-0029) se algum dia for necessário, mas não há requisito de produto para isso hoje.
+
+2. **Trial via `trial_period_days` nativo do Stripe Checkout, com cartão obrigatório.**
+   2 meses de trial, `payment_method_collection: "always"` — todo trial passa pelo Checkout
+   com cartão, o que preserva tracking real de conversão trial→pago (mesmo racional do
+   ADR-0029 do Larmony: sem cartão upfront, quem nunca deu cartão não é comparável a quem
+   deu e não converteu). Não é implementado como cupom — é o parâmetro nativo de trial do
+   próprio Checkout Session.
+
+3. **Isenção/comp é 100% local, nunca cria/toca cupom Stripe.** Ao conceder: `type='custom'`,
+   `status='active'`, `priceCents=0`; se existir uma Stripe subscription ativa, ela é
+   **cancelada via API** de forma idempotente (nunca cobrar em paralelo a um comp) —
+   `stripeCustomerId` é preservado para permitir reverter sem perder o vínculo. Reversível
+   só localmente (revogar → volta a `free`/`locked`, sem apagar dado nenhum da organização).
+
+4. **Desconto parcial é o único caso real que usa a Coupon API do Stripe** — o valor
+   efetivamente cobrado tem que continuar sendo resolvido pelo Stripe (é quem emite fatura e
+   cobra o cartão); replicar isso localmente duplicaria lógica de faturamento sem necessidade.
+   Cache local (`discountPercent`/coupon id) é só para exibição no admin.
+
+5. **Nova tabela `stripe_webhook_events` para idempotência**: `INSERT ... ON CONFLICT DO
+   NOTHING RETURNING` usado como *claim* do evento — se a query não retorna linha, o evento
+   já foi processado e o handler responde 200 sem reprocessar. **RLS habilitado, mas sem
+   nenhuma policy** — a tabela não tem `GRANT` para o role de aplicação (`app_user`); só
+   `DRIZZLE_ADMIN` a acessa. Isso é diferente de "sem RLS": a proteção vem de RLS habilitado
+   + zero policy (nega tudo por padrão), não da ausência de RLS.
+
+6. **`EntitlementsService.resolve(orgId)` como ponto único de gating server-side.** Qualquer
+   rota/feature que precise saber se a organização pode escrever consulta este serviço —
+   nenhuma lógica de billing duplicada em use-cases individuais.
+
+7. **Modelo de tier: único tier pago (`standard`), paid-only.** Sem pagamento ativo
+   (`free`/`trial` expirado/`canceled`) o estado resolvido é `locked` — bloqueia **só
+   escrita**, nunca leitura nem apaga dado da organização. Reaproveita o enum
+   `subscription_type` existente (item 1); não há régua de capabilities por tier porque só
+   existe um tier pago.
+
+8. **`ActiveSubscriptionGuard` não é `APP_GUARD` global** — é aplicado por-controller, sempre
+   **depois** de `AuthGuard` + `OrgMembershipGuard`. Um guard global rodaria antes do
+   `AuthGuard` e criaria um vetor de probing pré-autenticação (qualquer UUID de organização
+   adivinhado poderia disparar `resolve()`/`getOrCreate()` sem sessão válida) — mesmo defeito
+   identificado e corrigido por revisão de arquitetura no PR1 do ADR-0029 do Larmony, aplicado
+   aqui preventivamente desde o desenho.
+
+9. **`suspendedAt` (suspensão manual do super_admin, já existente) sempre vence sobre o
+   gating por billing.** São camadas independentes: uma organização pode estar com assinatura
+   ativa e ainda assim suspensa pelo super_admin (violação de termos, por exemplo), e o
+   inverso (assinatura `locked` mas não suspensa) também é um estado válido e distinto.
+
+10. **Backfill de organizações existentes sem linha em `subscriptions`**: `locked`
+    (`free`/`canceled`) por padrão — **exceto** a organização do owner (Ink House, slug
+    `nokafolqpwcvwqdkuwux`), que recebe **comp perpétuo** (`type='custom'`,
+    `compExpiresAt=NULL`) na própria migration de backfill, para não perder acesso de
+    escrita no merge deste milestone. Decisão explícita do responsável.
+
+11. **Gotcha de API Stripe (SDK v22+, confirmado também no Larmony)**: no objeto
+    `Subscription`, `current_period_start`/`current_period_end` e `price` **não estão no
+    nível raiz** — vivem em `sub.items.data[0]`. Qualquer normalização de subscription
+    (webhook, reconciliação) precisa ler dali, não do topo do objeto.
+
+## Consequências
+
+- Novo módulo `modules/subscriptions` (mesmo padrão Clean Architecture dos demais módulos:
+  use-cases, repositório com Symbol token, `DomainException` próprias).
+- 3 tabelas novas: `stripe_webhook_events` (idempotência, sem GRANT a `app_user`),
+  `billing_plans` (cache local do catálogo de planos espelhado do Stripe),
+  `billing_invoice_events` (histórico de faturas para exibição no admin).
+- Colunas novas na tabela `subscriptions` existente (aditivas — sem substituir o schema já
+  presente desde a migration baseline): campos de coupon/desconto, campos de comp
+  (`compReason`, `compGrantedBy`, `compExpiresAt`).
+- Entregue em 3 PRs sequenciais: **M11a** (catálogo de planos + checkout + webhook),
+  **M11b** (trial + billing portal + `EntitlementsService`/`ActiveSubscriptionGuard`/gating),
+  **M11c** (admin: comp/desconto + painel + cron de reconciliação/expiração).
+- `stripe_webhook_events` é a primeira tabela do ink-ops sem nenhuma policy de acesso a
+  cliente — precedente para futuras integrações externas via webhook.
+- Endpoint de webhook precisa de `@SkipThrottle()` (o throttler global bloquearia picos de
+  retry do Stripe) e de `rawBody: true` no Nest (necessário para `constructEvent` validar a
+  assinatura antes do parser JSON global consumir o body).
+
+## Alternativas rejeitadas
+
+- **Enum `subscription_tier` novo (multi-tier desde já)**: rejeitada pelo responsável — não
+  há requisito de produto para mais de um tier pago hoje; reaproveitar `subscription_type`
+  evita migração de enum sem ganho imediato, e o caminho de evolução (visto no próprio
+  Larmony/ADR-0029) permanece aberto se necessário no futuro.
+- **Desconto também 100% local (sem tocar o Stripe)**: rejeitada pelo mesmo motivo do
+  Larmony — divergiria do valor efetivamente cobrado pelo cartão do usuário; o Stripe
+  continua sendo a régua de cobrança real.
+- **`ActiveSubscriptionGuard` como `APP_GUARD` global**: rejeitada — vetor de probing
+  pré-autenticação (item 8).
+- **Backfill uniforme (`locked` para todas as orgs, sem exceção)**: rejeitada pelo
+  responsável para a organização do próprio owner — perderia acesso de escrita no merge.
+
+## Relacionado
+
+- Larmony `.memory/adr/0026-billing-stripe-entitlements.md` — mecanismo original
+  (comp/desconto/webhook/`EntitlementsService`), fonte de implementação de referência.
+- Larmony `.memory/adr/0029-subscription-paid-only-2-tiers.md` — evolução paid-only e
+  correção do `ActiveSubscriptionGuard` global; o ink-ops adota o modelo paid-only desde o
+  início, sem passar por uma fase freemium.
+- ADR-0005 (multi-tenancy: DB único + `org_id` + RLS) — `stripe_webhook_events` segue o
+  padrão de RLS habilitado sem policy para tabelas invisíveis ao cliente.
+- ADR-0013 (super_admin age como owner) — `suspendedAt` é ortogonal ao gating de billing
+  deste ADR.
+- `docs/planning/2026-07-10-meeting-backlog.md` (F11/M11) — origem do requisito de produto.

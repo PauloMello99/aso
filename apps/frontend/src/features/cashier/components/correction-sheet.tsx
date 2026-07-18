@@ -105,7 +105,6 @@ export function CorrectionSheet({
             </SheetHeader>
 
             <SheetBody className="flex flex-col gap-4 py-6">
-              {/* Original (somente leitura) */}
               {transaction && (
                 <div className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3 text-sm">
                   <p className="text-xs uppercase tracking-wide text-foreground/30">

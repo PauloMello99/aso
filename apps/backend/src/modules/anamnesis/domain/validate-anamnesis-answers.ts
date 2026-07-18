@@ -2,15 +2,6 @@ import type { AnamnesisQuestion } from "./anamnesis-question";
 import type { AnamnesisAnswer } from "./anamnesis-response.entity";
 import { AnamnesisInvalidAnswersException } from "./exceptions/anamnesis-invalid-answers.exception";
 
-/**
- * Valida as respostas recebidas contra o snapshot de perguntas da resposta.
- * Pura (sem I/O) — lança `AnamnesisInvalidAnswersException` se:
- *  (a) algum `questionId` não existir no snapshot;
- *  (b) o tipo do `value` não bater com o tipo da pergunta;
- *  (c) uma pergunta `required` estiver sem valor.
- * Retorna as respostas normalizadas, só as que existem no snapshot, na ordem
- * das perguntas (não na ordem em que chegaram).
- */
 export function validateAnamnesisAnswers(
   questions: AnamnesisQuestion[],
   answers: AnamnesisAnswer[],

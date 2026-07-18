@@ -19,7 +19,6 @@ export const customers = pgTable(
     orgId: uuid("org_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    // Nullable: reservado para o portal do cliente (futuro)
     userId: uuid("user_id"),
     originId: uuid("origin_id").references(() => customerOrigins.id, {
       onDelete: "set null",
@@ -30,8 +29,6 @@ export const customers = pgTable(
     phone: text("phone"),
     birthDate: date("birth_date").notNull(),
     gender: genderEnum("gender"),
-    // Endereço internacional genérico (decisão 2026-06-14):
-    // `address` = linha 1 (logradouro/número). Demais campos estruturados abaixo.
     address: text("address").notNull(),
     number: text("number").notNull(),
     addressLine2: text("address_line2"),
@@ -41,7 +38,6 @@ export const customers = pgTable(
     country: text("country"),
     notes: text("notes"),
     enabled: boolean("enabled").notNull().default(true),
-    // creditBalanceCents: integer("credit_balance_cents").notNull().default(0), -- PENDENTE
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

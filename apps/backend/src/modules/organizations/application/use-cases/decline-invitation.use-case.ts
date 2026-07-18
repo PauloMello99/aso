@@ -14,11 +14,6 @@ export interface DeclineInvitationInput {
   token: string;
 }
 
-/**
- * Recusa de convite pelo convidado: **remove** o convite (não só cancela), para
- * que o owner possa reenviar o fluxo depois. Só o próprio convidado (e-mail bate)
- * pode recusar um convite ainda pendente.
- */
 @Injectable()
 export class DeclineInvitationUseCase {
   constructor(

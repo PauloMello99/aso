@@ -36,7 +36,6 @@ const PERIOD_LABELS: Record<PeriodKey, string> = {
   "90d": "90 dias",
 }
 
-/** Converte o preset em intervalo ISO [from, to]. */
 export function periodRange(key: PeriodKey): { from: string; to: string } {
   const now = new Date()
   const to = now.toISOString()
@@ -77,8 +76,6 @@ function PeriodSelector({
     </div>
   )
 }
-
-/* ── KPI card with delta ─────────────────────────────────────────── */
 
 function Delta({
   kpi,
@@ -169,8 +166,6 @@ function BandHeader({
   )
 }
 
-/* ── Owner performance band ──────────────────────────────────────── */
-
 export function PerformanceSection({
   data,
   loading,
@@ -233,7 +228,6 @@ export function PerformanceSection({
         />
       </div>
 
-      {/* Custo & lucro */}
       <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-5">
         <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
           <PiggyBank className="h-4 w-4 text-orange-400" />
@@ -269,7 +263,6 @@ export function PerformanceSection({
         </div>
       </div>
 
-      {/* Charts */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ChartCard
           title="Saldo no período"
@@ -347,8 +340,6 @@ function MiniStat({
     </div>
   )
 }
-
-/* ── Employee personal band ──────────────────────────────────────── */
 
 export function EmployeePerformance({
   data,

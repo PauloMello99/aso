@@ -19,12 +19,10 @@ export function OrganizationsContent() {
 
   async function handleCreate(values: CreateOrgFormValues) {
     await createOrg(values)
-    // invalidateQueries in useOrgMutations.onSuccess triggers automatic refetch
   }
 
   return (
     <div className="mx-auto max-w-3xl">
-      {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-foreground sm:text-2xl">
@@ -44,7 +42,6 @@ export function OrganizationsContent() {
         </Button>
       </div>
 
-      {/* Org list */}
       {orgs.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-foreground/10 py-16 text-center sm:py-20">
           <Building2 className="mb-4 h-10 w-10 text-foreground/20" />

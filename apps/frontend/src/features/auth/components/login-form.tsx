@@ -44,7 +44,6 @@ export function LoginForm() {
     defaultValues: { email: "", password: "" },
   })
 
-  // Prefill do e-mail quando vier de um convite (router.query só fica pronto após hidratação).
   React.useEffect(() => {
     if (invitedEmail) reset({ email: invitedEmail, password: "" })
   }, [invitedEmail, reset])

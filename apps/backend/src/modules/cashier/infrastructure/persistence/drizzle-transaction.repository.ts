@@ -27,7 +27,6 @@ import {
 import { PaymentMethod } from "../../domain/transaction.entity";
 import { TransactionMapper } from "./transaction.mapper";
 
-// Buckets de saldo: dinheiro vs digital (banco/cartão).
 const DIGITAL_METHODS = ["bank_transfer", "credit_card", "debit_card"] as const;
 
 @Injectable()
@@ -107,9 +106,6 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
       conditions.push(eq(schema.transactions.createdBy, filter.createdBy));
     }
     if (filter?.customerId) {
-      // transactions não referencia customer direto; o vínculo é via services
-      // (services.customer_id -> services.payment_transaction_id -> transactions.id).
-      // orgId aqui é o MESMO da query externa — nunca aceitar de outra fonte.
       conditions.push(
         inArray(
           schema.transactions.id,
@@ -202,8 +198,6 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
     const createdByFilter = createdBy
       ? sql` AND created_by = ${createdBy}`
       : sql``;
-    // Running sum sobre TODO o histórico (não só o intervalo), depois recorta
-    // [from, to] — assim cada ponto reflete o saldo acumulado real do dia.
     const { rows } = await this.db.execute<{
       day: string;
       cash_cents: string;

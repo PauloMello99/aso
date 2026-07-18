@@ -32,7 +32,6 @@ export class SetEventRsvpUseCase {
       throw new EventNotSharedException();
     }
 
-    // user_id sempre derivado da sessão (membership), nunca aceito do client.
     await this.repo.upsertAttendee(input.eventId, membership.userId, input.status);
   }
 }

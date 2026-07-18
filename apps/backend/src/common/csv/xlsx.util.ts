@@ -1,13 +1,6 @@
-/**
- * Utilitário de geração de XLSX no backend (M8/A5).
- *
- * Reusa a mesma `CsvColumn<T>[]` e a mesma seleção de colunas via `?fields=`
- * que `buildCsv` já usa (ver `resolveColumns` em `./csv.util`).
- */
 import ExcelJS from "exceljs";
 import { type CsvColumn, resolveColumns } from "./csv.util";
 
-/** Monta um .xlsx (Buffer) a partir das linhas e da definição de colunas. */
 export async function buildXlsx<T>(
   rows: T[],
   columns: CsvColumn<T>[],
@@ -28,7 +21,6 @@ export async function buildXlsx<T>(
     sheet.addRow(values);
   }
 
-  // Largura automática básica: maior entre header e conteúdo, com teto.
   sheet.columns.forEach((column) => {
     let maxLength = column.header ? String(column.header).length : 10;
     column.eachCell?.({ includeEmpty: true }, (cell) => {

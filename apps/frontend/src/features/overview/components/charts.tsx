@@ -44,8 +44,6 @@ function brlShort(v: number): string {
   return formatBRL(v).replace("R$", "").trim()
 }
 
-/* ── Card wrapper with loading/empty handling ────────────────────── */
-
 export function ChartCard({
   title,
   badge,
@@ -121,8 +119,6 @@ function MoneyTooltip({
 
 const AXIS_TICK = { fill: "var(--muted-foreground)", fontSize: 11 }
 
-/* ── Saldo no período (área) ─────────────────────────────────────── */
-
 export function BalanceAreaChart({ series }: { series: DailyBalancePoint[] }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -161,8 +157,6 @@ export function BalanceAreaChart({ series }: { series: DailyBalancePoint[] }) {
   )
 }
 
-/* ── Entradas × Saídas (barras agrupadas) ────────────────────────── */
-
 export function IncomeExpenseChart({ data }: { data: IncomeExpensePoint[] }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -193,8 +187,6 @@ export function IncomeExpenseChart({ data }: { data: IncomeExpensePoint[] }) {
   )
 }
 
-/* ── Barra horizontal por categoria (tipo / profissional) ────────── */
-
 export function HorizontalRevenueChart({ data }: { data: ServiceGroupRow[] }) {
   const top = data.slice(0, 6)
   return (
@@ -222,8 +214,6 @@ export function HorizontalRevenueChart({ data }: { data: ServiceGroupRow[] }) {
     </ResponsiveContainer>
   )
 }
-
-/* ── Métodos de pagamento (donut) ────────────────────────────────── */
 
 export function PaymentMethodsChart({ data }: { data: PaymentMethodTotal[] }) {
   const rows = data.map((d) => ({

@@ -10,10 +10,9 @@ export interface CalendarEventBody {
   title: string
   description?: string | null
   customerId?: string | null
-  /** users.id do membro dono do horário (só owner; funcionário força = self). */
   assignedTo?: string | null
-  startsAt: string // ISO
-  endsAt: string // ISO
+  startsAt: string
+  endsAt: string
   allDay?: boolean
   visibility?: "private" | "shared"
 }
@@ -22,7 +21,6 @@ interface UseCalendarEventsArgs {
   orgId: string
   start: Date
   end: Date
-  /** users.id — filtro de membro (owner/admin). */
   assignedTo?: string
 }
 

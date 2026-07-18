@@ -14,7 +14,6 @@ import { anamnesisResponseStatusEnum } from "../enums";
 import { serviceTypes } from "./lookup";
 import { customers } from "./customers";
 
-/** Snapshot de uma pergunta do formulário, imutável dentro de uma versão. */
 export type AnamnesisQuestion = {
   id: string;
   type: "text" | "yes_no";
@@ -22,8 +21,6 @@ export type AnamnesisQuestion = {
   required: boolean;
 };
 
-// Um formulário por tipo de serviço (serviceTypeId UNIQUE). O "cabeçalho" só
-// mantém a relação estável; as perguntas em si vivem nas versões imutáveis.
 export const anamnesisForms = pgTable(
   "anamnesis_forms",
   {
@@ -41,8 +38,6 @@ export const anamnesisForms = pgTable(
   (t) => [unique().on(t.serviceTypeId)],
 );
 
-// Versões imutáveis: cada save cria uma nova linha (nunca UPDATE). org_id
-// denormalizado pra RLS, igual ao padrão de service_media/customer_attachments.
 export const anamnesisFormVersions = pgTable(
   "anamnesis_form_versions",
   {
@@ -65,13 +60,6 @@ export const anamnesisFormVersions = pgTable(
   (t) => [unique().on(t.formId, t.versionNumber)],
 );
 
-// Resposta autocontida: questionsSnapshot copia as perguntas da versão vigente NO
-// MOMENTO DO ENVIO. É esse snapshot que permite anamnesis_forms.service_type_id manter
-// ON DELETE CASCADE com segurança — excluir um tipo de serviço apaga form/versões, mas a
-// resposta sobrevive porque não depende mais deles pra exibir as perguntas respondidas.
-// formVersionId é só proveniência (ON DELETE SET NULL), não é fonte de verdade depois de
-// enviada. Sem UPDATE/DELETE: a única mutação pós-insert é markSubmitted, que roda sempre
-// via DRIZZLE_ADMIN — dado de saúde é append-only por natureza.
 export const anamnesisResponses = pgTable("anamnesis_responses", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id")
@@ -108,9 +96,6 @@ export const anamnesisResponses = pgTable("anamnesis_responses", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-  // M10c — assinatura eletrônica: identificação do assinante, artefatos gerados no
-  // envio (imagem da assinatura + PDF consolidado + hash de integridade) e
-  // proveniência da requisição. Tudo nullable: respostas antigas (M10b) não têm.
   signerFullName: text("signer_full_name"),
   signerCpf: text("signer_cpf"),
   signatureStoragePath: text("signature_storage_path"),

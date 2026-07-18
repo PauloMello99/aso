@@ -27,7 +27,6 @@ export interface AdminUser {
   createdAt: string
 }
 
-/** Ponto da série de crescimento (novos por mês). */
 export interface GrowthPoint {
   month: string
   newOrgs: number
@@ -120,7 +119,6 @@ export interface AuditLogPage {
   pages: number
 }
 
-/** Filtros/ordenação client-side das tabelas. */
 export type OrgStatusFilter = "all" | "active" | "suspended"
 export type UserRoleFilter = "all" | "super_admin" | "user"
 export type OrgSortKey = "name" | "createdAt" | "memberCount"

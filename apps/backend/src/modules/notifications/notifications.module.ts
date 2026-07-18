@@ -10,7 +10,6 @@ import { NotificationsController } from "./interface/notifications.controller";
   imports: [NotificationsInfrastructureModule, MailModule, AuthModule],
   controllers: [NotificationsController],
   providers: [NotificationService, NotificationInboxService],
-  // NotificationService é reutilizado por outros módulos (ex.: calendar, cron).
   exports: [NotificationService],
 })
 export class NotificationsModule {}

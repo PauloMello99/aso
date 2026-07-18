@@ -2,9 +2,7 @@ export interface ServiceMaterialProps {
   id: string;
   serviceId: string;
   materialId: string;
-  /** Quantidade consumida (numeric string, ex.: "1", "2.50"). */
   quantity: string;
-  /** Nome do material — anotado na leitura para a listagem (não persistido aqui). */
   materialName?: string | null;
 }
 

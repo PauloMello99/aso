@@ -1,10 +1,5 @@
 import { HttpStatus } from "@nestjs/common";
 
-/**
- * Mapa código-de-domínio → HTTP status. Códigos ausentes caem em 500 (tratados
- * como falha inesperada e reportados ao error tracking). Mantido fora dos
- * filtros para ser reutilizável e testável isoladamente.
- */
 export const DOMAIN_CODE_TO_STATUS: Record<string, number> = {
   USER_NOT_FOUND: HttpStatus.NOT_FOUND,
   INVALID_CREDENTIALS: HttpStatus.UNAUTHORIZED,
@@ -61,4 +56,10 @@ export const DOMAIN_CODE_TO_STATUS: Record<string, number> = {
   ANAMNESIS_RESPONSE_ALREADY_LINKED: HttpStatus.CONFLICT,
   ANAMNESIS_INVITE_EMAIL_FAILED: HttpStatus.BAD_GATEWAY,
   ANAMNESIS_SIGNATURE_REQUIRED: HttpStatus.UNPROCESSABLE_ENTITY,
+  PLAN_NOT_AVAILABLE: HttpStatus.SERVICE_UNAVAILABLE,
+  WEBHOOK_SIGNATURE_INVALID: HttpStatus.BAD_REQUEST,
+  SUBSCRIPTION_NOT_FOUND: HttpStatus.NOT_FOUND,
+  SUBSCRIPTION_REQUIRED: HttpStatus.PAYMENT_REQUIRED,
+  SUBSCRIPTION_NOT_STRIPE_LINKED: HttpStatus.UNPROCESSABLE_ENTITY,
+  INVALID_DISCOUNT: HttpStatus.UNPROCESSABLE_ENTITY,
 };

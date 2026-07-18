@@ -11,9 +11,7 @@ import type { OrgSummary } from "@/features/dashboard/hooks/use-orgs"
 
 interface OrgSidebarProps {
   org: OrgSummary
-  /** Controlled by OrgLayout — whether the mobile drawer is open */
   mobileOpen?: boolean
-  /** Called when the mobile overlay or close button is clicked */
   onMobileClose?: () => void
 }
 
@@ -23,20 +21,13 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
 
   const basePath = `/dashboard/org/${org.slug}`
 
-  // Primeiro segmento da rota após [orgSlug] — ex.: "settings/cashier" → "settings".
   const afterOrg = router.pathname.split("/[orgSlug]/")[1] ?? ""
   const currentBase = afterOrg.split("/")[0]
 
-  /**
-   * Ativo por SEGMENTO BASE, não pelo fim da rota. Assim `settings/general`
-   * marca "Configurações" para qualquer `settings/*` (incl. settings/cashier),
-   * e a rota `settings/cashier` não acende o item "Caixa" (href "cashier").
-   */
   const isActive = (href: string) => currentBase === href.split("/")[0]
 
   return (
     <>
-      {/* Mobile overlay */}
       {mobileOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
@@ -48,18 +39,14 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
       <aside
         className={cn(
           "flex shrink-0 flex-col border-r border-foreground/[0.06] bg-background",
-          // Mobile: fixed drawer — slides in/out
           "fixed bottom-0 top-0 z-50 w-64",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
           "transition-all duration-200 ease-in-out",
-          // Desktop: back to normal flow, width controlled by collapsed state
           "md:relative md:translate-x-0",
           collapsed ? "md:w-14" : "md:w-56",
         )}
       >
-        {/* Header row: org avatar + name + toggle */}
         <div className="flex h-14 shrink-0 items-center border-b border-foreground/[0.06] px-3">
-          {/* Mobile close button */}
           <button
             onClick={onMobileClose}
             className="mr-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-foreground/30 hover:bg-foreground/[0.06] hover:text-foreground md:hidden"
@@ -79,7 +66,6 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
             </div>
           )}
 
-          {/* Desktop collapse toggle */}
           <Tooltip
             content={collapsed ? "Expandir menu" : "Recolher menu"}
             side="right"
@@ -102,7 +88,6 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
           </Tooltip>
         </div>
 
-        {/* Nav sections — items filtrados por papel (org.role) via visibleItems */}
         <nav className="flex-1 overflow-y-auto px-2 py-3">
           {ORG_NAV_SECTIONS.map((section, sIdx) => {
             const visibleItems = section.items.filter(
@@ -113,7 +98,6 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
             if (visibleItems.length === 0) return null
             return (
             <div key={sIdx} className={sIdx > 0 ? "mt-4" : undefined}>
-              {/* Section label — hidden when collapsed on desktop */}
               {section.label && (
                 <p
                   className={cn(
@@ -124,7 +108,6 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
                   {section.label}
                 </p>
               )}
-              {/* Divider when collapsed + not first section */}
               {section.label && collapsed && sIdx > 0 && (
                 <div className="mx-1 mb-2 hidden h-px bg-foreground/[0.06] md:block" />
               )}
@@ -147,9 +130,7 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
                           data-tour={`nav-${item.href}`}
                           className={cn(
                             "flex items-center rounded-md py-2 text-sm transition-colors",
-                            // Desktop collapsed: icon only, centered
                             collapsed ? "md:justify-center md:px-2" : "gap-3 px-3",
-                            // Mobile always shows label
                             "gap-3 px-3 md:gap-0 md:px-0",
                             collapsed ? "md:px-2" : "md:gap-3 md:px-3",
                             active
@@ -163,7 +144,6 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
                               active ? "text-orange-400" : "text-foreground/40",
                             )}
                           />
-                          {/* Label: always visible on mobile, hidden when collapsed on desktop */}
                           <span className={cn(collapsed && "md:hidden")}>
                             {item.label}
                           </span>

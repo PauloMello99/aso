@@ -1,4 +1,3 @@
-// UI Components
 export { Button, buttonVariants } from "./components/ui/button"
 export type { ButtonProps } from "./components/ui/button"
 export {
@@ -18,5 +17,4 @@ export { Badge, badgeVariants } from "./components/ui/badge"
 export { Separator } from "./components/ui/separator"
 export { Tooltip, TooltipContent, TooltipProvider } from "./components/ui/tooltip"
 
-// Lib
 export { cn } from "./lib/utils"

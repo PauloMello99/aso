@@ -13,7 +13,6 @@ export class TransactionMapper {
       createdBy: row.createdBy ?? null,
       description: row.description,
       type: row.type as TransactionType,
-      // amount_cents é o líquido (o que o caixa reflete).
       netCents: row.amountCents,
       grossCents: row.amountGrossCents,
       feeCents: row.feeCents,

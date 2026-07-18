@@ -115,7 +115,6 @@ function ActionMenu({
   )
 }
 
-/* ─── Mobile card ─────────────────────────────────────────────── */
 function MaterialCard({
   material,
   onRestock,
@@ -193,7 +192,6 @@ function MaterialCard({
   )
 }
 
-/* ─── Desktop table row ──────────────────────────────────────── */
 function MaterialRow({
   material,
   onRestock,
@@ -277,7 +275,6 @@ function MaterialRow({
   )
 }
 
-/* ─── Main list ──────────────────────────────────────────────── */
 export function MaterialList({
   materials,
   onRestock,
@@ -300,7 +297,6 @@ export function MaterialList({
 
   return (
     <>
-      {/* Mobile: card list */}
       <div className="grid gap-3 sm:hidden">
         {materials.map((m) => (
           <MaterialCard
@@ -316,7 +312,6 @@ export function MaterialList({
         ))}
       </div>
 
-      {/* Desktop: table */}
       <div className="hidden rounded-xl border border-foreground/[0.06] sm:block">
         <Table className="min-w-[600px]">
           <TableHeader>

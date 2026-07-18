@@ -54,16 +54,12 @@ type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Converte um query param numérico (centavos) em inteiro, ou undefined. */
 function parseCents(value?: string): number | undefined {
   if (value === undefined || value === "") return undefined;
   const n = Number(value);
   return Number.isFinite(n) ? Math.round(n) : undefined;
 }
 
-// Caixa aberto a membros: funcionário lança e vê só os próprios; owner vê tudo e
-// lança em nome de. Operações sensíveis (taxas, transferência, estorno, correção,
-// criar categoria) seguem owner-only via OrgOwnerGuard a nível de método.
 @Controller("orgs/:orgId/cashier")
 @UseGuards(AuthGuard, OrgMembershipGuard, OrgModuleGuard)
 @RequireModule("cashier")
@@ -115,7 +111,6 @@ export class CashierController {
         categoryId: categoryId || undefined,
         minCents: parseCents(minCents),
         maxCents: parseCents(maxCents),
-        // Owner pode filtrar por membro; para funcionário o use-case força o próprio id.
         createdBy: createdBy || undefined,
         q: q || undefined,
         customerId: customerId || undefined,

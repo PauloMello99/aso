@@ -116,7 +116,6 @@ export function AdminUserDetail({ id }: { id: string | undefined }) {
         </Button>
       </div>
 
-      {/* Memberships */}
       <section className="space-y-3">
         <h2 className="flex items-center gap-1.5 text-sm font-medium text-foreground">
           <Building2 className="h-4 w-4 text-orange-400" />

@@ -16,10 +16,6 @@ const NAV = [
   { href: "/admin/audit-logs", label: "Auditoria", icon: Shield },
 ]
 
-/**
- * Layout do painel da plataforma (PLAT-1). NÃO é org-scoped. Faz o guard de
- * acesso (super_admin) via /auth/me e oferece a navegação entre as seções.
- */
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const { me, loading } = useMe()
@@ -55,7 +51,6 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Top bar */}
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-foreground/[0.06] bg-background/80 px-4 py-2.5 backdrop-blur sm:px-6">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-5 w-5 text-orange-400" />
@@ -76,7 +71,6 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       </header>
 
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 md:flex-row md:gap-8">
-        {/* Sub-nav */}
         <nav className="flex gap-1 overflow-x-auto border-b border-foreground/[0.06] pb-3 md:w-48 md:flex-col md:border-b-0 md:pb-0">
           {NAV.map((item) => {
             const Icon = item.icon

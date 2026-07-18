@@ -13,7 +13,6 @@ import {
   ValidateNested,
 } from "class-validator";
 
-// Créditos ficam fora da V1 (cashback adiado) — só métodos do caixa.
 export const SERVICE_PAYMENT_METHODS = [
   "cash",
   "bank_transfer",
@@ -27,13 +26,11 @@ export class ServiceMaterialLineDto {
   @IsUUID()
   materialId!: string;
 
-  /** Quantidade (material não-compartilhável). */
   @IsNumber()
   @Min(0)
   @IsOptional()
   quantity?: number;
 
-  /** "Acabou?" para material compartilhável. */
   @IsBoolean()
   @IsOptional()
   finished?: boolean;
@@ -48,7 +45,6 @@ export class CreateServiceDto {
   @IsOptional()
   serviceTypeId?: string | null;
 
-  /** App users.id do profissional (só owner; funcionário força = self). */
   @IsUUID()
   @IsOptional()
   performedBy?: string | null;
@@ -57,12 +53,10 @@ export class CreateServiceDto {
   @IsOptional()
   description?: string | null;
 
-  /** Resposta de anamnese vinculada a este atendimento (M10b). */
   @IsUUID()
   @IsOptional()
   anamnesisResponseId?: string | null;
 
-  /** Valor bruto em centavos. */
   @IsInt()
   @Min(0)
   amountCents!: number;
@@ -73,7 +67,6 @@ export class CreateServiceDto {
   @IsIn(SERVICE_PAYMENT_STATUSES)
   paymentStatus!: (typeof SERVICE_PAYMENT_STATUSES)[number];
 
-  /** ISO datetime opcional; default = agora. */
   @IsString()
   @IsOptional()
   performedAt?: string;

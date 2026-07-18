@@ -113,7 +113,6 @@ export function AdminAuditLogs() {
         </p>
       </div>
 
-      {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2">
         <Select onValueChange={handleAction} defaultValue="all">
           <SelectTrigger className="h-8 w-48 text-sm">
@@ -239,7 +238,6 @@ export function AdminAuditLogs() {
             </Table>
           </div>
 
-          {/* Paginação */}
           <div className="flex items-center justify-between text-sm text-foreground/50">
             <span>
               {result.total} registro{result.total !== 1 ? "s" : ""}

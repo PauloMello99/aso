@@ -19,7 +19,6 @@ describe("getTourSteps", () => {
     const org = makeOrg({ role: "owner", permissions: [] })
     const steps = getTourSteps(org)
 
-    // welcome + overview + services + clients + schedule + stock + cashier + settings + final
     expect(steps).toHaveLength(9)
     expect(steps.map((s) => s.selector)).toEqual([
       null,
@@ -38,7 +37,6 @@ describe("getTourSteps", () => {
     const org = makeOrg({ role: "employee", permissions: ["services"] })
     const steps = getTourSteps(org)
 
-    // welcome + overview (no module) + services (permitted) + settings (no module) + final
     expect(steps).toHaveLength(5)
     expect(steps.map((s) => s.selector)).toEqual([
       null,

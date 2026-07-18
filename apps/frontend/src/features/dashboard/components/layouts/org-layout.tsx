@@ -24,12 +24,6 @@ interface OrgLayoutProps {
   children: React.ReactNode
 }
 
-/**
- * Builds breadcrumb items for org pages, including settings sub-pages.
- *
- * /dashboard/org/[orgSlug]/overview          → [OrgSwitcher, "Overview"]
- * /dashboard/org/[orgSlug]/settings/billing  → [OrgSwitcher, "Configurações", "Cobrança"]
- */
 function buildOrgCrumbs(
   pathname: string,
   slug: string,
@@ -64,8 +58,6 @@ export function OrgLayout({ children }: OrgLayoutProps) {
   const { orgs, loading } = useOrgs()
   const listOrg: OrgSummary | undefined = orgs.find((o) => o.slug === orgSlug)
 
-  // super_admin pode gerenciar uma org da qual não é membro: quando a slug não
-  // está nas memberships, resolvemos por slug (backend devolve role "owner").
   const isSuper = me?.platformRole === "super_admin"
   const tryResolve = !!orgSlug && !loading && !listOrg && isSuper
   const {
@@ -74,7 +66,6 @@ export function OrgLayout({ children }: OrgLayoutProps) {
     notFound,
   } = useResolveOrgBySlug(orgSlug, tryResolve)
 
-  // super_admin sempre opera como owner em qualquer org (paridade com o backend).
   const org: OrgSummary | undefined = React.useMemo(() => {
     const base = listOrg ?? resolvedOrg ?? undefined
     if (base && isSuper && base.role !== "owner") {
@@ -83,14 +74,10 @@ export function OrgLayout({ children }: OrgLayoutProps) {
     return base
   }, [listOrg, resolvedOrg, isSuper])
 
-  // Dono real da org (membership owner) — nesse caso o super_admin não está
-  // "agindo em nome de", apenas tem o indicador sutil de plataforma.
   const isRealOwner = listOrg?.role === "owner"
-  const actingAsAdmin = isSuper && !isRealOwner // funcionário ou não-membro
-  const superOwner = isSuper && isRealOwner // owner real + super_admin
+  const actingAsAdmin = isSuper && !isRealOwner
+  const superOwner = isSuper && isRealOwner
 
-  // Slug não pertence ao usuário e ele não é super_admin (ou a resolução falhou)
-  // → volta para a lista de orgs.
   React.useEffect(() => {
     if (!orgSlug || loading || listOrg) return
     if (!isSuper || (!resolving && notFound)) {
@@ -98,14 +85,10 @@ export function OrgLayout({ children }: OrgLayoutProps) {
     }
   }, [orgSlug, loading, listOrg, isSuper, resolving, notFound, router])
 
-  // Funcionário tentando acessar rota owner-only direto pela URL → manda p/ overview.
-  // O backend já barra com 403; isto evita renderizar a casca de uma página proibida.
-  // settings/agenda fica de fora (funcionário configura a própria agenda).
   const currentSubpath = router.pathname.split("/[orgSlug]/")[1] ?? ""
   React.useEffect(() => {
     if (!org || org.role === "owner") return
     const seg = currentSubpath.split("/")[0] ?? ""
-    // Funcionário sem permissão no módulo (ou rota owner-only) → volta p/ overview.
     const lacksModule =
       isModuleKey(seg) && !canAccessModule(org.role, org.permissions, seg)
     if (isOwnerOnlyPath(currentSubpath) || lacksModule) {
@@ -113,13 +96,10 @@ export function OrgLayout({ children }: OrgLayoutProps) {
     }
   }, [org, currentSubpath, router])
 
-  // Close mobile sidebar on navigation
   React.useEffect(() => {
     setMobileOpen(false)
   }, [router.pathname])
 
-  // Tour de onboarding: dispara sozinho no primeiro acesso (ou em modo replay via
-  // ?tour=1) — hook lida com `org` ainda undefined internamente.
   useOnboardingTour({ me, org, setMobileOpen })
 
   if (!org) return null
@@ -131,7 +111,6 @@ export function OrgLayout({ children }: OrgLayoutProps) {
     <OrgProvider org={org} actingAsAdmin={actingAsAdmin}>
       <div className="flex h-screen flex-col overflow-hidden bg-background">
         {actingAsAdmin ? (
-          // Funcionário ou não-membro agindo com poderes de plataforma → aviso forte.
           <div className="flex shrink-0 items-center justify-center gap-2 bg-orange-500/15 px-4 py-1.5 text-center text-xs text-orange-300 sm:text-sm">
             <ShieldAlert className="h-4 w-4 shrink-0" />
             <span>
@@ -147,7 +126,6 @@ export function OrgLayout({ children }: OrgLayoutProps) {
             </Link>
           </div>
         ) : superOwner ? (
-          // Dono real + super_admin → indicador sutil de contexto de plataforma.
           <div className="flex shrink-0 items-center justify-center gap-1.5 bg-foreground/[0.04] px-4 py-1 text-center text-[11px] text-foreground/40">
             <ShieldAlert className="h-3 w-3 shrink-0" />
             <span>Acesso de super_admin</span>

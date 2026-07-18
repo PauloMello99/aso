@@ -3,9 +3,6 @@ import { relations } from "drizzle-orm";
 import { organizations } from "../organizations";
 import { services } from "./services";
 
-// Mídia de referência do serviço (ex.: fotos do resultado, referências enviadas pelo
-// cliente). Arquivos ficam num bucket PRIVADO do Storage; guardamos só o caminho e
-// servimos via signed URL.
 export const serviceMedia = pgTable(
   "service_media",
   {

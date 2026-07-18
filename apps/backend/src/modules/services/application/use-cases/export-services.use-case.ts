@@ -26,7 +26,6 @@ const STATUS_LABELS: Record<string, string> = {
   canceled: "Cancelado",
 };
 
-/** Colunas exportáveis de serviços (chaves usadas no seletor `?fields=`). */
 export const SERVICE_CSV_COLUMNS: CsvColumn<ServiceEntity>[] = [
   { key: "date", header: "Data", value: (s) => csvDate(s.performedAt) },
   { key: "customer", header: "Cliente", value: (s) => s.customerName ?? "" },

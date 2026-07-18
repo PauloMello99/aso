@@ -21,16 +21,10 @@ interface ConfirmDialogProps {
   cancelLabel?: string
   destructive?: boolean
   loading?: boolean
-  /** Mensagem de erro inline (ex.: falha da mutation). */
   error?: string | null
   onConfirm: () => void
 }
 
-/**
- * Diálogo de confirmação reutilizável (substitui window.confirm/alert no painel).
- * Mantém foco/escape do Radix, mostra loading e erro inline, e usa cor semântica
- * para ações destrutivas.
- */
 export function ConfirmDialog({
   open,
   onOpenChange,

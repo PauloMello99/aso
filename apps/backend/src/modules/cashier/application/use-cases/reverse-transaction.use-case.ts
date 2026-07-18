@@ -35,16 +35,12 @@ export class ReverseTransactionUseCase {
     );
     if (!original) throw new TransactionNotFoundException(input.transactionId);
 
-    // Lançamento vinculado a um serviço só pode ser estornado pelo fluxo
-    // dedicado (PATCH /services/:id/payment), que mantém amount_cents e
-    // payment_transaction_id do serviço em sincronia com o caixa.
     if (
       await this.serviceRepo.existsByPaymentTransactionId(input.transactionId)
     ) {
       throw new TransactionIsServicePaymentException(input.transactionId);
     }
 
-    // Não se estorna um estorno.
     if (original.isReversal) {
       throw new TransactionNotReversibleException(input.transactionId);
     }
@@ -56,7 +52,6 @@ export class ReverseTransactionUseCase {
       throw new TransactionAlreadyReversedException(input.transactionId);
     }
 
-    // Linha de estorno: tipo oposto, mesmos valores, vínculo com a original.
     return this.transactionRepo.create({
       orgId: original.orgId,
       createdBy: input.reversedBy ?? null,

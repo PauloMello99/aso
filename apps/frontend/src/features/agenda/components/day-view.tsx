@@ -48,7 +48,6 @@ export function DayView({
 
   return (
     <div className="rounded-xl border border-foreground/[0.06]">
-      {/* Linha de eventos de dia inteiro */}
       <div className="grid grid-cols-[64px_1fr] border-b border-foreground/[0.06]">
         <div className="flex items-center justify-end pr-2 text-[10px] uppercase text-foreground/30">
           Dia todo

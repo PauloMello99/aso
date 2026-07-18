@@ -2,7 +2,6 @@ import { Button, Heading, Section, Text } from "@react-email/components";
 import { BaseLayout, sharedStyles } from "./base-layout";
 
 export interface PasswordResetEmailProps {
-  /** Nome do usuário (opcional — saudação personalizada). */
   name?: string;
   resetUrl: string;
 }
@@ -34,7 +33,6 @@ export function PasswordResetEmail({ name, resetUrl }: PasswordResetEmailProps) 
   );
 }
 
-// Default export para a preview do `react-email` (email dev).
 export default function PasswordResetEmailPreview() {
   return (
     <PasswordResetEmail

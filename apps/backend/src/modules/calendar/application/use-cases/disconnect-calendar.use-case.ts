@@ -4,11 +4,6 @@ import {
   ICalendarConnectionRepository,
 } from "../../domain/calendar-connection.repository.interface";
 
-/**
- * Desconecta o calendário externo da org (BL-1). Idempotente: sem conexão, nada
- * a fazer. Quando o provider real existir, também revogaria as credenciais via
- * {@link IExternalCalendarProvider}.
- */
 @Injectable()
 export class DisconnectCalendarUseCase {
   constructor(

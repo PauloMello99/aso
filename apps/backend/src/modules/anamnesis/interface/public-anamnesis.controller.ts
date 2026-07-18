@@ -14,11 +14,6 @@ import { SubmitAnamnesisResponseUseCase } from "../application/use-cases/submit-
 import { SubmitAnamnesisResponseDto } from "./dto/submit-anamnesis-response.dto";
 import { extractRequestContext } from "./request-context";
 
-/**
- * Sem login — o próprio token do link é o segredo (igual `InvitationsController#lookup`).
- * O GET nunca expõe nome/slug da org nem ids internos: só perguntas, primeiro
- * nome do cliente, status computado e expiração.
- */
 @Controller("public/anamnesis-responses")
 export class PublicAnamnesisController {
   constructor(
@@ -31,8 +26,6 @@ export class PublicAnamnesisController {
     return this.getByToken.execute(token);
   }
 
-  // Throttle mais restrito que o default global (120/min): payload maior e
-  // mais sensível (dado de saúde) que um lookup.
   @Post(":token/submit")
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(200)

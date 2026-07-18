@@ -11,8 +11,6 @@ export interface UpsertFeeItem {
   fixedCents: number
 }
 
-// Referência estável p/ o estado "sem dados" — evita novo array a cada render,
-// que dispararia loops em efeitos que dependem de `fees` (ex.: PaymentFeesForm).
 const EMPTY_FEES: PaymentFee[] = []
 
 export function usePaymentFees(orgId: string) {

@@ -37,9 +37,7 @@ export function Footer() {
   return (
     <footer className="border-t border-white/5 bg-[#0d0d0f]">
       <div className="mx-auto max-w-7xl px-4 pb-6 pt-12 sm:px-6 sm:pb-8 sm:pt-16">
-        {/* Top grid */}
         <div className="grid grid-cols-2 gap-8 sm:gap-12 md:grid-cols-5">
-          {/* Brand + newsletter */}
           <div className="col-span-2 md:col-span-2">
             <Link href="/" className="text-xl font-bold tracking-tight text-white">
               ink<span className="text-orange-500">ops</span>
@@ -49,7 +47,6 @@ export function Footer() {
               financeiro em um só lugar.
             </p>
 
-            {/* Newsletter */}
             <div className="mt-6">
               <p className="mb-3 text-xs font-medium uppercase tracking-wider text-white/30">
                 Novidades por e-mail
@@ -70,7 +67,6 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Link columns */}
           {Object.entries(FOOTER_LINKS).map(([section, links]) => (
             <div key={section}>
               <p className="mb-4 text-xs font-medium uppercase tracking-wider text-white/30">
@@ -92,7 +88,6 @@ export function Footer() {
           ))}
         </div>
 
-        {/* Bottom bar */}
         <Separator className="my-8 bg-white/5" />
 
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">

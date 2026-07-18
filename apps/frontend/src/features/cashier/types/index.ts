@@ -12,13 +12,11 @@ export interface Transaction {
   createdBy: string | null
   description: string
   type: TransactionType
-  /** Líquido em centavos — o que o caixa reflete. */
   netCents: number
   grossCents: number
   feeCents: number
   paymentMethod: PaymentMethod
   categoryId: string | null
-  /** Quando preenchido, esta linha é o estorno da transação referenciada. */
   reversesTransactionId: string | null
   transactedAt: string
   createdAt: string
@@ -32,7 +30,6 @@ export interface TransactionCategory {
   createdAt: string
 }
 
-/** Item da lista: a transação + se já foi estornada. */
 export interface TransactionView {
   entity: Transaction
   reversed: boolean
@@ -69,7 +66,6 @@ export interface TransactionsFilter {
   categoryId?: string
   minCents?: number
   maxCents?: number
-  /** users.id — filtro de membro (só owner). */
   createdBy?: string
   customerId?: string
   q?: string
@@ -87,14 +83,12 @@ export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   outcome: "Saída",
 }
 
-/** Métodos cujo saldo cai no bucket digital (banco/cartão). */
 export const DIGITAL_METHODS: PaymentMethod[] = [
   "bank_transfer",
   "credit_card",
   "debit_card",
 ]
 
-/** Métodos que sofrem taxa configurável (cartão). */
 export const FEE_ELIGIBLE_METHODS: PaymentMethod[] = [
   "credit_card",
   "debit_card",

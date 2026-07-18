@@ -59,7 +59,6 @@ export class CancelServiceUseCase {
     );
     if (!service) throw new ServiceNotFoundException(input.serviceId);
 
-    // Funcionário só cancela os próprios atendimentos.
     if (!isOwner && service.performedBy !== currentUserId) {
       throw new ServiceForbiddenException();
     }
@@ -67,10 +66,8 @@ export class CancelServiceUseCase {
       throw new ServiceAlreadyCanceledException(input.serviceId);
     }
 
-    // 1. Marca cancelado.
     await this.serviceRepo.markCanceled(service.id);
 
-    // 2. Estorna a transação de pagamento, se houver (errata: linha oposta).
     if (service.paymentTransactionId) {
       const original = await this.transactionRepo.findById(
         service.paymentTransactionId,
@@ -94,7 +91,6 @@ export class CancelServiceUseCase {
       }
     }
 
-    // 3. Devolve o estoque consumido (movimento positivo + saldo).
     for (const line of service.materials) {
       const qty = line.quantity;
       await this.materialRepo.updateStockQuantity(line.materialId, qty);

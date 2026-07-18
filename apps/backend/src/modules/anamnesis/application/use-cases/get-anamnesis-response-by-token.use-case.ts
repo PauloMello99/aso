@@ -9,7 +9,6 @@ import type { AnamnesisResponseStatus } from "../../domain/anamnesis-response.en
 
 export interface GetAnamnesisResponseByTokenResult {
   questions: AnamnesisQuestion[];
-  /** Só o primeiro nome — minimização de dados no link público. */
   customerName: string;
   status: AnamnesisResponseStatus | "expired";
   expiresAt: Date;
@@ -28,8 +27,6 @@ export class GetAnamnesisResponseByTokenUseCase {
     const response = await this.responseRepo.findByToken(token);
     if (!response) throw new AnamnesisResponseNotFoundException(token);
 
-    // Minimização de dados: NUNCA vazar nome/slug da org nem ids internos —
-    // só o necessário para a tela de preenchimento.
     return {
       questions: response.questionsSnapshot,
       customerName: response.customerName.split(" ")[0] ?? "",

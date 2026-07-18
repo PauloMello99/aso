@@ -443,7 +443,6 @@ describe("CreateServiceUseCase", () => {
 
   it("permite no dia exato em que o cliente completa 18 anos (limite mês/dia, não só ano)", async () => {
     const serviceType = buildServiceType({ requiresAgeVerification: true });
-    // Aniversário de 18 anos é em 2026-07-02.
     const adult = buildCustomer({ birthDate: "2008-07-02" });
     const material = buildMaterial({ shareable: false, stockQuantity: "10" });
     const created = buildService();
@@ -476,7 +475,6 @@ describe("CreateServiceUseCase", () => {
 
   it("bloqueia no dia anterior ao 18º aniversário (ainda 17, não é só subtração de anos)", async () => {
     const serviceType = buildServiceType({ requiresAgeVerification: true });
-    // Aniversário de 18 anos é em 2026-07-02; véspera ainda é 17.
     const almostAdult = buildCustomer({ birthDate: "2008-07-02" });
     const { useCase } = buildUseCase({
       serviceTypeRepo: buildFakeServiceTypeRepo({

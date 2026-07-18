@@ -52,7 +52,6 @@ export function AcceptInvitationPage() {
   const { declineInvitation, declining } = useDeclineInvitation()
   const [acceptError, setAcceptError] = React.useState<string | null>(null)
 
-  // Sem login → manda para login/cadastro carregando o token; volta para cá depois.
   React.useEffect(() => {
     if (!router.isReady || authLoading || isLoading) return
     if (!invite || invite.status !== "pending" || invite.expired) return
@@ -104,7 +103,6 @@ export function AcceptInvitationPage() {
     )
   }
 
-  // Aguardando o redirect para login/cadastro.
   if (!user) return <Spinner />
 
   const inviteEmail = invite.email
@@ -131,7 +129,6 @@ export function AcceptInvitationPage() {
     }
   }
 
-  // Recusar remove o convite (o owner pode reenviar). Volta para as organizações.
   async function handleDecline() {
     if (!token) return
     setAcceptError(null)

@@ -5,7 +5,7 @@ export type CalendarEventVisibility = "private" | "shared";
 export interface CalendarEventProps {
   id: string;
   orgId: string;
-  assignedTo: string; // users.id — o membro dono do horário
+  assignedTo: string;
   customerId: string | null;
   createdBy: string | null;
   type: CalendarEventType;
@@ -15,7 +15,6 @@ export interface CalendarEventProps {
   startsAt: Date;
   endsAt: Date;
   allDay: boolean;
-  // private: só o dono do horário vê; shared: visível para a organização inteira.
   visibility: CalendarEventVisibility;
   createdAt: Date;
   updatedAt: Date;

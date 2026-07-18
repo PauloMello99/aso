@@ -22,11 +22,9 @@ import {
 } from "../../cashier/domain/transaction.repository.interface";
 import type { ServiceEntity } from "../../services/domain/service.entity";
 
-/** KPI com comparação ao período anterior. */
 export interface KpiWithDelta {
   current: number;
   previous: number;
-  /** Variação % vs período anterior; null quando não há base (era 0). */
   deltaPercent: number | null;
 }
 
@@ -34,11 +32,9 @@ export interface OverviewAnalytics {
   role: "owner" | "employee";
   from: string;
   to: string;
-  /** KPIs comuns (employee recebe apenas estes). */
   servicesCount: KpiWithDelta;
   serviceRevenueCents: KpiWithDelta;
   avgTicketCents: KpiWithDelta;
-  /** KPIs e séries owner-only. */
   receitaCents?: KpiWithDelta;
   despesaCents?: KpiWithDelta;
   resultadoCents?: KpiWithDelta;
@@ -93,12 +89,6 @@ function serviceStats(services: ServiceEntity[]): {
   };
 }
 
-/**
- * Métricas analíticas do estúdio para o overview (PERF-3 + redesenho). Owner
- * recebe o painel completo (KPIs com delta, margem, séries e agregações);
- * funcionário recebe só o próprio desempenho (serviços, receita, ticket).
- * Reusa os list use-cases (preserva o scoping por funcionário) + repos.
- */
 @Injectable()
 export class GetOverviewAnalyticsUseCase {
   constructor(
@@ -123,7 +113,6 @@ export class GetOverviewAnalyticsUseCase {
     if (!member) throw new OrgForbiddenException();
     const isOwner = member.role === "owner";
 
-    // Período anterior de mesmo comprimento, imediatamente antes de [from, to].
     const len = to.getTime() - from.getTime();
     const prevTo = new Date(from.getTime() - 1);
     const prevFrom = new Date(prevTo.getTime() - len);

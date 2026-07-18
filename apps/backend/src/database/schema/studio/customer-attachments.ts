@@ -3,8 +3,6 @@ import { relations } from "drizzle-orm";
 import { organizations } from "../organizations";
 import { customers } from "./customers";
 
-// Anexos genéricos do cliente (ex.: ficha de anamnese escaneada). Arquivos ficam
-// num bucket PRIVADO do Storage; guardamos só o caminho e servimos via signed URL.
 export const customerAttachments = pgTable("customer_attachments", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id")

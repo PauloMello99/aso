@@ -12,21 +12,8 @@ import * as schema from "../../../database/schema";
 import { isSuperAdmin } from "../../../common/auth/is-super-admin";
 import { AuthUser } from "../application/ports/auth-provider.interface";
 
-/**
- * Authorizes that the authenticated user belongs to the `:orgId` in the route.
- *
- * Must run AFTER {@link AuthGuard} (which populates `request.user`):
- *   `@UseGuards(AuthGuard, OrgMembershipGuard)`
- *
- * Apply to every org-scoped resource controller (materials, customers, …) so a
- * valid token for one org cannot read/write another org's data. Returns 403 if
- * the user is not a member of the org.
- */
 @Injectable()
 export class OrgMembershipGuard implements CanActivate {
-  // Guards run BEFORE the RlsInterceptor sets request claims, so this query
-  // must use the privileged connection. It already enforces isolation itself
-  // by filtering on the authenticated user's id.
   constructor(@Inject(DRIZZLE_ADMIN) private readonly db: DrizzleDB) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -62,21 +49,18 @@ export class OrgMembershipGuard implements CanActivate {
         and(
           eq(schema.orgMemberships.orgId, orgId),
           eq(schema.users.authId, user.id),
-          // Membro inativo perde acesso à org.
           eq(schema.orgMemberships.enabled, true),
         ),
       )
       .limit(1);
 
     if (!membership) {
-      // super_admin age como owner em qualquer org (inclusive suspensa).
       if (await isSuperAdmin(this.db, user.id)) return true;
       throw new ForbiddenException(
         "You do not have access to this organization",
       );
     }
 
-    // Org suspensa pelo super_admin (PLAT-1): bloqueia todos menos super_admin.
     if (
       membership.suspendedAt !== null &&
       membership.platformRole !== "super_admin"

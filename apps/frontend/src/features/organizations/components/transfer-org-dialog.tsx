@@ -38,7 +38,6 @@ export function TransferOrgDialog({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Elegíveis: membros ativos que não sejam o próprio dono atual.
   const eligible = useMemo(
     () =>
       members.filter((m) => m.enabled && m.userEmail !== currentUserEmail),

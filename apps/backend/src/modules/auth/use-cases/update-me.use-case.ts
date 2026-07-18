@@ -31,7 +31,6 @@ export class UpdateMeUseCase {
     const current = await this.userRepo.findByAuthId(authUser.id);
     if (!current) throw new UserNotFoundException(authUser.id);
 
-    // E-mail é a identidade de login → atualiza no provedor antes do banco.
     const emailChanged = !!input.email && input.email !== current.email;
     if (emailChanged) {
       await this.auth.updateEmail(authUser.id, input.email!);
@@ -41,9 +40,6 @@ export class UpdateMeUseCase {
       name: input.name,
       email: emailChanged ? input.email : undefined,
       avatarUrl: input.avatarUrl,
-      // Valor vem do cliente só como sinal (presença = "concluir/dispensar"); o
-      // timestamp em si é sempre derivado no servidor (new Date()), nunca confiado
-      // do cliente — evita gravar uma data arbitrária de passado/futuro.
       onboardingCompletedAt:
         input.onboardingCompletedAt === undefined
           ? undefined

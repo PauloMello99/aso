@@ -34,7 +34,6 @@ interface TransactionListProps {
   transactions: TransactionView[]
   onReverse: (t: Transaction) => void
   onCorrect: (t: Transaction) => void
-  /** Estornar/corrigir são owner-only; funcionário só visualiza. */
   canManage?: boolean
 }
 
@@ -46,7 +45,6 @@ export function formatDate(iso: string): string {
   })
 }
 
-/** Ações só fazem sentido para lançamentos vivos (não estorno, não estornado). */
 function canMutate(view: TransactionView): boolean {
   return !view.entity.reversesTransactionId && !view.reversed
 }
@@ -88,7 +86,6 @@ function ActionMenu({
   )
 }
 
-/** Badge de status: Estornada (original anulada) ou Estorno (a própria reversão). */
 export function StatusBadge({ view }: { view: TransactionView }) {
   if (view.entity.reversesTransactionId) {
     return (
@@ -198,7 +195,6 @@ export function TransactionList({
 
   return (
     <>
-      {/* Mobile: cards */}
       <div className="grid gap-3 sm:hidden">
         {transactions.map((v) => (
           <MobileCard
@@ -211,7 +207,6 @@ export function TransactionList({
         ))}
       </div>
 
-      {/* Desktop: table */}
       <div className="hidden rounded-xl border border-foreground/[0.06] sm:block">
         <Table className="min-w-[640px]">
           <TableHeader>

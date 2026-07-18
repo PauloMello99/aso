@@ -12,8 +12,6 @@ export class GetCurrentAnamnesisFormVersionUseCase {
     private readonly formRepo: IAnamnesisFormRepository,
   ) {}
 
-  // Tipo de serviço sem formulário ainda é estado válido — retorna `null`,
-  // não lança exception.
   execute(
     serviceTypeId: string,
     orgId: string,
