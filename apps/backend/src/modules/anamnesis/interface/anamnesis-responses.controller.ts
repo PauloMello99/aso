@@ -10,6 +10,7 @@ import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
 import { RequireModule } from "../../auth/decorators/require-module.decorator";
+import { ActiveSubscriptionGuard } from "../../subscriptions/interface/guards/active-subscription.guard";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { SendAnamnesisInviteUseCase } from "../application/use-cases/send-anamnesis-invite.use-case";
@@ -24,6 +25,7 @@ export class AnamnesisResponsesController {
   ) {}
 
   @Post()
+  @UseGuards(ActiveSubscriptionGuard)
   async send(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @CurrentUser() user: AuthUser,

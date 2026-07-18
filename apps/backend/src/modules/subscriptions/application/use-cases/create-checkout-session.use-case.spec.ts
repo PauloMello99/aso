@@ -185,9 +185,9 @@ function buildConfig(): jest.Mocked<ConfigService> {
 describe("CreateCheckoutSessionUseCase", () => {
   it("reuses the existing Stripe customer when already linked", async () => {
     const subscriptionRepo = buildFakeSubscriptionRepo({
-      findByOrgId: jest
-        .fn()
-        .mockResolvedValue(buildSubscription({ stripeCustomerId: "cus_1" })),
+      findByOrgId: jest.fn().mockResolvedValue(
+        buildSubscription({ stripeCustomerId: "cus_1", trialConsumed: true }),
+      ),
     });
     const billingPlanRepo = buildFakeBillingPlanRepo({
       findByKey: jest.fn().mockResolvedValue(buildPlan()),
@@ -224,7 +224,10 @@ describe("CreateCheckoutSessionUseCase", () => {
   });
 
   it("creates a new Stripe customer when the subscription has none yet", async () => {
-    const subscription = buildSubscription({ stripeCustomerId: null });
+    const subscription = buildSubscription({
+      stripeCustomerId: null,
+      trialConsumed: true,
+    });
     const subscriptionRepo = buildFakeSubscriptionRepo({
       findByOrgId: jest.fn().mockResolvedValue(subscription),
       update: jest
@@ -330,6 +333,90 @@ describe("CreateCheckoutSessionUseCase", () => {
     await expect(useCase.execute("org-1", "auth-1")).rejects.toThrow(
       PlanNotAvailableException,
     );
+  });
+
+  it("grants a trial and marks it consumed on the first checkout", async () => {
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findByOrgId: jest.fn().mockResolvedValue(
+        buildSubscription({ stripeCustomerId: "cus_1", trialConsumed: false }),
+      ),
+    });
+    const billingPlanRepo = buildFakeBillingPlanRepo({
+      findByKey: jest.fn().mockResolvedValue(buildPlan()),
+    });
+    const paymentGateway = buildFakePaymentGateway({
+      createCheckoutSession: jest
+        .fn()
+        .mockResolvedValue({ url: "https://checkout.stripe.com/3", sessionId: "cs_3" }),
+    });
+    const orgRepo = buildFakeOrgRepo({
+      findByIdAndAuthId: jest.fn().mockResolvedValue(buildOrg()),
+    });
+    const memberRepo = buildFakeMemberRepo({
+      findByAuthId: jest.fn().mockResolvedValue(buildMember()),
+    });
+
+    const useCase = new CreateCheckoutSessionUseCase(
+      subscriptionRepo,
+      billingPlanRepo,
+      paymentGateway,
+      orgRepo,
+      memberRepo,
+      buildConfig(),
+    );
+
+    await useCase.execute("org-1", "auth-1");
+
+    expect(subscriptionRepo.update).toHaveBeenCalledWith("org-1", {
+      trialConsumed: true,
+    });
+    expect(paymentGateway.createCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trialPeriodDays: 60,
+        paymentMethodCollection: "always",
+      }),
+    );
+  });
+
+  it("does not grant a trial nor mark it consumed again once already consumed", async () => {
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findByOrgId: jest.fn().mockResolvedValue(
+        buildSubscription({ stripeCustomerId: "cus_1", trialConsumed: true }),
+      ),
+    });
+    const billingPlanRepo = buildFakeBillingPlanRepo({
+      findByKey: jest.fn().mockResolvedValue(buildPlan()),
+    });
+    const paymentGateway = buildFakePaymentGateway({
+      createCheckoutSession: jest
+        .fn()
+        .mockResolvedValue({ url: "https://checkout.stripe.com/4", sessionId: "cs_4" }),
+    });
+    const orgRepo = buildFakeOrgRepo({
+      findByIdAndAuthId: jest.fn().mockResolvedValue(buildOrg()),
+    });
+    const memberRepo = buildFakeMemberRepo({
+      findByAuthId: jest.fn().mockResolvedValue(buildMember()),
+    });
+
+    const useCase = new CreateCheckoutSessionUseCase(
+      subscriptionRepo,
+      billingPlanRepo,
+      paymentGateway,
+      orgRepo,
+      memberRepo,
+      buildConfig(),
+    );
+
+    await useCase.execute("org-1", "auth-1");
+
+    expect(subscriptionRepo.update).not.toHaveBeenCalled();
+    expect(paymentGateway.createCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({ customerId: "cus_1", priceId: "price_1" }),
+    );
+    const callArgs = paymentGateway.createCheckoutSession.mock.calls[0][0];
+    expect(callArgs.trialPeriodDays).toBeUndefined();
+    expect(callArgs.paymentMethodCollection).toBeUndefined();
   });
 
   it("throws SubscriptionNotFoundException when the org has no subscription row", async () => {

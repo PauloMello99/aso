@@ -11,6 +11,7 @@ import {
 import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { OrgOwnerGuard } from "../../auth/guards/org-owner.guard";
+import { ActiveSubscriptionGuard } from "../../subscriptions/interface/guards/active-subscription.guard";
 import { GetCalendarConnectionUseCase } from "../application/use-cases/get-calendar-connection.use-case";
 import { DisconnectCalendarUseCase } from "../application/use-cases/disconnect-calendar.use-case";
 
@@ -28,7 +29,7 @@ export class CalendarConnectionController {
   }
 
   @Delete()
-  @UseGuards(OrgOwnerGuard)
+  @UseGuards(OrgOwnerGuard, ActiveSubscriptionGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param("orgId", ParseUUIDPipe) orgId: string) {
     await this.disconnect.execute(orgId);

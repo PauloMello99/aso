@@ -23,6 +23,7 @@ import type { Response } from "express";
 import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
+import { ActiveSubscriptionGuard } from "../../subscriptions/interface/guards/active-subscription.guard";
 import {
   AllowAnyOrgMember,
   RequireModule,
@@ -215,6 +216,7 @@ export class CustomersController {
   }
 
   @Post()
+  @UseGuards(ActiveSubscriptionGuard)
   async create(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Body() dto: CreateCustomerDto,
@@ -224,6 +226,7 @@ export class CustomersController {
   }
 
   @Patch(":id")
+  @UseGuards(ActiveSubscriptionGuard)
   async update(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -233,6 +236,7 @@ export class CustomersController {
   }
 
   @Delete(":id")
+  @UseGuards(ActiveSubscriptionGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
     @Param("orgId", ParseUUIDPipe) orgId: string,
@@ -250,6 +254,7 @@ export class CustomersController {
   }
 
   @Post(":id/attachments")
+  @UseGuards(ActiveSubscriptionGuard)
   @UseInterceptors(FileInterceptor("file"))
   async addAttachment(
     @Param("orgId", ParseUUIDPipe) orgId: string,
@@ -278,6 +283,7 @@ export class CustomersController {
   }
 
   @Delete(":id/attachments/:attachmentId")
+  @UseGuards(ActiveSubscriptionGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeAttachment(
     @Param("orgId", ParseUUIDPipe) orgId: string,

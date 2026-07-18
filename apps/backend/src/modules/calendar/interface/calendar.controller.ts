@@ -17,6 +17,7 @@ import {
 import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
+import { ActiveSubscriptionGuard } from "../../subscriptions/interface/guards/active-subscription.guard";
 import { RequireModule } from "../../auth/decorators/require-module.decorator";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
@@ -70,6 +71,7 @@ export class CalendarController {
   }
 
   @Post()
+  @UseGuards(ActiveSubscriptionGuard)
   async create(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @CurrentUser() user: AuthUser,
@@ -91,6 +93,7 @@ export class CalendarController {
   }
 
   @Patch(":id")
+  @UseGuards(ActiveSubscriptionGuard)
   async update(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -114,6 +117,7 @@ export class CalendarController {
   }
 
   @Delete(":id")
+  @UseGuards(ActiveSubscriptionGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
     @Param("orgId", ParseUUIDPipe) orgId: string,
@@ -124,6 +128,7 @@ export class CalendarController {
   }
 
   @Put(":id/rsvp")
+  @UseGuards(ActiveSubscriptionGuard)
   async rsvp(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
