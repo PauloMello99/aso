@@ -232,6 +232,13 @@
       "when": 1782002200000,
       "tag": "0032_anamnesis_signature",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1782002300000,
+      "tag": "0033_billing_stripe",
+      "breakpoints": true
     }
   ]
 }
