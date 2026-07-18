@@ -12,6 +12,7 @@ import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { OrgOwnerGuard } from "../../auth/guards/org-owner.guard";
 import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
 import { RequireModule } from "../../auth/decorators/require-module.decorator";
+import { ActiveSubscriptionGuard } from "../../subscriptions/interface/guards/active-subscription.guard";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { CreateOrUpdateAnamnesisFormUseCase } from "../application/use-cases/create-or-update-anamnesis-form.use-case";
@@ -46,7 +47,7 @@ export class AnamnesisController {
   }
 
   @Post("versions")
-  @UseGuards(OrgOwnerGuard)
+  @UseGuards(OrgOwnerGuard, ActiveSubscriptionGuard)
   async createVersion(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("serviceTypeId", ParseUUIDPipe) serviceTypeId: string,

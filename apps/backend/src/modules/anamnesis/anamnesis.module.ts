@@ -4,6 +4,7 @@ import { OrgsInfrastructureModule } from "../organizations/infrastructure/orgs-i
 import { ServicesInfrastructureModule } from "../services/infrastructure/services-infrastructure.module";
 import { CustomersInfrastructureModule } from "../customers/infrastructure/customers-infrastructure.module";
 import { MailModule } from "../mail/mail.module";
+import { SubscriptionsModule } from "../subscriptions/subscriptions.module";
 import { AnamnesisInfrastructureModule } from "./infrastructure/anamnesis-infrastructure.module";
 import { CreateOrUpdateAnamnesisFormUseCase } from "./application/use-cases/create-or-update-anamnesis-form.use-case";
 import { ListAnamnesisFormVersionsUseCase } from "./application/use-cases/list-anamnesis-form-versions.use-case";
@@ -23,6 +24,7 @@ import { PublicAnamnesisController } from "./interface/public-anamnesis.controll
     CustomersInfrastructureModule,
     MailModule,
     AuthModule,
+    SubscriptionsModule,
   ],
   controllers: [
     AnamnesisController,
