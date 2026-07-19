@@ -3,6 +3,7 @@ import Link from "next/link"
 import { ChevronRight, Menu } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { BrandWordmark } from "@/shared/components/brand-wordmark"
+import { ThemeToggle } from "@/shared/components/theme-toggle"
 import { NotificationBell } from "@/features/notifications"
 import { UserMenu } from "./user-menu"
 
@@ -81,6 +82,7 @@ export function TopHeader({ breadcrumbs, onMobileMenuToggle }: TopHeaderProps) {
 
         {breadcrumbs.length === 0 && <div className="flex-1" />}
 
+        <ThemeToggle />
         <NotificationBell />
         <UserMenu />
       </div>

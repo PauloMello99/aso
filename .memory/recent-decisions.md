@@ -31,3 +31,9 @@
 - **2026-06-22 — Visibilidade por funcionário** concluída em Serviços/Agenda/Caixa
   (owner vê tudo + lança em nome de). Ver `domain-rules.md` e
   `docs/testing/employee-visibility-tests.md`.
+- **2026-07-19 — Design system ASO formalizado** (adendo ao ADR-0017): referência completa
+  em `docs/design/design-system.md` + checklist operacional em
+  `.claude/skills/aso-design/SKILL.md`. Fonte canônica é o bundle de handoff de design;
+  nada de novo foi decidido, apenas documentado (tokens, componentes, conteúdo, ícones).
+  `SectionCard`/`KpiCard` seguem como padrões locais de `overview-page.tsx`, não extraídos
+  para `shared/components/ui/` — ver adendo do ADR-0017.

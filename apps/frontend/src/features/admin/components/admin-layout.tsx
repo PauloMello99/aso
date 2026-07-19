@@ -6,6 +6,7 @@ import { useRouter } from "next/router"
 import { LayoutDashboard, Building2, Users, CreditCard, Shield, ArrowLeft, Loader2, ShieldCheck } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { BrandWordmark } from "@/shared/components/brand-wordmark"
+import { ThemeToggle } from "@/shared/components/theme-toggle"
 import { useMe } from "@/features/auth/hooks/use-me"
 import { UserMenu } from "@/features/dashboard/components/user-menu"
 
@@ -65,6 +66,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             <ArrowLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Voltar ao app</span>
           </Link>
+          <ThemeToggle />
           <UserMenu />
         </div>
       </header>

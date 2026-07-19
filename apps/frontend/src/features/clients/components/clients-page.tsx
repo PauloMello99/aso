@@ -23,6 +23,7 @@ import {
   type ExportDelimiter,
 } from "@/shared/components/ui/export-menu"
 import { downloadExport } from "@/shared/lib/download-export"
+import { KpiCard } from "@/shared/components/kpi-card"
 import { useCurrentOrg } from "@/features/dashboard"
 import { useCustomers } from "../hooks/use-customers"
 import { useCustomerOrigins } from "../hooks/use-customer-origins"
@@ -231,14 +232,16 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <SummaryCard
-          icon={<Users className="h-4 w-4 text-foreground/40" />}
+        <KpiCard
+          icon={Users}
+          iconClassName="text-text-muted"
           label="Total de clientes"
           value={String(customers.length)}
           loading={loading}
         />
-        <SummaryCard
-          icon={<UserCheck className="h-4 w-4 text-success" />}
+        <KpiCard
+          icon={UserCheck}
+          iconClassName="text-success"
           label="Ativos"
           value={String(activeCount)}
           loading={loading}
@@ -415,34 +418,6 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
         origins={origins}
         onSubmit={handleSubmit}
       />
-    </div>
-  )
-}
-
-function SummaryCard({
-  icon,
-  label,
-  value,
-  loading,
-}: {
-  icon: React.ReactNode
-  label: string
-  value: string
-  loading?: boolean
-}) {
-  return (
-    <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4">
-      <div className="flex items-center gap-2">
-        {icon}
-        <span className="text-xs text-foreground/40">{label}</span>
-      </div>
-      {loading ? (
-        <div className="mt-2 h-7 w-12 animate-pulse rounded bg-foreground/[0.06]" />
-      ) : (
-        <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">
-          {value}
-        </p>
-      )}
     </div>
   )
 }

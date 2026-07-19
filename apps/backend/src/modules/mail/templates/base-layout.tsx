@@ -31,7 +31,9 @@ export function BaseLayout({
       <Body style={body}>
         <Container style={container}>
           <Section style={header}>
-            <Text style={brand}>ASO</Text>
+            <Text style={brand}>
+              a<span style={{ color: "#0f766e" }}>so</span>
+            </Text>
           </Section>
           <Section style={card}>{children}</Section>
           <Hr style={hr} />

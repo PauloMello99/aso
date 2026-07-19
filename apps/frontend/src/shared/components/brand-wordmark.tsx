@@ -7,8 +7,8 @@ interface BrandWordmarkProps {
 
 export function BrandWordmark({ className, suffix }: BrandWordmarkProps) {
   return (
-    <span className={cn("text-lg font-semibold tracking-tight text-foreground", className)}>
-      AS<span className="text-primary">O</span>
+    <span className={cn("text-lg font-bold tracking-tight text-foreground", className)}>
+      a<span className="text-primary-text">so</span>
       {suffix && (
         <span className="ml-1 text-sm font-normal text-muted-foreground">
           · {suffix}

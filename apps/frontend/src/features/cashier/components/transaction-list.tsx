@@ -7,6 +7,7 @@ import {
   Pencil,
   Undo2,
 } from "lucide-react"
+import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
 import {
   DropdownMenu,
@@ -88,18 +89,10 @@ function ActionMenu({
 
 export function StatusBadge({ view }: { view: TransactionView }) {
   if (view.entity.reversesTransactionId) {
-    return (
-      <span className="inline-flex items-center rounded-full bg-foreground/[0.06] px-2 py-0.5 text-xs font-medium text-foreground/50">
-        Estorno
-      </span>
-    )
+    return <Badge variant="secondary">Estorno</Badge>
   }
   if (view.reversed) {
-    return (
-      <span className="inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
-        Estornada
-      </span>
-    )
+    return <Badge variant="destructive-subtle">Estornada</Badge>
   }
   return null
 }
