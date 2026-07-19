@@ -8,7 +8,7 @@ import type { NormalizedInvoice, Subscription } from "@/features/billing/types"
 export function useAdminSubscription(orgId: string | undefined) {
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.adminSubscription.detail(orgId ?? ""),
-    queryFn: () => apiRequest<Subscription>(`/orgs/${orgId}/subscription`),
+    queryFn: () => apiRequest<Subscription>(`/admin/orgs/${orgId}/subscription`),
     enabled: !!orgId,
   })
 

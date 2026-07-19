@@ -6,6 +6,7 @@ import { queryKeys } from "@/infrastructure/query/query-keys"
 import type {
   AdminOrg,
   AdminOrgDetail,
+  AdminOrgNotification,
   AdminUser,
   AdminUserDetail,
   AuditLogFilters,
@@ -47,6 +48,20 @@ export function useAdminOrgDetail(id: string | undefined) {
   })
   return {
     org: data ?? null,
+    loading: isLoading,
+    error: error instanceof Error ? error.message : null,
+  }
+}
+
+export function useAdminOrgNotifications(orgId: string | undefined) {
+  const { data = [], isLoading, error } = useQuery({
+    queryKey: queryKeys.admin.orgNotifications(orgId ?? ""),
+    queryFn: () =>
+      apiRequest<AdminOrgNotification[]>(`/admin/orgs/${orgId}/notifications`),
+    enabled: !!orgId,
+  })
+  return {
+    notifications: data,
     loading: isLoading,
     error: error instanceof Error ? error.message : null,
   }

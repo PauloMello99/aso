@@ -48,6 +48,20 @@ export class DrizzleNotificationRepository implements INotificationRepository {
     return rows.map(NotificationMapper.toDomain);
   }
 
+  async findByOrg(
+    orgId: string,
+    opts?: { limit?: number },
+  ): Promise<NotificationEntity[]> {
+    const rows = await this.db
+      .select()
+      .from(schema.notifications)
+      .where(eq(schema.notifications.orgId, orgId))
+      .orderBy(desc(schema.notifications.createdAt))
+      .limit(opts?.limit ?? 50);
+
+    return rows.map(NotificationMapper.toDomain);
+  }
+
   async countUnread(userId: string): Promise<number> {
     const [row] = await this.db
       .select({ n: sql<number>`count(*)::int` })
