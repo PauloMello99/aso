@@ -44,7 +44,7 @@ export function getTourSteps(org: OrgSummary): TourStep[] {
   return [
     {
       selector: null,
-      title: "Bem-vindo(a) ao ink-ops",
+      title: "Bem-vindo(a) ao ASO",
       description:
         "Vamos fazer um tour rápido pelas áreas principais da sua organização.",
     },

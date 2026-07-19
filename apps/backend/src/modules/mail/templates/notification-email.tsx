@@ -6,6 +6,7 @@ export interface NotificationEmailProps {
   body?: string | null;
   actionUrl?: string;
   actionLabel?: string;
+  supportEmail?: string;
 }
 
 export function NotificationEmail({
@@ -13,9 +14,10 @@ export function NotificationEmail({
   body,
   actionUrl,
   actionLabel,
+  supportEmail,
 }: NotificationEmailProps) {
   return (
-    <BaseLayout preview={title}>
+    <BaseLayout preview={title} supportEmail={supportEmail}>
       <Heading style={sharedStyles.heading}>{title}</Heading>
       {body ? <Text style={sharedStyles.paragraph}>{body}</Text> : null}
       {actionUrl ? (

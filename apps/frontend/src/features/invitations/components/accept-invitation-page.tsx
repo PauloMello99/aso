@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/shared/components/ui/card"
 import { Button } from "@/shared/components/ui/button"
+import { BrandWordmark } from "@/shared/components/brand-wordmark"
 import { useAuth } from "@/features/auth/hooks/use-auth"
 import {
   useInvitationLookup,
@@ -145,8 +146,8 @@ export function AcceptInvitationPage() {
   return (
     <Centered>
       <CardHeader className="text-center">
-        <div className="mb-2 text-xl font-bold">
-          ink<span className="text-orange-500">ops</span>
+        <div className="mb-2">
+          <BrandWordmark className="text-xl font-bold" />
         </div>
         <CardTitle className="text-xl">Convite para {invite.orgName}</CardTitle>
         <CardDescription className="text-foreground/40">

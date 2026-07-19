@@ -17,6 +17,7 @@ import {
 } from "@/shared/components/ui/card"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
+import { BrandWordmark } from "@/shared/components/brand-wordmark"
 import { useAuth } from "@/features/auth/hooks/use-auth"
 import {
   loginSchema,
@@ -69,8 +70,8 @@ export function LoginForm() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-sm border-foreground/5 bg-foreground/[0.03]">
         <CardHeader className="text-center">
-          <div className="mb-2 text-xl font-bold">
-            ink<span className="text-orange-500">ops</span>
+          <div className="mb-2">
+            <BrandWordmark className="text-xl font-bold" />
           </div>
           <CardTitle className="text-xl">Entrar</CardTitle>
           <CardDescription className="text-foreground/40">

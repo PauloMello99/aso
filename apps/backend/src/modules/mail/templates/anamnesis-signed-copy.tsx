@@ -4,14 +4,19 @@ import { BaseLayout, sharedStyles } from "./base-layout";
 export interface AnamnesisSignedCopyEmailProps {
   customerName: string;
   pdfUrl: string;
+  supportEmail?: string;
 }
 
 export function AnamnesisSignedCopyEmail({
   customerName,
   pdfUrl,
+  supportEmail,
 }: AnamnesisSignedCopyEmailProps) {
   return (
-    <BaseLayout preview="Recebemos sua ficha de anamnese assinada">
+    <BaseLayout
+      preview="Recebemos sua ficha de anamnese assinada"
+      supportEmail={supportEmail}
+    >
       <Heading style={sharedStyles.heading}>Olá, {customerName}!</Heading>
       <Text style={sharedStyles.paragraph}>
         Recebemos sua ficha de anamnese assinada. Clique no botão abaixo para

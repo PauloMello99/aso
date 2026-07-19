@@ -28,7 +28,7 @@ export function About() {
                 variant="outline"
                 className="border-white/10 text-white/60"
               >
-                Sobre o ink-ops
+                Sobre o ASO
               </Badge>
             </div>
             <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl">
@@ -39,7 +39,7 @@ export function About() {
             <p className="mt-6 leading-relaxed text-white/50">
               Construído com e para artistas. Sabemos que sua energia deve ir para
               o trabalho criativo, não para planilhas e anotações perdidas.
-              O ink-ops cuida da gestão para você focar no que realmente importa.
+              O ASO cuida da gestão para você focar no que realmente importa.
             </p>
 
             <ul className="mt-8 space-y-3">

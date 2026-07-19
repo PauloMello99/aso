@@ -2,6 +2,7 @@ import * as React from "react"
 import Link from "next/link"
 import { ChevronRight, Menu } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
+import { BrandWordmark } from "@/shared/components/brand-wordmark"
 import { NotificationBell } from "@/features/notifications"
 import { UserMenu } from "./user-menu"
 
@@ -30,11 +31,8 @@ export function TopHeader({ breadcrumbs, onMobileMenuToggle }: TopHeaderProps) {
           </button>
         )}
 
-        <Link
-          href="/dashboard/organizations"
-          className="shrink-0 text-sm font-bold tracking-tight"
-        >
-          ink<span className="text-orange-500">ops</span>
+        <Link href="/dashboard/organizations" className="shrink-0">
+          <BrandWordmark className="text-sm font-bold tracking-tight" />
         </Link>
 
         {breadcrumbs.length > 0 && (

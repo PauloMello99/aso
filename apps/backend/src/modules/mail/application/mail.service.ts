@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { render } from "@react-email/render";
 import type { ReactElement } from "react";
 import {
@@ -52,15 +53,24 @@ export interface SendNotificationInput {
 
 @Injectable()
 export class MailService {
+  private readonly supportEmail: string | undefined;
+
   constructor(
     @Inject(EMAIL_SENDER) private readonly sender: IEmailSender,
-  ) {}
+    config: ConfigService,
+  ) {
+    this.supportEmail = config.get<string>("SUPPORT_EMAIL");
+  }
 
   async sendOrgInvite(input: SendOrgInviteInput): Promise<boolean> {
     return this.dispatch(
       input.to,
-      `Convite para ${input.orgName} no Ink Ops`,
-      InviteEmail({ orgName: input.orgName, acceptUrl: input.acceptUrl }),
+      `Convite para ${input.orgName} no ASO`,
+      InviteEmail({
+        orgName: input.orgName,
+        acceptUrl: input.acceptUrl,
+        supportEmail: this.supportEmail,
+      }),
     );
   }
 
@@ -71,6 +81,7 @@ export class MailService {
       AnamnesisLinkEmail({
         customerName: input.customerName,
         fillUrl: input.fillUrl,
+        supportEmail: this.supportEmail,
       }),
     );
   }
@@ -84,6 +95,7 @@ export class MailService {
       AnamnesisSignedCopyEmail({
         customerName: input.customerName,
         pdfUrl: input.pdfUrl,
+        supportEmail: this.supportEmail,
       }),
     );
   }
@@ -91,16 +103,24 @@ export class MailService {
   async sendPasswordReset(input: SendPasswordResetInput): Promise<boolean> {
     return this.dispatch(
       input.to,
-      "Redefinir sua senha do Ink Ops",
-      PasswordResetEmail({ name: input.name, resetUrl: input.resetUrl }),
+      "Redefinir sua senha do ASO",
+      PasswordResetEmail({
+        name: input.name,
+        resetUrl: input.resetUrl,
+        supportEmail: this.supportEmail,
+      }),
     );
   }
 
   async sendWelcome(input: SendWelcomeInput): Promise<boolean> {
     return this.dispatch(
       input.to,
-      "Bem-vindo ao Ink Ops",
-      WelcomeEmail({ name: input.name, appUrl: input.appUrl }),
+      "Bem-vindo ao ASO",
+      WelcomeEmail({
+        name: input.name,
+        appUrl: input.appUrl,
+        supportEmail: this.supportEmail,
+      }),
     );
   }
 
@@ -113,6 +133,7 @@ export class MailService {
         body: input.body,
         actionUrl: input.actionUrl,
         actionLabel: input.actionLabel,
+        supportEmail: this.supportEmail,
       }),
     );
   }
