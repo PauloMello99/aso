@@ -58,6 +58,8 @@ export const queryKeys = {
     growth: () => ["admin", "stats", "growth"] as const,
     orgs: () => ["admin", "orgs"] as const,
     orgDetail: (id: string) => ["admin", "orgs", "detail", id] as const,
+    orgNotifications: (id: string) =>
+      ["admin", "orgs", "detail", id, "notifications"] as const,
     users: () => ["admin", "users"] as const,
     userDetail: (id: string) => ["admin", "users", "detail", id] as const,
     auditLogs: (filters?: Record<string, unknown>) =>

@@ -119,6 +119,23 @@ export interface AuditLogPage {
   pages: number
 }
 
+export type AdminNotificationType =
+  | "agenda_reminder"
+  | "member_unavailability"
+  | "stock_check_reminder"
+
+export interface AdminOrgNotification {
+  id: string
+  userId: string
+  orgId: string | null
+  type: AdminNotificationType
+  title: string
+  body: string | null
+  data: Record<string, unknown> | null
+  readAt: string | null
+  createdAt: string
+}
+
 export type OrgStatusFilter = "all" | "active" | "suspended"
 export type UserRoleFilter = "all" | "super_admin" | "user"
 export type OrgSortKey = "name" | "createdAt" | "memberCount"

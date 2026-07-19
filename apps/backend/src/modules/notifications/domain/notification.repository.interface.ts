@@ -17,6 +17,10 @@ export interface INotificationRepository {
     userId: string,
     opts?: { unreadOnly?: boolean; limit?: number },
   ): Promise<NotificationEntity[]>;
+  findByOrg(
+    orgId: string,
+    opts?: { limit?: number },
+  ): Promise<NotificationEntity[]>;
   countUnread(userId: string): Promise<number>;
   markRead(id: string, userId: string): Promise<void>;
   markAllRead(userId: string): Promise<void>;

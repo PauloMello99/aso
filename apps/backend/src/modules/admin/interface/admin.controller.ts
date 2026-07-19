@@ -23,6 +23,7 @@ import { GetUserDetailUseCase } from "../application/use-cases/get-user-detail.u
 import { SetOrgSuspendedUseCase } from "../application/use-cases/set-org-suspended.use-case";
 import { SetUserPlatformRoleUseCase } from "../application/use-cases/set-user-platform-role.use-case";
 import { ListAuditLogsUseCase } from "../../audit/application/use-cases/list-audit-logs.use-case";
+import { ListOrgNotificationsUseCase } from "../application/use-cases/list-org-notifications.use-case";
 import { SetSuspendedDto } from "./dto/set-suspended.dto";
 import { SetPlatformRoleDto } from "./dto/set-platform-role.dto";
 import { AuditLogsQueryDto } from "./dto/audit-logs-query.dto";
@@ -40,6 +41,7 @@ export class AdminController {
     private readonly setOrgSuspended: SetOrgSuspendedUseCase,
     private readonly setUserPlatformRole: SetUserPlatformRoleUseCase,
     private readonly listAuditLogs: ListAuditLogsUseCase,
+    private readonly listOrgNotifications: ListOrgNotificationsUseCase,
   ) {}
 
   @Get("stats")
@@ -75,6 +77,11 @@ export class AdminController {
   @Get("audit-logs")
   auditLogs(@Query() query: AuditLogsQueryDto) {
     return this.listAuditLogs.execute(query);
+  }
+
+  @Get("orgs/:id/notifications")
+  orgNotifications(@Param("id", ParseUUIDPipe) id: string) {
+    return this.listOrgNotifications.execute(id);
   }
 
   @Patch("orgs/:id/suspend")

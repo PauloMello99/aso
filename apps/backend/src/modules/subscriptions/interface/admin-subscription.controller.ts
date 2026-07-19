@@ -17,6 +17,7 @@ import { RevokeCompUseCase } from "../application/use-cases/revoke-comp.use-case
 import { ApplyDiscountUseCase } from "../application/use-cases/apply-discount.use-case";
 import { RemoveDiscountUseCase } from "../application/use-cases/remove-discount.use-case";
 import { ListSubscriptionInvoicesUseCase } from "../application/use-cases/list-subscription-invoices.use-case";
+import { GetSubscriptionUseCase } from "../application/use-cases/get-subscription.use-case";
 import { GrantCompDto } from "./dto/grant-comp.dto";
 import { ApplyDiscountDto } from "./dto/apply-discount.dto";
 
@@ -29,7 +30,13 @@ export class AdminSubscriptionController {
     private readonly applyDiscount: ApplyDiscountUseCase,
     private readonly removeDiscount: RemoveDiscountUseCase,
     private readonly listInvoices: ListSubscriptionInvoicesUseCase,
+    private readonly getSubscription: GetSubscriptionUseCase,
   ) {}
+
+  @Get()
+  get(@Param("orgId", ParseUUIDPipe) orgId: string) {
+    return this.getSubscription.execute(orgId);
+  }
 
   @Post("comp")
   comp(
