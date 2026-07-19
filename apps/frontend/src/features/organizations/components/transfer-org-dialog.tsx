@@ -109,7 +109,7 @@ export function TransferOrgDialog({
               ))}
             </SelectContent>
           </Select>
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
 
         <DialogFooter>

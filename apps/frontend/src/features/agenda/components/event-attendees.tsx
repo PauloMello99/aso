@@ -19,8 +19,8 @@ const STATUS_LABEL: Record<AttendeeStatus, string> = {
 }
 
 const STATUS_CLASS: Record<AttendeeStatus, string> = {
-  going: "bg-green-500/15 text-green-300",
-  not_going: "bg-red-500/15 text-red-300",
+  going: "bg-success/15 text-success",
+  not_going: "bg-destructive/15 text-destructive",
   pending: "bg-foreground/[0.08] text-foreground/50",
 }
 
@@ -50,7 +50,7 @@ export function EventAttendees({
       <h3 className="text-sm font-medium text-foreground">Presença da equipe</h3>
 
       {error ? (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
         </div>
       ) : loading ? (

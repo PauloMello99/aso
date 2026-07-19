@@ -171,7 +171,7 @@ export function ServiceForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Cliente <span className="text-red-400">*</span>
+                        Cliente <span className="text-destructive">*</span>
                       </FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
@@ -248,7 +248,7 @@ export function ServiceForm({
                         </FormControl>
                         <SelectContent>
                           <SelectItem value={TYPE_CREATE}>
-                            <span className="flex items-center gap-2 text-orange-400">
+                            <span className="flex items-center gap-2 text-primary">
                               <Plus className="h-4 w-4" />
                               Criar novo tipo
                             </span>
@@ -328,7 +328,7 @@ export function ServiceForm({
                   />
                   {(form.formState.errors.materials?.root?.message ??
                     form.formState.errors.materials?.message) && (
-                    <p className="text-sm text-red-400">
+                    <p className="text-sm text-destructive">
                       {form.formState.errors.materials?.root?.message ??
                         form.formState.errors.materials?.message}
                     </p>
@@ -348,7 +348,7 @@ export function ServiceForm({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>
-                          Valor <span className="text-red-400">*</span>
+                          Valor <span className="text-destructive">*</span>
                         </FormLabel>
                         <FormControl>
                           <div className="relative">
@@ -427,7 +427,7 @@ export function ServiceForm({
               )}
 
               {submitError && (
-                <p className="text-sm text-red-400">{submitError}</p>
+                <p className="text-sm text-destructive">{submitError}</p>
               )}
             </SheetBody>
 

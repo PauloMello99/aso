@@ -238,7 +238,7 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
           loading={loading}
         />
         <SummaryCard
-          icon={<UserCheck className="h-4 w-4 text-emerald-400" />}
+          icon={<UserCheck className="h-4 w-4 text-success" />}
           label="Ativos"
           value={String(activeCount)}
           loading={loading}
@@ -387,7 +387,7 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
           {error}
         </div>
       )}

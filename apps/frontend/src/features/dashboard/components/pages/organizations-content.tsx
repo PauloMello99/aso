@@ -33,7 +33,7 @@ export function OrganizationsContent() {
           </p>
         </div>
         <Button
-          className="w-full bg-orange-500 text-white hover:bg-orange-600 sm:w-auto"
+          className="w-full bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto"
           size="sm"
           onClick={() => setCreateOpen(true)}
         >
@@ -47,7 +47,7 @@ export function OrganizationsContent() {
           <Building2 className="mb-4 h-10 w-10 text-foreground/20" />
           <p className="text-sm text-foreground/40">Nenhuma organização ainda.</p>
           <Button
-            className="mt-4 w-full bg-orange-500 text-white hover:bg-orange-600 sm:w-auto"
+            className="mt-4 w-full bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto"
             size="sm"
             onClick={() => setCreateOpen(true)}
           >
@@ -64,7 +64,7 @@ export function OrganizationsContent() {
                 className="group flex items-center justify-between rounded-xl border border-foreground/5 bg-foreground/[0.02] px-4 py-3.5 transition-all hover:border-foreground/10 hover:bg-foreground/[0.05] sm:px-5 sm:py-4"
               >
                 <div className="flex items-center gap-3 sm:gap-4">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-500/10 text-sm font-bold text-orange-400 sm:h-10 sm:w-10 sm:text-base">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary sm:h-10 sm:w-10 sm:text-base">
                     {org.name.charAt(0).toUpperCase()}
                   </span>
                   <div className="min-w-0">

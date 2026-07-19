@@ -57,7 +57,7 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
 
           {!collapsed && (
             <div className="flex min-w-0 flex-1 items-center gap-2.5">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-orange-500/20 text-xs font-bold text-orange-400">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary/20 text-xs font-bold text-primary">
                 {org.name.charAt(0).toUpperCase()}
               </span>
               <span className="truncate text-sm font-medium text-foreground">
@@ -141,7 +141,7 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
                           <Icon
                             className={cn(
                               "h-4 w-4 shrink-0",
-                              active ? "text-orange-400" : "text-foreground/40",
+                              active ? "text-primary" : "text-foreground/40",
                             )}
                           />
                           <span className={cn(collapsed && "md:hidden")}>

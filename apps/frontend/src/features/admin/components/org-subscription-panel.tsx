@@ -50,9 +50,9 @@ const STATUS_LABELS: Record<SubscriptionStatus, string> = {
 }
 
 const STATUS_BADGE_CLASSES: Record<SubscriptionStatus, string> = {
-  active: "bg-emerald-500/15 text-emerald-400",
-  trialing: "bg-orange-500/15 text-orange-400",
-  past_due: "bg-red-500/15 text-red-400",
+  active: "bg-success/15 text-success",
+  trialing: "bg-primary/15 text-primary",
+  past_due: "bg-destructive/15 text-destructive",
   canceled: "bg-foreground/10 text-foreground/50",
 }
 
@@ -86,7 +86,7 @@ export function OrgSubscriptionPanel({ org }: { org: OrgSubscriptionPanelOrg }) 
 
   if (error || !subscription) {
     return (
-      <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+      <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
         {error ?? "Não foi possível carregar a assinatura desta organização."}
       </div>
     )
@@ -196,7 +196,7 @@ function CompPanel({
   return (
     <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4 sm:p-6">
       <div className="flex items-center gap-2">
-        <ShieldCheck className="h-4 w-4 text-orange-400" />
+        <ShieldCheck className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-medium text-foreground">Isenção (cortesia)</h3>
       </div>
 
@@ -211,7 +211,7 @@ function CompPanel({
               ? fmtDate(subscription.compExpiresAt)
               : "perpétua"}
           </p>
-          {revokeError && <p className="text-sm text-red-400">{revokeError}</p>}
+          {revokeError && <p className="text-sm text-destructive">{revokeError}</p>}
           <Button
             type="button"
             variant="destructive"
@@ -242,7 +242,7 @@ function CompPanel({
               placeholder="Sem validade (perpétua)"
             />
           </div>
-          {grantError && <p className="text-sm text-red-400">{grantError}</p>}
+          {grantError && <p className="text-sm text-destructive">{grantError}</p>}
           <Button type="submit" size="sm" disabled={granting || !reason.trim()}>
             {granting && <Loader2 className="h-4 w-4 animate-spin" />}
             Conceder isenção
@@ -310,7 +310,7 @@ function DiscountPanel({
   return (
     <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4 sm:p-6">
       <div className="flex items-center gap-2">
-        <Percent className="h-4 w-4 text-orange-400" />
+        <Percent className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-medium text-foreground">Desconto</h3>
       </div>
 
@@ -322,7 +322,7 @@ function DiscountPanel({
               ? ` (cupom ${subscription.stripeCouponId})`
               : ""}
           </p>
-          {removeError && <p className="text-sm text-red-400">{removeError}</p>}
+          {removeError && <p className="text-sm text-destructive">{removeError}</p>}
           <Button
             type="button"
             variant="destructive"
@@ -335,7 +335,7 @@ function DiscountPanel({
       ) : (
         <form onSubmit={(e) => void handleApply(e)} className="mt-3 space-y-3">
           {!stripeLinked && (
-            <p className="rounded-md border border-orange-500/20 bg-orange-500/10 px-3 py-2 text-xs text-orange-300">
+            <p className="rounded-md border border-primary/20 bg-primary/10 px-3 py-2 text-xs text-primary/80">
               Esta organização ainda não está vinculada ao Stripe — descontos
               exigem uma assinatura ativa via Stripe.
             </p>
@@ -367,7 +367,7 @@ function DiscountPanel({
               />
             </div>
           </div>
-          {applyError && <p className="text-sm text-red-400">{applyError}</p>}
+          {applyError && <p className="text-sm text-destructive">{applyError}</p>}
           <Button
             type="submit"
             size="sm"
@@ -421,9 +421,9 @@ function InvoicesSection({
                 </TableCell>
                 <TableCell>
                   {inv.type === "paid" ? (
-                    <Badge className="bg-emerald-500/15 text-emerald-400">Pago</Badge>
+                    <Badge className="bg-success/15 text-success">Pago</Badge>
                   ) : (
-                    <Badge className="bg-red-500/15 text-red-400">Falhou</Badge>
+                    <Badge className="bg-destructive/15 text-destructive">Falhou</Badge>
                   )}
                 </TableCell>
                 <TableCell className="text-right tabular-nums text-foreground/70">

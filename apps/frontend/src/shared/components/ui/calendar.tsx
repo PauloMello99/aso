@@ -124,10 +124,10 @@ function Calendar({
           d.day_button,
           "inline-flex h-9 w-9 items-center justify-center rounded-md font-normal text-foreground/80 transition-colors hover:bg-foreground/10",
         ),
-        today: cn(d.today, "font-semibold text-orange-400"),
+        today: cn(d.today, "font-semibold text-primary"),
         selected: cn(
           d.selected,
-          "[&>button]:bg-orange-500 [&>button]:text-white [&>button:hover]:bg-orange-500",
+          "[&>button]:bg-primary [&>button]:text-primary-foreground [&>button:hover]:bg-primary",
         ),
         outside: cn(d.outside, "text-foreground/20"),
         disabled: cn(d.disabled, "text-foreground/10 opacity-50"),

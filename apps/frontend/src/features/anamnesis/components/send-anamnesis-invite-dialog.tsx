@@ -74,7 +74,7 @@ export function SendAnamnesisInviteDialog({
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <MailCheck className="h-5 w-5 text-emerald-400" />
+                <MailCheck className="h-5 w-5 text-success" />
                 Ficha enviada
               </DialogTitle>
               <DialogDescription>
@@ -103,7 +103,7 @@ export function SendAnamnesisInviteDialog({
 
             <div className="space-y-1.5">
               <Label>
-                Tipo de serviço <span className="text-red-400">*</span>
+                Tipo de serviço <span className="text-destructive">*</span>
               </Label>
               {!typesLoading && serviceTypes.length === 0 ? (
                 <p className="text-xs text-foreground/40">

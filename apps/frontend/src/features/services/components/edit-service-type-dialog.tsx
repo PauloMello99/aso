@@ -83,7 +83,7 @@ export function EditServiceTypeDialog({
 
         <div className="space-y-1.5">
           <Label htmlFor="edit-service-type-name">
-            Nome <span className="text-red-400">*</span>
+            Nome <span className="text-destructive">*</span>
           </Label>
           <Input
             id="edit-service-type-name"

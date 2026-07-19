@@ -93,10 +93,10 @@ export function AccountPage() {
                   "flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-sm whitespace-nowrap transition-colors",
                   isActive
                     ? isDanger
-                      ? "bg-red-500/10 text-red-400"
+                      ? "bg-destructive/10 text-destructive"
                       : "bg-foreground/[0.08] text-foreground"
                     : isDanger
-                      ? "text-red-400/60 hover:text-red-400"
+                      ? "text-destructive/60 hover:text-destructive"
                       : "text-foreground/50 hover:bg-foreground/[0.04] hover:text-foreground",
                 )}
               >
@@ -123,10 +123,10 @@ export function AccountPage() {
                         "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors",
                         isActive
                           ? isDanger
-                            ? "bg-red-500/10 text-red-400"
+                            ? "bg-destructive/10 text-destructive"
                             : "bg-foreground/[0.08] text-foreground"
                           : isDanger
-                            ? "text-red-400/60 hover:bg-red-500/5 hover:text-red-400"
+                            ? "text-destructive/60 hover:bg-destructive/5 hover:text-destructive"
                             : "text-foreground/50 hover:bg-foreground/[0.04] hover:text-foreground",
                       )}
                     >
@@ -135,10 +135,10 @@ export function AccountPage() {
                           "h-4 w-4 shrink-0",
                           isActive
                             ? isDanger
-                              ? "text-red-400"
-                              : "text-orange-400"
+                              ? "text-destructive"
+                              : "text-primary"
                             : isDanger
-                              ? "text-red-400/60"
+                              ? "text-destructive/60"
                               : "text-foreground/40",
                         )}
                       />

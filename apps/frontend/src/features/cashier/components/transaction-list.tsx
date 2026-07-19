@@ -96,7 +96,7 @@ export function StatusBadge({ view }: { view: TransactionView }) {
   }
   if (view.reversed) {
     return (
-      <span className="inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-medium text-red-400">
+      <span className="inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
         Estornada
       </span>
     )
@@ -111,7 +111,7 @@ export function AmountCell({ t, struck }: { t: Transaction; struck: boolean }) {
       className={cn(
         "font-semibold tabular-nums",
         struck && "text-foreground/30 line-through",
-        !struck && (isIncome ? "text-emerald-400" : "text-red-400"),
+        !struck && (isIncome ? "text-success" : "text-destructive"),
       )}
     >
       {isIncome ? "+" : "−"} {formatBRL(t.netCents)}
@@ -145,9 +145,9 @@ function MobileCard({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           {isIncome ? (
-            <ArrowDownLeft className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+            <ArrowDownLeft className="h-3.5 w-3.5 shrink-0 text-success" />
           ) : (
-            <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-red-400" />
+            <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-destructive" />
           )}
           <span
             className={cn(
@@ -227,9 +227,9 @@ export function TransactionList({
                   <TableCell className="pl-4">
                     <div className="flex items-center gap-2">
                       {t.type === "income" ? (
-                        <ArrowDownLeft className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                        <ArrowDownLeft className="h-3.5 w-3.5 shrink-0 text-success" />
                       ) : (
-                        <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-red-400" />
+                        <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-destructive" />
                       )}
                       <span
                         className={cn(

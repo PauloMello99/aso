@@ -38,7 +38,7 @@ export function AdminBilling() {
       <p className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-4 text-sm text-foreground/50">
         Para gerenciar a assinatura de uma organização específica (isenção,
         desconto, faturas), acesse{" "}
-        <Link href="/admin/orgs" className="text-orange-400 hover:underline">
+        <Link href="/admin/orgs" className="text-primary hover:underline">
           Organizações
         </Link>{" "}
         → selecione a organização → aba <strong>Assinatura</strong>.

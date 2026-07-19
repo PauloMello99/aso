@@ -87,7 +87,7 @@ export function AdminOrgDetail({ id }: { id: string | undefined }) {
     return (
       <div className="space-y-4">
         <BackLink />
-        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
           {error ?? "Organização não encontrada."}
         </div>
       </div>
@@ -107,7 +107,7 @@ export function AdminOrgDetail({ id }: { id: string | undefined }) {
               {org.name}
             </h1>
             {suspended && (
-              <Badge variant="destructive" className="bg-red-500/15 text-red-400">
+              <Badge variant="destructive" className="bg-destructive/15 text-destructive">
                 Suspensa
               </Badge>
             )}
@@ -151,7 +151,7 @@ export function AdminOrgDetail({ id }: { id: string | undefined }) {
             className={cn(
               "shrink-0 whitespace-nowrap rounded-t-md border-b-2 px-3 py-2 text-sm transition-colors",
               tab === t.id
-                ? "border-orange-400 text-foreground"
+                ? "border-primary text-foreground"
                 : "border-transparent text-foreground/50 hover:text-foreground",
             )}
           >
@@ -227,7 +227,7 @@ function MembersTab({ org }: { org: AdminOrgDetailData }) {
                   <TableCell>
                     <Link
                       href={`/admin/users/${m.userId}`}
-                      className="font-medium text-foreground hover:text-orange-400"
+                      className="font-medium text-foreground hover:text-primary"
                     >
                       {m.name}
                     </Link>
@@ -235,7 +235,7 @@ function MembersTab({ org }: { org: AdminOrgDetailData }) {
                   </TableCell>
                   <TableCell>
                     {m.role === "owner" ? (
-                      <Badge className="bg-orange-500/15 text-orange-400">owner</Badge>
+                      <Badge className="bg-primary/15 text-primary">owner</Badge>
                     ) : (
                       <span className="text-foreground/60">{m.role}</span>
                     )}
@@ -244,7 +244,7 @@ function MembersTab({ org }: { org: AdminOrgDetailData }) {
                     {m.enabled ? (
                       <span className="text-foreground/60">ativo</span>
                     ) : (
-                      <span className="text-red-400">inativo</span>
+                      <span className="text-destructive">inativo</span>
                     )}
                   </TableCell>
                   <TableCell className="text-foreground/50">{fmtDate(m.joinedAt)}</TableCell>
@@ -321,7 +321,7 @@ function NotificationsTab({
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+      <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
         {error}
       </div>
     )
@@ -369,7 +369,7 @@ function NotificationsTab({
                 </TableCell>
                 <TableCell>
                   {n.readAt === null ? (
-                    <Badge className="bg-orange-500/15 text-orange-400">não lida</Badge>
+                    <Badge className="bg-primary/15 text-primary">não lida</Badge>
                   ) : (
                     <span className="text-xs text-foreground/40">lida</span>
                   )}
@@ -425,7 +425,7 @@ function AuditTab({ orgId }: { orgId: string }) {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+      <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
         {error}
       </div>
     )
@@ -539,7 +539,7 @@ function InfoCard({
   return (
     <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4">
       <div className="flex items-center gap-1.5 text-xs text-foreground/50">
-        <Icon className="h-3.5 w-3.5 text-orange-400" />
+        <Icon className="h-3.5 w-3.5 text-primary" />
         {label}
       </div>
       <p className="mt-1.5 truncate text-lg font-semibold text-foreground">{value}</p>

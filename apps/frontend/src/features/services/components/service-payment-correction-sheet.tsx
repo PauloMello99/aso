@@ -114,7 +114,7 @@ export function ServicePaymentCorrectionSheet({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Valor <span className="text-red-400">*</span>
+                      Valor <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <div className="relative">

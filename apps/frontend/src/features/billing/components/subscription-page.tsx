@@ -46,8 +46,8 @@ function checkoutQueryParam(
 function CheckoutBanner({ status }: { status: "success" | "cancel" }) {
   if (status === "success") {
     return (
-      <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-4 text-sm text-emerald-300">
-        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+      <div className="flex items-center gap-2.5 rounded-xl border border-success/20 bg-success/[0.06] p-4 text-sm text-success">
+        <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
         <p>Assinatura confirmada com sucesso.</p>
       </div>
     )
@@ -72,7 +72,7 @@ function SectionShell({
   return (
     <section className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-5">
       <div className="flex items-center gap-2">
-        <Icon className="h-4 w-4 text-orange-400" />
+        <Icon className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-medium">{title}</h3>
       </div>
       <div className="mt-3 space-y-3 text-sm text-foreground/60">
@@ -126,7 +126,7 @@ function TrialingSection({
         label="Teste termina em"
         value={formatDate(subscription.trialEndsAt) ?? "—"}
       />
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       {isOwner && subscription.stripeCustomerId && (
         <Button
           type="button"
@@ -167,7 +167,7 @@ function ActiveSection({
         label="Próxima cobrança"
         value={formatDate(subscription.currentPeriodEnd) ?? "—"}
       />
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       {isOwner && (
         <Button
           type="button"
@@ -196,7 +196,7 @@ function PastDueSection({
         Não conseguimos confirmar o último pagamento. Atualize a forma de
         pagamento para evitar a suspensão do acesso.
       </p>
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       {isOwner && (
         <Button
           type="button"
@@ -227,7 +227,7 @@ function LockedSection({
         Esta organização ainda não tem uma assinatura ativa. Assine para
         continuar usando o sistema.
       </p>
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       {isOwner && (
         <Button
           type="button"
@@ -267,7 +267,7 @@ export function SubscriptionPage() {
           Carregando…
         </div>
       ) : error || !subscription ? (
-        <p className="text-sm text-red-400">
+        <p className="text-sm text-destructive">
           {error ?? "Não foi possível carregar os dados de assinatura."}
         </p>
       ) : subscription.type === "custom" ? (

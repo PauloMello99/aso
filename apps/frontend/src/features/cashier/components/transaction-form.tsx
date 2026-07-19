@@ -166,7 +166,7 @@ export function TransactionForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Descrição <span className="text-red-400">*</span>
+                      Descrição <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input
@@ -186,7 +186,7 @@ export function TransactionForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Valor <span className="text-red-400">*</span>
+                      Valor <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <div className="relative">
@@ -330,7 +330,7 @@ export function TransactionForm({
                 <div className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3 text-sm">
                   <div className="flex items-center justify-between text-foreground/50">
                     <span>Taxa estimada</span>
-                    <span className="tabular-nums text-red-400">
+                    <span className="tabular-nums text-destructive">
                       − {formatBRL(preview.feeCents)}
                     </span>
                   </div>

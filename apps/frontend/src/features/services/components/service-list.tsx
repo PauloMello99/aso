@@ -46,10 +46,10 @@ export function formatDate(iso: string): string {
 export function StatusBadge({ status }: { status: ServiceStatus }) {
   const variant =
     status === "paid"
-      ? "bg-emerald-500/10 text-emerald-400"
+      ? "bg-success/10 text-success"
       : status === "pending"
-        ? "bg-amber-500/10 text-amber-400"
-        : "bg-red-500/10 text-red-400"
+        ? "bg-warning/10 text-warning"
+        : "bg-destructive/10 text-destructive"
   return (
     <Badge variant="ghost" className={variant}>
       {SERVICE_STATUS_LABELS[status]}

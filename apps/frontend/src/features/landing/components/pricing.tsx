@@ -89,15 +89,15 @@ export function Pricing() {
           <div className="mb-4 flex justify-center">
             <Badge
               variant="outline"
-              className="border-white/10 text-white/60"
+              className="border-foreground/10 text-foreground/60"
             >
               Preços
             </Badge>
           </div>
-          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl">
+          <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl">
             Simples e transparente
           </h2>
-          <p className="mx-auto mt-4 max-w-lg text-white/50">
+          <p className="mx-auto mt-4 max-w-lg text-foreground/50">
             Sem taxas escondidas. Cancele quando quiser.
           </p>
         </div>
@@ -109,43 +109,43 @@ export function Pricing() {
               className={cn(
                 "relative flex flex-col rounded-2xl border p-8 transition-all",
                 plan.highlighted
-                  ? "border-orange-500/50 bg-orange-500/5"
-                  : "border-white/5 bg-white/[0.03]",
+                  ? "border-primary/50 bg-primary/5"
+                  : "border-foreground/5 bg-foreground/[0.03]",
               )}
             >
               {plan.badge && (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                  <Badge className="bg-orange-500 text-white">
+                  <Badge className="bg-primary text-primary-foreground">
                     {plan.badge}
                   </Badge>
                 </div>
               )}
 
               <div className="mb-6">
-                <p className="text-sm font-medium text-white/60">{plan.name}</p>
+                <p className="text-sm font-medium text-foreground/60">{plan.name}</p>
                 <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-3xl font-bold text-white sm:text-4xl">
+                  <span className="text-3xl font-bold text-foreground sm:text-4xl">
                     {plan.price}
                   </span>
                   {plan.period && (
-                    <span className="text-white/40">{plan.period}</span>
+                    <span className="text-foreground/40">{plan.period}</span>
                   )}
                 </div>
-                <p className="mt-3 text-sm text-white/50">{plan.description}</p>
+                <p className="mt-3 text-sm text-foreground/50">{plan.description}</p>
               </div>
 
               <ul className="mb-8 flex-1 space-y-3">
                 {plan.features.map((feature) => (
                   <li key={feature.label} className="flex items-center gap-3">
                     {feature.included ? (
-                      <Check className="h-4 w-4 shrink-0 text-green-400" />
+                      <Check className="h-4 w-4 shrink-0 text-success" />
                     ) : (
-                      <X className="h-4 w-4 shrink-0 text-white/20" />
+                      <X className="h-4 w-4 shrink-0 text-foreground/20" />
                     )}
                     <span
                       className={cn(
                         "text-sm",
-                        feature.included ? "text-white/70" : "text-white/30",
+                        feature.included ? "text-foreground/70" : "text-foreground/30",
                       )}
                     >
                       {feature.label}
@@ -159,8 +159,8 @@ export function Pricing() {
                 className={cn(
                   "w-full",
                   plan.highlighted
-                    ? "bg-orange-500 text-white hover:bg-orange-600"
-                    : "border border-white/10 bg-transparent text-white hover:bg-white/5",
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "border border-foreground/10 bg-transparent text-foreground hover:bg-foreground/5",
                 )}
               >
                 <Link href={plan.href}>{plan.cta}</Link>

@@ -78,7 +78,7 @@ export function MembersPage() {
 
   if (error) {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-400">
+      <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
         <AlertCircle className="h-4 w-4 shrink-0" />
         {error}
       </div>
@@ -105,7 +105,7 @@ export function MembersPage() {
       </div>
 
       {lastInviteUrl && (
-        <div className="flex flex-col gap-2 rounded-lg border border-orange-500/20 bg-orange-500/5 p-3 text-sm">
+        <div className="flex flex-col gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm">
           <span className="text-foreground/70">
             Convite criado. Link de aceite (dev — copie para testar):
           </span>

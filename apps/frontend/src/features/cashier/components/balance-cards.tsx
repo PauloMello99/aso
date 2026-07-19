@@ -14,19 +14,19 @@ export function BalanceCards({ balance, loading }: BalanceCardsProps) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       <BalanceCard
-        icon={<Banknote className="h-4 w-4 text-emerald-400" />}
+        icon={<Banknote className="h-4 w-4 text-success" />}
         label="Dinheiro"
         cents={balance.cashCents}
         loading={loading}
       />
       <BalanceCard
-        icon={<Landmark className="h-4 w-4 text-sky-400" />}
+        icon={<Landmark className="h-4 w-4 text-info" />}
         label="Banco / Digital"
         cents={balance.digitalCents}
         loading={loading}
       />
       <BalanceCard
-        icon={<Wallet className="h-4 w-4 text-orange-400" />}
+        icon={<Wallet className="h-4 w-4 text-primary" />}
         label="Total"
         cents={balance.totalCents}
         loading={loading}
@@ -54,7 +54,7 @@ function BalanceCard({
       className={cn(
         "rounded-xl border p-4",
         emphasis
-          ? "border-orange-500/20 bg-orange-500/[0.04]"
+          ? "border-primary/20 bg-primary/[0.04]"
           : "border-foreground/[0.06] bg-foreground/[0.02]",
       )}
     >
@@ -68,7 +68,7 @@ function BalanceCard({
         <p
           className={cn(
             "mt-2 text-2xl font-semibold tabular-nums",
-            cents < 0 ? "text-red-400" : "text-foreground",
+            cents < 0 ? "text-destructive" : "text-foreground",
           )}
         >
           {formatBRL(cents)}

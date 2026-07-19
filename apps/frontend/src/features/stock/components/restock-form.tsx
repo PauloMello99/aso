@@ -93,7 +93,7 @@ export function RestockForm({
                     <FormItem>
                       <FormLabel>
                         Quantidade a adicionar{" "}
-                        <span className="text-red-400">*</span>
+                        <span className="text-destructive">*</span>
                       </FormLabel>
                       <FormControl>
                         <Input

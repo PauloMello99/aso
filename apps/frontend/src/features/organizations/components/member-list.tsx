@@ -169,7 +169,7 @@ export function MemberList({
                       <span
                         className={
                           member.role === "owner"
-                            ? "inline-flex items-center rounded-md bg-orange-500/10 px-2 py-0.5 text-xs font-medium text-orange-400"
+                            ? "inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
                             : "inline-flex items-center rounded-md bg-foreground/5 px-2 py-0.5 text-xs font-medium text-foreground/50"
                         }
                       >
@@ -217,7 +217,7 @@ export function MemberList({
                 <span
                   className={
                     member.role === "owner"
-                      ? "shrink-0 rounded-md bg-orange-500/10 px-2 py-0.5 text-xs font-medium text-orange-400"
+                      ? "shrink-0 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
                       : "shrink-0 rounded-md bg-foreground/5 px-2 py-0.5 text-xs font-medium text-foreground/50"
                   }
                 >
@@ -268,7 +268,7 @@ export function MemberList({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="shrink-0 text-red-400 hover:text-red-300"
+                    className="shrink-0 text-destructive hover:text-destructive/80"
                     onClick={() => onCancelInvitation(inv.id)}
                   >
                     Cancelar
@@ -425,7 +425,7 @@ function MemberActions({
           {member.enabled ? "Desativar" : "Ativar"}
         </DropdownMenuItem>
         <DropdownMenuItem
-          className="text-red-400 focus:text-red-400"
+          className="text-destructive focus:text-destructive"
           onClick={onRemove}
         >
           <UserMinus className="mr-2 h-4 w-4" />

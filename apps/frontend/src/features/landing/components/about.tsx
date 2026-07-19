@@ -26,17 +26,17 @@ export function About() {
             <div className="mb-4">
               <Badge
                 variant="outline"
-                className="border-white/10 text-white/60"
+                className="border-foreground/10 text-foreground/60"
               >
                 Sobre o ASO
               </Badge>
             </div>
-            <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl">
+            <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl">
               Feito por quem
               <br />
-              <span className="text-orange-500">entende o ofício</span>
+              <span className="text-primary">entende o ofício</span>
             </h2>
-            <p className="mt-6 leading-relaxed text-white/50">
+            <p className="mt-6 leading-relaxed text-foreground/50">
               Construído com e para artistas. Sabemos que sua energia deve ir para
               o trabalho criativo, não para planilhas e anotações perdidas.
               O ASO cuida da gestão para você focar no que realmente importa.
@@ -45,10 +45,10 @@ export function About() {
             <ul className="mt-8 space-y-3">
               {BULLETS.map((bullet) => (
                 <li key={bullet} className="flex items-start gap-3">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-orange-500/15">
-                    <Check className="h-3 w-3 text-orange-400" />
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15">
+                    <Check className="h-3 w-3 text-primary" />
                   </span>
-                  <span className="text-sm text-white/60">{bullet}</span>
+                  <span className="text-sm text-foreground/60">{bullet}</span>
                 </li>
               ))}
             </ul>
@@ -58,12 +58,12 @@ export function About() {
             {STATS.map((stat) => (
               <div
                 key={stat.label}
-                className="rounded-xl border border-white/5 bg-white/[0.03] p-4 sm:p-6"
+                className="rounded-xl border border-foreground/5 bg-foreground/[0.03] p-4 sm:p-6"
               >
-                <p className="text-2xl font-bold text-orange-400 sm:text-4xl">
+                <p className="text-2xl font-bold text-primary sm:text-4xl">
                   {stat.value}
                 </p>
-                <p className="mt-1 text-sm text-white/50">{stat.label}</p>
+                <p className="mt-1 text-sm text-foreground/50">{stat.label}</p>
               </div>
             ))}
           </div>

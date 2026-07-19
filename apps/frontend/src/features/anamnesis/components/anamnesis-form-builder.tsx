@@ -233,7 +233,7 @@ export function AnamnesisFormBuilder({
           </p>
         )}
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {saved && <p className="text-sm text-emerald-400">Ficha salva.</p>}
+        {saved && <p className="text-sm text-success">Ficha salva.</p>}
 
         <div>
           <Button type="submit" disabled={saving}>

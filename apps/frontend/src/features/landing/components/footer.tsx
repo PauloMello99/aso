@@ -36,31 +36,31 @@ const SOCIAL_LINKS = [
 
 export function Footer() {
   return (
-    <footer className="border-t border-white/5 bg-[#0d0d0f]">
+    <footer className="border-t border-foreground/5 bg-background">
       <div className="mx-auto max-w-7xl px-4 pb-6 pt-12 sm:px-6 sm:pb-8 sm:pt-16">
         <div className="grid grid-cols-2 gap-8 sm:gap-12 md:grid-cols-5">
           <div className="col-span-2 md:col-span-2">
             <Link href="/">
-              <BrandWordmark className="text-xl font-bold tracking-tight text-white" />
+              <BrandWordmark className="text-xl font-bold tracking-tight text-foreground" />
             </Link>
-            <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/40">
+            <p className="mt-3 max-w-xs text-sm leading-relaxed text-foreground/40">
               Gestão completa para estúdios criativos. Agendamentos, clientes e
               financeiro em um só lugar.
             </p>
 
             <div className="mt-6">
-              <p className="mb-3 text-xs font-medium uppercase tracking-wider text-white/30">
+              <p className="mb-3 text-xs font-medium uppercase tracking-wider text-foreground/30">
                 Novidades por e-mail
               </p>
               <div className="flex gap-2">
                 <Input
                   type="email"
                   placeholder="seu@email.com"
-                  className="h-9 border-white/10 bg-white/5 text-sm text-white placeholder:text-white/30 focus-visible:ring-orange-500/50"
+                  className="h-9 border-foreground/10 bg-foreground/5 text-sm text-foreground placeholder:text-foreground/30 focus-visible:ring-ring/50"
                 />
                 <Button
                   size="sm"
-                  className="shrink-0 bg-orange-500 text-white hover:bg-orange-600"
+                  className="shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   Assinar
                 </Button>
@@ -70,7 +70,7 @@ export function Footer() {
 
           {Object.entries(FOOTER_LINKS).map(([section, links]) => (
             <div key={section}>
-              <p className="mb-4 text-xs font-medium uppercase tracking-wider text-white/30">
+              <p className="mb-4 text-xs font-medium uppercase tracking-wider text-foreground/30">
                 {section}
               </p>
               <ul className="space-y-2.5">
@@ -78,7 +78,7 @@ export function Footer() {
                   <li key={link.label}>
                     <Link
                       href={link.href}
-                      className="text-sm text-white/50 transition-colors hover:text-white"
+                      className="text-sm text-foreground/50 transition-colors hover:text-foreground"
                     >
                       {link.label}
                     </Link>
@@ -89,10 +89,10 @@ export function Footer() {
           ))}
         </div>
 
-        <Separator className="my-8 bg-white/5" />
+        <Separator className="my-8 bg-foreground/5" />
 
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-          <p className="text-xs text-white/30">
+          <p className="text-xs text-foreground/30">
             © {new Date().getFullYear()} ASO. Todos os direitos reservados.
           </p>
 
@@ -102,7 +102,7 @@ export function Footer() {
                 key={label}
                 href={href}
                 aria-label={label}
-                className="text-white/30 transition-colors hover:text-white"
+                className="text-foreground/30 transition-colors hover:text-foreground"
                 target="_blank"
                 rel="noopener noreferrer"
               >

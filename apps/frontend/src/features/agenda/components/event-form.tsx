@@ -241,7 +241,7 @@ export function EventForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Título <span className="text-red-400">*</span>
+                      Título <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input
@@ -440,7 +440,7 @@ export function EventForm({
                     <Button
                       type="button"
                       variant="ghost"
-                      className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive/80"
                       onClick={async () => {
                         if (!event) return
                         await onDelete(event.id)

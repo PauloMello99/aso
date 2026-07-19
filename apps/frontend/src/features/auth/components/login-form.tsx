@@ -130,7 +130,7 @@ export function LoginForm() {
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-orange-500 text-white hover:bg-orange-600"
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Entrar
@@ -139,7 +139,7 @@ export function LoginForm() {
               Não tem conta?{" "}
               <Link
                 href={signupHref}
-                className="text-orange-400 hover:text-orange-300"
+                className="text-primary hover:text-primary/80"
               >
                 Criar conta
               </Link>
