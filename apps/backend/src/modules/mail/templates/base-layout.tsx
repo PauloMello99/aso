@@ -14,9 +14,16 @@ import type { ReactNode } from "react";
 interface BaseLayoutProps {
   preview: string;
   children: ReactNode;
+  supportEmail?: string;
 }
 
-export function BaseLayout({ preview, children }: BaseLayoutProps) {
+const DEFAULT_SUPPORT_EMAIL = "suporte@inkops.app";
+
+export function BaseLayout({
+  preview,
+  children,
+  supportEmail = DEFAULT_SUPPORT_EMAIL,
+}: BaseLayoutProps) {
   return (
     <Html lang="pt-BR">
       <Head />
@@ -24,17 +31,17 @@ export function BaseLayout({ preview, children }: BaseLayoutProps) {
       <Body style={body}>
         <Container style={container}>
           <Section style={header}>
-            <Text style={brand}>Ink Ops</Text>
+            <Text style={brand}>ASO</Text>
           </Section>
           <Section style={card}>{children}</Section>
           <Hr style={hr} />
           <Section>
             <Text style={footer}>
-              Você recebeu este e-mail porque possui uma conta no Ink Ops.
+              Você recebeu este e-mail porque possui uma conta no ASO.
               <br />
               Precisa de ajuda? Fale com a gente em{" "}
-              <Link href="mailto:suporte@inkops.app" style={footerLink}>
-                suporte@inkops.app
+              <Link href={`mailto:${supportEmail}`} style={footerLink}>
+                {supportEmail}
               </Link>
               .
             </Text>

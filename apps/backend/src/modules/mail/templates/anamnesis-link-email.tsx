@@ -4,14 +4,19 @@ import { BaseLayout, sharedStyles } from "./base-layout";
 export interface AnamnesisLinkEmailProps {
   customerName: string;
   fillUrl: string;
+  supportEmail?: string;
 }
 
 export function AnamnesisLinkEmail({
   customerName,
   fillUrl,
+  supportEmail,
 }: AnamnesisLinkEmailProps) {
   return (
-    <BaseLayout preview="Preencha sua ficha de anamnese antes do atendimento">
+    <BaseLayout
+      preview="Preencha sua ficha de anamnese antes do atendimento"
+      supportEmail={supportEmail}
+    >
       <Heading style={sharedStyles.heading}>Olá, {customerName}!</Heading>
       <Text style={sharedStyles.paragraph}>
         Antes do seu atendimento, precisamos que você preencha a ficha de

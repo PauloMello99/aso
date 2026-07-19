@@ -4,6 +4,7 @@ import { Globe, AtSign, Link2 } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Separator } from "@/shared/components/ui/separator"
+import { BrandWordmark } from "@/shared/components/brand-wordmark"
 
 const FOOTER_LINKS = {
   Produto: [
@@ -39,8 +40,8 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 pb-6 pt-12 sm:px-6 sm:pb-8 sm:pt-16">
         <div className="grid grid-cols-2 gap-8 sm:gap-12 md:grid-cols-5">
           <div className="col-span-2 md:col-span-2">
-            <Link href="/" className="text-xl font-bold tracking-tight text-white">
-              ink<span className="text-orange-500">ops</span>
+            <Link href="/">
+              <BrandWordmark className="text-xl font-bold tracking-tight text-white" />
             </Link>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/40">
               Gestão completa para estúdios criativos. Agendamentos, clientes e
@@ -92,7 +93,7 @@ export function Footer() {
 
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
           <p className="text-xs text-white/30">
-            © {new Date().getFullYear()} ink-ops. Todos os direitos reservados.
+            © {new Date().getFullYear()} ASO. Todos os direitos reservados.
           </p>
 
           <div className="flex items-center gap-4">

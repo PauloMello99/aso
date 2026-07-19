@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/router"
 import { LayoutDashboard, Building2, Users, CreditCard, Shield, ArrowLeft, Loader2, ShieldCheck } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
+import { BrandWordmark } from "@/shared/components/brand-wordmark"
 import { useMe } from "@/features/auth/hooks/use-me"
 import { UserMenu } from "@/features/dashboard/components/user-menu"
 
@@ -54,9 +55,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-foreground/[0.06] bg-background/80 px-4 py-2.5 backdrop-blur sm:px-6">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-5 w-5 text-orange-400" />
-          <span className="text-sm font-semibold text-foreground">
-            inkops <span className="text-foreground/40">· Plataforma</span>
-          </span>
+          <BrandWordmark className="text-sm" suffix="Plataforma" />
         </div>
         <div className="flex items-center gap-1">
           <Link

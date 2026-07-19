@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { Menu, X } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
+import { BrandWordmark } from "@/shared/components/brand-wordmark"
 import { cn } from "@/shared/lib/utils"
 
 const NAV_LINKS = [
@@ -26,8 +27,8 @@ export function Nav() {
       )}
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="text-xl font-bold tracking-tight text-white">
-          ink<span className="text-orange-500">ops</span>
+        <Link href="/">
+          <BrandWordmark className="text-xl font-bold tracking-tight text-white" />
         </Link>
 
         <ul className="hidden items-center gap-6 md:flex">

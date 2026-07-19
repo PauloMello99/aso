@@ -4,15 +4,24 @@ import { BaseLayout, sharedStyles } from "./base-layout";
 export interface InviteEmailProps {
   orgName: string;
   acceptUrl: string;
+  supportEmail?: string;
 }
 
-export function InviteEmail({ orgName, acceptUrl }: InviteEmailProps) {
+export function InviteEmail({
+  orgName,
+  acceptUrl,
+  supportEmail,
+}: InviteEmailProps) {
   return (
-    <BaseLayout preview={`Convite para ${orgName} no Ink Ops`}>
+    <BaseLayout
+      preview={`Convite para ${orgName} no ASO`}
+      supportEmail={supportEmail}
+    >
       <Heading style={sharedStyles.heading}>Você foi convidado 🎉</Heading>
       <Text style={sharedStyles.paragraph}>
-        Você foi convidado para participar de <strong>{orgName}</strong> no Ink
-        Ops. Clique no botão abaixo para aceitar o convite e acessar o estúdio.
+        Você foi convidado para participar de <strong>{orgName}</strong> no
+        ASO. Clique no botão abaixo para aceitar o convite e acessar o
+        estúdio.
       </Text>
       <Section style={{ textAlign: "center", margin: "24px 0" }}>
         <Button href={acceptUrl} style={sharedStyles.button}>
