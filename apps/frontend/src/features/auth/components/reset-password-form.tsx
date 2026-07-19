@@ -45,8 +45,6 @@ export function ResetPasswordForm() {
   const type = searchParams.get("type")
 
   React.useEffect(() => {
-    console.log("Parsed > ", JSON.stringify({ access_token, refresh_token, type },null, 2))
-  
     if (!access_token || type !== "recovery") setTokenError(true)
     else setTokenError(false)
   }, [access_token, refresh_token, searchParams, type])
@@ -70,7 +68,7 @@ export function ResetPasswordForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6">
       <Card className="w-full max-w-sm border-foreground/5 bg-foreground/[0.03]">
         <CardHeader className="text-center">
           <div className="mb-2">

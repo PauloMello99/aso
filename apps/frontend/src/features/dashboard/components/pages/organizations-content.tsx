@@ -25,10 +25,10 @@ export function OrganizationsContent() {
     <div className="mx-auto max-w-3xl">
       <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-foreground sm:text-2xl">
+          <h1 className="text-xl font-semibold text-foreground">
             Organizações
           </h1>
-          <p className="mt-1 text-sm text-foreground/40">
+          <p className="mt-0.5 text-sm text-foreground/40">
             Selecione uma organização para continuar
           </p>
         </div>
