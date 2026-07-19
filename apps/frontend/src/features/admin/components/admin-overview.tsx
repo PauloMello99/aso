@@ -31,8 +31,8 @@ const COLORS = {
   users: "var(--chart-5)",
   active: "var(--chart-2)",
   suspended: "var(--destructive)",
-  axis: "rgba(255,255,255,0.4)",
-  grid: "rgba(255,255,255,0.06)",
+  axis: "color-mix(in oklch, var(--foreground) 40%, transparent)",
+  grid: "color-mix(in oklch, var(--foreground) 6%, transparent)",
 }
 
 function StatCard({
@@ -74,7 +74,7 @@ function ChartTooltip({
 }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-lg border border-foreground/10 bg-popover px-3 py-2 text-xs shadow-xl">
+    <div className="rounded-lg border border-foreground/10 bg-popover px-3 py-2 text-xs shadow-lg">
       {label && <p className="mb-1 font-medium text-foreground">{label}</p>}
       {payload.map((p, i) => (
         <p key={i} className="flex items-center gap-1.5 text-foreground/70">

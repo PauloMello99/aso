@@ -107,8 +107,8 @@ function AgendaInner() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Agenda</h1>
           <p className="mt-0.5 text-sm text-foreground/40">

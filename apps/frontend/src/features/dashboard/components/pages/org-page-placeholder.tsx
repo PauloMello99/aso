@@ -10,9 +10,9 @@ export function OrgPagePlaceholder({ title, description }: OrgPagePlaceholderPro
   return (
     <div className="flex flex-col">
       <div className="mb-6 sm:mb-8">
-        <h1 className="text-xl font-bold text-foreground sm:text-2xl">{title}</h1>
+        <h1 className="text-xl font-semibold text-foreground">{title}</h1>
         {description && (
-          <p className="mt-1 text-sm text-foreground/40">{description}</p>
+          <p className="mt-0.5 text-sm text-foreground/40">{description}</p>
         )}
       </div>
 

@@ -253,7 +253,7 @@ export function SubscriptionPage() {
     <div className="grid gap-8">
       <div>
         <h2 className="text-lg font-semibold">Assinatura</h2>
-        <p className="mt-0.5 text-sm text-foreground/50">
+        <p className="mt-0.5 text-sm text-foreground/40">
           Plano, histórico de cobrança e gerenciamento da assinatura desta
           organização.
         </p>

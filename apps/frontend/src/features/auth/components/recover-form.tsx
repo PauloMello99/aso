@@ -47,7 +47,7 @@ export function RecoverForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6">
       <Card className="w-full max-w-sm border-foreground/5 bg-foreground/[0.03]">
         <CardHeader className="text-center">
           <div className="mb-2">

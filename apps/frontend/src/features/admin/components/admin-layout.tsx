@@ -69,7 +69,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 md:flex-row md:gap-8">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 p-4 sm:p-6 md:flex-row md:gap-8">
         <nav className="flex gap-1 overflow-x-auto border-b border-foreground/[0.06] pb-3 md:w-48 md:flex-col md:border-b-0 md:pb-0">
           {NAV.map((item) => {
             const Icon = item.icon
