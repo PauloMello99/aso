@@ -279,10 +279,14 @@ export function StockPage({ orgId }: StockPageProps) {
           loading={loading}
         />
         <SummaryCard
-          icon={<AlertTriangle className="h-4 w-4 text-primary" />}
+          icon={
+            <AlertTriangle
+              className={`h-4 w-4 ${lowStockCount > 0 ? "text-warning" : "text-foreground/40"}`}
+            />
+          }
           label="Estoque baixo"
           value={String(lowStockCount)}
-          valueClass={lowStockCount > 0 ? "text-primary" : undefined}
+          valueClass={lowStockCount > 0 ? "text-warning" : undefined}
           loading={loading}
         />
       </div>

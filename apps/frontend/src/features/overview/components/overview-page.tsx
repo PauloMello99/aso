@@ -502,7 +502,9 @@ export function OverviewPage() {
     orgId,
     range,
   )
-  const { balance, loading: balanceLoading } = useBalance(orgId)
+  const { balance, loading: balanceLoading } = useBalance(orgId, {
+    enabled: isOwner,
+  })
 
   return (
     <div className="space-y-8">
