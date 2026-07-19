@@ -283,7 +283,7 @@ function AnamnesisResponseForm({
       <CardFooter>
         <Button
           type="submit"
-          className="w-full bg-orange-500 text-white hover:bg-orange-600"
+          className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
           disabled={submitting || !signatureValue}
         >
           {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

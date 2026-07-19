@@ -25,7 +25,7 @@ export function NotificationBell() {
         >
           <Bell className="h-4 w-4" />
           {unread > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-semibold text-white">
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
               {unread > 9 ? "9+" : unread}
             </span>
           )}
@@ -61,13 +61,13 @@ export function NotificationBell() {
                 }}
                 className={cn(
                   "flex w-full gap-2 px-3 py-2 text-left transition-colors hover:bg-foreground/[0.04]",
-                  !n.readAt && "bg-orange-500/[0.04]",
+                  !n.readAt && "bg-primary/[0.04]",
                 )}
               >
                 <span
                   className={cn(
                     "mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full",
-                    n.readAt ? "bg-transparent" : "bg-orange-400",
+                    n.readAt ? "bg-transparent" : "bg-primary",
                   )}
                 />
                 <span className="min-w-0 flex-1">

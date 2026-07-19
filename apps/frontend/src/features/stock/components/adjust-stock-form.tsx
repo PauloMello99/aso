@@ -127,7 +127,7 @@ export function AdjustStockForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Quantidade <span className="text-red-400">*</span>
+                        Quantidade <span className="text-destructive">*</span>
                       </FormLabel>
                       <FormControl>
                         <Input

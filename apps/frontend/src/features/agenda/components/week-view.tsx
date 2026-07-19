@@ -72,7 +72,7 @@ export function WeekView({
                 <div
                   className={cn(
                     "mx-auto mt-0.5 flex h-7 w-7 items-center justify-center rounded-full text-sm",
-                    isToday ? "bg-orange-500 font-semibold text-white" : "text-foreground/80",
+                    isToday ? "bg-primary font-semibold text-primary-foreground" : "text-foreground/80",
                   )}
                 >
                   {format(d, "d")}
@@ -104,7 +104,7 @@ export function WeekView({
                       "block w-full truncate rounded px-1.5 py-0.5 text-left text-[11px] leading-tight transition-colors",
                       ev.type === "unavailability"
                         ? "bg-foreground/[0.06] text-foreground/50 [background-image:repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(255,255,255,0.04)_5px,rgba(255,255,255,0.04)_10px)]"
-                        : "bg-orange-500/15 text-orange-200 hover:bg-orange-500/25",
+                        : "bg-primary/15 text-primary hover:bg-primary/25",
                       ev.status === "canceled" && "line-through opacity-40",
                     )}
                   >
@@ -168,7 +168,7 @@ export function WeekView({
                         "absolute left-1 right-1 overflow-hidden rounded-md border px-1.5 py-0.5 text-left text-[11px] leading-tight transition-colors",
                         isBusy
                           ? "border-foreground/10 bg-foreground/[0.06] text-foreground/50 [background-image:repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(255,255,255,0.04)_5px,rgba(255,255,255,0.04)_10px)]"
-                          : "border-orange-500/30 bg-orange-500/15 text-orange-200 hover:bg-orange-500/25",
+                          : "border-primary/30 bg-primary/15 text-primary hover:bg-primary/25",
                         ev.status === "canceled" && "line-through opacity-40",
                       )}
                     >

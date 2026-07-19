@@ -62,7 +62,7 @@ export function DayView({
                 "block w-full truncate rounded px-2 py-0.5 text-left text-xs transition-colors",
                 ev.type === "unavailability"
                   ? "bg-foreground/[0.06] text-foreground/50 [background-image:repeating-linear-gradient(45deg,transparent,transparent_6px,rgba(255,255,255,0.04)_6px,rgba(255,255,255,0.04)_12px)]"
-                  : "bg-orange-500/15 text-orange-200 hover:bg-orange-500/25",
+                  : "bg-primary/15 text-primary hover:bg-primary/25",
                 ev.status === "canceled" && "line-through opacity-40",
               )}
             >
@@ -115,7 +115,7 @@ export function DayView({
                   "absolute left-2 right-2 overflow-hidden rounded-md border px-2 py-1 text-left text-xs transition-colors",
                   isBusy
                     ? "border-foreground/10 bg-foreground/[0.06] text-foreground/50 [background-image:repeating-linear-gradient(45deg,transparent,transparent_6px,rgba(255,255,255,0.04)_6px,rgba(255,255,255,0.04)_12px)]"
-                    : "border-orange-500/30 bg-orange-500/15 text-orange-200 hover:bg-orange-500/25",
+                    : "border-primary/30 bg-primary/15 text-primary hover:bg-primary/25",
                   ev.status === "canceled" && "line-through opacity-40",
                 )}
               >

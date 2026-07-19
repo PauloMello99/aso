@@ -170,7 +170,7 @@ export function CustomerForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Nome <span className="text-red-400">*</span>
+                        Nome <span className="text-destructive">*</span>
                       </FormLabel>
                       <FormControl>
                         <Input
@@ -192,7 +192,7 @@ export function CustomerForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        E-mail <span className="text-red-400">*</span>
+                        E-mail <span className="text-destructive">*</span>
                       </FormLabel>
                       <FormControl>
                         <Input
@@ -207,7 +207,7 @@ export function CustomerForm({
                   )}
                 />
                 {submitError && (
-                  <p className="mt-1 text-sm text-red-400">{submitError}</p>
+                  <p className="mt-1 text-sm text-destructive">{submitError}</p>
                 )}
               </div>
 
@@ -270,7 +270,7 @@ export function CustomerForm({
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
                         <FormLabel>
-                          Nascimento <span className="text-red-400">*</span>
+                          Nascimento <span className="text-destructive">*</span>
                         </FormLabel>
                         <FormControl>
                           <DatePicker
@@ -320,7 +320,7 @@ export function CustomerForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Logradouro <span className="text-red-400">*</span>
+                      Logradouro <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input
@@ -341,7 +341,7 @@ export function CustomerForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Número <span className="text-red-400">*</span>
+                        Número <span className="text-destructive">*</span>
                       </FormLabel>
                       <FormControl>
                         <Input
@@ -380,7 +380,7 @@ export function CustomerForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Cidade <span className="text-red-400">*</span>
+                        Cidade <span className="text-destructive">*</span>
                       </FormLabel>
                       <FormControl>
                         <Input
@@ -400,7 +400,7 @@ export function CustomerForm({
                     <FormItem>
                       <FormLabel>
                         Estado / Província{" "}
-                        <span className="text-red-400">*</span>
+                        <span className="text-destructive">*</span>
                       </FormLabel>
                       <FormControl>
                         <Input

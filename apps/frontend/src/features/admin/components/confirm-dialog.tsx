@@ -48,7 +48,7 @@ export function ConfirmDialog({
         {error && (
           <p
             role="alert"
-            className="rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-400"
+            className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive"
           >
             {error}
           </p>

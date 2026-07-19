@@ -111,7 +111,7 @@ export function OrgLayout({ children }: OrgLayoutProps) {
     <OrgProvider org={org} actingAsAdmin={actingAsAdmin}>
       <div className="flex h-screen flex-col overflow-hidden bg-background">
         {actingAsAdmin ? (
-          <div className="flex shrink-0 items-center justify-center gap-2 bg-orange-500/15 px-4 py-1.5 text-center text-xs text-orange-300 sm:text-sm">
+          <div className="flex shrink-0 items-center justify-center gap-2 bg-primary/15 px-4 py-1.5 text-center text-xs text-primary/80 sm:text-sm">
             <ShieldAlert className="h-4 w-4 shrink-0" />
             <span>
               Você está gerenciando{" "}
@@ -120,7 +120,7 @@ export function OrgLayout({ children }: OrgLayoutProps) {
             </span>
             <Link
               href={`/admin/orgs/${org.id}`}
-              className="shrink-0 font-medium underline underline-offset-2 hover:text-orange-200"
+              className="shrink-0 font-medium underline underline-offset-2 hover:text-primary/90"
             >
               Voltar ao painel
             </Link>

@@ -27,10 +27,10 @@ import { fmtMonth } from "../lib/format"
 import { usePrefersReducedMotion } from "../lib/use-prefers-reduced-motion"
 
 const COLORS = {
-  orgs: "#fb923c",
-  users: "#60a5fa",
-  active: "#22c55e",
-  suspended: "#ef4444",
+  orgs: "var(--chart-1)",
+  users: "var(--chart-5)",
+  active: "var(--chart-2)",
+  suspended: "var(--destructive)",
   axis: "rgba(255,255,255,0.4)",
   grid: "rgba(255,255,255,0.06)",
 }
@@ -49,7 +49,7 @@ function StatCard({
   return (
     <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4">
       <div className="flex items-center gap-1.5 text-xs text-foreground/50">
-        <Icon className="h-3.5 w-3.5 text-orange-400" />
+        <Icon className="h-3.5 w-3.5 text-primary" />
         {label}
       </div>
       {loading ? (
@@ -120,7 +120,7 @@ export function AdminOverview() {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
           {error}
         </div>
       )}
@@ -136,7 +136,7 @@ export function AdminOverview() {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4 lg:col-span-2">
           <div className="mb-3 flex items-center gap-1.5 text-sm font-medium text-foreground">
-            <TrendingUp className="h-4 w-4 text-orange-400" />
+            <TrendingUp className="h-4 w-4 text-primary" />
             Crescimento · novos por mês (12 meses)
           </div>
           {growthLoading ? (
@@ -174,7 +174,7 @@ export function AdminOverview() {
 
         <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4">
           <div className="mb-3 flex items-center gap-1.5 text-sm font-medium text-foreground">
-            <Building2 className="h-4 w-4 text-orange-400" />
+            <Building2 className="h-4 w-4 text-primary" />
             Organizações por status
           </div>
           {loading ? (

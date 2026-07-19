@@ -77,7 +77,7 @@ export function InviteMemberForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        E-mail <span className="text-red-400">*</span>
+                        E-mail <span className="text-destructive">*</span>
                       </FormLabel>
                       <FormControl>
                         <Input

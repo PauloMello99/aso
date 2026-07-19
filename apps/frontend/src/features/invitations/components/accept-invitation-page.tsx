@@ -163,7 +163,7 @@ export function AcceptInvitationPage() {
           </p>
         )}
         {emailMismatch ? (
-          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
+          <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
             Este convite é para <strong>{invite.email}</strong>, mas você está
             logado como <strong>{user.email}</strong>. Entre com a conta correta
             para aceitar.
@@ -178,7 +178,7 @@ export function AcceptInvitationPage() {
       <CardFooter className="flex flex-col gap-2">
         {emailMismatch ? (
           <Button
-            className="w-full bg-orange-500 text-white hover:bg-orange-600"
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => void handleSwitchAccount()}
           >
             Trocar de conta
@@ -186,7 +186,7 @@ export function AcceptInvitationPage() {
         ) : (
           <>
             <Button
-              className="w-full bg-orange-500 text-white hover:bg-orange-600"
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
               disabled={accepting || declining}
               onClick={() => void handleAccept()}
             >

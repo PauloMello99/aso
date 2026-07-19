@@ -109,7 +109,7 @@ export function AdminUsers() {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
           {error}
         </div>
       )}
@@ -169,7 +169,7 @@ export function AdminUsers() {
                   </TableCell>
                   <TableCell>
                     {isSuper ? (
-                      <Badge className="bg-orange-500/15 text-orange-400">
+                      <Badge className="bg-primary/15 text-primary">
                         super_admin
                       </Badge>
                     ) : (
@@ -193,7 +193,7 @@ export function AdminUsers() {
                         setActionError(null)
                         setTarget(u)
                       }}
-                      className={isSuper ? "text-foreground/60" : "text-orange-400 hover:text-orange-300"}
+                      className={isSuper ? "text-foreground/60" : "text-primary hover:text-primary/80"}
                     >
                       {isSuper ? (
                         <>

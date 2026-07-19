@@ -9,8 +9,8 @@ import {
 } from "../hooks/use-calendar-connection"
 
 const PROVIDERS: { key: CalendarProvider; name: string; color: string }[] = [
-  { key: "google", name: "Google Calendar", color: "text-sky-300" },
-  { key: "outlook", name: "Outlook Calendar", color: "text-blue-300" },
+  { key: "google", name: "Google Calendar", color: "text-info" },
+  { key: "outlook", name: "Outlook Calendar", color: "text-info" },
   { key: "apple", name: "Apple Calendar", color: "text-foreground/70" },
 ]
 
@@ -49,7 +49,7 @@ export function ExternalCalendarsSection({ orgId, isOwner }: Props) {
   return (
     <section className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-5">
       <div className="flex items-center gap-2">
-        <CalendarClock className="h-4 w-4 text-orange-400" />
+        <CalendarClock className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-medium">Calendários externos</h3>
         {!enabled && (
           <span className="rounded-full bg-foreground/[0.06] px-2 py-0.5 text-[10px] uppercase tracking-wide text-foreground/40">
@@ -69,9 +69,9 @@ export function ExternalCalendarsSection({ orgId, isOwner }: Props) {
           Carregando…
         </div>
       ) : connection ? (
-        <div className="mt-4 flex items-center justify-between rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-2.5">
+        <div className="mt-4 flex items-center justify-between rounded-lg border border-success/20 bg-success/[0.06] px-3 py-2.5">
           <div className="flex items-center gap-2 text-sm">
-            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <CheckCircle2 className="h-4 w-4 text-success" />
             <span className="text-foreground">
               {PROVIDER_NAME[connection.provider]}
             </span>
@@ -87,7 +87,7 @@ export function ExternalCalendarsSection({ orgId, isOwner }: Props) {
               size="sm"
               disabled={busy}
               onClick={() => void handleDisconnect()}
-              className="text-red-400 hover:text-red-300"
+              className="text-destructive hover:text-destructive/80"
             >
               <Link2Off className="h-4 w-4" />
               Desconectar

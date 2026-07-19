@@ -58,8 +58,8 @@ function fmtTime(iso: string): string {
 }
 
 const STATUS_VARIANT: Record<ServiceStatus, string> = {
-  paid: "bg-emerald-500/15 text-emerald-400",
-  pending: "bg-amber-500/15 text-amber-300",
+  paid: "bg-success/15 text-success",
+  pending: "bg-warning/15 text-warning",
   canceled: "bg-foreground/[0.06] text-foreground/40 line-through",
 }
 
@@ -85,7 +85,7 @@ function SectionCard({
     >
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Icon className="h-4 w-4 text-orange-400" />
+          <Icon className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         </div>
         {href && (
@@ -118,7 +118,7 @@ function EmptyState({
       {action && (
         <Link
           href={action.href}
-          className="text-sm font-medium text-orange-400 transition-colors hover:text-orange-300"
+          className="text-sm font-medium text-primary transition-colors hover:text-primary/80"
         >
           {action.label}
         </Link>
@@ -251,8 +251,8 @@ function RecentTransactionsSection({
                   className={cn(
                     "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
                     isIncome
-                      ? "bg-emerald-500/15 text-emerald-400"
-                      : "bg-red-500/15 text-red-400",
+                      ? "bg-success/15 text-success"
+                      : "bg-destructive/15 text-destructive",
                   )}
                 >
                   {isIncome ? (
@@ -271,7 +271,7 @@ function RecentTransactionsSection({
                 <span
                   className={cn(
                     "shrink-0 font-medium",
-                    isIncome ? "text-emerald-400" : "text-red-400",
+                    isIncome ? "text-success" : "text-destructive",
                   )}
                 >
                   {isIncome ? "+" : "-"}
@@ -352,7 +352,7 @@ function LowStockSection({
                   </div>
                   <Badge
                     variant="destructive"
-                    className="shrink-0 bg-red-500/15 text-red-400"
+                    className="shrink-0 bg-destructive/15 text-destructive"
                   >
                     Baixo
                   </Badge>
@@ -453,7 +453,7 @@ function RecentCustomersSection({
         <Rows>
           {customers.map((c) => (
             <li key={c.id} className="flex items-center gap-3 py-2.5 text-sm">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500/15 text-xs font-medium text-orange-400">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-medium text-primary">
                 {c.name.charAt(0).toUpperCase()}
               </span>
               <div className="min-w-0 flex-1">

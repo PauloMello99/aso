@@ -25,8 +25,8 @@ import type {
   ServiceGroupRow,
 } from "../hooks/use-overview-analytics"
 
-const INCOME = "#10b981"
-const EXPENSE = "#ef4444"
+const INCOME = "var(--success)"
+const EXPENSE = "var(--destructive)"
 const SLICE_COLORS = [
   "var(--chart-2)",
   "var(--chart-1)",
@@ -68,7 +68,7 @@ export function ChartCard({
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-medium text-foreground">{title}</h3>
         {badge && (
-          <span className="rounded-full bg-orange-500/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-orange-400">
+          <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">
             {badge}
           </span>
         )}

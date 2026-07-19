@@ -67,7 +67,7 @@ export function AttachmentsSection({ orgId, customerId }: AttachmentsSectionProp
         </Button>
       </div>
 
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
 
       {loading ? (
         <p className="text-xs text-foreground/30">Carregando…</p>
@@ -94,7 +94,7 @@ export function AttachmentsSection({ orgId, customerId }: AttachmentsSectionProp
               <button
                 type="button"
                 onClick={() => deleteAttachment(a.id)}
-                className="shrink-0 text-foreground/30 hover:text-red-400"
+                className="shrink-0 text-foreground/30 hover:text-destructive"
                 title="Remover"
               >
                 <Trash2 className="h-3.5 w-3.5" />

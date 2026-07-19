@@ -153,7 +153,7 @@ export function CorrectionSheet({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Descrição <span className="text-red-400">*</span>
+                      Descrição <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input autoComplete="off" {...field} />
@@ -169,7 +169,7 @@ export function CorrectionSheet({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Valor <span className="text-red-400">*</span>
+                      Valor <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <div className="relative">

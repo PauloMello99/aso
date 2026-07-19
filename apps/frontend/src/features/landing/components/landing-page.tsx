@@ -9,7 +9,7 @@ import { Footer } from "./footer"
 
 export function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#0d0d0f] text-white antialiased">
+    <div className="dark min-h-screen bg-background text-foreground antialiased">
       <Nav />
       <main>
         <Hero />

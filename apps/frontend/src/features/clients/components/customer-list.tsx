@@ -44,7 +44,7 @@ export function StatusBadge({ enabled }: { enabled: boolean }) {
       className={cn(
         "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
         enabled
-          ? "bg-emerald-500/10 text-emerald-400"
+          ? "bg-success/10 text-success"
           : "bg-foreground/[0.06] text-foreground/40",
       )}
     >

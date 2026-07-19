@@ -151,7 +151,7 @@ export function ProfileSection() {
                 className="h-16 w-16 rounded-full object-cover"
               />
             ) : (
-              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-orange-500/20 text-xl font-semibold text-orange-400">
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/20 text-xl font-semibold text-primary">
                 {(me?.name ?? "?").charAt(0).toUpperCase()}
               </span>
             )}
@@ -178,7 +178,7 @@ export function ProfileSection() {
                 {avatarUploading ? "Enviando…" : "Enviar foto"}
               </Button>
               {avatarError ? (
-                <span className="text-xs text-red-400">{avatarError}</span>
+                <span className="text-xs text-destructive">{avatarError}</span>
               ) : (
                 <span className="text-xs text-foreground/30">
                   PNG, JPG, WEBP ou GIF · até 5 MB.
@@ -195,7 +195,7 @@ export function ProfileSection() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Nome <span className="text-red-400">*</span>
+                      Nome <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input autoComplete="name" {...field} />
@@ -210,7 +210,7 @@ export function ProfileSection() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      E-mail <span className="text-red-400">*</span>
+                      E-mail <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input type="email" autoComplete="email" {...field} />
@@ -223,9 +223,9 @@ export function ProfileSection() {
                   </FormItem>
                 )}
               />
-              {error && <p className="text-sm text-red-400">{error}</p>}
+              {error && <p className="text-sm text-destructive">{error}</p>}
               {saved && (
-                <p className="text-sm text-emerald-400">Perfil atualizado.</p>
+                <p className="text-sm text-success">Perfil atualizado.</p>
               )}
               <div>
                 <Button type="submit" disabled={form.formState.isSubmitting}>
@@ -294,12 +294,12 @@ export function AccessSection() {
       />
       <section className="max-w-lg rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-5">
         <div className="flex items-center gap-2">
-          <KeyRound className="h-4 w-4 text-orange-400" />
+          <KeyRound className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-medium">Alterar senha</h3>
         </div>
         {sent ? (
-          <div className="mt-4 flex items-start gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4">
-            <MailCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
+          <div className="mt-4 flex items-start gap-3 rounded-lg border border-success/20 bg-success/5 p-4">
+            <MailCheck className="mt-0.5 h-5 w-5 shrink-0 text-success" />
             <div className="text-sm text-foreground/70">
               Enviamos um link para <strong>{user?.email}</strong>. Abra-o para
               definir uma nova senha — a sessão é recuperada com segurança pelo
@@ -313,7 +313,7 @@ export function AccessSection() {
               e-mail. Ao clicar no link, você abre a tela de nova senha com a
               sessão recuperada automaticamente.
             </p>
-            {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+            {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
             <div className="mt-4">
               <Button onClick={handleRequest} disabled={loading || !user?.email}>
                 {loading && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -347,7 +347,7 @@ export function AppearanceSection() {
       />
       <section className="max-w-lg rounded-xl border border-border bg-foreground/[0.02] p-5">
         <div className="flex items-center gap-2">
-          <Palette className="h-4 w-4 text-orange-400" />
+          <Palette className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-medium">Tema</h3>
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -372,7 +372,7 @@ export function AppearanceSection() {
                 <Icon
                   className={cn(
                     "h-5 w-5",
-                    active ? "text-orange-400" : "text-muted-foreground",
+                    active ? "text-primary" : "text-muted-foreground",
                   )}
                 />
                 {label}
@@ -423,9 +423,9 @@ export function DangerSection() {
         title="Zona de perigo"
         description="Ações irreversíveis na sua conta."
       />
-      <section className="rounded-lg border border-red-500/20 p-4 sm:p-6">
+      <section className="rounded-lg border border-destructive/20 p-4 sm:p-6">
         <div className="mb-4">
-          <h3 className="font-semibold text-red-400">Apagar conta</h3>
+          <h3 className="font-semibold text-destructive">Apagar conta</h3>
           <p className="mt-1 text-sm text-foreground/50">
             A exclusão permanente da conta removerá todos os seus dados
             pessoais. Esta ação é irreversível.
@@ -462,7 +462,7 @@ export function DangerSection() {
                   <DialogTitle>Excluir minha conta</DialogTitle>
                   <DialogDescription>
                     Esta ação é{" "}
-                    <span className="font-semibold text-red-400">irreversível</span>.
+                    <span className="font-semibold text-destructive">irreversível</span>.
                     Seus dados pessoais serão permanentemente removidos. Se você
                     ainda for proprietário de alguma organização, a exclusão será
                     bloqueada.
@@ -482,7 +482,7 @@ export function DangerSection() {
                     placeholder={email}
                     autoComplete="off"
                   />
-                  {error && <p className="text-sm text-red-400">{error}</p>}
+                  {error && <p className="text-sm text-destructive">{error}</p>}
                 </div>
 
                 <DialogFooter>

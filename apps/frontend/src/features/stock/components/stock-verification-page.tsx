@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { ClipboardCheck, History, Loader2 } from "lucide-react"
+import { cn } from "@/shared/lib/utils"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
@@ -91,7 +92,7 @@ export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
             Salvar
           </Button>
         </div>
-        {savedInterval && <p className="text-xs text-emerald-400">Salvo.</p>}
+        {savedInterval && <p className="text-xs text-success">Salvo.</p>}
         {settings.lastVerificationAt && (
           <p className="text-xs text-foreground/40">
             Última conferência:{" "}
@@ -127,7 +128,7 @@ export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
                   {v.itemCount} itens ·{" "}
                   <span
                     className={
-                      v.discrepancyCount > 0 ? "text-orange-400" : "text-foreground/40"
+                      v.discrepancyCount > 0 ? "text-primary" : "text-foreground/40"
                     }
                   >
                     {v.discrepancyCount} divergência(s)
@@ -174,9 +175,10 @@ export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
                     />
                     {diff !== 0 && (
                       <span
-                        className={`shrink-0 text-xs ${
-                          diff > 0 ? "text-emerald-400" : "text-red-400"
-                        }`}
+                        className={cn(
+                          "shrink-0 text-xs",
+                          diff > 0 ? "text-success" : "text-destructive",
+                        )}
                       >
                         {diff > 0 ? "+" : ""}
                         {diff.toFixed(2)}

@@ -40,7 +40,7 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
 
   if (notFound || !org) {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-400">
+      <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
         <AlertCircle className="h-4 w-4 shrink-0" />
         Organização não encontrada.
       </div>
@@ -153,9 +153,9 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
 
       {isOwner && (
         <section>
-          <div className="rounded-lg border border-red-500/20 p-4 sm:p-6">
+          <div className="rounded-lg border border-destructive/20 p-4 sm:p-6">
             <div className="mb-4">
-              <h3 className="font-semibold text-red-400">Zona de perigo</h3>
+              <h3 className="font-semibold text-destructive">Zona de perigo</h3>
               <p className="mt-1 text-sm text-foreground/50">Ações irreversíveis. Prossiga com cautela.</p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

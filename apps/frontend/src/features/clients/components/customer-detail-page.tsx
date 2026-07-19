@@ -134,7 +134,7 @@ export function CustomerDetailPage({
     return (
       <div className="space-y-4">
         <BackLink orgSlug={orgSlug} />
-        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
           Cliente não encontrado.
         </div>
       </div>
@@ -240,7 +240,7 @@ export function CustomerDetailPage({
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-foreground">Serviços</h2>
         {servicesError ? (
-          <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+          <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
             {servicesError}
           </div>
         ) : servicesLoading ? (
@@ -253,7 +253,7 @@ export function CustomerDetailPage({
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-foreground">Transações</h2>
         {transactionsError ? (
-          <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+          <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
             {transactionsError}
           </div>
         ) : transactionsLoading ? (

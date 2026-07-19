@@ -37,9 +37,9 @@ function TransactionCard({ view }: { view: TransactionView }) {
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           {isIncome ? (
-            <ArrowDownLeft className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+            <ArrowDownLeft className="h-3.5 w-3.5 shrink-0 text-success" />
           ) : (
-            <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-red-400" />
+            <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-destructive" />
           )}
           <span
             className={cn(
@@ -103,9 +103,9 @@ export function CustomerTransactionHistoryList({
                   <TableCell className="pl-4">
                     <div className="flex items-center gap-2">
                       {t.type === "income" ? (
-                        <ArrowDownLeft className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                        <ArrowDownLeft className="h-3.5 w-3.5 shrink-0 text-success" />
                       ) : (
-                        <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-red-400" />
+                        <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-destructive" />
                       )}
                       <span
                         className={cn(

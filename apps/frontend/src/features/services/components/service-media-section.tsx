@@ -97,7 +97,7 @@ export function ServiceMediaSection({
         )}
       </div>
 
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
 
       {loading ? (
         <p className="text-xs text-foreground/30">Carregando…</p>
@@ -124,7 +124,7 @@ export function ServiceMediaSection({
                 disabled={deletingId === m.id}
                 title="Remover"
                 className={cn(
-                  "absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white/80 hover:text-red-400",
+                  "absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white/80 hover:text-destructive",
                   "opacity-100 sm:opacity-0 sm:group-hover:opacity-100",
                 )}
               >

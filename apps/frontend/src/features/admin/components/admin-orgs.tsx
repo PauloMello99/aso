@@ -110,7 +110,7 @@ export function AdminOrgs() {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
           {error}
         </div>
       )}
@@ -167,7 +167,7 @@ export function AdminOrgs() {
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-foreground">{o.name}</span>
                       {suspended && (
-                        <Badge variant="destructive" className="bg-red-500/15 text-red-400">
+                        <Badge variant="destructive" className="bg-destructive/15 text-destructive">
                           Suspensa
                         </Badge>
                       )}
@@ -192,7 +192,7 @@ export function AdminOrgs() {
                         setActionError(null)
                         setTarget(o)
                       }}
-                      className={suspended ? "" : "text-red-400 hover:text-red-300"}
+                      className={suspended ? "" : "text-destructive hover:text-destructive/80"}
                     >
                       {suspended ? (
                         <>
