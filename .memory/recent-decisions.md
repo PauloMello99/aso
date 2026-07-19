@@ -19,6 +19,7 @@
 | ADR-0013 | super_admin age como owner de qualquer org (bypass no miss-path; banner; audit→PLAT-3) | 2026-06-29 | Aceito |
 | ADR-0015 | RAG: bge-m3 híbrido (dense+BM25+RRF), parent-document, código TS, Qdrant compartilhado com larmony | 2026-07-15 | Aceito |
 | ADR-0016 | Billing Stripe (M11): trial via Checkout com cartão, comp local, desconto via Coupon API, tier único `standard` paid-only, `ActiveSubscriptionGuard` por-controller | 2026-07-18 | Aceito |
+| ADR-0017 | Rebrand ASO: identidade visual teal (paleta larmony), Inter, tokens semânticos success/warning/info, telas padronizadas | 2026-07-19 | Aceito |
 
 ## Decisões/registros recentes (sem ADR)
 
