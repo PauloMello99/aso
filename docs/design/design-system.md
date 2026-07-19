@@ -49,13 +49,18 @@ papel das cores semânticas abaixo).
 
 | Token | Light | Dark | Significado |
 |---|---|---|---|
-| `--success` (+`-subtle`) | `oklch(0.596 0.145 163.225)` emerald-600 | `oklch(0.765 0.177 163.223)` emerald-400 | Entradas, "Pago", dinheiro |
-| `--warning` (+`-subtle`) | `oklch(0.666 0.179 58.318)` amber-600 | `oklch(0.828 0.189 84.429)` amber-400 | Pendente, estoque baixo |
-| `--info` (+`-subtle`) | `oklch(0.588 0.158 241.966)` sky-600 | `oklch(0.746 0.16 232.661)` sky-400 | Banco/digital, confirmado |
-| `--destructive` (+`-subtle`) | `oklch(0.637 0.237 25.331)` red-500 | `oklch(0.704 0.191 22.216)` red-400 | Saídas, excluir, crítico |
+| `--success` (+`-subtle`) | `oklch(0.508 0.118 165.612)` emerald-700 | `oklch(0.765 0.177 163.223)` emerald-400 | Entradas, "Pago", dinheiro |
+| `--warning` (+`-subtle`) | `oklch(0.555 0.163 48.998)` amber-700 | `oklch(0.828 0.189 84.429)` amber-400 | Pendente, estoque baixo |
+| `--info` (+`-subtle`) | `oklch(0.5 0.134 242.749)` sky-700 | `oklch(0.746 0.16 232.661)` sky-400 | Banco/digital, confirmado |
+| `--destructive` (+`-subtle`) | `oklch(0.577 0.245 27.325)` red-600 | `oklch(0.704 0.191 22.216)` red-400 | Saídas, excluir, crítico |
 
 `-subtle` = 12% (light) / 15% (dark) de opacidade, para fundo de pill. Nunca reaproveitar
 `--primary` nesses contextos, mesmo que visualmente "combine".
+
+> Nota: valores do light originalmente usavam o step 600 (500 no destructive), mas
+> reprovavam AA (4.5:1) tanto sobre branco quanto sobre o `-subtle` tint de 12%. Passaram
+> para o step 700 (600 no destructive, que já cumpria AA) para atender a regra AA do
+> próprio DS.
 
 ### Hairlines e superfícies
 
