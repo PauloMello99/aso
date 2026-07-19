@@ -25,9 +25,16 @@ export function NotificationBell() {
         >
           <Bell className="h-4 w-4" />
           {unread > 0 && (
-            <span className="absolute right-[7px] top-[6px] h-1.5 w-1.5 rounded-full bg-primary" />
+            <span
+              aria-hidden="true"
+              className="absolute right-[7px] top-[6px] h-1.5 w-1.5 rounded-full bg-primary"
+            />
           )}
-          <span className="sr-only">Notificações</span>
+          <span className="sr-only">
+            {unread > 0
+              ? `Notificações, ${unread} não ${unread === 1 ? "lida" : "lidas"}`
+              : "Notificações"}
+          </span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80 p-0">
