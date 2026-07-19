@@ -104,7 +104,7 @@ export function WeekView({
                       "block w-full truncate rounded px-1.5 py-0.5 text-left text-[11px] leading-tight transition-colors",
                       ev.type === "unavailability"
                         ? "bg-foreground/[0.06] text-foreground/50 [background-image:repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(255,255,255,0.04)_5px,rgba(255,255,255,0.04)_10px)]"
-                        : "bg-primary/15 text-primary hover:bg-primary/25",
+                        : "bg-primary-subtle text-primary-text hover:bg-primary/15",
                       ev.status === "canceled" && "line-through opacity-40",
                     )}
                   >
@@ -165,10 +165,10 @@ export function WeekView({
                       }}
                       style={{ top, height }}
                       className={cn(
-                        "absolute left-1 right-1 overflow-hidden rounded-md border px-1.5 py-0.5 text-left text-[11px] leading-tight transition-colors",
+                        "absolute left-1 right-1 overflow-hidden rounded-md px-1.5 py-0.5 text-left text-[11px] leading-tight transition-colors",
                         isBusy
-                          ? "border-foreground/10 bg-foreground/[0.06] text-foreground/50 [background-image:repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(255,255,255,0.04)_5px,rgba(255,255,255,0.04)_10px)]"
-                          : "border-primary/30 bg-primary/15 text-primary hover:bg-primary/25",
+                          ? "border border-foreground/10 bg-foreground/[0.06] text-foreground/50 [background-image:repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(255,255,255,0.04)_5px,rgba(255,255,255,0.04)_10px)]"
+                          : "border-l-2 border-l-primary bg-primary-subtle text-primary-text hover:bg-primary/15",
                         ev.status === "canceled" && "line-through opacity-40",
                       )}
                     >

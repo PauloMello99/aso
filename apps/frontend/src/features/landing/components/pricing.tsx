@@ -138,7 +138,7 @@ export function Pricing() {
                 {plan.features.map((feature) => (
                   <li key={feature.label} className="flex items-center gap-3">
                     {feature.included ? (
-                      <Check className="h-4 w-4 shrink-0 text-success" />
+                      <Check className="h-4 w-4 shrink-0 text-primary-text" />
                     ) : (
                       <X className="h-4 w-4 shrink-0 text-foreground/20" />
                     )}

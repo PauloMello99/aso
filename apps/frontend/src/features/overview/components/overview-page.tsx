@@ -20,6 +20,7 @@ import { SectionCard } from "@/shared/components/section-card"
 import { useCurrentOrg } from "@/features/dashboard"
 import { canAccessModule } from "@/features/dashboard/lib/nav"
 import { useBalance } from "@/features/cashier/hooks/use-balance"
+import { BalanceCards } from "@/features/cashier/components/balance-cards"
 import { useOverview } from "../hooks/use-overview"
 import { useOverviewAnalytics } from "../hooks/use-overview-analytics"
 import {
@@ -501,6 +502,7 @@ export function OverviewPage() {
     orgId,
     range,
   )
+  const { balance, loading: balanceLoading } = useBalance(orgId)
 
   return (
     <div className="space-y-8">
@@ -512,6 +514,8 @@ export function OverviewPage() {
             : "Resumo dos seus atendimentos e agenda."}
         </p>
       </div>
+
+      {isOwner && <BalanceCards balance={balance} loading={balanceLoading} />}
 
       <section className="space-y-3">
         <BandLabel>Operações</BandLabel>

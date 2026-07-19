@@ -293,6 +293,18 @@ export function StockPage({ orgId }: StockPageProps) {
         </div>
       )}
 
+      {!loading && lowStockCount > 0 && (
+        <div className="flex items-center gap-2 rounded-lg border border-warning/25 bg-warning-subtle px-4 py-3 text-sm text-warning">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>
+            <strong className="font-semibold">
+              {lowStockCount} {lowStockCount === 1 ? "material" : "materiais"}
+            </strong>{" "}
+            abaixo do estoque mínimo.
+          </span>
+        </div>
+      )}
+
       {loading && materials.length === 0 ? (
         <div className="flex items-center justify-center py-16 text-foreground/30">
           <RefreshCw className="mr-2 h-4 w-4 animate-spin" />

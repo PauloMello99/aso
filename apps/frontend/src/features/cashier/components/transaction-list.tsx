@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -28,11 +29,13 @@ import { formatBRL } from "../lib/money"
 import {
   PAYMENT_METHOD_LABELS,
   type Transaction,
+  type TransactionCategory,
   type TransactionView,
 } from "../types"
 
 interface TransactionListProps {
   transactions: TransactionView[]
+  categories?: TransactionCategory[]
   onReverse: (t: Transaction) => void
   onCorrect: (t: Transaction) => void
   canManage?: boolean
@@ -170,10 +173,16 @@ function MobileCard({
 
 export function TransactionList({
   transactions,
+  categories = [],
   onReverse,
   onCorrect,
   canManage = false,
 }: TransactionListProps) {
+  const categoryName = React.useMemo(() => {
+    const map = new Map(categories.map((c) => [c.id, c.name]))
+    return (id: string | null) => (id ? (map.get(id) ?? null) : null)
+  }, [categories])
+
   if (transactions.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-foreground/[0.08] py-16 text-center">
@@ -205,6 +214,7 @@ export function TransactionList({
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className="pl-4">Descrição</TableHead>
+              <TableHead>Categoria</TableHead>
               <TableHead>Método</TableHead>
               <TableHead>Data</TableHead>
               <TableHead className="text-right">Valor</TableHead>
@@ -234,6 +244,15 @@ export function TransactionList({
                       </span>
                       <StatusBadge view={v} />
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {categoryName(t.categoryId) ? (
+                      <Badge variant="secondary">
+                        {categoryName(t.categoryId)}
+                      </Badge>
+                    ) : (
+                      <span className="text-foreground/20">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-foreground/50">
                     {PAYMENT_METHOD_LABELS[t.paymentMethod]}

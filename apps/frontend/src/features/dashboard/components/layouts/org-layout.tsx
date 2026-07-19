@@ -109,43 +109,43 @@ export function OrgLayout({ children }: OrgLayoutProps) {
 
   return (
     <OrgProvider org={org} actingAsAdmin={actingAsAdmin}>
-      <div className="flex h-screen flex-col overflow-hidden bg-background">
-        {actingAsAdmin ? (
-          <div className="flex shrink-0 items-center justify-center gap-2 bg-primary/15 px-4 py-1.5 text-center text-xs text-primary/80 sm:text-sm">
-            <ShieldAlert className="h-4 w-4 shrink-0" />
-            <span>
-              Você está gerenciando{" "}
-              <strong className="font-semibold">{org.name}</strong> como
-              super_admin.
-            </span>
-            <Link
-              href={`/admin/orgs/${org.id}`}
-              className="shrink-0 font-medium underline underline-offset-2 hover:text-primary/90"
-            >
-              Voltar ao painel
-            </Link>
-          </div>
-        ) : superOwner ? (
-          <div className="flex shrink-0 items-center justify-center gap-1.5 bg-foreground/[0.04] px-4 py-1 text-center text-[11px] text-foreground/40">
-            <ShieldAlert className="h-3 w-3 shrink-0" />
-            <span>Acesso de super_admin</span>
-            <Link
-              href="/admin"
-              className="shrink-0 underline underline-offset-2 hover:text-foreground/70"
-            >
-              Painel da plataforma
-            </Link>
-          </div>
-        ) : null}
-        <TopHeader
-          breadcrumbs={breadcrumbs}
-          onMobileMenuToggle={() => setMobileOpen((v) => !v)}
+      <div className="flex h-screen overflow-hidden bg-background">
+        <OrgSidebar
+          org={org}
+          mobileOpen={mobileOpen}
+          onMobileClose={() => setMobileOpen(false)}
         />
-        <div className="flex flex-1 overflow-hidden">
-          <OrgSidebar
-            org={org}
-            mobileOpen={mobileOpen}
-            onMobileClose={() => setMobileOpen(false)}
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          {actingAsAdmin ? (
+            <div className="flex shrink-0 items-center justify-center gap-2 bg-primary/15 px-4 py-1.5 text-center text-xs text-primary/80 sm:text-sm">
+              <ShieldAlert className="h-4 w-4 shrink-0" />
+              <span>
+                Você está gerenciando{" "}
+                <strong className="font-semibold">{org.name}</strong> como
+                super_admin.
+              </span>
+              <Link
+                href={`/admin/orgs/${org.id}`}
+                className="shrink-0 font-medium underline underline-offset-2 hover:text-primary/90"
+              >
+                Voltar ao painel
+              </Link>
+            </div>
+          ) : superOwner ? (
+            <div className="flex shrink-0 items-center justify-center gap-1.5 bg-foreground/[0.04] px-4 py-1 text-center text-[11px] text-foreground/40">
+              <ShieldAlert className="h-3 w-3 shrink-0" />
+              <span>Acesso de super_admin</span>
+              <Link
+                href="/admin"
+                className="shrink-0 underline underline-offset-2 hover:text-foreground/70"
+              >
+                Painel da plataforma
+              </Link>
+            </div>
+          ) : null}
+          <TopHeader
+            breadcrumbs={breadcrumbs}
+            onMobileMenuToggle={() => setMobileOpen((v) => !v)}
           />
           <main className="flex-1 overflow-y-auto">
             <div className="mx-auto w-full max-w-7xl p-4 sm:p-6">{children}</div>
