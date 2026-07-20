@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { Badge } from "@/shared/components/ui/badge"
+import { SectionCard } from "@/shared/components/section-card"
 import { useCurrentOrg } from "@/features/dashboard"
 import { canAccessModule } from "@/features/dashboard/lib/nav"
 import { useBalance } from "@/features/cashier/hooks/use-balance"
@@ -57,49 +58,13 @@ function fmtTime(iso: string): string {
   })
 }
 
-const STATUS_VARIANT: Record<ServiceStatus, string> = {
-  paid: "bg-success/15 text-success",
-  pending: "bg-warning/15 text-warning",
-  canceled: "bg-foreground/[0.06] text-foreground/40 line-through",
-}
-
-function SectionCard({
-  title,
-  icon: Icon,
-  href,
-  className,
-  children,
-}: {
-  title: string
-  icon: LucideIcon
-  href?: string
-  className?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      className={cn(
-        "flex min-h-[13rem] flex-col rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-5",
-        className,
-      )}
-    >
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Icon className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-        </div>
-        {href && (
-          <Link
-            href={href}
-            className="text-xs text-foreground/40 transition-colors hover:text-foreground"
-          >
-            Ver todos
-          </Link>
-        )}
-      </div>
-      <div className="min-h-0 flex-1">{children}</div>
-    </div>
-  )
+const STATUS_BADGE_VARIANT: Record<
+  ServiceStatus,
+  "success" | "warning" | "ghost"
+> = {
+  paid: "success",
+  pending: "warning",
+  canceled: "ghost",
 }
 
 function EmptyState({
@@ -187,14 +152,15 @@ function RecentServicesSection({
                     {fmtDate(s.performedAt)}
                   </p>
                 </div>
-                <span
+                <Badge
+                  variant={STATUS_BADGE_VARIANT[status]}
                   className={cn(
-                    "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
-                    STATUS_VARIANT[status],
+                    "shrink-0 px-2 py-0.5 text-[10px]",
+                    status === "canceled" && "text-text-muted line-through",
                   )}
                 >
                   {SERVICE_STATUS_LABELS[status]}
-                </span>
+                </Badge>
                 <span className="w-24 shrink-0 text-right font-medium text-foreground">
                   {formatBRL(s.amountCents)}
                 </span>

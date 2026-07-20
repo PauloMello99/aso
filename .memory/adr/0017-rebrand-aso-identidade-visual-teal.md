@@ -69,3 +69,29 @@ Entrega em 3 PRs empilhados (`feat/aso-rebrand-foundation` → `feat/aso-token-m
   permanecem até decisão de infraestrutura.
 - `public/` (favicon, manifest, OG) segue inexistente — não fazia parte do escopo, é
   candidato a uma PR de assets de marca futura.
+
+## Adendo (2026-07-19): design system formalizado
+
+Um bundle de handoff de design (`aso-design-system`) formalizou esta identidade visual em
+tokens nomeados, contratos de componente e guidelines de conteúdo/iconografia — tornando-se
+a **definição canônica** do design system ASO. Implementado via:
+
+- `docs/design/design-system.md` — referência humana completa (tabelas de tokens
+  light/dark, tipografia, espaçamento, elevação, contratos de componente, conteúdo pt-BR,
+  iconografia, regras de agenda). Conferido contra `apps/frontend/src/styles/globals.css`
+  (tokens nomeados `--primary-text`, `--primary-subtle/-border`, `--surface-1/2/-hover/
+  -active`, `--border-subtle/-faint`, `--text-secondary/-muted/-faint`, `--sidebar-*` — todos
+  já existentes, valores oklch idênticos ao bundle) e contra
+  `apps/frontend/src/shared/components/ui/` (Badge, Card, Table etc. já existem como
+  componentes compartilhados).
+- `.claude/skills/aso-design/SKILL.md` — checklist operacional condensado para agentes que
+  geram UI.
+- `SectionCard`/`KpiCard` **não** são componentes compartilhados hoje — são padrões locais
+  dentro de `features/overview/components/overview-page.tsx`; o bundle os empacotou como
+  primitivas reutilizáveis, mas a extração para `shared/components/ui/` ainda não foi feita
+  no código (candidato a follow-up, não decidido aqui).
+- Wordmark minúsculo ("aso", Inter 700, "so" em teal) confirmado como padrão definitivo —
+  nenhum logo/mascote a desenhar.
+
+Nenhuma decisão nova de arquitetura ou paleta foi tomada neste adendo; é a formalização
+documental do que já estava em vigor desde a decisão original acima.

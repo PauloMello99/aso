@@ -10,6 +10,7 @@ import {
   MapPin,
   Eye,
 } from "lucide-react"
+import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
 import {
   DropdownMenu,
@@ -40,16 +41,12 @@ type RowActions = Omit<CustomerListProps, "customers">
 
 export function StatusBadge({ enabled }: { enabled: boolean }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-        enabled
-          ? "bg-success/10 text-success"
-          : "bg-foreground/[0.06] text-foreground/40",
-      )}
+    <Badge
+      variant={enabled ? "success" : "ghost"}
+      className={cn(!enabled && "bg-surface-2 text-text-muted")}
     >
       {enabled ? "Ativo" : "Inativo"}
-    </span>
+    </Badge>
   )
 }
 
