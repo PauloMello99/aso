@@ -90,7 +90,7 @@ export function MonthView({
                       "truncate rounded px-1 py-0.5 text-[10px] leading-tight",
                       ev.type === "unavailability"
                         ? "bg-foreground/[0.06] text-foreground/50"
-                        : "bg-primary/15 text-primary",
+                        : "bg-primary-subtle text-primary-text",
                       ev.status === "canceled" && "line-through opacity-40",
                     )}
                   >

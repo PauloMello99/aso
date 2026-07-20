@@ -406,6 +406,7 @@ export function CashierPage({ orgId }: CashierPageProps) {
       ) : (
         <TransactionList
           transactions={transactions}
+          categories={categories}
           canManage={isOwner}
           onReverse={(t) => {
             setActive(t)

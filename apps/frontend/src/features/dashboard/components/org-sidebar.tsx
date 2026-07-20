@@ -43,7 +43,9 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
           mobileOpen ? "translate-x-0" : "-translate-x-full",
           "transition-all duration-200 ease-in-out",
           "md:relative md:translate-x-0",
-          collapsed ? "md:w-14" : "md:w-56",
+          collapsed
+            ? "md:w-[var(--sidebar-width-collapsed)]"
+            : "md:w-[var(--sidebar-width)]",
         )}
       >
         <div className="flex h-14 shrink-0 items-center border-b border-foreground/[0.06] px-3">

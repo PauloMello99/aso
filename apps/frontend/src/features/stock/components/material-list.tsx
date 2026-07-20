@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/shared/components/ui/table"
+import { Tooltip } from "@/shared/components/ui/tooltip"
 import { cn } from "@/shared/lib/utils"
 import { isLowStock } from "../hooks/use-materials"
 import { LowStockBadge } from "./low-stock-badge"
@@ -149,7 +150,7 @@ function MaterialCard({
           )}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-          <span className={cn("font-semibold tabular-nums", low ? "text-primary" : "text-foreground")}>
+          <span className={cn("font-semibold tabular-nums", low ? "text-warning" : "text-foreground")}>
             {qty.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
           </span>
           {parseFloat(material.minimumQuantity) > 0 && (
@@ -228,7 +229,7 @@ function MaterialRow({
         <span
           className={cn(
             "font-semibold tabular-nums",
-            low ? "text-primary" : "text-foreground",
+            low ? "text-warning" : "text-foreground",
           )}
         >
           {qty.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
@@ -251,15 +252,16 @@ function MaterialRow({
       <TableCell className="pr-4">
         <div className="flex items-center justify-end gap-1">
           {low && <LowStockBadge compact />}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-success hover:bg-success/10 hover:text-success/80"
-            onClick={() => onRestock(material)}
-            title="Repor estoque"
-          >
-            <PackagePlus className="h-4 w-4" />
-          </Button>
+          <Tooltip content="Repor estoque">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-success hover:bg-success/10 hover:text-success/80"
+              onClick={() => onRestock(material)}
+            >
+              <PackagePlus className="h-4 w-4" />
+            </Button>
+          </Tooltip>
           <ActionMenu
             material={material}
             onRestock={() => onRestock(material)}

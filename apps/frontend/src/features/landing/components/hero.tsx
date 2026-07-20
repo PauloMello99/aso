@@ -94,7 +94,20 @@ export function Hero() {
                       </div>
                     ))}
                   </div>
-                  <div className="h-20 rounded-lg border border-foreground/5 bg-foreground/[0.02] sm:h-32 sm:rounded-xl" />
+                  <div className="flex h-20 items-end gap-1.5 rounded-lg border border-foreground/5 bg-foreground/[0.02] p-2 sm:h-32 sm:gap-2.5 sm:rounded-xl sm:p-4">
+                    {[30, 45, 38, 60, 52, 75, 68, 90, 72, 85, 95, 80].map(
+                      (h, i) => (
+                        <div
+                          key={i}
+                          className="flex-1 rounded-t-sm"
+                          style={{
+                            height: `${h}%`,
+                            background: `color-mix(in oklch, var(--primary) ${20 + h / 2}%, transparent)`,
+                          }}
+                        />
+                      ),
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

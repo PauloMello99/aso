@@ -279,10 +279,14 @@ export function StockPage({ orgId }: StockPageProps) {
           loading={loading}
         />
         <SummaryCard
-          icon={<AlertTriangle className="h-4 w-4 text-primary" />}
+          icon={
+            <AlertTriangle
+              className={`h-4 w-4 ${lowStockCount > 0 ? "text-warning" : "text-foreground/40"}`}
+            />
+          }
           label="Estoque baixo"
           value={String(lowStockCount)}
-          valueClass={lowStockCount > 0 ? "text-primary" : undefined}
+          valueClass={lowStockCount > 0 ? "text-warning" : undefined}
           loading={loading}
         />
       </div>
@@ -290,6 +294,18 @@ export function StockPage({ orgId }: StockPageProps) {
       {error && (
         <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
           {error}
+        </div>
+      )}
+
+      {!loading && lowStockCount > 0 && (
+        <div className="flex items-center gap-2 rounded-lg border border-warning/25 bg-warning-subtle px-4 py-3 text-sm text-warning">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>
+            <strong className="font-semibold">
+              {lowStockCount} {lowStockCount === 1 ? "material" : "materiais"}
+            </strong>{" "}
+            abaixo do estoque mínimo.
+          </span>
         </div>
       )}
 

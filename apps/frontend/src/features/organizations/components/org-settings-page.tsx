@@ -153,7 +153,7 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
 
       {isOwner && (
         <section>
-          <div className="rounded-lg border border-destructive/20 p-4 sm:p-6">
+          <div className="rounded-lg border border-destructive/25 p-4 sm:p-6">
             <div className="mb-4">
               <h3 className="font-semibold text-destructive">Zona de perigo</h3>
               <p className="mt-1 text-sm text-foreground/40">Ações irreversíveis. Prossiga com cautela.</p>
