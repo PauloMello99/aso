@@ -7,6 +7,8 @@ interface OrgContextValue {
   org: OrgSummary
   orgId: string
   actingAsAdmin: boolean
+  subscriptionLocked: boolean
+  subscriptionPastDue: boolean
 }
 
 const OrgContext = React.createContext<OrgContextValue | null>(null)
@@ -14,15 +16,25 @@ const OrgContext = React.createContext<OrgContextValue | null>(null)
 export function OrgProvider({
   org,
   actingAsAdmin = false,
+  subscriptionLocked = false,
+  subscriptionPastDue = false,
   children,
 }: {
   org: OrgSummary
   actingAsAdmin?: boolean
+  subscriptionLocked?: boolean
+  subscriptionPastDue?: boolean
   children: React.ReactNode
 }) {
   const value = React.useMemo(
-    () => ({ org, orgId: org.id, actingAsAdmin }),
-    [org, actingAsAdmin],
+    () => ({
+      org,
+      orgId: org.id,
+      actingAsAdmin,
+      subscriptionLocked,
+      subscriptionPastDue,
+    }),
+    [org, actingAsAdmin, subscriptionLocked, subscriptionPastDue],
   )
   return <OrgContext.Provider value={value}>{children}</OrgContext.Provider>
 }

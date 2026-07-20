@@ -99,8 +99,11 @@ export async function apiRequest<T>(
       message?: string
       code?: string
     }
-    const message =
-      body.message ?? `Request failed with status ${res.status}`
+    let message = body.message ?? `Request failed with status ${res.status}`
+    if (body.code === "SUBSCRIPTION_REQUIRED") {
+      message =
+        "Assinatura necessária. Regularize a assinatura desta organização em Configurações → Assinatura."
+    }
     const apiError = new ApiError(message, res.status, path, body.code)
 
     if (res.status >= 500) {
