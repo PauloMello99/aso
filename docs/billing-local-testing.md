@@ -59,6 +59,13 @@ pnpm --filter backend dev
 stripe listen --forward-to localhost:3001/webhooks/stripe
 ```
 
+> Dentro de sessões do Claude Code, ambos os processos já estão registrados em
+> `.claude/launch.json` (`backend` e `stripe-webhook`) — dá pra subir os dois via a
+> ferramenta de preview em vez de abrir terminais manualmente. `stripe listen` não
+> abre porta própria (é só um forwarder), então a config usa `"port": 9900` como
+> placeholder somente pra satisfazer a ferramenta de preview — ignore esse número,
+> o secret real aparece no log do processo (`whsec_...`).
+
 No boot, o `PlanCatalogService` sincroniza o catálogo estático (`domain/plan-catalog.ts`)
 com o Stripe via `lookup_key` — cria Product+Price se não existirem ainda. Confirme via
 `SELECT * FROM billing_plans;` que a linha `standard` tem `stripe_product_id`/
