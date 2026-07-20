@@ -17,6 +17,13 @@ import {
   isModuleKey,
   canAccessModule,
 } from "@/features/dashboard/lib/nav"
+import { useSubscription } from "@/features/billing/hooks/use-subscription"
+import {
+  isSubscriptionLocked,
+  isSubscriptionPastDue,
+  LockedBanner,
+  PastDueBanner,
+} from "@/features/billing"
 import type { OrgSummary } from "@/features/dashboard/hooks/use-orgs"
 import type { BreadcrumbItem } from "@/features/dashboard/components/top-header"
 
@@ -78,6 +85,21 @@ export function OrgLayout({ children }: OrgLayoutProps) {
   const actingAsAdmin = isSuper && !isRealOwner
   const superOwner = isSuper && isRealOwner
 
+  const {
+    subscription,
+    loading: subLoading,
+    notFound: subNotFound,
+    error: subError,
+  } = useSubscription(org?.id ?? "")
+  // A 404 (no subscription row) is a genuine "locked" state. Any other error
+  // (network/5xx) is transient/unknown and must not flash the destructive
+  // locked banner org-wide while it resolves.
+  const subUnknown = !!subError && !subNotFound
+  const locked =
+    !subLoading && !subUnknown && (subNotFound || isSubscriptionLocked(subscription))
+  const pastDue =
+    !subLoading && !subUnknown && !locked && isSubscriptionPastDue(subscription)
+
   React.useEffect(() => {
     if (!orgSlug || loading || listOrg) return
     if (!isSuper || (!resolving && notFound)) {
@@ -108,7 +130,12 @@ export function OrgLayout({ children }: OrgLayoutProps) {
   const breadcrumbs = buildOrgCrumbs(router.pathname, org.slug, orgSwitcher)
 
   return (
-    <OrgProvider org={org} actingAsAdmin={actingAsAdmin}>
+    <OrgProvider
+      org={org}
+      actingAsAdmin={actingAsAdmin}
+      subscriptionLocked={locked}
+      subscriptionPastDue={pastDue}
+    >
       <div className="flex h-screen overflow-hidden bg-background">
         <OrgSidebar
           org={org}
@@ -141,6 +168,21 @@ export function OrgLayout({ children }: OrgLayoutProps) {
               >
                 Painel da plataforma
               </Link>
+            </div>
+          ) : null}
+          {locked ? (
+            <div className="px-4 pt-4 sm:px-6">
+              <LockedBanner
+                isOwner={org.role === "owner"}
+                subscriptionHref={`/dashboard/org/${org.slug}/settings/subscription`}
+              />
+            </div>
+          ) : pastDue ? (
+            <div className="px-4 pt-4 sm:px-6">
+              <PastDueBanner
+                isOwner={org.role === "owner"}
+                subscriptionHref={`/dashboard/org/${org.slug}/settings/subscription`}
+              />
             </div>
           ) : null}
           <TopHeader
