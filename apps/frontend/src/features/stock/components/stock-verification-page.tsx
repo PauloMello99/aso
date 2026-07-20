@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { ClipboardCheck, History, Loader2 } from "lucide-react"
+import { cn } from "@/shared/lib/utils"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
@@ -77,7 +78,6 @@ export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
         </p>
       </div>
 
-      {/* Interval setting */}
       <section className="grid max-w-md gap-2">
         <Label>Lembrar de conferir a cada (dias)</Label>
         <div className="flex gap-2">
@@ -92,7 +92,7 @@ export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
             Salvar
           </Button>
         </div>
-        {savedInterval && <p className="text-xs text-emerald-400">Salvo.</p>}
+        {savedInterval && <p className="text-xs text-success">Salvo.</p>}
         {settings.lastVerificationAt && (
           <p className="text-xs text-foreground/40">
             Última conferência:{" "}
@@ -101,7 +101,6 @@ export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
         )}
       </section>
 
-      {/* Conference action */}
       <section>
         <Button onClick={openConference}>
           <ClipboardCheck className="h-4 w-4" />
@@ -109,7 +108,6 @@ export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
         </Button>
       </section>
 
-      {/* History */}
       <section className="grid gap-2">
         <h3 className="flex items-center gap-1.5 text-sm font-medium text-foreground/70">
           <History className="h-3.5 w-3.5" /> Histórico
@@ -130,7 +128,7 @@ export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
                   {v.itemCount} itens ·{" "}
                   <span
                     className={
-                      v.discrepancyCount > 0 ? "text-orange-400" : "text-foreground/40"
+                      v.discrepancyCount > 0 ? "text-primary" : "text-foreground/40"
                     }
                   >
                     {v.discrepancyCount} divergência(s)
@@ -142,7 +140,6 @@ export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
         )}
       </section>
 
-      {/* Conference sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent side="right" className="gap-0 sm:max-w-md">
           <SheetHeader>
@@ -178,9 +175,10 @@ export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
                     />
                     {diff !== 0 && (
                       <span
-                        className={`shrink-0 text-xs ${
-                          diff > 0 ? "text-emerald-400" : "text-red-400"
-                        }`}
+                        className={cn(
+                          "shrink-0 text-xs",
+                          diff > 0 ? "text-success" : "text-destructive",
+                        )}
                       >
                         {diff > 0 ? "+" : ""}
                         {diff.toFixed(2)}

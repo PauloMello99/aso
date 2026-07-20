@@ -7,7 +7,6 @@ const PAYMENT_METHODS = [
   "debit_card",
 ] as const
 
-// Valor monetário em reais: "1234.56" ou "1.234,56".
 const moneyString = z
   .string()
   .min(1, "Informe um valor")
@@ -16,13 +15,10 @@ const moneyString = z
     "Informe um valor válido (ex.: 150,00)",
   )
 
-// Linha de material: ou quantidade (não-compartilhável) ou "acabou?" (compartilhável).
 export const serviceMaterialLineSchema = z.object({
   materialId: z.string().min(1),
   shareable: z.boolean(),
-  /** Quantidade em string editável (material não-compartilhável). */
   quantity: z.string().optional().or(z.literal("")),
-  /** "Acabou?" (material compartilhável). */
   finished: z.boolean().optional(),
 })
 
@@ -38,5 +34,38 @@ export const serviceSchema = z.object({
   materials: z.array(serviceMaterialLineSchema),
 })
 
+function hasRealConsumption(line: ServiceMaterialLineValues): boolean {
+  if (line.shareable) return !!line.finished
+  return Number(line.quantity) > 0
+}
+
+export const createServiceSchema = serviceSchema
+  .extend({
+    materials: z
+      .array(serviceMaterialLineSchema)
+      .min(1, "Selecione ao menos um material consumido"),
+  })
+  .superRefine((values, ctx) => {
+    if (values.materials.length > 0 && !values.materials.some(hasRealConsumption)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["materials"],
+        message:
+          'Nenhum material terá consumo registrado: marque "Acabou?" nos compartilháveis ou informe a quantidade dos demais.',
+      })
+    }
+  })
+
 export type ServiceFormValues = z.infer<typeof serviceSchema>
 export type ServiceMaterialLineValues = z.infer<typeof serviceMaterialLineSchema>
+
+export const correctServicePaymentSchema = z.object({
+  amount: moneyString,
+  paymentMethod: z.enum(PAYMENT_METHODS),
+  description: z.string().max(500).optional().or(z.literal("")),
+  transactedAt: z.string().optional().or(z.literal("")),
+})
+
+export type CorrectServicePaymentFormValues = z.infer<
+  typeof correctServicePaymentSchema
+>

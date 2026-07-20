@@ -77,17 +77,12 @@ export class SupabaseAuthProvider implements IAuthProvider {
       "FRONTEND_URL",
       "http://localhost:3000",
     );
-    // generateLink NÃO envia e-mail (diferente de resetPasswordForEmail) — só
-    // devolve o action_link de recovery, que enviamos via Resend. O link aponta
-    // para o /auth/v1/verify do Supabase e redireciona p/ o frontend com os
-    // tokens no fragment (mesmo fluxo que o front já trata).
     const { data, error } = await this.admin.auth.admin.generateLink({
       type: "recovery",
       email,
       options: { redirectTo: `${frontendUrl}/auth/reset-password` },
     });
     if (error) {
-      // Usuário inexistente → não vazamos a informação (sem enumeração).
       return null;
     }
     return data.properties?.action_link ?? null;
@@ -113,8 +108,6 @@ export class SupabaseAuthProvider implements IAuthProvider {
   }
 
   async updateEmail(authId: string, email: string): Promise<void> {
-    // email_confirm: true → aplica o e-mail imediatamente (sem fluxo de
-    // reconfirmação), coerente com o createUser do sign-up.
     const { error } = await this.admin.auth.admin.updateUserById(authId, {
       email,
       email_confirm: true,

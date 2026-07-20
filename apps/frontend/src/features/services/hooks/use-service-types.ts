@@ -23,11 +23,35 @@ export function useServiceTypes(orgId: string) {
         body: JSON.stringify({ name }),
       }),
     onSuccess: (created) => {
-      // Insere já no cache para que o novo tipo apareça no seletor de imediato
-      // (permite auto-selecioná-lo após criar pela modal, sem esperar refetch).
       queryClient.setQueryData<ServiceType[]>(
         queryKeys.services.types(orgId),
         (old) => (old ? [...old, created] : [created]),
+      )
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.services.types(orgId),
+      })
+    },
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string
+      data: { name?: string; description?: string | null }
+    }) =>
+      apiRequest<ServiceType>(`/orgs/${orgId}/services/types/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<ServiceType[]>(
+        queryKeys.services.types(orgId),
+        (old) =>
+          old
+            ? old.map((type) => (type.id === updated.id ? updated : type))
+            : [updated],
       )
       void queryClient.invalidateQueries({
         queryKey: queryKeys.services.types(orgId),
@@ -39,5 +63,9 @@ export function useServiceTypes(orgId: string) {
     serviceTypes: data ?? EMPTY,
     loading: isLoading,
     createServiceType: (name: string) => createMutation.mutateAsync(name),
+    updateServiceType: (
+      id: string,
+      data: { name?: string; description?: string | null },
+    ) => updateMutation.mutateAsync({ id, data }),
   }
 }

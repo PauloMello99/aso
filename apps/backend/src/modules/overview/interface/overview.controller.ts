@@ -13,7 +13,6 @@ import type { AuthUser } from "../../auth/application/ports/auth-provider.interf
 import { GetOverviewUseCase } from "../application/get-overview.use-case";
 import { GetOverviewAnalyticsUseCase } from "../application/get-overview-analytics.use-case";
 
-/** Primeiro dia do mês vigente (default da janela analítica). */
 function startOfCurrentMonth(): Date {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -35,7 +34,6 @@ export class OverviewController {
     return this.getOverview.execute(orgId, user.id);
   }
 
-  /** KPIs + série temporal do estúdio (owner-only). PERF-3. */
   @Get("analytics")
   analytics(
     @Param("orgId", ParseUUIDPipe) orgId: string,

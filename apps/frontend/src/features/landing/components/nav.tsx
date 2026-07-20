@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { Menu, X } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
+import { BrandWordmark } from "@/shared/components/brand-wordmark"
 import { cn } from "@/shared/lib/utils"
 
 const NAV_LINKS = [
@@ -21,24 +22,21 @@ export function Nav() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 border-b border-white/5 bg-[#0d0d0f]/90 backdrop-blur-md",
+        "sticky top-0 z-50 border-b border-foreground/5 bg-background/90 backdrop-blur-md",
         "transition-all",
       )}
     >
-      {/* Main nav bar */}
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        {/* Logo */}
-        <Link href="/" className="text-xl font-bold tracking-tight text-white">
-          ink<span className="text-orange-500">ops</span>
+        <Link href="/">
+          <BrandWordmark className="text-xl font-bold tracking-tight text-foreground" />
         </Link>
 
-        {/* Center links — desktop only */}
         <ul className="hidden items-center gap-6 md:flex">
           {NAV_LINKS.map((link) => (
             <li key={link.href}>
               <Link
                 href={link.href}
-                className="text-sm text-white/60 transition-colors hover:text-white"
+                className="text-sm text-foreground/60 transition-colors hover:text-foreground"
               >
                 {link.label}
               </Link>
@@ -46,28 +44,26 @@ export function Nav() {
           ))}
         </ul>
 
-        {/* Right: CTAs + hamburger */}
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
             asChild
-            className="hidden bg-transparent text-white/70 sm:flex"
+            className="hidden bg-transparent text-foreground/70 sm:flex"
           >
             <Link href="/auth/login">Entrar</Link>
           </Button>
           <Button
             size="sm"
             asChild
-            className="hidden bg-orange-500 text-white hover:bg-orange-600 sm:flex"
+            className="hidden bg-primary text-primary-foreground hover:bg-primary/90 sm:flex"
           >
             <Link href="/auth/signup">Começar grátis</Link>
           </Button>
 
-          {/* Hamburger — mobile only */}
           <button
             onClick={() => setMobileOpen((v) => !v)}
-            className="flex h-9 w-9 items-center justify-center rounded-md text-white/60 transition-colors hover:bg-white/[0.06] hover:text-white md:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-foreground/60 transition-colors hover:bg-foreground/[0.06] hover:text-foreground md:hidden"
             aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}
             aria-expanded={mobileOpen}
           >
@@ -76,33 +72,32 @@ export function Nav() {
         </div>
       </div>
 
-      {/* Mobile drawer — slides open below nav bar */}
       {mobileOpen && (
-        <div className="border-t border-white/5 md:hidden">
+        <div className="border-t border-foreground/5 md:hidden">
           <nav className="flex flex-col gap-1 px-4 py-4">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={closeMenu}
-                className="rounded-md px-3 py-2.5 text-sm text-white/70 transition-colors hover:bg-white/[0.05] hover:text-white"
+                className="rounded-md px-3 py-2.5 text-sm text-foreground/70 transition-colors hover:bg-foreground/[0.05] hover:text-foreground"
               >
                 {link.label}
               </Link>
             ))}
           </nav>
-          <div className="flex flex-col gap-2 border-t border-white/5 px-4 pb-4 pt-3">
+          <div className="flex flex-col gap-2 border-t border-foreground/5 px-4 pb-4 pt-3">
             <Button
               variant="outline"
               asChild
-              className="w-full bg-transparent text-white/70"
+              className="w-full bg-transparent text-foreground/70"
               onClick={closeMenu}
             >
               <Link href="/auth/login">Entrar</Link>
             </Button>
             <Button
               asChild
-              className="w-full bg-orange-500 text-white hover:bg-orange-600"
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={closeMenu}
             >
               <Link href="/auth/signup">Começar grátis</Link>

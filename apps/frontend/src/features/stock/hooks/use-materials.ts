@@ -8,8 +8,6 @@ import type { Material, MaterialsFilter } from "../types"
 export function useMaterials(orgId: string, filter?: MaterialsFilter) {
   const queryClient = useQueryClient()
 
-  // ── Query ──────────────────────────────────────────────────────────────────
-
   const { data = [], isLoading, error, refetch } = useQuery({
     queryKey: queryKeys.materials.list(orgId, filter),
     queryFn: () => {
@@ -27,8 +25,6 @@ export function useMaterials(orgId: string, filter?: MaterialsFilter) {
     },
     enabled: !!orgId,
   })
-
-  // ── Mutations ──────────────────────────────────────────────────────────────
 
   type CreateBody = {
     name: string
@@ -120,8 +116,6 @@ export function useMaterials(orgId: string, filter?: MaterialsFilter) {
     },
   })
 
-  // ── Stable wrappers (unchanged call signature for consumers) ───────────────
-
   async function createMaterial(body: CreateBody): Promise<Material> {
     return createMaterialMutation.mutateAsync(body)
   }
@@ -165,7 +159,6 @@ export function useMaterials(orgId: string, filter?: MaterialsFilter) {
   }
 }
 
-/** Derive low-stock status client-side */
 export function isLowStock(material: Material): boolean {
   const minQty = parseFloat(material.minimumQuantity)
   const currentQty = parseFloat(material.stockQuantity)

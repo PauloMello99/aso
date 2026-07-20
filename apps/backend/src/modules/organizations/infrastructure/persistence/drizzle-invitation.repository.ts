@@ -18,7 +18,6 @@ import { InvitationMapper } from "./invitation.mapper";
 export class DrizzleInvitationRepository implements IInvitationRepository {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    // findByToken/markAccepted rodam antes de o usuário ser membro → bypass RLS.
     @Inject(DRIZZLE_ADMIN) private readonly admin: DrizzleDB,
   ) {}
 
@@ -116,8 +115,6 @@ export class DrizzleInvitationRepository implements IInvitationRepository {
   }
 
   async delete(id: string): Promise<void> {
-    // Recusa do convidado: o convite é removido (e não só cancelado) para que o
-    // owner possa reenviar o fluxo. Roda via admin (convidado ainda não é membro).
     await this.admin
       .delete(schema.orgInvitations)
       .where(eq(schema.orgInvitations.id, id));

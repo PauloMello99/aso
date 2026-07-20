@@ -27,7 +27,6 @@ export function useStockMovements(
         `/orgs/${orgId}/materials/${materialId}/movements?${params.toString()}`,
       )
     },
-    // Only fetch when both orgId and materialId are present
     enabled: !!orgId && !!materialId,
   })
 

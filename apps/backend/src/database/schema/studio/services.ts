@@ -14,6 +14,7 @@ import { serviceTypes } from "./lookup";
 import { customers } from "./customers";
 import { materials } from "./materials";
 import { transactions } from "./transactions";
+import { anamnesisResponses } from "./anamnesis";
 
 export const services = pgTable("services", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -26,10 +27,12 @@ export const services = pgTable("services", {
   customerId: uuid("customer_id").references(() => customers.id, {
     onDelete: "set null",
   }),
-  // Referência à transação de pagamento deste serviço.
-  // Transactions são agnósticas — é o service quem sabe sua transação.
   paymentTransactionId: uuid("payment_transaction_id").references(
     () => transactions.id,
+    { onDelete: "set null" },
+  ),
+  anamnesisResponseId: uuid("anamnesis_response_id").references(
+    () => anamnesisResponses.id,
     { onDelete: "set null" },
   ),
   performedBy: uuid("performed_by"),
@@ -40,7 +43,6 @@ export const services = pgTable("services", {
   performedAt: timestamp("performed_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-  // Quando preenchido, o serviço foi cancelado (estado derivado, ver módulo services).
   canceledAt: timestamp("canceled_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -83,6 +85,10 @@ export const servicesRelations = relations(services, ({ one, many }) => ({
   paymentTransaction: one(transactions, {
     fields: [services.paymentTransactionId],
     references: [transactions.id],
+  }),
+  anamnesisResponse: one(anamnesisResponses, {
+    fields: [services.anamnesisResponseId],
+    references: [anamnesisResponses.id],
   }),
   serviceMaterials: many(serviceMaterials),
 }));

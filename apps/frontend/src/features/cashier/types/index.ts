@@ -5,7 +5,6 @@ export type PaymentMethod =
   | "bank_transfer"
   | "credit_card"
   | "debit_card"
-  | "credits"
 
 export interface Transaction {
   id: string
@@ -13,13 +12,11 @@ export interface Transaction {
   createdBy: string | null
   description: string
   type: TransactionType
-  /** Líquido em centavos — o que o caixa reflete. */
   netCents: number
   grossCents: number
   feeCents: number
   paymentMethod: PaymentMethod
   categoryId: string | null
-  /** Quando preenchido, esta linha é o estorno da transação referenciada. */
   reversesTransactionId: string | null
   transactedAt: string
   createdAt: string
@@ -29,10 +26,10 @@ export interface TransactionCategory {
   id: string
   orgId: string
   name: string
+  isProtected: boolean
   createdAt: string
 }
 
-/** Item da lista: a transação + se já foi estornada. */
 export interface TransactionView {
   entity: Transaction
   reversed: boolean
@@ -69,8 +66,8 @@ export interface TransactionsFilter {
   categoryId?: string
   minCents?: number
   maxCents?: number
-  /** users.id — filtro de membro (só owner). */
   createdBy?: string
+  customerId?: string
   q?: string
 }
 
@@ -79,7 +76,6 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   bank_transfer: "Transferência / Pix",
   credit_card: "Cartão de crédito",
   debit_card: "Cartão de débito",
-  credits: "Créditos",
 }
 
 export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
@@ -87,14 +83,12 @@ export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   outcome: "Saída",
 }
 
-/** Métodos cujo saldo cai no bucket digital (banco/cartão). */
 export const DIGITAL_METHODS: PaymentMethod[] = [
   "bank_transfer",
   "credit_card",
   "debit_card",
 ]
 
-/** Métodos que sofrem taxa configurável (cartão). */
 export const FEE_ELIGIBLE_METHODS: PaymentMethod[] = [
   "credit_card",
   "debit_card",

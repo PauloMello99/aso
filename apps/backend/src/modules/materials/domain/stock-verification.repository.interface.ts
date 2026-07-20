@@ -27,7 +27,6 @@ export interface IStockVerificationRepository {
   getInterval(orgId: string): Promise<number | null>;
   setInterval(orgId: string, days: number | null): Promise<void>;
   lastVerificationAt(orgId: string): Promise<Date | null>;
-  /** Cria o cabeçalho + itens; retorna o id. */
   create(data: {
     orgId: string;
     performedBy: string | null;
@@ -35,8 +34,6 @@ export interface IStockVerificationRepository {
     items: VerificationItemInput[];
   }): Promise<string>;
   listByOrg(orgId: string): Promise<VerificationSummary[]>;
-  /** Orgs com intervalo configurado cujo prazo desde a última verificação expirou. */
   findOrgsDue(): Promise<OrgDueForCheck[]>;
-  /** userIds dos owners ativos de uma org (para notificar). */
   findOwnerUserIds(orgId: string): Promise<string[]>;
 }

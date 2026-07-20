@@ -1,7 +1,6 @@
 import { useEffect } from "react"
 import { useRouter } from "next/router"
 
-// Redirect /dashboard/org/[orgSlug] → /dashboard/org/[orgSlug]/overview
 export default function OrgIndex() {
   const router = useRouter()
   const { orgSlug } = router.query as { orgSlug?: string }

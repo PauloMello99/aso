@@ -16,18 +16,11 @@ export interface NotifyInput {
   title: string;
   body?: string | null;
   data?: Record<string, unknown> | null;
-  /** false desliga o canal de e-mail para esta notificação (default: tenta enviar). */
   email?: boolean;
-  /** CTA opcional no e-mail (ex.: link para o agendamento/estoque). */
   actionUrl?: string;
   actionLabel?: string;
 }
 
-/**
- * Núcleo reutilizável de notificações. Cria a notificação in-app e, opcionalmente,
- * dispara o canal de e-mail (best-effort — falha de e-mail nunca quebra o fluxo,
- * pois o in-app já é a fonte da verdade). Outros módulos injetam este serviço.
- */
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
@@ -51,7 +44,6 @@ export class NotificationService {
     if (input.email !== false) {
       const contact = await this.repo.findUserContact(input.userId);
       if (contact?.email) {
-        // Best-effort: o canal de e-mail nunca pode quebrar a notificação in-app.
         try {
           await this.mail.sendNotification({
             to: contact.email,

@@ -5,7 +5,6 @@ import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 import { TableHead } from "@/shared/components/ui/table"
 import type { SortDir } from "../types"
 
-/** Cabeçalho de coluna clicável com indicador de ordenação (aria-sort). */
 export function SortHead({
   label,
   active,

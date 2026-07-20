@@ -13,7 +13,6 @@ import { resolveActor } from "./resolve-actor";
 
 export interface TransactionView {
   entity: TransactionEntity;
-  /** True quando existe um estorno apontando para esta transação. */
   reversed: boolean;
 }
 
@@ -39,7 +38,6 @@ export class ListTransactionsUseCase {
       input.authId,
     );
 
-    // Funcionário só enxerga os próprios lançamentos.
     const filter: ListTransactionsFilter = { ...input.filter };
     if (!isOwner) filter.createdBy = userId;
 

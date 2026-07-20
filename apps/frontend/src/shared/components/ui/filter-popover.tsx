@@ -11,19 +11,12 @@ import {
 import { cn } from "@/shared/lib/utils"
 
 interface FilterPopoverProps {
-  /** Quantidade de filtros avançados ativos (mostrada no badge). */
   activeCount: number
-  /** Limpa todos os filtros avançados. */
   onClear: () => void
-  /** Campos do filtro. */
   children: React.ReactNode
   className?: string
 }
 
-/**
- * Gatilho + painel reutilizável de "Filtros avançados" (RPT-1).
- * Mostra um contador dos filtros ativos e um botão para limpá-los.
- */
 export function FilterPopover({
   activeCount,
   onClear,
@@ -67,7 +60,6 @@ export function FilterPopover({
   )
 }
 
-/** Rótulo padrão para um campo do painel de filtros. */
 export function FilterField({
   label,
   children,
@@ -83,7 +75,6 @@ export function FilterField({
   )
 }
 
-/** Par de inputs numéricos (mín / máx) para faixas de valor. */
 export function RangeInputs({
   minValue,
   maxValue,

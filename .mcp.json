@@ -65,6 +65,20 @@
       "headers": {
         "Authorization": "Bearer ${BETTERSTACK_TOKEN}"
       }
+    },
+    "stripe-staging": {
+      "url": "https://mcp.stripe.com",
+      "headers": {
+        "Authorization": "Bearer ${STRIPE_RESTRICT_KEY}",
+        "Stripe-Account": "acct_1TsJDx0NG0bf6v4A"
+      }
+    },
+    "stripe-production": {
+      "url": "https://mcp.stripe.com",
+      "headers": {
+        "Authorization": "Bearer ${STRIPE_RESTRICT_PRODUCTION_KEY}",
+        "Stripe-Account": "acct_1TsJDx0NG0bf6v4A"
+      }
     }
   }
 }

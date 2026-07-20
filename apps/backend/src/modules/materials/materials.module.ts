@@ -2,6 +2,7 @@
 import { AuthModule } from "../auth/auth.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { OrgsInfrastructureModule } from "../organizations/infrastructure/orgs-infrastructure.module";
+import { SubscriptionsModule } from "../subscriptions/subscriptions.module";
 import { AdjustStockUseCase } from "./application/use-cases/adjust-stock.use-case";
 import { CreateMaterialUseCase } from "./application/use-cases/create-material.use-case";
 import { DeleteMaterialUseCase } from "./application/use-cases/delete-material.use-case";
@@ -25,6 +26,7 @@ import { MaterialsController } from "./interface/materials.controller";
     AuthModule,
     NotificationsModule,
     OrgsInfrastructureModule,
+    SubscriptionsModule,
   ],
   controllers: [MaterialsController],
   providers: [

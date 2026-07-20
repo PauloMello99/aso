@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -15,12 +16,17 @@ import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { OrgOwnerGuard } from "../../auth/guards/org-owner.guard";
 import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
+import { ActiveSubscriptionGuard } from "../../subscriptions/interface/guards/active-subscription.guard";
 import { RequireModule } from "../../auth/decorators/require-module.decorator";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { ListTransactionsUseCase } from "../application/use-cases/list-transactions.use-case";
 import { ExportTransactionsUseCase } from "../application/use-cases/export-transactions.use-case";
-import { parseFields } from "../../../common/csv/csv.util";
+import {
+  parseFields,
+  resolveCsvDelimiter,
+  resolveExportFormat,
+} from "../../../common/csv/csv.util";
 import { CreateTransactionUseCase } from "../application/use-cases/create-transaction.use-case";
 import { ReverseTransactionUseCase } from "../application/use-cases/reverse-transaction.use-case";
 import { CorrectTransactionUseCase } from "../application/use-cases/correct-transaction.use-case";
@@ -30,6 +36,8 @@ import { GetPaymentFeesUseCase } from "../application/use-cases/get-payment-fees
 import { UpsertPaymentFeesUseCase } from "../application/use-cases/upsert-payment-fees.use-case";
 import { ListTransactionCategoriesUseCase } from "../application/use-cases/list-transaction-categories.use-case";
 import { CreateTransactionCategoryUseCase } from "../application/use-cases/create-transaction-category.use-case";
+import { UpdateTransactionCategoryUseCase } from "../application/use-cases/update-transaction-category.use-case";
+import { DeleteTransactionCategoryUseCase } from "../application/use-cases/delete-transaction-category.use-case";
 import { TransferUseCase } from "../application/use-cases/transfer.use-case";
 import {
   CreateTransactionDto,
@@ -39,6 +47,7 @@ import {
 import { CorrectTransactionDto } from "./dto/correct-transaction.dto";
 import { UpsertFeesDto } from "./dto/upsert-fees.dto";
 import { CreateCategoryDto } from "./dto/create-category.dto";
+import { UpdateCategoryDto } from "./dto/update-category.dto";
 import { TransferDto } from "./dto/transfer.dto";
 
 type TransactionType = (typeof TRANSACTION_TYPES)[number];
@@ -46,16 +55,12 @@ type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Converte um query param numérico (centavos) em inteiro, ou undefined. */
 function parseCents(value?: string): number | undefined {
   if (value === undefined || value === "") return undefined;
   const n = Number(value);
   return Number.isFinite(n) ? Math.round(n) : undefined;
 }
 
-// Caixa aberto a membros: funcionário lança e vê só os próprios; owner vê tudo e
-// lança em nome de. Operações sensíveis (taxas, transferência, estorno, correção,
-// criar categoria) seguem owner-only via OrgOwnerGuard a nível de método.
 @Controller("orgs/:orgId/cashier")
 @UseGuards(AuthGuard, OrgMembershipGuard, OrgModuleGuard)
 @RequireModule("cashier")
@@ -72,6 +77,8 @@ export class CashierController {
     private readonly upsertPaymentFees: UpsertPaymentFeesUseCase,
     private readonly listCategories: ListTransactionCategoriesUseCase,
     private readonly createCategory: CreateTransactionCategoryUseCase,
+    private readonly updateCategory: UpdateTransactionCategoryUseCase,
+    private readonly deleteCategory: DeleteTransactionCategoryUseCase,
     private readonly transfer: TransferUseCase,
   ) {}
 
@@ -88,6 +95,7 @@ export class CashierController {
     @Query("maxCents") maxCents?: string,
     @Query("createdBy") createdBy?: string,
     @Query("q") q?: string,
+    @Query("customerId") customerId?: string,
   ) {
     return this.listTransactions.execute({
       orgId,
@@ -104,9 +112,9 @@ export class CashierController {
         categoryId: categoryId || undefined,
         minCents: parseCents(minCents),
         maxCents: parseCents(maxCents),
-        // Owner pode filtrar por membro; para funcionário o use-case força o próprio id.
         createdBy: createdBy || undefined,
         q: q || undefined,
+        customerId: customerId || undefined,
       },
     });
   }
@@ -125,9 +133,13 @@ export class CashierController {
     @Query("maxCents") maxCents?: string,
     @Query("createdBy") createdBy?: string,
     @Query("q") q?: string,
+    @Query("customerId") customerId?: string,
     @Query("fields") fields?: string,
+    @Query("format") format?: string,
+    @Query("delimiter") delimiter?: string,
   ) {
-    const csv = await this.exportTransactions.execute(
+    const exportFormat = resolveExportFormat(format);
+    const file = await this.exportTransactions.execute(
       orgId,
       user.id,
       {
@@ -144,19 +156,34 @@ export class CashierController {
         maxCents: parseCents(maxCents),
         createdBy: createdBy || undefined,
         q: q || undefined,
+        customerId: customerId || undefined,
       },
       parseFields(fields),
+      exportFormat,
+      resolveCsvDelimiter(delimiter),
     );
     const date = new Date().toISOString().slice(0, 10);
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="caixa-${date}.csv"`,
-    );
-    res.send(csv);
+    if (exportFormat === "xlsx") {
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="caixa-${date}.xlsx"`,
+      );
+    } else {
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="caixa-${date}.csv"`,
+      );
+    }
+    res.send(file);
   }
 
   @Post("transactions")
+  @UseGuards(ActiveSubscriptionGuard)
   async create(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Body() dto: CreateTransactionDto,
@@ -176,7 +203,7 @@ export class CashierController {
   }
 
   @Post("transactions/:id/reverse")
-  @UseGuards(OrgOwnerGuard)
+  @UseGuards(OrgOwnerGuard, ActiveSubscriptionGuard)
   async reverse(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -190,7 +217,7 @@ export class CashierController {
   }
 
   @Post("transactions/:id/correct")
-  @UseGuards(OrgOwnerGuard)
+  @UseGuards(OrgOwnerGuard, ActiveSubscriptionGuard)
   async correct(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -235,7 +262,7 @@ export class CashierController {
   }
 
   @Put("fees")
-  @UseGuards(OrgOwnerGuard)
+  @UseGuards(OrgOwnerGuard, ActiveSubscriptionGuard)
   async setFees(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Body() dto: UpsertFeesDto,
@@ -254,7 +281,7 @@ export class CashierController {
   }
 
   @Post("categories")
-  @UseGuards(OrgOwnerGuard)
+  @UseGuards(OrgOwnerGuard, ActiveSubscriptionGuard)
   async addCategory(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Body() dto: CreateCategoryDto,
@@ -262,8 +289,27 @@ export class CashierController {
     return this.createCategory.execute(orgId, dto.name);
   }
 
+  @Put("categories/:categoryId")
+  @UseGuards(OrgOwnerGuard, ActiveSubscriptionGuard)
+  async updateCategoryById(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("categoryId", ParseUUIDPipe) categoryId: string,
+    @Body() dto: UpdateCategoryDto,
+  ) {
+    return this.updateCategory.execute(orgId, categoryId, dto.name);
+  }
+
+  @Delete("categories/:categoryId")
+  @UseGuards(OrgOwnerGuard, ActiveSubscriptionGuard)
+  async deleteCategoryById(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("categoryId", ParseUUIDPipe) categoryId: string,
+  ) {
+    return this.deleteCategory.execute(orgId, categoryId);
+  }
+
   @Post("transfers")
-  @UseGuards(OrgOwnerGuard)
+  @UseGuards(OrgOwnerGuard, ActiveSubscriptionGuard)
   async makeTransfer(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Body() dto: TransferDto,

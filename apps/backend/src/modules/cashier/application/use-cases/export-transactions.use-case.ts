@@ -5,9 +5,13 @@ import { TransactionEntity } from "../../domain/transaction.entity";
 import {
   buildCsv,
   csvDate,
+  csvDelimiterChar,
   csvMoneyCents,
   type CsvColumn,
+  type CsvDelimiter,
+  type ExportFormat,
 } from "../../../../common/csv/csv.util";
+import { buildXlsx } from "../../../../common/csv/xlsx.util";
 
 const TYPE_LABELS: Record<string, string> = {
   income: "Entrada",
@@ -19,10 +23,8 @@ const METHOD_LABELS: Record<string, string> = {
   bank_transfer: "Transferência / Pix",
   credit_card: "Cartão de crédito",
   debit_card: "Cartão de débito",
-  credits: "Créditos",
 };
 
-/** Colunas exportáveis do caixa (chaves usadas no seletor `?fields=`). */
 export const TRANSACTION_CSV_COLUMNS: CsvColumn<TransactionEntity>[] = [
   { key: "date", header: "Data", value: (t) => csvDate(t.transactedAt) },
   { key: "description", header: "Descrição", value: (t) => t.description },
@@ -63,13 +65,23 @@ export class ExportTransactionsUseCase {
     authId: string,
     filter?: ListTransactionsFilter,
     fields?: string[],
-  ): Promise<string> {
+    format?: ExportFormat,
+    delimiter?: CsvDelimiter,
+  ): Promise<string | Buffer> {
     const views = await this.listTransactions.execute({
       orgId,
       authId,
       filter,
     });
     const entities = views.map((v) => v.entity);
-    return buildCsv(entities, TRANSACTION_CSV_COLUMNS, fields);
+    if (format === "xlsx") {
+      return buildXlsx(entities, TRANSACTION_CSV_COLUMNS, fields);
+    }
+    return buildCsv(
+      entities,
+      TRANSACTION_CSV_COLUMNS,
+      fields,
+      csvDelimiterChar(delimiter ?? "comma"),
+    );
   }
 }

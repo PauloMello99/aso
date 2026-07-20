@@ -2,11 +2,14 @@ import {
   IsBoolean,
   IsEmail,
   IsIn,
+  IsNotEmpty,
   IsOptional,
+  IsPhoneNumber,
   IsString,
   IsUUID,
   Matches,
   MinLength,
+  ValidateIf,
 } from "class-validator";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -18,37 +21,47 @@ export class UpdateCustomerDto {
   name?: string;
 
   @IsEmail()
-  @IsOptional()
-  email?: string | null;
+  @IsNotEmpty()
+  @ValidateIf((_, value) => value !== undefined)
+  email?: string;
 
-  @IsString()
+  @IsPhoneNumber(undefined, { message: "Telefone inválido" })
   @IsOptional()
   phone?: string | null;
 
   @IsString()
   @Matches(DATE_PATTERN, { message: "birthDate must be in YYYY-MM-DD format" })
-  @IsOptional()
-  birthDate?: string | null;
+  @IsNotEmpty()
+  @ValidateIf((_, value) => value !== undefined)
+  birthDate?: string;
 
   @IsIn(["male", "female", "other"])
   @IsOptional()
   gender?: "male" | "female" | "other" | null;
 
   @IsString()
-  @IsOptional()
-  address?: string | null;
+  @IsNotEmpty()
+  @ValidateIf((_, value) => value !== undefined)
+  address?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @ValidateIf((_, value) => value !== undefined)
+  number?: string;
 
   @IsString()
   @IsOptional()
   addressLine2?: string | null;
 
   @IsString()
-  @IsOptional()
-  city?: string | null;
+  @IsNotEmpty()
+  @ValidateIf((_, value) => value !== undefined)
+  city?: string;
 
   @IsString()
-  @IsOptional()
-  state?: string | null;
+  @IsNotEmpty()
+  @ValidateIf((_, value) => value !== undefined)
+  state?: string;
 
   @IsString()
   @IsOptional()

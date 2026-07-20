@@ -40,7 +40,7 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
 
   if (notFound || !org) {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-400">
+      <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
         <AlertCircle className="h-4 w-4 shrink-0" />
         Organização não encontrada.
       </div>
@@ -61,12 +61,11 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
   }
 
   return (
-    <div className="grid gap-10">
-      {/* General info */}
+    <div className="grid gap-8">
       <section>
         <div className="mb-4">
           <h2 className="text-lg font-semibold">Informações gerais</h2>
-          <p className="text-sm text-foreground/50">Nome e identificador público da organização.</p>
+          <p className="text-sm text-foreground/40">Nome e identificador público da organização.</p>
         </div>
 
         {isOwner ? (
@@ -87,12 +86,11 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
         )}
       </section>
 
-      {/* Members */}
       <section>
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold">Membros</h2>
-            <p className="text-sm text-foreground/50">Gerencie quem tem acesso a esta organização.</p>
+            <p className="text-sm text-foreground/40">Gerencie quem tem acesso a esta organização.</p>
           </div>
           {isOwner && (
             <Button size="sm" className="w-full sm:w-auto" onClick={() => setInviteOpen(true)}>
@@ -127,12 +125,11 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
         />
       </section>
 
-      {/* Transfer organization — owner only */}
       {isOwner && (
         <section>
           <div className="mb-4">
             <h2 className="text-lg font-semibold">Transferir Organização</h2>
-            <p className="text-sm text-foreground/50">
+            <p className="text-sm text-foreground/40">
               Transfira a propriedade desta organização para outro membro.
             </p>
           </div>
@@ -154,13 +151,12 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
         </section>
       )}
 
-      {/* Danger zone — owner only */}
       {isOwner && (
         <section>
-          <div className="rounded-lg border border-red-500/20 p-4 sm:p-6">
+          <div className="rounded-lg border border-destructive/25 p-4 sm:p-6">
             <div className="mb-4">
-              <h3 className="font-semibold text-red-400">Zona de perigo</h3>
-              <p className="mt-1 text-sm text-foreground/50">Ações irreversíveis. Prossiga com cautela.</p>
+              <h3 className="font-semibold text-destructive">Zona de perigo</h3>
+              <p className="mt-1 text-sm text-foreground/40">Ações irreversíveis. Prossiga com cautela.</p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>

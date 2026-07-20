@@ -7,6 +7,11 @@ import {
 import { TransactionNotFoundException } from "../../domain/exceptions/transaction-not-found.exception";
 import { TransactionAlreadyReversedException } from "../../domain/exceptions/transaction-already-reversed.exception";
 import { TransactionNotReversibleException } from "../../domain/exceptions/transaction-not-reversible.exception";
+import { TransactionIsServicePaymentException } from "../../domain/exceptions/transaction-is-service-payment.exception";
+import {
+  IServiceRepository,
+  SERVICE_REPOSITORY,
+} from "../../../services/domain/service.repository.interface";
 
 export interface ReverseTransactionInput {
   orgId: string;
@@ -19,6 +24,8 @@ export class ReverseTransactionUseCase {
   constructor(
     @Inject(TRANSACTION_REPOSITORY)
     private readonly transactionRepo: ITransactionRepository,
+    @Inject(SERVICE_REPOSITORY)
+    private readonly serviceRepo: IServiceRepository,
   ) {}
 
   async execute(input: ReverseTransactionInput): Promise<TransactionEntity> {
@@ -28,7 +35,12 @@ export class ReverseTransactionUseCase {
     );
     if (!original) throw new TransactionNotFoundException(input.transactionId);
 
-    // Não se estorna um estorno.
+    if (
+      await this.serviceRepo.existsByPaymentTransactionId(input.transactionId)
+    ) {
+      throw new TransactionIsServicePaymentException(input.transactionId);
+    }
+
     if (original.isReversal) {
       throw new TransactionNotReversibleException(input.transactionId);
     }
@@ -40,7 +52,6 @@ export class ReverseTransactionUseCase {
       throw new TransactionAlreadyReversedException(input.transactionId);
     }
 
-    // Linha de estorno: tipo oposto, mesmos valores, vínculo com a original.
     return this.transactionRepo.create({
       orgId: original.orgId,
       createdBy: input.reversedBy ?? null,

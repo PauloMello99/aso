@@ -1,0 +1,30 @@
+# Shared RAG vector store (ADR-0015). ONE Qdrant container for all projects; each
+# project uses its own collection (ink-ops: `ink_ops_memory`; larmony: `larmony_memory`).
+# The fixed compose `name: rag` + `container_name` + named volume make `docker compose
+# -f docker-compose.rag.yml up -d` idempotent and shared across repos: whoever brings
+# it up first wins, the rest reuse the same container and volume.
+#
+# The embedding model (bge-m3) runs on Ollama WSL-native at :11434 (see /rag-setup),
+# NOT in a container. Pinned version = what collections were built against; a major
+# Qdrant bump may require a full reindex (index.py without --no-recreate).
+name: rag
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.18.1
+    container_name: rag-qdrant
+    ports:
+      - "6333:6333" # HTTP / dashboard (http://localhost:6333/dashboard)
+      - "6334:6334" # gRPC
+    volumes:
+      - rag-storage:/qdrant/storage # shared named volume (rag_rag-storage), not per-repo
+    restart: unless-stopped
+    # Image has no curl/wget; bash (/usr/bin/bash) + /dev/tcp is the liveness probe.
+    healthcheck:
+      test: ["CMD", "bash", "-c", "</dev/tcp/127.0.0.1/6333"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  rag-storage:

@@ -7,10 +7,6 @@ export interface NetPreview {
   hasFee: boolean
 }
 
-/**
- * Espelha o cálculo do backend (fee-calculator.ts) para preview na UI.
- * Taxa só se aplica a entradas em cartão com config existente.
- */
 export function previewNet(
   grossCents: number,
   method: PaymentMethod,

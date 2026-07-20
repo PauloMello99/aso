@@ -3,7 +3,6 @@ import type { ServiceMaterialEntity } from "./service-material.entity";
 
 export type { PaymentMethod };
 
-/** Estado derivado do serviço (não é coluna). */
 export type ServiceStatus = "pending" | "paid" | "canceled";
 
 export interface ServiceEntityProps {
@@ -11,19 +10,17 @@ export interface ServiceEntityProps {
   orgId: string;
   serviceTypeId: string | null;
   customerId: string | null;
-  /** Transação de pagamento vinculada (null = pendente). */
   paymentTransactionId: string | null;
+  anamnesisResponseId: string | null;
   performedBy: string | null;
   createdBy: string | null;
   description: string | null;
-  /** Valor bruto lançado, em centavos. */
   amountCents: number;
   paymentMethod: PaymentMethod;
   performedAt: Date;
   canceledAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
-  // Anotações de leitura (joins) — não persistidas pela própria entidade.
   materials?: ServiceMaterialEntity[];
   customerName?: string | null;
   employeeName?: string | null;
@@ -36,6 +33,7 @@ export class ServiceEntity {
   readonly serviceTypeId: string | null;
   readonly customerId: string | null;
   readonly paymentTransactionId: string | null;
+  readonly anamnesisResponseId: string | null;
   readonly performedBy: string | null;
   readonly createdBy: string | null;
   readonly description: string | null;
@@ -56,6 +54,7 @@ export class ServiceEntity {
     this.serviceTypeId = props.serviceTypeId;
     this.customerId = props.customerId;
     this.paymentTransactionId = props.paymentTransactionId;
+    this.anamnesisResponseId = props.anamnesisResponseId;
     this.performedBy = props.performedBy;
     this.createdBy = props.createdBy;
     this.description = props.description;

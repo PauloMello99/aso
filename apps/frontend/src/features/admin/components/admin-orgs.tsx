@@ -90,8 +90,8 @@ export function AdminOrgs() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Organizações</h1>
           <p className="mt-0.5 text-sm text-foreground/40">
@@ -110,13 +110,12 @@ export function AdminOrgs() {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      {/* Toolbar: busca + filtro de status */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/30" />
           <Input
@@ -168,7 +167,7 @@ export function AdminOrgs() {
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-foreground">{o.name}</span>
                       {suspended && (
-                        <Badge variant="destructive" className="bg-red-500/15 text-red-400">
+                        <Badge variant="destructive" className="bg-destructive/15 text-destructive">
                           Suspensa
                         </Badge>
                       )}
@@ -193,7 +192,7 @@ export function AdminOrgs() {
                         setActionError(null)
                         setTarget(o)
                       }}
-                      className={suspended ? "" : "text-red-400 hover:text-red-300"}
+                      className={suspended ? "" : "text-destructive hover:text-destructive/80"}
                     >
                       {suspended ? (
                         <>

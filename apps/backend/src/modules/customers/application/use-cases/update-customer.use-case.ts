@@ -3,6 +3,7 @@ import {
   CustomerEntity,
   UpdateCustomerData,
 } from "../../domain/customer.entity";
+import { CustomerEmailAlreadyExistsException } from "../../domain/exceptions/customer-email-already-exists.exception";
 import { CustomerNotFoundException } from "../../domain/exceptions/customer-not-found.exception";
 import {
   CUSTOMER_REPOSITORY,
@@ -23,6 +24,22 @@ export class UpdateCustomerUseCase {
   ): Promise<CustomerEntity> {
     const existing = await this.customerRepo.findById(id, orgId);
     if (!existing) throw new CustomerNotFoundException(id);
-    return this.customerRepo.update(id, data);
+
+    let email = data.email;
+    if (data.email !== undefined) {
+      if (data.email) {
+        const conflicting = await this.customerRepo.findByEmail(
+          orgId,
+          data.email,
+          id,
+        );
+        if (conflicting) {
+          throw new CustomerEmailAlreadyExistsException(data.email);
+        }
+      }
+      email = data.email?.trim();
+    }
+
+    return this.customerRepo.update(id, { ...data, email });
   }
 }

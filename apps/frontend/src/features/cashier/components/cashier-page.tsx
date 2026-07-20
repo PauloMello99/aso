@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, RefreshCw, Search, ArrowLeftRight } from "lucide-react"
+import { Plus, RefreshCw, Search, ArrowLeftRight, Tag } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import {
@@ -17,8 +17,12 @@ import {
   FilterField,
   RangeInputs,
 } from "@/shared/components/ui/filter-popover"
-import { ExportMenu } from "@/shared/components/ui/export-menu"
-import { downloadCsv } from "@/shared/lib/download-csv"
+import {
+  ExportMenu,
+  type ExportFormat,
+  type ExportDelimiter,
+} from "@/shared/components/ui/export-menu"
+import { downloadExport } from "@/shared/lib/download-export"
 import { useCurrentOrg } from "@/features/dashboard"
 import { useMembers } from "@/features/organizations/hooks/use-members"
 import { useTransactions } from "../hooks/use-transactions"
@@ -31,6 +35,7 @@ import { TransactionForm } from "./transaction-form"
 import { CorrectionSheet } from "./correction-sheet"
 import { ReverseDialog } from "./reverse-dialog"
 import { TransferDialog } from "./transfer-dialog"
+import { CategoryManagerDialog } from "./category-manager-dialog"
 import { parseReaisToCents } from "../lib/money"
 import type {
   TransactionFormValues,
@@ -53,10 +58,8 @@ const METHOD_ORDER: PaymentMethod[] = [
   "bank_transfer",
   "credit_card",
   "debit_card",
-  "credits",
 ]
 
-/** Colunas exportáveis (chaves espelham o backend). */
 const EXPORT_COLUMNS = [
   { key: "date", label: "Data" },
   { key: "description", label: "Descrição" },
@@ -123,10 +126,15 @@ export function CashierPage({ orgId }: CashierPageProps) {
     }))
   }
 
-  async function handleExport(fields: string[]) {
-    await downloadCsv(
+  async function handleExport(
+    fields: string[],
+    format: ExportFormat,
+    delimiter: ExportDelimiter,
+  ) {
+    await downloadExport(
       `/orgs/${orgId}/cashier/transactions/export`,
-      `caixa-${new Date().toISOString().slice(0, 10)}.csv`,
+      `caixa-${new Date().toISOString().slice(0, 10)}`,
+      format,
       {
         from: filter.from,
         to: filter.to,
@@ -138,6 +146,7 @@ export function CashierPage({ orgId }: CashierPageProps) {
         createdBy: filter.createdBy,
         q: filter.q,
         fields: fields.join(","),
+        delimiter: format === "csv" ? delimiter : undefined,
       },
     )
   }
@@ -154,12 +163,18 @@ export function CashierPage({ orgId }: CashierPageProps) {
   } = useTransactions(orgId, filter)
   const { balance, loading: balanceLoading } = useBalance(orgId)
   const { fees } = usePaymentFees(orgId)
-  const { categories } = useTransactionCategories(orgId)
+  const {
+    categories,
+    createCategory,
+    updateCategory,
+    deleteCategory,
+  } = useTransactionCategories(orgId)
 
   const [formOpen, setFormOpen] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false)
   const [correctOpen, setCorrectOpen] = useState(false)
   const [reverseOpen, setReverseOpen] = useState(false)
+  const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [active, setActive] = useState<Transaction | null>(null)
 
   async function handleCreate(values: TransactionFormValues) {
@@ -168,7 +183,13 @@ export function CashierPage({ orgId }: CashierPageProps) {
 
   async function handleCorrect(values: CorrectionFormValues) {
     if (!active) return
-    await correctTransaction(active.id, toApiBody(values))
+    try {
+      await correctTransaction(active.id, toApiBody(values))
+    } catch (err) {
+      alert(
+        err instanceof Error ? err.message : "Não foi possível corrigir.",
+      )
+    }
   }
 
   async function handleReverse() {
@@ -188,7 +209,6 @@ export function CashierPage({ orgId }: CashierPageProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Caixa</h1>
@@ -211,14 +231,24 @@ export function CashierPage({ orgId }: CashierPageProps) {
           </Button>
           <ExportMenu columns={EXPORT_COLUMNS} onExport={handleExport} />
           {isOwner && (
-            <Button
-              variant="outline"
-              onClick={() => setTransferOpen(true)}
-              className="shrink-0"
-            >
-              <ArrowLeftRight className="h-4 w-4" />
-              <span className="hidden sm:inline">Transferir</span>
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setTransferOpen(true)}
+                className="shrink-0"
+              >
+                <ArrowLeftRight className="h-4 w-4" />
+                <span className="hidden sm:inline">Transferir</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setCategoriesOpen(true)}
+                className="shrink-0"
+              >
+                <Tag className="h-4 w-4" />
+                <span className="hidden sm:inline">Categorias</span>
+              </Button>
+            </>
           )}
           <Button onClick={() => setFormOpen(true)} className="flex-1 sm:flex-none">
             <Plus className="h-4 w-4" />
@@ -227,10 +257,8 @@ export function CashierPage({ orgId }: CashierPageProps) {
         </div>
       </div>
 
-      {/* Balances */}
       <BalanceCards balance={balance} loading={balanceLoading} />
 
-      {/* Filters */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/30" />
@@ -364,14 +392,12 @@ export function CashierPage({ orgId }: CashierPageProps) {
         </FilterPopover>
       </div>
 
-      {/* Error */}
       {error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      {/* List */}
       {loading && transactions.length === 0 ? (
         <div className="flex items-center justify-center py-16 text-foreground/30">
           <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
@@ -380,6 +406,7 @@ export function CashierPage({ orgId }: CashierPageProps) {
       ) : (
         <TransactionList
           transactions={transactions}
+          categories={categories}
           canManage={isOwner}
           onReverse={(t) => {
             setActive(t)
@@ -392,7 +419,6 @@ export function CashierPage({ orgId }: CashierPageProps) {
         />
       )}
 
-      {/* Sheets / dialogs */}
       <TransactionForm
         open={formOpen}
         onOpenChange={setFormOpen}
@@ -402,7 +428,6 @@ export function CashierPage({ orgId }: CashierPageProps) {
         members={members}
         onSubmit={handleCreate}
       />
-      {/* Transferência, estorno e correção são owner-only. */}
       {isOwner && (
         <>
           <TransferDialog
@@ -421,6 +446,14 @@ export function CashierPage({ orgId }: CashierPageProps) {
             onOpenChange={setReverseOpen}
             transaction={active}
             onConfirm={handleReverse}
+          />
+          <CategoryManagerDialog
+            open={categoriesOpen}
+            onOpenChange={setCategoriesOpen}
+            categories={categories}
+            onCreate={createCategory}
+            onUpdate={updateCategory}
+            onDelete={deleteCategory}
           />
         </>
       )}

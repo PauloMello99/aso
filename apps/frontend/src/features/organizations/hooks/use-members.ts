@@ -8,8 +8,6 @@ import type { Member, Invitation, InviteResult, OrgRole } from "../types"
 export function useMembers(orgId: string) {
   const queryClient = useQueryClient()
 
-  // ── Queries ────────────────────────────────────────────────────────────────
-
   const membersQuery = useQuery({
     queryKey: queryKeys.members.list(orgId),
     queryFn: () => apiRequest<Member[]>(`/orgs/${orgId}/members`),
@@ -24,8 +22,6 @@ export function useMembers(orgId: string) {
       ),
     enabled: !!orgId,
   })
-
-  // ── Mutations ──────────────────────────────────────────────────────────────
 
   const inviteMemberMutation = useMutation({
     mutationFn: ({ email, role }: { email: string; role: OrgRole }) =>
@@ -63,7 +59,6 @@ export function useMembers(orgId: string) {
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.members.list(orgId) })
-      // permissões afetam o nav/escopo do próprio funcionário → invalida orgs também.
       void queryClient.invalidateQueries({ queryKey: queryKeys.orgs.all })
     },
   })
@@ -94,8 +89,6 @@ export function useMembers(orgId: string) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.members.invitations(orgId) })
     },
   })
-
-  // ── Stable wrappers (unchanged call signature for consumers) ───────────────
 
   async function inviteMember(email: string, role: OrgRole): Promise<InviteResult> {
     return inviteMemberMutation.mutateAsync({ email, role })

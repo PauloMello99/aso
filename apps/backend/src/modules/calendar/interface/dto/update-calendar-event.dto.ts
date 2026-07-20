@@ -44,4 +44,8 @@ export class UpdateCalendarEventDto {
   @IsBoolean()
   @IsOptional()
   allDay?: boolean;
+
+  @IsIn(["private", "shared"])
+  @IsOptional()
+  visibility?: "private" | "shared";
 }

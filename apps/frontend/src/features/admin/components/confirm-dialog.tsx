@@ -21,16 +21,10 @@ interface ConfirmDialogProps {
   cancelLabel?: string
   destructive?: boolean
   loading?: boolean
-  /** Mensagem de erro inline (ex.: falha da mutation). */
   error?: string | null
   onConfirm: () => void
 }
 
-/**
- * Diálogo de confirmação reutilizável (substitui window.confirm/alert no painel).
- * Mantém foco/escape do Radix, mostra loading e erro inline, e usa cor semântica
- * para ações destrutivas.
- */
 export function ConfirmDialog({
   open,
   onOpenChange,
@@ -45,7 +39,7 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={(o) => !loading && onOpenChange(o)}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
@@ -54,7 +48,7 @@ export function ConfirmDialog({
         {error && (
           <p
             role="alert"
-            className="rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-400"
+            className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive"
           >
             {error}
           </p>

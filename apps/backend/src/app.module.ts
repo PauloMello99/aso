@@ -14,10 +14,12 @@ import { CalendarModule } from "./modules/calendar/calendar.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { CashierModule } from "./modules/cashier/cashier.module";
 import { ServicesModule } from "./modules/services/services.module";
+import { AnamnesisModule } from "./modules/anamnesis/anamnesis.module";
 import { OverviewModule } from "./modules/overview/overview.module";
 import { AdminModule } from "./modules/admin/admin.module";
 import { AuditModule } from "./modules/audit/audit.module";
 import { InternalCronModule } from "./modules/internal-cron/internal-cron.module";
+import { SubscriptionsModule } from "./modules/subscriptions/subscriptions.module";
 import { TelemetryModule } from "./common/telemetry/telemetry.module";
 
 @Module({
@@ -36,10 +38,12 @@ import { TelemetryModule } from "./common/telemetry/telemetry.module";
     NotificationsModule,
     CashierModule,
     ServicesModule,
+    AnamnesisModule,
     OverviewModule,
     AdminModule,
     AuditModule,
     InternalCronModule,
+    SubscriptionsModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: RlsInterceptor },

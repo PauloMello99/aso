@@ -14,7 +14,6 @@ import {
 import { cn } from "@/shared/lib/utils";
 
 interface DatePickerProps {
-  /** ISO date string `YYYY-MM-DD` or "". */
   value?: string;
   onChange?: (value: string) => void;
   id?: string;

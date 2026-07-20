@@ -13,6 +13,7 @@ export class UserMapper {
       avatarUrl: row.avatarUrl ?? null,
       birthDate: row.birthDate ?? null,
       gender: row.gender ?? null,
+      onboardingCompletedAt: row.onboardingCompletedAt ?? null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });

@@ -23,7 +23,7 @@ import { parseReaisToCents } from "../lib/money"
 import { PAYMENT_METHOD_LABELS, type PaymentMethod } from "../types"
 import type { TransferBody } from "../hooks/use-transactions"
 
-const METHODS: PaymentMethod[] = ["cash", "bank_transfer", "credit_card", "debit_card"]
+const METHODS: PaymentMethod[] = ["cash", "bank_transfer"]
 
 interface TransferDialogProps {
   open: boolean
@@ -118,7 +118,7 @@ export function TransferDialog({ open, onOpenChange, onSubmit }: TransferDialogP
               />
             </div>
           </div>
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
 
         <DialogFooter>

@@ -16,6 +16,7 @@ export class CalendarEventMapper {
       startsAt: row.startsAt,
       endsAt: row.endsAt,
       allDay: row.allDay,
+      visibility: row.visibility,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });

@@ -25,17 +25,17 @@ const movementMeta: Record<
   restock: {
     label: "Reposição",
     icon: <ArrowDownLeft className="h-3.5 w-3.5" />,
-    color: "text-emerald-400",
+    color: "text-success",
   },
   service_consumption: {
     label: "Consumo em atendimento",
     icon: <ArrowUpRight className="h-3.5 w-3.5" />,
-    color: "text-blue-400",
+    color: "text-info",
   },
   manual_adjustment: {
     label: "Ajuste manual",
     icon: <SlidersHorizontal className="h-3.5 w-3.5" />,
-    color: "text-orange-400",
+    color: "text-primary",
   },
 }
 
@@ -59,7 +59,7 @@ function MovementRow({ m }: { m: StockMovement }) {
           <span className="truncate text-sm text-foreground">{meta.label}</span>
           <span
             className={`shrink-0 text-sm font-medium tabular-nums ${
-              isPositive ? "text-emerald-400" : "text-red-400"
+              isPositive ? "text-success" : "text-destructive"
             }`}
           >
             {isPositive ? "+" : ""}
@@ -120,7 +120,7 @@ export function StockMovementsPanel({
             </div>
           )}
           {error && (
-            <p className="py-4 text-center text-sm text-red-400">{error}</p>
+            <p className="py-4 text-center text-sm text-destructive">{error}</p>
           )}
           {!loading && !error && movements.length === 0 && (
             <p className="py-8 text-center text-sm text-foreground/30">

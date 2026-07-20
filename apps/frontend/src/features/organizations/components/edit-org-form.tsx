@@ -52,7 +52,6 @@ export function EditOrgForm({ org, onSubmit }: EditOrgFormProps) {
           )}
         />
 
-        {/* Slug is auto-generated and read-only */}
         <div className="grid gap-1.5">
           <span className="text-sm font-medium leading-none text-foreground/70">
             Identificador (slug)

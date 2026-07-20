@@ -12,6 +12,10 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-text: var(--primary-text);
+  --color-primary-subtle: var(--primary-subtle);
+  --color-primary-border: var(--primary-border);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -20,9 +24,28 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-subtle: var(--destructive-subtle);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-subtle: var(--success-subtle);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-subtle: var(--info-subtle);
   --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-faint: var(--border-faint);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-active);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -40,10 +63,11 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
-  /* Tema claro (default :root). Orange continua sendo o primary. THEME-1. */
+  /* Tema claro (default :root). Primary = teal (ASO rebrand). */
   :root {
     color-scheme: light;
     --background: oklch(1 0 0);
@@ -52,35 +76,62 @@
     --card-foreground: oklch(0.18 0.004 285.8);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.18 0.004 285.8);
-    /* Primary = orange-500 */
-    --primary: oklch(0.705 0.213 47.604);
+    /* Primary = teal-700 (ASO rebrand) */
+    --primary: oklch(0.511 0.096 186.391);
     --primary-foreground: oklch(0.985 0 0);
+    --primary-hover: oklch(0.437 0.078 188.216);
+    --primary-text: oklch(0.511 0.096 186.391);
+    --primary-subtle: oklch(0.511 0.096 186.391 / 10%);
+    --primary-border: oklch(0.511 0.096 186.391 / 30%);
     --secondary: oklch(0.967 0.001 286.375);
     --secondary-foreground: oklch(0.21 0.006 285.885);
     --muted: oklch(0.967 0.001 286.375);
     --muted-foreground: oklch(0.552 0.016 285.938);
     --accent: oklch(0.967 0.001 286.375);
     --accent-foreground: oklch(0.21 0.006 285.885);
-    --destructive: oklch(0.637 0.237 25.331);
+    --destructive: oklch(0.577 0.245 27.325);
     --destructive-foreground: oklch(0.985 0 0);
+    --destructive-subtle: oklch(0.577 0.245 27.325 / 12%);
+    --success: oklch(0.508 0.118 165.612);
+    --success-foreground: oklch(0.985 0 0);
+    --success-subtle: oklch(0.508 0.118 165.612 / 12%);
+    --warning: oklch(0.555 0.163 48.998);
+    --warning-foreground: oklch(0.985 0 0);
+    --warning-subtle: oklch(0.555 0.163 48.998 / 12%);
+    --info: oklch(0.5 0.134 242.749);
+    --info-foreground: oklch(0.985 0 0);
+    --info-subtle: oklch(0.5 0.134 242.749 / 12%);
     --border: oklch(0 0 0 / 10%);
+    --border-subtle: oklch(0 0 0 / 6%);
+    --border-faint: oklch(0 0 0 / 4%);
     --input: oklch(0 0 0 / 12%);
-    --ring: oklch(0.705 0.213 47.604);
+    --ring: oklch(0.511 0.096 186.391);
+    --surface-1: oklch(0 0 0 / 2%);
+    --surface-2: oklch(0 0 0 / 4%);
+    --surface-hover: oklch(0 0 0 / 6%);
+    --surface-active: oklch(0 0 0 / 8%);
+    --text-secondary: oklch(0.18 0.004 285.8 / 60%);
+    --text-muted: oklch(0.18 0.004 285.8 / 40%);
+    --text-faint: oklch(0.18 0.004 285.8 / 30%);
     --radius: 0.45rem;
-    /* Chart palette — orange spectrum */
-    --chart-1: oklch(0.837 0.128 66.29);
-    --chart-2: oklch(0.705 0.213 47.604);
-    --chart-3: oklch(0.646 0.222 41.116);
-    --chart-4: oklch(0.553 0.195 38.402);
-    --chart-5: oklch(0.47 0.157 37.304);
+    --header-height: 3.5rem;
+    --sidebar-width: 14rem;
+    --sidebar-width-collapsed: 3.5rem;
+    --content-max-width: 80rem;
+    /* Chart palette — teal/emerald/amber/violet/sky */
+    --chart-1: oklch(0.511 0.096 186.391);
+    --chart-2: oklch(0.596 0.145 163.225);
+    --chart-3: oklch(0.666 0.179 58.318);
+    --chart-4: oklch(0.541 0.281 293.009);
+    --chart-5: oklch(0.588 0.158 241.966);
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.18 0.004 285.8);
-    --sidebar-primary: oklch(0.705 0.213 47.604);
+    --sidebar-primary: oklch(0.511 0.096 186.391);
     --sidebar-primary-foreground: oklch(0.985 0 0);
     --sidebar-accent: oklch(0.967 0.001 286.375);
     --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
     --sidebar-border: oklch(0 0 0 / 10%);
-    --sidebar-ring: oklch(0.705 0.213 47.604);
+    --sidebar-ring: oklch(0.511 0.096 186.391);
   }
 
   /* Tema escuro — aparência atual do app. */
@@ -92,8 +143,12 @@
     --card-foreground: oklch(0.985 0 0);
     --popover: oklch(0.21 0.006 285.885);
     --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.705 0.213 47.604);
-    --primary-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.704 0.14 182.503);
+    --primary-foreground: oklch(0.277 0.046 192.524);
+    --primary-hover: oklch(0.777 0.152 181.912);
+    --primary-text: oklch(0.777 0.152 181.912);
+    --primary-subtle: oklch(0.704 0.14 182.503 / 15%);
+    --primary-border: oklch(0.704 0.14 182.503 / 30%);
     --secondary: oklch(0.274 0.006 286.033);
     --secondary-foreground: oklch(0.985 0 0);
     --muted: oklch(0.274 0.006 286.033);
@@ -102,13 +157,38 @@
     --accent-foreground: oklch(0.985 0 0);
     --destructive: oklch(0.704 0.191 22.216);
     --destructive-foreground: oklch(0.985 0 0);
+    --destructive-subtle: oklch(0.704 0.191 22.216 / 15%);
+    --success: oklch(0.765 0.177 163.223);
+    --success-foreground: oklch(0.145 0.008 210);
+    --success-subtle: oklch(0.765 0.177 163.223 / 15%);
+    --warning: oklch(0.828 0.189 84.429);
+    --warning-foreground: oklch(0.145 0.008 210);
+    --warning-subtle: oklch(0.828 0.189 84.429 / 15%);
+    --info: oklch(0.746 0.16 232.661);
+    --info-foreground: oklch(0.145 0.008 210);
+    --info-subtle: oklch(0.746 0.16 232.661 / 15%);
     --border: oklch(1 0 0 / 10%);
+    --border-subtle: oklch(1 0 0 / 6%);
+    --border-faint: oklch(1 0 0 / 4%);
     --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.705 0.213 47.604);
+    --ring: oklch(0.704 0.14 182.503);
+    --surface-1: oklch(1 0 0 / 2%);
+    --surface-2: oklch(1 0 0 / 4%);
+    --surface-hover: oklch(1 0 0 / 6%);
+    --surface-active: oklch(1 0 0 / 8%);
+    --text-secondary: oklch(1 0 0 / 60%);
+    --text-muted: oklch(1 0 0 / 40%);
+    --text-faint: oklch(1 0 0 / 30%);
+    /* Chart palette — teal/emerald/amber/violet/sky (dark) */
+    --chart-1: oklch(0.704 0.14 182.503);
+    --chart-2: oklch(0.696 0.17 162.48);
+    --chart-3: oklch(0.769 0.188 70.08);
+    --chart-4: oklch(0.606 0.25 292.717);
+    --chart-5: oklch(0.685 0.169 237.323);
     --sidebar: oklch(0.21 0.006 285.885);
     --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.705 0.213 47.604);
-    --sidebar-primary-foreground: oklch(0.266 0.079 36.259);
+    --sidebar-primary: oklch(0.704 0.14 182.503);
+    --sidebar-primary-foreground: oklch(0.277 0.046 192.524);
     --sidebar-accent: oklch(0.274 0.006 286.033);
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
@@ -122,5 +202,6 @@
   body {
     background-color: var(--background);
     color: var(--foreground);
+    font-family: var(--font-sans);
   }
 }

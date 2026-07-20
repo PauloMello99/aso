@@ -139,7 +139,6 @@ function SheetDescription({
   )
 }
 
-/** Scrollable body region between the sticky header and footer. */
 function SheetBody({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div

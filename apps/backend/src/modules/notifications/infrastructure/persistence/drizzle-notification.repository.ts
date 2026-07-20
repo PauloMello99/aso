@@ -14,7 +14,6 @@ import { NotificationMapper } from "./notification.mapper";
 
 @Injectable()
 export class DrizzleNotificationRepository implements INotificationRepository {
-  // Tabela sem RLS → usa a conexão admin; escopo por user_id é garantido no código.
   constructor(@Inject(DRIZZLE_ADMIN) private readonly db: DrizzleDB) {}
 
   async create(data: CreateNotificationData): Promise<NotificationEntity> {
@@ -43,6 +42,20 @@ export class DrizzleNotificationRepository implements INotificationRepository {
       .select()
       .from(schema.notifications)
       .where(and(...conditions))
+      .orderBy(desc(schema.notifications.createdAt))
+      .limit(opts?.limit ?? 50);
+
+    return rows.map(NotificationMapper.toDomain);
+  }
+
+  async findByOrg(
+    orgId: string,
+    opts?: { limit?: number },
+  ): Promise<NotificationEntity[]> {
+    const rows = await this.db
+      .select()
+      .from(schema.notifications)
+      .where(eq(schema.notifications.orgId, orgId))
       .orderBy(desc(schema.notifications.createdAt))
       .limit(opts?.limit ?? 50);
 

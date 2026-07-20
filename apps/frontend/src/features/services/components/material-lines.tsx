@@ -20,7 +20,6 @@ import type { ServiceFormValues } from "../schemas/services.schemas"
 
 interface MaterialLinesProps {
   materials: Material[]
-  /** Item 5 — cria um material (modal reusa o MaterialForm) e o adiciona à linha. */
   onCreateMaterial: (values: MaterialFormValues) => Promise<Material>
 }
 
@@ -57,7 +56,7 @@ export function MaterialLines({
     <div className="flex flex-col gap-3">
       {fields.length === 0 && (
         <p className="text-xs text-foreground/30">
-          Nenhum material adicionado (opcional).
+          Adicione ao menos um material consumido.
         </p>
       )}
 
@@ -147,7 +146,6 @@ export function MaterialLines({
         </Button>
       </div>
 
-      {/* Item 5 — cria um material reusando o MaterialForm e já o adiciona. */}
       <MaterialForm
         open={materialFormOpen}
         onOpenChange={setMaterialFormOpen}

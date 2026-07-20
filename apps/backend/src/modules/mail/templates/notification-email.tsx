@@ -4,23 +4,20 @@ import { BaseLayout, sharedStyles } from "./base-layout";
 export interface NotificationEmailProps {
   title: string;
   body?: string | null;
-  /** CTA opcional (ex.: link para o agendamento / estoque). */
   actionUrl?: string;
   actionLabel?: string;
+  supportEmail?: string;
 }
 
-/**
- * Template genérico usado por todas as notificações disparadas pelo
- * NotificationService (lembrete de agenda, conferência de estoque, etc.).
- */
 export function NotificationEmail({
   title,
   body,
   actionUrl,
   actionLabel,
+  supportEmail,
 }: NotificationEmailProps) {
   return (
-    <BaseLayout preview={title}>
+    <BaseLayout preview={title} supportEmail={supportEmail}>
       <Heading style={sharedStyles.heading}>{title}</Heading>
       {body ? <Text style={sharedStyles.paragraph}>{body}</Text> : null}
       {actionUrl ? (
@@ -34,7 +31,6 @@ export function NotificationEmail({
   );
 }
 
-// Default export para a preview do `react-email` (email dev).
 export default function NotificationEmailPreview() {
   return (
     <NotificationEmail

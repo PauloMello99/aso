@@ -14,7 +14,6 @@ export interface DailyBalancePoint {
 export interface KpiWithDelta {
   current: number
   previous: number
-  /** Variação % vs período anterior; null quando não há base. */
   deltaPercent: number | null
 }
 
@@ -25,7 +24,7 @@ export interface ServiceGroupRow {
 }
 
 export interface PaymentMethodTotal {
-  paymentMethod: "cash" | "bank_transfer" | "credit_card" | "debit_card" | "credits"
+  paymentMethod: "cash" | "bank_transfer" | "credit_card" | "debit_card"
   netCents: number
 }
 
@@ -35,7 +34,6 @@ export interface IncomeExpensePoint {
   expenseCents: number
 }
 
-/** KPIs + séries do overview (role-aware). PERF-3 + redesenho. */
 export interface OverviewAnalytics {
   role: "owner" | "employee"
   from: string

@@ -16,6 +16,7 @@ export interface UpdateMeInput {
   name?: string;
   email?: string;
   avatarUrl?: string | null;
+  onboardingCompletedAt?: string | null;
 }
 
 @Injectable()
@@ -30,7 +31,6 @@ export class UpdateMeUseCase {
     const current = await this.userRepo.findByAuthId(authUser.id);
     if (!current) throw new UserNotFoundException(authUser.id);
 
-    // E-mail é a identidade de login → atualiza no provedor antes do banco.
     const emailChanged = !!input.email && input.email !== current.email;
     if (emailChanged) {
       await this.auth.updateEmail(authUser.id, input.email!);
@@ -40,6 +40,12 @@ export class UpdateMeUseCase {
       name: input.name,
       email: emailChanged ? input.email : undefined,
       avatarUrl: input.avatarUrl,
+      onboardingCompletedAt:
+        input.onboardingCompletedAt === undefined
+          ? undefined
+          : input.onboardingCompletedAt === null
+            ? null
+            : new Date(),
     });
 
     const changedFields = Object.keys(input).filter(

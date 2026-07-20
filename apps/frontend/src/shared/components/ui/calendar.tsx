@@ -100,7 +100,6 @@ function Calendar({
           d.month_caption,
           "flex h-8 items-center justify-center",
         ),
-        // Hidden because we always render the month/year dropdowns (captionLayout="dropdown").
         caption_label: cn(d.caption_label, "hidden"),
         dropdowns: cn(d.dropdowns, "flex items-center justify-center gap-1.5"),
         dropdown_root: cn(d.dropdown_root, "relative"),
@@ -125,10 +124,10 @@ function Calendar({
           d.day_button,
           "inline-flex h-9 w-9 items-center justify-center rounded-md font-normal text-foreground/80 transition-colors hover:bg-foreground/10",
         ),
-        today: cn(d.today, "font-semibold text-orange-400"),
+        today: cn(d.today, "font-semibold text-primary"),
         selected: cn(
           d.selected,
-          "[&>button]:bg-orange-500 [&>button]:text-white [&>button:hover]:bg-orange-500",
+          "[&>button]:bg-primary [&>button]:text-primary-foreground [&>button:hover]:bg-primary",
         ),
         outside: cn(d.outside, "text-foreground/20"),
         disabled: cn(d.disabled, "text-foreground/10 opacity-50"),

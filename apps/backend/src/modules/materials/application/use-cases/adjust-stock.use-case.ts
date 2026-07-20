@@ -13,7 +13,6 @@ import {
 export interface AdjustStockInput {
   orgId: string;
   materialId: string;
-  /** Positive = add, negative = subtract (waste, correction, etc.) */
   quantityDelta: string;
   note?: string | null;
   createdBy?: string | null;
@@ -44,7 +43,6 @@ export class AdjustStockUseCase {
       createdBy: input.createdBy ?? null,
     });
 
-    // Baixa (delta negativo) conta como "uso" para ordenar por mais recentes.
     if (input.quantityDelta.trim().startsWith("-")) {
       await this.materialRepo.touchLastUsed(input.materialId);
     }

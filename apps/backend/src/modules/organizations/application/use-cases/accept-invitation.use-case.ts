@@ -66,7 +66,6 @@ export class AcceptInvitationUseCase {
       orgId: invitation.orgId,
       userId: user.id,
       role: invitation.role,
-      // Funcionário começa restrito (só o essencial); owner libera o resto.
       permissions:
         invitation.role === "employee" ? DEFAULT_EMPLOYEE_PERMISSIONS : [],
     });

@@ -5,16 +5,19 @@ import { ServiceEntity } from "../../domain/service.entity";
 import {
   buildCsv,
   csvDate,
+  csvDelimiterChar,
   csvMoneyCents,
   type CsvColumn,
+  type CsvDelimiter,
+  type ExportFormat,
 } from "../../../../common/csv/csv.util";
+import { buildXlsx } from "../../../../common/csv/xlsx.util";
 
 const METHOD_LABELS: Record<string, string> = {
   cash: "Dinheiro",
   bank_transfer: "Transferência / Pix",
   credit_card: "Cartão de crédito",
   debit_card: "Cartão de débito",
-  credits: "Créditos",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -23,7 +26,6 @@ const STATUS_LABELS: Record<string, string> = {
   canceled: "Cancelado",
 };
 
-/** Colunas exportáveis de serviços (chaves usadas no seletor `?fields=`). */
 export const SERVICE_CSV_COLUMNS: CsvColumn<ServiceEntity>[] = [
   { key: "date", header: "Data", value: (s) => csvDate(s.performedAt) },
   { key: "customer", header: "Cliente", value: (s) => s.customerName ?? "" },
@@ -60,12 +62,22 @@ export class ExportServicesUseCase {
     authId: string,
     filter?: ListServicesFilter,
     fields?: string[],
-  ): Promise<string> {
+    format?: ExportFormat,
+    delimiter?: CsvDelimiter,
+  ): Promise<string | Buffer> {
     const services = await this.listServices.execute({
       orgId,
       authId,
       filter,
     });
-    return buildCsv(services, SERVICE_CSV_COLUMNS, fields);
+    if (format === "xlsx") {
+      return buildXlsx(services, SERVICE_CSV_COLUMNS, fields);
+    }
+    return buildCsv(
+      services,
+      SERVICE_CSV_COLUMNS,
+      fields,
+      csvDelimiterChar(delimiter ?? "comma"),
+    );
   }
 }

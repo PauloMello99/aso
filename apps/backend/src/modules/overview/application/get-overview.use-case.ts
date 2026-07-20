@@ -10,16 +10,17 @@ import {
   type TransactionView,
 } from "../../cashier/application/use-cases/list-transactions.use-case";
 import { ListTransactionCategoriesUseCase } from "../../cashier/application/use-cases/list-transaction-categories.use-case";
-import { ListMaterialsUseCase } from "../../materials/application/use-cases/list-materials.use-case";
+import {
+  ListMaterialsUseCase,
+  type MaterialListItemView,
+} from "../../materials/application/use-cases/list-materials.use-case";
 import { ListCalendarEventsUseCase } from "../../calendar/application/use-cases/list-calendar-events.use-case";
 import { ListCustomersUseCase } from "../../customers/application/use-cases/list-customers.use-case";
 import type { ServiceEntity } from "../../services/domain/service.entity";
-import type { MaterialEntity } from "../../materials/domain/material.entity";
 import type { CalendarEventEntity } from "../../calendar/domain/calendar-event.entity";
 import type { CustomerEntity } from "../../customers/domain/customer.entity";
 import type { TransactionCategoryEntity } from "../../cashier/domain/transaction-category.entity";
 
-/** Limites por seção — espelham o que o Overview já renderizava no cliente. */
 const LIMITS = {
   services: 10,
   events: 10,
@@ -28,26 +29,18 @@ const LIMITS = {
   customers: 10,
 } as const;
 
-/** Janela de eventos futuros considerada (em dias). */
 const UPCOMING_WINDOW_DAYS = 90;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface OverviewResult {
   recentServices: ServiceEntity[];
   upcomingEvents: CalendarEventEntity[];
-  lowStock: MaterialEntity[];
-  /** Owner-only — funcionário recebe lista vazia. */
+  lowStock: MaterialListItemView[];
   recentTransactions: TransactionView[];
   transactionCategories: TransactionCategoryEntity[];
   recentCustomers: CustomerEntity[];
 }
 
-/**
- * Agrega num único request as seções do Overview, com scoping no servidor:
- * - funcionário enxerga só os próprios serviços/eventos (reusa os list use-cases);
- * - seções owner-only (transações, categorias, clientes) saem vazias p/ funcionário.
- * Substitui os ~6 requests que o cliente fazia, fatiando no front (PERF-2).
- */
 @Injectable()
 export class GetOverviewUseCase {
   constructor(
@@ -71,7 +64,7 @@ export class GetOverviewUseCase {
     const [services, events, materials] = await Promise.all([
       this.listServices.execute({ orgId, authId }),
       this.listEvents.execute({ orgId, authId, start: now, end: windowEnd }),
-      this.listMaterials.execute(orgId, { lowStockOnly: true }),
+      this.listMaterials.execute(orgId, { lowStockOnly: true }, authId),
     ]);
 
     const recentServices = [...services]
@@ -86,7 +79,6 @@ export class GetOverviewUseCase {
 
     const lowStock = materials.slice(0, LIMITS.lowStock);
 
-    // Seções exclusivas do owner.
     let recentTransactions: TransactionView[] = [];
     let transactionCategories: TransactionCategoryEntity[] = [];
     let recentCustomers: CustomerEntity[] = [];

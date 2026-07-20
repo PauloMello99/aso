@@ -19,11 +19,9 @@ interface ServiceTypeDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onCreate: (name: string) => Promise<ServiceType>
-  /** Chamado com o tipo recém-criado (ex.: para selecioná-lo no form). */
   onCreated?: (type: ServiceType) => void
 }
 
-/** Modal simples para criar um tipo de serviço sem sair do form de serviço. */
 export function ServiceTypeDialog({
   open,
   onOpenChange,
@@ -72,7 +70,7 @@ export function ServiceTypeDialog({
 
         <div className="space-y-1.5">
           <Label htmlFor="service-type-name">
-            Nome <span className="text-red-400">*</span>
+            Nome <span className="text-destructive">*</span>
           </Label>
           <Input
             id="service-type-name"

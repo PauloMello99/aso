@@ -32,8 +32,8 @@ export function BackgroundGrid({
 
       {glows && (
         <>
-          <div className="absolute -left-40 -top-40 h-[600px] w-[600px] rounded-full bg-orange-500/10 blur-[120px]" />
-          <div className="absolute -bottom-20 -right-20 h-[500px] w-[500px] rounded-full bg-orange-600/8 blur-[100px]" />
+          <div className="absolute -left-40 -top-40 h-[600px] w-[600px] rounded-full bg-primary/10 blur-[120px]" />
+          <div className="absolute -bottom-20 -right-20 h-[500px] w-[500px] rounded-full bg-primary/8 blur-[100px]" />
         </>
       )}
     </div>

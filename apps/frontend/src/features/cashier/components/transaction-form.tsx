@@ -54,7 +54,6 @@ const METHOD_ORDER: PaymentMethod[] = [
   "bank_transfer",
   "credit_card",
   "debit_card",
-  "credits",
 ]
 
 interface TransactionFormProps {
@@ -62,7 +61,6 @@ interface TransactionFormProps {
   onOpenChange: (open: boolean) => void
   fees: PaymentFee[]
   categories: TransactionCategory[]
-  /** Owner pode lançar em nome de um membro; funcionário não vê o seletor. */
   isOwner?: boolean
   members?: Member[]
   onSubmit: (values: TransactionFormValues) => Promise<void>
@@ -111,7 +109,6 @@ export function TransactionForm({
     onOpenChange(false)
   })
 
-  // Preview do líquido (taxa de cartão) — reativo aos campos.
   const amount = form.watch("amount")
   const method = form.watch("paymentMethod")
   const type = form.watch("type")
@@ -169,7 +166,7 @@ export function TransactionForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Descrição <span className="text-red-400">*</span>
+                      Descrição <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input
@@ -189,7 +186,7 @@ export function TransactionForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Valor <span className="text-red-400">*</span>
+                      Valor <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <div className="relative">
@@ -272,7 +269,6 @@ export function TransactionForm({
                 )}
               />
 
-              {/* Owner: lançar em nome de um membro (funcionário força = self). */}
               {isOwner && (
                 <FormField
                   control={form.control}
@@ -330,12 +326,11 @@ export function TransactionForm({
                 )}
               />
 
-              {/* Preview de taxa de cartão → líquido no caixa */}
               {preview?.hasFee && (
                 <div className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3 text-sm">
                   <div className="flex items-center justify-between text-foreground/50">
                     <span>Taxa estimada</span>
-                    <span className="tabular-nums text-red-400">
+                    <span className="tabular-nums text-destructive">
                       − {formatBRL(preview.feeCents)}
                     </span>
                   </div>

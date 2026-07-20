@@ -25,7 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from config import COLLECTION, QDRANT_URL
-from qdrant_store import get_client
+from qdrant_store import DENSE, get_client
 
 SCROLL_PAGE = 256
 
@@ -159,9 +159,11 @@ def validate(samples: int) -> None:
         print(f"  {payload.get('source','')}  §{payload.get('section','')}")
         print(f"{'-'*70}")
 
+        seed_vec = seed.vector[DENSE] if isinstance(seed.vector, dict) else seed.vector
         neighbours = client.query_points(
             collection_name=COLLECTION,
-            query=seed.vector,
+            query=seed_vec,
+            using=DENSE,
             limit=4,
             with_payload=True,
         ).points

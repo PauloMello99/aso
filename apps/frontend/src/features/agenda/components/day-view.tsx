@@ -48,7 +48,6 @@ export function DayView({
 
   return (
     <div className="rounded-xl border border-foreground/[0.06]">
-      {/* Linha de eventos de dia inteiro */}
       <div className="grid grid-cols-[64px_1fr] border-b border-foreground/[0.06]">
         <div className="flex items-center justify-end pr-2 text-[10px] uppercase text-foreground/30">
           Dia todo
@@ -63,7 +62,7 @@ export function DayView({
                 "block w-full truncate rounded px-2 py-0.5 text-left text-xs transition-colors",
                 ev.type === "unavailability"
                   ? "bg-foreground/[0.06] text-foreground/50 [background-image:repeating-linear-gradient(45deg,transparent,transparent_6px,rgba(255,255,255,0.04)_6px,rgba(255,255,255,0.04)_12px)]"
-                  : "bg-orange-500/15 text-orange-200 hover:bg-orange-500/25",
+                  : "bg-primary-subtle text-primary-text hover:bg-primary/15",
                 ev.status === "canceled" && "line-through opacity-40",
               )}
             >
@@ -113,10 +112,10 @@ export function DayView({
                 }}
                 style={{ top, height }}
                 className={cn(
-                  "absolute left-2 right-2 overflow-hidden rounded-md border px-2 py-1 text-left text-xs transition-colors",
+                  "absolute left-2 right-2 overflow-hidden rounded-md px-2 py-1 text-left text-xs transition-colors",
                   isBusy
-                    ? "border-foreground/10 bg-foreground/[0.06] text-foreground/50 [background-image:repeating-linear-gradient(45deg,transparent,transparent_6px,rgba(255,255,255,0.04)_6px,rgba(255,255,255,0.04)_12px)]"
-                    : "border-orange-500/30 bg-orange-500/15 text-orange-200 hover:bg-orange-500/25",
+                    ? "border border-foreground/10 bg-foreground/[0.06] text-foreground/50 [background-image:repeating-linear-gradient(45deg,transparent,transparent_6px,rgba(255,255,255,0.04)_6px,rgba(255,255,255,0.04)_12px)]"
+                    : "border-l-2 border-l-primary bg-primary-subtle text-primary-text hover:bg-primary/15",
                   ev.status === "canceled" && "line-through opacity-40",
                 )}
               >

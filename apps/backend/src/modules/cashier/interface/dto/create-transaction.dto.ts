@@ -13,7 +13,6 @@ export const PAYMENT_METHODS = [
   "bank_transfer",
   "credit_card",
   "debit_card",
-  "credits",
 ] as const;
 
 export const TRANSACTION_TYPES = ["income", "outcome"] as const;
@@ -26,7 +25,6 @@ export class CreateTransactionDto {
   @IsIn(TRANSACTION_TYPES)
   type!: (typeof TRANSACTION_TYPES)[number];
 
-  /** Valor bruto em centavos. */
   @IsInt()
   @Min(1)
   grossCents!: number;
@@ -38,12 +36,10 @@ export class CreateTransactionDto {
   @IsOptional()
   categoryId?: string | null;
 
-  /** users.id do membro a quem atribuir (só owner; funcionário força = self). */
   @IsUUID()
   @IsOptional()
   createdBy?: string | null;
 
-  /** ISO datetime opcional; default = agora. */
   @IsString()
   @IsOptional()
   transactedAt?: string;

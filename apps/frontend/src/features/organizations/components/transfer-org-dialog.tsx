@@ -38,7 +38,6 @@ export function TransferOrgDialog({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Elegíveis: membros ativos que não sejam o próprio dono atual.
   const eligible = useMemo(
     () =>
       members.filter((m) => m.enabled && m.userEmail !== currentUserEmail),
@@ -110,7 +109,7 @@ export function TransferOrgDialog({
               ))}
             </SelectContent>
           </Select>
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
 
         <DialogFooter>

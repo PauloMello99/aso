@@ -26,7 +26,6 @@ export interface InviteMemberInput {
 
 export interface InviteMemberResult {
   invitation: InvitationEntity;
-  /** Link de aceite com o token — exposto para teste manual em dev. */
   acceptUrl: string;
 }
 
@@ -67,10 +66,6 @@ export class InviteMemberUseCase {
     );
     const acceptUrl = `${frontendUrl}/invite/accept?token=${invitation.token}`;
 
-    // Envio CRÍTICO: o convidado só recebe o link por e-mail. Se o canal estiver
-    // habilitado e o envio falhar, revertemos o convite (saga c/ compensação,
-    // igual ao sign-up) e abortamos — o owner pode tentar de novo. Em dev o
-    // canal é no-op (send retorna false) e o acceptUrl fica disponível p/ teste.
     try {
       await this.mail.sendOrgInvite({
         to: input.email,
@@ -100,7 +95,6 @@ export class InviteMemberUseCase {
     return { invitation, acceptUrl };
   }
 
-  /** Compensação best-effort: remove o convite órfão após falha de e-mail. */
   private async compensate(invitationId: string): Promise<void> {
     try {
       await this.invitationRepo.delete(invitationId);

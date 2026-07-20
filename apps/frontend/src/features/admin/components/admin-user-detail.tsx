@@ -61,7 +61,7 @@ export function AdminUserDetail({ id }: { id: string | undefined }) {
     return (
       <div className="space-y-4">
         <BackLink />
-        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
           {error ?? "Usuário não encontrado."}
         </div>
       </div>
@@ -82,7 +82,7 @@ export function AdminUserDetail({ id }: { id: string | undefined }) {
               {user.name}
             </h1>
             {isSuper && (
-              <Badge className="bg-orange-500/15 text-orange-400">super_admin</Badge>
+              <Badge className="bg-primary/15 text-primary">super_admin</Badge>
             )}
           </div>
           <p className="mt-0.5 text-sm text-foreground/40">
@@ -116,10 +116,9 @@ export function AdminUserDetail({ id }: { id: string | undefined }) {
         </Button>
       </div>
 
-      {/* Memberships */}
       <section className="space-y-3">
         <h2 className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-          <Building2 className="h-4 w-4 text-orange-400" />
+          <Building2 className="h-4 w-4 text-primary" />
           Organizações ({user.memberships.length})
         </h2>
         {user.memberships.length === 0 ? (
@@ -143,7 +142,7 @@ export function AdminUserDetail({ id }: { id: string | undefined }) {
                     <TableCell>
                       <Link
                         href={`/admin/orgs/${m.orgId}`}
-                        className="font-medium text-foreground hover:text-orange-400"
+                        className="font-medium text-foreground hover:text-primary"
                       >
                         {m.orgName}
                       </Link>
@@ -151,7 +150,7 @@ export function AdminUserDetail({ id }: { id: string | undefined }) {
                     </TableCell>
                     <TableCell>
                       {m.role === "owner" ? (
-                        <Badge className="bg-orange-500/15 text-orange-400">owner</Badge>
+                        <Badge className="bg-primary/15 text-primary">owner</Badge>
                       ) : (
                         <span className="text-foreground/60">{m.role}</span>
                       )}
@@ -160,7 +159,7 @@ export function AdminUserDetail({ id }: { id: string | undefined }) {
                       {m.enabled ? (
                         <span className="text-foreground/60">ativo</span>
                       ) : (
-                        <span className="text-red-400">inativo</span>
+                        <span className="text-destructive">inativo</span>
                       )}
                     </TableCell>
                     <TableCell className="text-foreground/50">{fmtDate(m.joinedAt)}</TableCell>

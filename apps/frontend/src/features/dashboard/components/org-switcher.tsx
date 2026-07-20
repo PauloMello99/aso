@@ -22,11 +22,10 @@ export function OrgSwitcher({ org }: OrgSwitcherProps) {
   const { orgs } = useOrgs()
   const router = useRouter()
 
-  // Keep the same sub-path in the new org by replacing the slug in the query.
   const handleSelect = (slug: string) => {
     if (slug === org.slug) return
     void router.push({
-      pathname: router.pathname, // e.g. /dashboard/org/[orgSlug]/members
+      pathname: router.pathname,
       query: { ...router.query, orgSlug: slug },
     })
   }
@@ -49,7 +48,7 @@ export function OrgSwitcher({ org }: OrgSwitcherProps) {
         </DropdownMenuLabel>
         {orgs.map((o) => (
           <DropdownMenuItem key={o.id} onClick={() => handleSelect(o.slug)}>
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-orange-500/20 text-[10px] font-bold text-orange-400">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/20 text-[10px] font-bold text-primary">
               {o.name.charAt(0).toUpperCase()}
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden">
@@ -59,7 +58,7 @@ export function OrgSwitcher({ org }: OrgSwitcherProps) {
               </span>
             </span>
             {o.id === org.id && (
-              <Check className="h-3.5 w-3.5 shrink-0 text-orange-400" />
+              <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
             )}
           </DropdownMenuItem>
         ))}

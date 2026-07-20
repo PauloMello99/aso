@@ -8,8 +8,6 @@ import type { Customer, CustomersFilter, Gender } from "../types"
 export function useCustomers(orgId: string, filter?: CustomersFilter) {
   const queryClient = useQueryClient()
 
-  // ── Query ──────────────────────────────────────────────────────────────────
-
   const { data = [], isLoading, error, refetch } = useQuery({
     queryKey: queryKeys.customers.list(orgId, filter),
     queryFn: () => {
@@ -21,13 +19,14 @@ export function useCustomers(orgId: string, filter?: CustomersFilter) {
       if (filter?.gender) params.set("gender", filter.gender)
       if (filter?.from) params.set("from", filter.from)
       if (filter?.to) params.set("to", filter.to)
+      if (filter?.birthMonth) params.set("birthMonth", String(filter.birthMonth))
+      if (filter?.city) params.set("city", filter.city)
+      if (filter?.state) params.set("state", filter.state)
       const query = params.toString() ? `?${params.toString()}` : ""
       return apiRequest<Customer[]>(`/orgs/${orgId}/customers${query}`)
     },
     enabled: !!orgId,
   })
-
-  // ── Mutations ──────────────────────────────────────────────────────────────
 
   type CreateBody = {
     name: string
@@ -36,6 +35,7 @@ export function useCustomers(orgId: string, filter?: CustomersFilter) {
     gender?: Gender | null
     birthDate?: string | null
     address?: string | null
+    number?: string
     city?: string | null
     notes?: string | null
   }
@@ -71,8 +71,6 @@ export function useCustomers(orgId: string, filter?: CustomersFilter) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.customers.all(orgId) })
     },
   })
-
-  // ── Stable wrappers ─────────────────────────────────────────────────────────
 
   async function createCustomer(body: CreateBody): Promise<Customer> {
     return createCustomerMutation.mutateAsync(body)

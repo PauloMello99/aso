@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/shared/components/ui/card"
 import { Button } from "@/shared/components/ui/button"
+import { BrandWordmark } from "@/shared/components/brand-wordmark"
 import { useAuth } from "@/features/auth/hooks/use-auth"
 import {
   useInvitationLookup,
@@ -27,7 +28,7 @@ const ROLE_LABELS: Record<OrgRole, string> = {
 
 function Centered({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6">
       <Card className="w-full max-w-sm border-foreground/5 bg-foreground/[0.03]">{children}</Card>
     </div>
   )
@@ -52,7 +53,6 @@ export function AcceptInvitationPage() {
   const { declineInvitation, declining } = useDeclineInvitation()
   const [acceptError, setAcceptError] = React.useState<string | null>(null)
 
-  // Sem login → manda para login/cadastro carregando o token; volta para cá depois.
   React.useEffect(() => {
     if (!router.isReady || authLoading || isLoading) return
     if (!invite || invite.status !== "pending" || invite.expired) return
@@ -104,7 +104,6 @@ export function AcceptInvitationPage() {
     )
   }
 
-  // Aguardando o redirect para login/cadastro.
   if (!user) return <Spinner />
 
   const inviteEmail = invite.email
@@ -131,7 +130,6 @@ export function AcceptInvitationPage() {
     }
   }
 
-  // Recusar remove o convite (o owner pode reenviar). Volta para as organizações.
   async function handleDecline() {
     if (!token) return
     setAcceptError(null)
@@ -148,8 +146,8 @@ export function AcceptInvitationPage() {
   return (
     <Centered>
       <CardHeader className="text-center">
-        <div className="mb-2 text-xl font-bold">
-          ink<span className="text-orange-500">ops</span>
+        <div className="mb-2">
+          <BrandWordmark className="text-xl font-bold" />
         </div>
         <CardTitle className="text-xl">Convite para {invite.orgName}</CardTitle>
         <CardDescription className="text-foreground/40">
@@ -165,7 +163,7 @@ export function AcceptInvitationPage() {
           </p>
         )}
         {emailMismatch ? (
-          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
+          <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
             Este convite é para <strong>{invite.email}</strong>, mas você está
             logado como <strong>{user.email}</strong>. Entre com a conta correta
             para aceitar.
@@ -180,7 +178,7 @@ export function AcceptInvitationPage() {
       <CardFooter className="flex flex-col gap-2">
         {emailMismatch ? (
           <Button
-            className="w-full bg-orange-500 text-white hover:bg-orange-600"
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => void handleSwitchAccount()}
           >
             Trocar de conta
@@ -188,7 +186,7 @@ export function AcceptInvitationPage() {
         ) : (
           <>
             <Button
-              className="w-full bg-orange-500 text-white hover:bg-orange-600"
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
               disabled={accepting || declining}
               onClick={() => void handleAccept()}
             >

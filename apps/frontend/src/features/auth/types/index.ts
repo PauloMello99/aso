@@ -4,7 +4,6 @@ export interface AuthUser {
   emailVerified: boolean
 }
 
-/** Perfil completo do usuário (GET /auth/me). */
 export interface Me {
   id: string
   authId: string
@@ -15,6 +14,7 @@ export interface Me {
   avatarUrl: string | null
   birthDate: string | null
   gender: "male" | "female" | "other" | null
+  onboardingCompletedAt: string | null
   createdAt: string
   updatedAt: string
 }

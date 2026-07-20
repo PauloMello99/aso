@@ -12,7 +12,8 @@ export type AuditAction =
   | "delete"
   | "invite_sent"
   | "invite_accepted"
-  | "subscription_changed";
+  | "subscription_changed"
+  | "anamnesis_invite_sent";
 
 export interface AuditEntry {
   actorId: string | null;
@@ -23,11 +24,6 @@ export interface AuditEntry {
   metadata?: Record<string, unknown>;
 }
 
-/**
- * Grava entradas em audit_logs. Usa DRIZZLE_ADMIN (BYPASSRLS) para garantir
- * que o write nunca seja bloqueado por RLS. Erros são logados mas nunca
- * propagados — a operação principal nunca deve falhar por causa da auditoria.
- */
 @Injectable()
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
@@ -56,10 +52,6 @@ export class AuditService {
     }
   }
 
-  /**
-   * Resolve o users.id a partir do authId (Supabase auth UUID) e chama log().
-   * Útil para use-cases que só têm o authId disponível no momento da auditoria.
-   */
   async logByAuthId(
     authId: string | null,
     entry: Omit<AuditEntry, "actorId">,
@@ -70,7 +62,7 @@ export class AuditService {
         const user = await this.userRepo.findByAuthId(authId);
         actorId = user?.id ?? null;
       } catch {
-        // Falha silenciosa — não bloqueia o log
+        void 0;
       }
     }
     return this.log({ ...entry, actorId });

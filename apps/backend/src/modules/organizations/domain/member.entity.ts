@@ -6,7 +6,6 @@ export interface MemberEntityProps {
   userId: string;
   role: OrgRole;
   enabled: boolean;
-  /** Módulos liberados ao funcionário (on/off). Owner ignora (acesso total). */
   permissions: string[];
   userName: string;
   userEmail: string;

@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -7,6 +8,7 @@ import {
   Pencil,
   Undo2,
 } from "lucide-react"
+import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
 import {
   DropdownMenu,
@@ -27,18 +29,19 @@ import { formatBRL } from "../lib/money"
 import {
   PAYMENT_METHOD_LABELS,
   type Transaction,
+  type TransactionCategory,
   type TransactionView,
 } from "../types"
 
 interface TransactionListProps {
   transactions: TransactionView[]
+  categories?: TransactionCategory[]
   onReverse: (t: Transaction) => void
   onCorrect: (t: Transaction) => void
-  /** Estornar/corrigir são owner-only; funcionário só visualiza. */
   canManage?: boolean
 }
 
-function formatDate(iso: string): string {
+export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "short",
@@ -46,7 +49,6 @@ function formatDate(iso: string): string {
   })
 }
 
-/** Ações só fazem sentido para lançamentos vivos (não estorno, não estornado). */
 function canMutate(view: TransactionView): boolean {
   return !view.entity.reversesTransactionId && !view.reversed
 }
@@ -88,33 +90,24 @@ function ActionMenu({
   )
 }
 
-/** Badge de status: Estornada (original anulada) ou Estorno (a própria reversão). */
-function StatusBadge({ view }: { view: TransactionView }) {
+export function StatusBadge({ view }: { view: TransactionView }) {
   if (view.entity.reversesTransactionId) {
-    return (
-      <span className="inline-flex items-center rounded-full bg-foreground/[0.06] px-2 py-0.5 text-xs font-medium text-foreground/50">
-        Estorno
-      </span>
-    )
+    return <Badge variant="secondary">Estorno</Badge>
   }
   if (view.reversed) {
-    return (
-      <span className="inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-medium text-red-400">
-        Estornada
-      </span>
-    )
+    return <Badge variant="destructive-subtle">Estornada</Badge>
   }
   return null
 }
 
-function AmountCell({ t, struck }: { t: Transaction; struck: boolean }) {
+export function AmountCell({ t, struck }: { t: Transaction; struck: boolean }) {
   const isIncome = t.type === "income"
   return (
     <span
       className={cn(
         "font-semibold tabular-nums",
         struck && "text-foreground/30 line-through",
-        !struck && (isIncome ? "text-emerald-400" : "text-red-400"),
+        !struck && (isIncome ? "text-success" : "text-destructive"),
       )}
     >
       {isIncome ? "+" : "−"} {formatBRL(t.netCents)}
@@ -148,9 +141,9 @@ function MobileCard({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           {isIncome ? (
-            <ArrowDownLeft className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+            <ArrowDownLeft className="h-3.5 w-3.5 shrink-0 text-success" />
           ) : (
-            <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-red-400" />
+            <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-destructive" />
           )}
           <span
             className={cn(
@@ -180,10 +173,16 @@ function MobileCard({
 
 export function TransactionList({
   transactions,
+  categories = [],
   onReverse,
   onCorrect,
   canManage = false,
 }: TransactionListProps) {
+  const categoryName = React.useMemo(() => {
+    const map = new Map(categories.map((c) => [c.id, c.name]))
+    return (id: string | null) => (id ? (map.get(id) ?? null) : null)
+  }, [categories])
+
   if (transactions.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-foreground/[0.08] py-16 text-center">
@@ -198,7 +197,6 @@ export function TransactionList({
 
   return (
     <>
-      {/* Mobile: cards */}
       <div className="grid gap-3 sm:hidden">
         {transactions.map((v) => (
           <MobileCard
@@ -211,12 +209,12 @@ export function TransactionList({
         ))}
       </div>
 
-      {/* Desktop: table */}
       <div className="hidden rounded-xl border border-foreground/[0.06] sm:block">
         <Table className="min-w-[640px]">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className="pl-4">Descrição</TableHead>
+              <TableHead>Categoria</TableHead>
               <TableHead>Método</TableHead>
               <TableHead>Data</TableHead>
               <TableHead className="text-right">Valor</TableHead>
@@ -232,9 +230,9 @@ export function TransactionList({
                   <TableCell className="pl-4">
                     <div className="flex items-center gap-2">
                       {t.type === "income" ? (
-                        <ArrowDownLeft className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                        <ArrowDownLeft className="h-3.5 w-3.5 shrink-0 text-success" />
                       ) : (
-                        <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-red-400" />
+                        <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-destructive" />
                       )}
                       <span
                         className={cn(
@@ -246,6 +244,15 @@ export function TransactionList({
                       </span>
                       <StatusBadge view={v} />
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {categoryName(t.categoryId) ? (
+                      <Badge variant="secondary">
+                        {categoryName(t.categoryId)}
+                      </Badge>
+                    ) : (
+                      <span className="text-foreground/20">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-foreground/50">
                     {PAYMENT_METHOD_LABELS[t.paymentMethod]}

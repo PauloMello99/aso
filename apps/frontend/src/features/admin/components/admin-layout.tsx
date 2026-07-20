@@ -5,6 +5,8 @@ import Link from "next/link"
 import { useRouter } from "next/router"
 import { LayoutDashboard, Building2, Users, CreditCard, Shield, ArrowLeft, Loader2, ShieldCheck } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
+import { BrandWordmark } from "@/shared/components/brand-wordmark"
+import { ThemeToggle } from "@/shared/components/theme-toggle"
 import { useMe } from "@/features/auth/hooks/use-me"
 import { UserMenu } from "@/features/dashboard/components/user-menu"
 
@@ -16,10 +18,6 @@ const NAV = [
   { href: "/admin/audit-logs", label: "Auditoria", icon: Shield },
 ]
 
-/**
- * Layout do painel da plataforma (PLAT-1). NÃO é org-scoped. Faz o guard de
- * acesso (super_admin) via /auth/me e oferece a navegação entre as seções.
- */
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const { me, loading } = useMe()
@@ -55,13 +53,10 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Top bar */}
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-foreground/[0.06] bg-background/80 px-4 py-2.5 backdrop-blur sm:px-6">
         <div className="flex items-center gap-2">
-          <ShieldCheck className="h-5 w-5 text-orange-400" />
-          <span className="text-sm font-semibold text-foreground">
-            inkops <span className="text-foreground/40">· Plataforma</span>
-          </span>
+          <ShieldCheck className="h-5 w-5 text-primary" />
+          <BrandWordmark className="text-sm" suffix="Plataforma" />
         </div>
         <div className="flex items-center gap-1">
           <Link
@@ -71,12 +66,12 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             <ArrowLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Voltar ao app</span>
           </Link>
+          <ThemeToggle />
           <UserMenu />
         </div>
       </header>
 
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 md:flex-row md:gap-8">
-        {/* Sub-nav */}
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 p-4 sm:p-6 md:flex-row md:gap-8">
         <nav className="flex gap-1 overflow-x-auto border-b border-foreground/[0.06] pb-3 md:w-48 md:flex-col md:border-b-0 md:pb-0">
           {NAV.map((item) => {
             const Icon = item.icon
@@ -95,7 +90,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                 <Icon
                   className={cn(
                     "h-4 w-4 shrink-0",
-                    active ? "text-orange-400" : "text-foreground/40",
+                    active ? "text-primary" : "text-foreground/40",
                   )}
                 />
                 {item.label}

@@ -8,7 +8,7 @@ export interface MaterialEntityProps {
   orgId: string;
   categoryId: string | null;
   name: string;
-  stockQuantity: string; // numeric string from DB (numeric(10,2))
+  stockQuantity: string;
   minimumQuantity: string;
   costPerUnit: string | null;
   shareable: boolean;

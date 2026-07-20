@@ -17,12 +17,14 @@ export interface INotificationRepository {
     userId: string,
     opts?: { unreadOnly?: boolean; limit?: number },
   ): Promise<NotificationEntity[]>;
+  findByOrg(
+    orgId: string,
+    opts?: { limit?: number },
+  ): Promise<NotificationEntity[]>;
   countUnread(userId: string): Promise<number>;
   markRead(id: string, userId: string): Promise<void>;
   markAllRead(userId: string): Promise<void>;
 
-  /** Resolve o usuário (users.id) a partir do auth_id (Supabase sub). */
   findUserIdByAuthId(authId: string): Promise<string | null>;
-  /** Contato do destinatário (para envio por e-mail). */
   findUserContact(userId: string): Promise<UserContact | null>;
 }

@@ -37,7 +37,6 @@ export class SetMemberStatusUseCase {
 
     if (member.enabled === enabled) return member;
 
-    // Não deixar a org sem nenhum owner ativo.
     if (!enabled && member.role === "owner") {
       const activeOwners = await this.memberRepo.countActiveOwners(orgId);
       if (activeOwners <= 1) throw new LastActiveOwnerException();

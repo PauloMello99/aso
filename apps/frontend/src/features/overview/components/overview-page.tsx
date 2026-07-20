@@ -16,8 +16,11 @@ import {
 } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { Badge } from "@/shared/components/ui/badge"
+import { SectionCard } from "@/shared/components/section-card"
 import { useCurrentOrg } from "@/features/dashboard"
+import { canAccessModule } from "@/features/dashboard/lib/nav"
 import { useBalance } from "@/features/cashier/hooks/use-balance"
+import { BalanceCards } from "@/features/cashier/components/balance-cards"
 import { useOverview } from "../hooks/use-overview"
 import { useOverviewAnalytics } from "../hooks/use-overview-analytics"
 import {
@@ -42,8 +45,6 @@ import type { CalendarEvent } from "@/features/agenda/types"
 import type { Material } from "@/features/stock/types"
 import type { Customer } from "@/features/clients/types"
 
-/* ── helpers ─────────────────────────────────────────────────────── */
-
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR", {
     day: "2-digit",
@@ -58,52 +59,15 @@ function fmtTime(iso: string): string {
   })
 }
 
-const STATUS_VARIANT: Record<ServiceStatus, string> = {
-  paid: "bg-emerald-500/15 text-emerald-400",
-  pending: "bg-amber-500/15 text-amber-300",
-  canceled: "bg-foreground/[0.06] text-foreground/40 line-through",
+const STATUS_BADGE_VARIANT: Record<
+  ServiceStatus,
+  "success" | "warning" | "ghost"
+> = {
+  paid: "success",
+  pending: "warning",
+  canceled: "ghost",
 }
 
-function SectionCard({
-  title,
-  icon: Icon,
-  href,
-  className,
-  children,
-}: {
-  title: string
-  icon: LucideIcon
-  href?: string
-  className?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      className={cn(
-        "flex min-h-[13rem] flex-col rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-5",
-        className,
-      )}
-    >
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Icon className="h-4 w-4 text-orange-400" />
-          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-        </div>
-        {href && (
-          <Link
-            href={href}
-            className="text-xs text-foreground/40 transition-colors hover:text-foreground"
-          >
-            Ver todos
-          </Link>
-        )}
-      </div>
-      <div className="min-h-0 flex-1">{children}</div>
-    </div>
-  )
-}
-
-/** Estado vazio como convite: ícone + frase + ação opcional. */
 function EmptyState({
   icon: Icon,
   title,
@@ -120,7 +84,7 @@ function EmptyState({
       {action && (
         <Link
           href={action.href}
-          className="text-sm font-medium text-orange-400 transition-colors hover:text-orange-300"
+          className="text-sm font-medium text-primary transition-colors hover:text-primary/80"
         >
           {action.label}
         </Link>
@@ -140,8 +104,6 @@ function Loading() {
 function Rows({ children }: { children: React.ReactNode }) {
   return <ul className="divide-y divide-foreground/[0.05]">{children}</ul>
 }
-
-/* ── Serviços recentes ───────────────────────────────────────────── */
 
 function RecentServicesSection({
   services,
@@ -191,14 +153,15 @@ function RecentServicesSection({
                     {fmtDate(s.performedAt)}
                   </p>
                 </div>
-                <span
+                <Badge
+                  variant={STATUS_BADGE_VARIANT[status]}
                   className={cn(
-                    "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
-                    STATUS_VARIANT[status],
+                    "shrink-0 px-2 py-0.5 text-[10px]",
+                    status === "canceled" && "text-text-muted line-through",
                   )}
                 >
                   {SERVICE_STATUS_LABELS[status]}
-                </span>
+                </Badge>
                 <span className="w-24 shrink-0 text-right font-medium text-foreground">
                   {formatBRL(s.amountCents)}
                 </span>
@@ -210,8 +173,6 @@ function RecentServicesSection({
     </SectionCard>
   )
 }
-
-/* ── Transações recentes (owner) ─────────────────────────────────── */
 
 function RecentTransactionsSection({
   transactions,
@@ -257,8 +218,8 @@ function RecentTransactionsSection({
                   className={cn(
                     "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
                     isIncome
-                      ? "bg-emerald-500/15 text-emerald-400"
-                      : "bg-red-500/15 text-red-400",
+                      ? "bg-success/15 text-success"
+                      : "bg-destructive/15 text-destructive",
                   )}
                 >
                   {isIncome ? (
@@ -277,7 +238,7 @@ function RecentTransactionsSection({
                 <span
                   className={cn(
                     "shrink-0 font-medium",
-                    isIncome ? "text-emerald-400" : "text-red-400",
+                    isIncome ? "text-success" : "text-destructive",
                   )}
                 >
                   {isIncome ? "+" : "-"}
@@ -292,23 +253,18 @@ function RecentTransactionsSection({
   )
 }
 
-/* ── Estoque baixo ───────────────────────────────────────────────── */
-
-/** Quantidade a repor para voltar ao mínimo (nunca negativa). */
 function restockQty(m: Material): number {
   const deficit = parseFloat(m.minimumQuantity) - parseFloat(m.stockQuantity)
   return deficit > 0 ? deficit : 0
 }
 
-/** Custo estimado (centavos) para repor um material até o mínimo. */
 function restockCents(m: Material): number | null {
-  if (m.costPerUnit === null) return null
+  if (m.costPerUnit == null) return null
   const cost = parseFloat(m.costPerUnit)
   if (Number.isNaN(cost)) return null
   return Math.round(restockQty(m) * cost * 100)
 }
 
-/** Soma a estimativa de reposição (RPT-3) e conta itens sem custo cadastrado. */
 function restockEstimate(materials: Material[]): {
   totalCents: number
   missingCost: number
@@ -327,10 +283,12 @@ function LowStockSection({
   materials,
   loading,
   basePath,
+  canSeeCost,
 }: {
   materials: Material[]
   loading: boolean
   basePath: string
+  canSeeCost: boolean
 }) {
   const { totalCents, missingCost } = restockEstimate(materials)
 
@@ -344,7 +302,7 @@ function LowStockSection({
         <>
           <Rows>
             {materials.map((m) => {
-              const cents = restockCents(m)
+              const cents = canSeeCost ? restockCents(m) : null
               return (
                 <li
                   key={m.id}
@@ -361,7 +319,7 @@ function LowStockSection({
                   </div>
                   <Badge
                     variant="destructive"
-                    className="shrink-0 bg-red-500/15 text-red-400"
+                    className="shrink-0 bg-destructive/15 text-destructive"
                   >
                     Baixo
                   </Badge>
@@ -369,13 +327,15 @@ function LowStockSection({
               )
             })}
           </Rows>
-          <div className="mt-3 flex items-center justify-between border-t border-foreground/[0.06] pt-3 text-sm">
-            <span className="text-foreground/50">Repor tudo (estimado)</span>
-            <span className="font-semibold text-foreground">
-              {formatBRL(totalCents)}
-            </span>
-          </div>
-          {missingCost > 0 && (
+          {canSeeCost && (
+            <div className="mt-3 flex items-center justify-between border-t border-foreground/[0.06] pt-3 text-sm">
+              <span className="text-foreground/50">Repor tudo (estimado)</span>
+              <span className="font-semibold text-foreground">
+                {formatBRL(totalCents)}
+              </span>
+            </div>
+          )}
+          {canSeeCost && missingCost > 0 && (
             <p className="mt-1 text-xs text-foreground/30">
               {missingCost}{" "}
               {missingCost === 1
@@ -388,8 +348,6 @@ function LowStockSection({
     </SectionCard>
   )
 }
-
-/* ── Próximos eventos de agenda ──────────────────────────────────── */
 
 function UpcomingEventsSection({
   events,
@@ -439,8 +397,6 @@ function UpcomingEventsSection({
   )
 }
 
-/* ── Clientes recentes (owner) ───────────────────────────────────── */
-
 function RecentCustomersSection({
   customers,
   loading,
@@ -464,7 +420,7 @@ function RecentCustomersSection({
         <Rows>
           {customers.map((c) => (
             <li key={c.id} className="flex items-center gap-3 py-2.5 text-sm">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500/15 text-xs font-medium text-orange-400">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-medium text-primary">
                 {c.name.charAt(0).toUpperCase()}
               </span>
               <div className="min-w-0 flex-1">
@@ -483,10 +439,6 @@ function RecentCustomersSection({
     </SectionCard>
   )
 }
-
-/* ── Página ──────────────────────────────────────────────────────── */
-
-/* ── Saldo do caixa (owner) ──────────────────────────────────────── */
 
 function BalanceRow({ label, cents }: { label: string; cents: number }) {
   return (
@@ -539,18 +491,20 @@ function BandLabel({ children }: { children: React.ReactNode }) {
 export function OverviewPage() {
   const { org, orgId } = useCurrentOrg()
   const isOwner = org.role === "owner"
+  const canSeeCost = canAccessModule(org.role, org.permissions, "stock")
   const basePath = `/dashboard/org/${org.slug}`
 
   const [periodKey, setPeriodKey] = React.useState<PeriodKey>("month")
   const range = React.useMemo(() => periodRange(periodKey), [periodKey])
 
-  // Um único request agregado (PERF-2) substitui os ~6 antigos.
   const { data, loading } = useOverview(orgId)
-  // KPIs + gráficos do período (role-aware): owner vê tudo, funcionário só o seu.
   const { data: analytics, loading: analyticsLoading } = useOverviewAnalytics(
     orgId,
     range,
   )
+  const { balance, loading: balanceLoading } = useBalance(orgId, {
+    enabled: isOwner,
+  })
 
   return (
     <div className="space-y-8">
@@ -563,7 +517,8 @@ export function OverviewPage() {
         </p>
       </div>
 
-      {/* Faixa 1 · Operações — grid uniforme (sm:2 / xl:3), linhas alinhadas */}
+      {isOwner && <BalanceCards balance={balance} loading={balanceLoading} />}
+
       <section className="space-y-3">
         <BandLabel>Operações</BandLabel>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -582,6 +537,7 @@ export function OverviewPage() {
             materials={data?.lowStock ?? []}
             loading={loading}
             basePath={basePath}
+            canSeeCost={canSeeCost}
           />
           {isOwner && (
             <RecentTransactionsSection
@@ -604,7 +560,6 @@ export function OverviewPage() {
         </div>
       </section>
 
-      {/* Faixa 2 · Desempenho */}
       {isOwner ? (
         <PerformanceSection
           data={analytics}

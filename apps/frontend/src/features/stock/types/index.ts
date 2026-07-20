@@ -12,7 +12,7 @@ export interface Material {
   name: string
   stockQuantity: string
   minimumQuantity: string
-  costPerUnit: string | null
+  costPerUnit?: string | null
   shareable: boolean
   lastUsedAt: string | null
   archivedAt: string | null
@@ -43,7 +43,6 @@ export interface MaterialsFilter {
   name?: string
   archived?: boolean
   shareable?: boolean
-  /** Custo unitário (reais, string decimal). */
   minCost?: string
   maxCost?: string
 }

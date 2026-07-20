@@ -48,7 +48,6 @@ const METHOD_ORDER: PaymentMethod[] = [
   "bank_transfer",
   "credit_card",
   "debit_card",
-  "credits",
 ]
 
 interface CorrectionSheetProps {
@@ -106,7 +105,6 @@ export function CorrectionSheet({
             </SheetHeader>
 
             <SheetBody className="flex flex-col gap-4 py-6">
-              {/* Original (somente leitura) */}
               {transaction && (
                 <div className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3 text-sm">
                   <p className="text-xs uppercase tracking-wide text-foreground/30">
@@ -155,7 +153,7 @@ export function CorrectionSheet({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Descrição <span className="text-red-400">*</span>
+                      Descrição <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input autoComplete="off" {...field} />
@@ -171,7 +169,7 @@ export function CorrectionSheet({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Valor <span className="text-red-400">*</span>
+                      Valor <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <div className="relative">

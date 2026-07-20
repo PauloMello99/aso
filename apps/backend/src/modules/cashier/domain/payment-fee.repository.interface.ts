@@ -16,6 +16,5 @@ export interface IPaymentFeeRepository {
     orgId: string,
     method: PaymentMethod,
   ): Promise<PaymentFeeEntity | null>;
-  /** Cria ou atualiza a taxa do método (UNIQUE org_id+payment_method). */
   upsert(data: UpsertPaymentFeeData): Promise<PaymentFeeEntity>;
 }

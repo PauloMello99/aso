@@ -97,7 +97,7 @@ export function PaymentFeesForm({ orgId }: PaymentFeesFormProps) {
             className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-4"
           >
             <div className="mb-3 flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-orange-400" />
+              <CreditCard className="h-4 w-4 text-primary" />
               <h3 className="text-sm font-medium text-foreground">
                 {PAYMENT_METHOD_LABELS[method]}
               </h3>
@@ -155,8 +155,8 @@ export function PaymentFeesForm({ orgId }: PaymentFeesFormProps) {
           </div>
         ))}
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
-        {saved && <p className="text-sm text-emerald-400">Taxas salvas.</p>}
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        {saved && <p className="text-sm text-success">Taxas salvas.</p>}
 
         <div>
           <Button type="submit" disabled={form.formState.isSubmitting}>

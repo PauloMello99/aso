@@ -18,6 +18,13 @@
       "env": {
         "CI": "true"
       }
+    },
+    {
+      "name": "stripe-webhook",
+      "runtimeExecutable": "stripe",
+      "runtimeArgs": ["listen", "--forward-to", "localhost:3001/webhooks/stripe"],
+      "port": 9900,
+      "autoPort": false
     }
   ]
 }

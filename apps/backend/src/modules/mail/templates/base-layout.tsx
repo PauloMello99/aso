@@ -12,16 +12,18 @@ import {
 import type { ReactNode } from "react";
 
 interface BaseLayoutProps {
-  /** Texto curto exibido na prévia da caixa de entrada. */
   preview: string;
   children: ReactNode;
+  supportEmail?: string;
 }
 
-/**
- * Layout/branding compartilhado por todos os e-mails transacionais do Ink Ops.
- * Mantém header, footer, tipografia e cores num só lugar.
- */
-export function BaseLayout({ preview, children }: BaseLayoutProps) {
+const DEFAULT_SUPPORT_EMAIL = "suporte@inkops.app";
+
+export function BaseLayout({
+  preview,
+  children,
+  supportEmail = DEFAULT_SUPPORT_EMAIL,
+}: BaseLayoutProps) {
   return (
     <Html lang="pt-BR">
       <Head />
@@ -29,17 +31,19 @@ export function BaseLayout({ preview, children }: BaseLayoutProps) {
       <Body style={body}>
         <Container style={container}>
           <Section style={header}>
-            <Text style={brand}>Ink Ops</Text>
+            <Text style={brand}>
+              a<span style={{ color: "#0f766e" }}>so</span>
+            </Text>
           </Section>
           <Section style={card}>{children}</Section>
           <Hr style={hr} />
           <Section>
             <Text style={footer}>
-              Você recebeu este e-mail porque possui uma conta no Ink Ops.
+              Você recebeu este e-mail porque possui uma conta no ASO.
               <br />
               Precisa de ajuda? Fale com a gente em{" "}
-              <Link href="mailto:suporte@inkops.app" style={footerLink}>
-                suporte@inkops.app
+              <Link href={`mailto:${supportEmail}`} style={footerLink}>
+                {supportEmail}
               </Link>
               .
             </Text>
@@ -102,7 +106,6 @@ const footerLink: React.CSSProperties = {
   textDecoration: "underline",
 };
 
-/** Estilos reutilizados pelos templates concretos. */
 export const sharedStyles = {
   heading: {
     fontSize: "20px",

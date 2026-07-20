@@ -16,6 +16,7 @@ import {
 } from "@/shared/components/ui/card"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
+import { BrandWordmark } from "@/shared/components/brand-wordmark"
 import { useAuth } from "@/features/auth/hooks/use-auth"
 import {
   recoverSchema,
@@ -46,11 +47,11 @@ export function RecoverForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6">
       <Card className="w-full max-w-sm border-foreground/5 bg-foreground/[0.03]">
         <CardHeader className="text-center">
-          <div className="mb-2 text-xl font-bold">
-            ink<span className="text-orange-500">ops</span>
+          <div className="mb-2">
+            <BrandWordmark className="text-xl font-bold" />
           </div>
           <CardTitle className="text-xl">Recuperar senha</CardTitle>
           <CardDescription className="text-foreground/40">
@@ -60,8 +61,8 @@ export function RecoverForm() {
 
         {sent ? (
           <CardContent className="space-y-4 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-orange-500/10">
-              <MailCheck className="h-6 w-6 text-orange-400" />
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <MailCheck className="h-6 w-6 text-primary" />
             </div>
             <p className="text-sm text-foreground/50">
               Se esse e-mail estiver cadastrado, você receberá um link em breve.
@@ -100,7 +101,7 @@ export function RecoverForm() {
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-orange-500 text-white hover:bg-orange-600"
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Enviar link

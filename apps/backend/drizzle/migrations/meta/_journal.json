@@ -155,6 +155,90 @@
       "when": 1782001100000,
       "tag": "0021_calendar_connections",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1782001200000,
+      "tag": "0022_remove_credits_payment_method",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1782001300000,
+      "tag": "0023_customers_email_unique_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1782001400000,
+      "tag": "0024_customers_required_fields_and_number",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1782001500000,
+      "tag": "0025_transaction_categories_protected",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1782001600000,
+      "tag": "0026_calendar_event_sharing",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1782001700000,
+      "tag": "0027_service_media_and_age_verification",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1782001800000,
+      "tag": "0028_users_onboarding_completed_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1782001900000,
+      "tag": "0029_anamnesis_forms",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1782002000000,
+      "tag": "0030_anamnesis_responses",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1782002100000,
+      "tag": "0031_audit_action_anamnesis_invite_sent",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1782002200000,
+      "tag": "0032_anamnesis_signature",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1782002300000,
+      "tag": "0033_billing_stripe",
+      "breakpoints": true
     }
   ]
 }

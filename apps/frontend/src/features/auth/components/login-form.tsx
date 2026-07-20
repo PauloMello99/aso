@@ -17,6 +17,7 @@ import {
 } from "@/shared/components/ui/card"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
+import { BrandWordmark } from "@/shared/components/brand-wordmark"
 import { useAuth } from "@/features/auth/hooks/use-auth"
 import {
   loginSchema,
@@ -44,7 +45,6 @@ export function LoginForm() {
     defaultValues: { email: "", password: "" },
   })
 
-  // Prefill do e-mail quando vier de um convite (router.query só fica pronto após hidratação).
   React.useEffect(() => {
     if (invitedEmail) reset({ email: invitedEmail, password: "" })
   }, [invitedEmail, reset])
@@ -67,11 +67,11 @@ export function LoginForm() {
     : "/auth/signup"
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6">
       <Card className="w-full max-w-sm border-foreground/5 bg-foreground/[0.03]">
         <CardHeader className="text-center">
-          <div className="mb-2 text-xl font-bold">
-            ink<span className="text-orange-500">ops</span>
+          <div className="mb-2">
+            <BrandWordmark className="text-xl font-bold" />
           </div>
           <CardTitle className="text-xl">Entrar</CardTitle>
           <CardDescription className="text-foreground/40">
@@ -130,7 +130,7 @@ export function LoginForm() {
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-orange-500 text-white hover:bg-orange-600"
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Entrar
@@ -139,7 +139,7 @@ export function LoginForm() {
               Não tem conta?{" "}
               <Link
                 href={signupHref}
-                className="text-orange-400 hover:text-orange-300"
+                className="text-primary hover:text-primary/80"
               >
                 Criar conta
               </Link>

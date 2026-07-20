@@ -17,12 +17,10 @@ export class PaymentFeeItemDto {
   @IsIn(PAYMENT_METHODS)
   paymentMethod!: (typeof PAYMENT_METHODS)[number];
 
-  /** Percentual como string numérica (ex.: "10" ou "5.50"). */
   @IsString()
   @Matches(PERCENT_PATTERN, { message: "percent must be a non-negative number" })
   percent!: string;
 
-  /** Parcela fixa em centavos. */
   @IsInt()
   @Min(0)
   fixedCents!: number;

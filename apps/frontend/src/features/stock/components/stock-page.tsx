@@ -16,8 +16,12 @@ import {
   FilterField,
   RangeInputs,
 } from "@/shared/components/ui/filter-popover"
-import { ExportMenu } from "@/shared/components/ui/export-menu"
-import { downloadCsv } from "@/shared/lib/download-csv"
+import {
+  ExportMenu,
+  type ExportFormat,
+  type ExportDelimiter,
+} from "@/shared/components/ui/export-menu"
+import { downloadExport } from "@/shared/lib/download-export"
 import { useMaterials, isLowStock } from "../hooks/use-materials"
 import { MaterialList } from "./material-list"
 import { MaterialForm } from "./material-form"
@@ -31,7 +35,6 @@ interface StockPageProps {
   orgId: string
 }
 
-/** Colunas exportáveis (chaves espelham o backend). */
 const EXPORT_COLUMNS = [
   { key: "name", label: "Material" },
   { key: "stock", label: "Estoque" },
@@ -68,10 +71,15 @@ export function StockPage({ orgId }: StockPageProps) {
     setAdvanced({ minCost: "", maxCost: "" })
   }
 
-  async function handleExport(fields: string[]) {
-    await downloadCsv(
+  async function handleExport(
+    fields: string[],
+    format: ExportFormat,
+    delimiter: ExportDelimiter,
+  ) {
+    await downloadExport(
       `/orgs/${orgId}/materials/export`,
-      `estoque-${new Date().toISOString().slice(0, 10)}.csv`,
+      `estoque-${new Date().toISOString().slice(0, 10)}`,
+      format,
       {
         q: search || undefined,
         archived: showArchived ? "true" : undefined,
@@ -86,6 +94,7 @@ export function StockPage({ orgId }: StockPageProps) {
           ? advanced.maxCost.replace(",", ".")
           : undefined,
         fields: fields.join(","),
+        delimiter: format === "csv" ? delimiter : undefined,
       },
     )
   }
@@ -130,10 +139,8 @@ export function StockPage({ orgId }: StockPageProps) {
     setDialogs((d) => ({ ...d, [key]: false }))
   }
 
-  /* ─── Summary stats ─────────────────────────────────────────── */
   const lowStockCount = materials.filter(isLowStock).length
 
-  /* ─── Form handlers ─────────────────────────────────────────── */
   async function handleMaterialSubmit(values: MaterialFormValues) {
     const body = {
       name: values.name,
@@ -155,7 +162,6 @@ export function StockPage({ orgId }: StockPageProps) {
 
   async function handleAdjust(values: AdjustStockFormValues) {
     if (!activeMaterial) return
-    // O schema separa direção (+/−) e quantidade só-número; montamos o delta com sinal.
     const delta =
       values.direction === "remove" ? `-${values.quantity}` : values.quantity
     await adjustStock(activeMaterial.id, delta, values.note || null)
@@ -166,8 +172,6 @@ export function StockPage({ orgId }: StockPageProps) {
     try {
       await deleteMaterial(material.id)
     } catch (err) {
-      // ex.: material vinculado a serviço → 409 MATERIAL_IN_USE_BY_SERVICES.
-      // Sugere arquivar em vez de excluir.
       const msg =
         err instanceof Error ? err.message : "Não foi possível excluir o material."
       if (confirm(`${msg}\n\nDeseja arquivar "${material.name}" em vez disso?`)) {
@@ -180,10 +184,8 @@ export function StockPage({ orgId }: StockPageProps) {
     await archiveMaterial(material.id, !material.archivedAt)
   }
 
-  /* ─── Render ────────────────────────────────────────────────── */
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Estoque</h1>
@@ -213,7 +215,6 @@ export function StockPage({ orgId }: StockPageProps) {
         </div>
       </div>
 
-      {/* Search + filters */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/30" />
@@ -270,7 +271,6 @@ export function StockPage({ orgId }: StockPageProps) {
         </FilterPopover>
       </div>
 
-      {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <SummaryCard
           icon={<Package className="h-4 w-4 text-foreground/40" />}
@@ -279,22 +279,36 @@ export function StockPage({ orgId }: StockPageProps) {
           loading={loading}
         />
         <SummaryCard
-          icon={<AlertTriangle className="h-4 w-4 text-orange-400" />}
+          icon={
+            <AlertTriangle
+              className={`h-4 w-4 ${lowStockCount > 0 ? "text-warning" : "text-foreground/40"}`}
+            />
+          }
           label="Estoque baixo"
           value={String(lowStockCount)}
-          valueClass={lowStockCount > 0 ? "text-orange-400" : undefined}
+          valueClass={lowStockCount > 0 ? "text-warning" : undefined}
           loading={loading}
         />
       </div>
 
-      {/* Error */}
       {error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      {/* List */}
+      {!loading && lowStockCount > 0 && (
+        <div className="flex items-center gap-2 rounded-lg border border-warning/25 bg-warning-subtle px-4 py-3 text-sm text-warning">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>
+            <strong className="font-semibold">
+              {lowStockCount} {lowStockCount === 1 ? "material" : "materiais"}
+            </strong>{" "}
+            abaixo do estoque mínimo.
+          </span>
+        </div>
+      )}
+
       {loading && materials.length === 0 ? (
         <div className="flex items-center justify-center py-16 text-foreground/30">
           <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
@@ -312,7 +326,6 @@ export function StockPage({ orgId }: StockPageProps) {
         />
       )}
 
-      {/* Dialogs */}
       <MaterialForm
         open={dialogs.materialForm}
         onOpenChange={(open) => !open && closeDialog("materialForm")}
@@ -341,7 +354,6 @@ export function StockPage({ orgId }: StockPageProps) {
   )
 }
 
-/* ─── Summary card sub-component ────────────────────────────── */
 function SummaryCard({
   icon,
   label,

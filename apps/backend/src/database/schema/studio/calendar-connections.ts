@@ -3,11 +3,6 @@ import { relations } from "drizzle-orm";
 import { calendarProviderEnum } from "../enums";
 import { organizations } from "../organizations";
 
-/**
- * Conexão de calendário externo por organização (BL-1). Uma por org.
- * A integração OAuth/sync viva é futura (atrás de feature flag); aqui mora o
- * modelo de dados + o estado da conexão.
- */
 export const calendarConnections = pgTable(
   "calendar_connections",
   {
@@ -16,9 +11,7 @@ export const calendarConnections = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     provider: calendarProviderEnum("provider").notNull(),
-    // E-mail/conta externa vinculada (preenchido quando o OAuth real existir).
     externalAccountEmail: text("external_account_email"),
-    // users.id de quem conectou.
     connectedBy: uuid("connected_by"),
     connectedAt: timestamp("connected_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })

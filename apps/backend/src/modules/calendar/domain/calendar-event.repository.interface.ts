@@ -28,18 +28,21 @@ export interface DueReminder {
 export interface ListCalendarEventsFilter {
   start: Date;
   end: Date;
-  /** users.id — restringe a um membro específico (usado por owner/admin). */
   assignedTo?: string;
+  includeSharedForUserId?: string;
+}
+
+export interface AttendeeRow {
+  userId: string;
+  name: string;
+  status: "going" | "not_going";
 }
 
 export interface ICalendarEventRepository {
-  /** Resolve a membership do usuário (por auth_id) na org → { userId, role, name }. */
   getMembership(orgId: string, authId: string): Promise<OrgMembershipInfo | null>;
 
-  /** True se `userId` é membro ativo da org (valida o "em nome de" do owner). */
   isOrgMember(orgId: string, userId: string): Promise<boolean>;
 
-  /** Owners (admins) da org — para notificar sobre indisponibilidade. */
   findOrgOwners(orgId: string): Promise<OrgOwner[]>;
 
   findById(id: string, orgId: string): Promise<CalendarEventEntity | null>;
@@ -49,7 +52,6 @@ export interface ICalendarEventRepository {
     filter: ListCalendarEventsFilter,
   ): Promise<CalendarEventEntity[]>;
 
-  /** True se há evento do mesmo membro sobrepondo [start, end), exceto excludeId. */
   hasOverlap(
     assignedTo: string,
     start: Date,
@@ -61,7 +63,16 @@ export interface ICalendarEventRepository {
   update(id: string, data: UpdateCalendarEventData): Promise<CalendarEventEntity>;
   delete(id: string, orgId: string): Promise<void>;
 
-  /** Agendamentos (scheduled) que começam em (now, until] e ainda não foram lembrados. */
   findDueReminders(now: Date, until: Date): Promise<DueReminder[]>;
   markReminderSent(id: string): Promise<void>;
+
+  upsertAttendee(
+    eventId: string,
+    userId: string,
+    status: "going" | "not_going",
+  ): Promise<void>;
+
+  listAttendees(eventId: string): Promise<AttendeeRow[]>;
+
+  listOrgMembersBasic(orgId: string): Promise<{ userId: string; name: string }[]>;
 }

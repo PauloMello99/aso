@@ -57,7 +57,6 @@ export function WeekView({
   return (
     <div className="overflow-x-auto overflow-y-hidden rounded-xl border border-foreground/[0.06]">
       <div className="min-w-[680px]">
-        {/* Header com os dias */}
         <div className="grid grid-cols-[56px_repeat(7,1fr)] border-b border-foreground/[0.06]">
           <div />
           {days.map((d) => {
@@ -73,7 +72,7 @@ export function WeekView({
                 <div
                   className={cn(
                     "mx-auto mt-0.5 flex h-7 w-7 items-center justify-center rounded-full text-sm",
-                    isToday ? "bg-orange-500 font-semibold text-white" : "text-foreground/80",
+                    isToday ? "bg-primary font-semibold text-primary-foreground" : "text-foreground/80",
                   )}
                 >
                   {format(d, "d")}
@@ -83,7 +82,6 @@ export function WeekView({
           })}
         </div>
 
-        {/* Linha de eventos de dia inteiro (separada do grid de horários) */}
         <div className="grid grid-cols-[56px_repeat(7,1fr)] border-b border-foreground/[0.06]">
           <div className="flex items-center justify-end pr-2 text-[10px] uppercase text-foreground/30">
             Dia todo
@@ -106,7 +104,7 @@ export function WeekView({
                       "block w-full truncate rounded px-1.5 py-0.5 text-left text-[11px] leading-tight transition-colors",
                       ev.type === "unavailability"
                         ? "bg-foreground/[0.06] text-foreground/50 [background-image:repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(255,255,255,0.04)_5px,rgba(255,255,255,0.04)_10px)]"
-                        : "bg-orange-500/15 text-orange-200 hover:bg-orange-500/25",
+                        : "bg-primary-subtle text-primary-text hover:bg-primary/15",
                       ev.status === "canceled" && "line-through opacity-40",
                     )}
                   >
@@ -118,9 +116,7 @@ export function WeekView({
           })}
         </div>
 
-        {/* Corpo: eixo de horas + colunas */}
         <div className="grid grid-cols-[56px_repeat(7,1fr)]">
-          {/* Eixo de horas */}
           <div>
             {HOURS.map((h) => (
               <div
@@ -133,7 +129,6 @@ export function WeekView({
             ))}
           </div>
 
-          {/* Colunas por dia */}
           {days.map((day) => {
             const dayEvents = events.filter(
               (ev) => !ev.allDay && isSameDay(parseISO(ev.startsAt), day),
@@ -146,7 +141,6 @@ export function WeekView({
                 style={{ height: HOURS.length * HOUR_PX }}
                 onClick={(e) => handleColumnClick(day, e)}
               >
-                {/* linhas de hora */}
                 {HOURS.map((h) => (
                   <div
                     key={h}
@@ -154,7 +148,6 @@ export function WeekView({
                     className="border-b border-foreground/[0.04]"
                   />
                 ))}
-                {/* eventos */}
                 {dayEvents.map((ev) => {
                   const s = parseISO(ev.startsAt)
                   const e = parseISO(ev.endsAt)
@@ -172,10 +165,10 @@ export function WeekView({
                       }}
                       style={{ top, height }}
                       className={cn(
-                        "absolute left-1 right-1 overflow-hidden rounded-md border px-1.5 py-0.5 text-left text-[11px] leading-tight transition-colors",
+                        "absolute left-1 right-1 overflow-hidden rounded-md px-1.5 py-0.5 text-left text-[11px] leading-tight transition-colors",
                         isBusy
-                          ? "border-foreground/10 bg-foreground/[0.06] text-foreground/50 [background-image:repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(255,255,255,0.04)_5px,rgba(255,255,255,0.04)_10px)]"
-                          : "border-orange-500/30 bg-orange-500/15 text-orange-200 hover:bg-orange-500/25",
+                          ? "border border-foreground/10 bg-foreground/[0.06] text-foreground/50 [background-image:repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(255,255,255,0.04)_5px,rgba(255,255,255,0.04)_10px)]"
+                          : "border-l-2 border-l-primary bg-primary-subtle text-primary-text hover:bg-primary/15",
                         ev.status === "canceled" && "line-through opacity-40",
                       )}
                     >

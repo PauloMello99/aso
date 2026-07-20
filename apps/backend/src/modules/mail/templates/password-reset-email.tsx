@@ -2,19 +2,23 @@ import { Button, Heading, Section, Text } from "@react-email/components";
 import { BaseLayout, sharedStyles } from "./base-layout";
 
 export interface PasswordResetEmailProps {
-  /** Nome do usuário (opcional — saudação personalizada). */
   name?: string;
   resetUrl: string;
+  supportEmail?: string;
 }
 
-export function PasswordResetEmail({ name, resetUrl }: PasswordResetEmailProps) {
+export function PasswordResetEmail({
+  name,
+  resetUrl,
+  supportEmail,
+}: PasswordResetEmailProps) {
   return (
-    <BaseLayout preview="Redefina sua senha do Ink Ops">
+    <BaseLayout preview="Redefina sua senha do ASO" supportEmail={supportEmail}>
       <Heading style={sharedStyles.heading}>Redefinir senha</Heading>
       <Text style={sharedStyles.paragraph}>
         {name ? `Olá, ${name}. ` : "Olá. "}
-        Recebemos um pedido para redefinir a senha da sua conta no Ink Ops.
-        Clique no botão abaixo para escolher uma nova senha.
+        Recebemos um pedido para redefinir a senha da sua conta no ASO. Clique
+        no botão abaixo para escolher uma nova senha.
       </Text>
       <Section style={{ textAlign: "center", margin: "24px 0" }}>
         <Button href={resetUrl} style={sharedStyles.button}>
@@ -34,7 +38,6 @@ export function PasswordResetEmail({ name, resetUrl }: PasswordResetEmailProps) 
   );
 }
 
-// Default export para a preview do `react-email` (email dev).
 export default function PasswordResetEmailPreview() {
   return (
     <PasswordResetEmail

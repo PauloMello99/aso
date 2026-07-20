@@ -6,14 +6,6 @@ import type {
   SendEmailInput,
 } from "../domain/ports/email-sender.port";
 
-/**
- * Envio de e-mail via Resend. Desabilitado por padrão em dev:
- * só envia se NOTIFICATIONS_EMAIL_ENABLED=true E RESEND_API_KEY presente.
- *
- * - Desabilitado → no-op, retorna `false` (não lança — preserva o dev).
- * - Habilitado + sucesso → `true`.
- * - Habilitado + falha real → **lança** (o caller decide se é crítico).
- */
 @Injectable()
 export class ResendEmailSender implements IEmailSender {
   private readonly logger = new Logger(ResendEmailSender.name);
@@ -26,7 +18,7 @@ export class ResendEmailSender implements IEmailSender {
     const apiKey = config.get<string>("RESEND_API_KEY") ?? "";
     this.from =
       config.get<string>("NOTIFICATIONS_FROM_EMAIL") ??
-      "Ink Ops <no-reply@inkops.local>";
+      "ASO <no-reply@inkops.local>";
     this.enabled = flag && apiKey.length > 0;
     this.client = this.enabled ? new Resend(apiKey) : null;
   }
@@ -48,7 +40,6 @@ export class ResendEmailSender implements IEmailSender {
     });
 
     if (error) {
-      // Canal habilitado e o provedor recusou o envio: propaga para o caller.
       this.logger.error(
         `Falha ao enviar e-mail para ${input.to}: ${error.message}`,
       );

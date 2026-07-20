@@ -1,12 +1,8 @@
 "use client"
 
-import { CreditCard, Lock, TrendingUp, Receipt } from "lucide-react"
+import { CreditCard, TrendingUp, Receipt } from "lucide-react"
+import Link from "next/link"
 
-/**
- * Seção de Assinaturas & Financeiro da plataforma (PLAT-1). O dado de billing
- * ainda não existe (Stripe = PLAT-2), então mostramos um shell explícito em vez
- * de números falsos — pronto para ser preenchido quando o billing existir.
- */
 export function AdminBilling() {
   return (
     <div className="space-y-6">
@@ -19,7 +15,6 @@ export function AdminBilling() {
         </p>
       </div>
 
-      {/* Placeholders dos KPIs financeiros (desabilitados até o billing existir) */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { label: "MRR", icon: TrendingUp },
@@ -40,21 +35,14 @@ export function AdminBilling() {
         ))}
       </div>
 
-      <div className="flex flex-col items-center gap-3 rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] px-6 py-12 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-500/10">
-          <Lock className="h-5 w-5 text-orange-400" />
-        </div>
-        <h2 className="text-base font-semibold text-foreground">
-          Disponível com o billing (PLAT-2)
-        </h2>
-        <p className="max-w-md text-sm text-foreground/50">
-          A gestão de assinaturas e a visão financeira da plataforma dependem da
-          integração de cobrança (Stripe), planejada na tarefa{" "}
-          <span className="font-medium text-foreground/70">PLAT-2</span>. Assim que
-          os planos e pagamentos existirem, esta seção mostrará MRR, status de
-          assinatura por organização, trials e inadimplência.
-        </p>
-      </div>
+      <p className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-4 text-sm text-foreground/50">
+        Para gerenciar a assinatura de uma organização específica (isenção,
+        desconto, faturas), acesse{" "}
+        <Link href="/admin/orgs" className="text-primary hover:underline">
+          Organizações
+        </Link>{" "}
+        → selecione a organização → aba <strong>Assinatura</strong>.
+      </p>
     </div>
   )
 }

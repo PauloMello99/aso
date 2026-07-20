@@ -12,5 +12,4 @@ export default function NotFound() {
   return null
 }
 
-// No layout — bare redirect page
 NotFound.getLayout = (page: ReactElement) => page
