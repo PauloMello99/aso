@@ -10,7 +10,9 @@
 > M11 em 3 fatias: M11a/M11b/M11c — todas mergeadas). Versao atual (`apps/backend` e
 > `apps/frontend`): **0.18.0**. **Backlog original desta reuniao encerrado** — M11
 > (Stripe: trial + assinatura) era o unico item restante. Este arquivo continua sendo a
-> fonte de verdade historica; para o proximo ciclo de trabalho, ver `.memory/roadmap.md`.
+> fonte de verdade historica; para o proximo ciclo de trabalho, ver
+> **`docs/planning/2026-07-29-meeting-backlog.md`** (reuniao de revisao pos-testes deste
+> backlog, milestones N-A a N-K, lancamento em 13/08/2026) e `.memory/roadmap.md`.
 
 ## Contexto
 
