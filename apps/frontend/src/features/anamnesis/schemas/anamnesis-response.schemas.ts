@@ -32,8 +32,16 @@ export function buildAnamnesisAnswersSchema(questions: AnamnesisQuestion[]) {
           (value) => value.startsWith("data:image/png;base64,"),
           "Assinatura inválida",
         ),
+      consentAccepted: z.boolean(),
     })
     .superRefine((data, ctx) => {
+      if (!data.consentAccepted) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["consentAccepted"],
+          message: "É necessário concordar com o termo de consentimento acima.",
+        })
+      }
       questions.forEach((question, index) => {
         if (!question.required) return
         const value = data.answers[index]?.value

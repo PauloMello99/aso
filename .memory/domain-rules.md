@@ -700,6 +700,41 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
 - **F10 está completo**: M10a (construtor+versionamento) + M10b (link público+submissão)
   + M10c (assinatura) cobrem o fluxo inteiro de ficha de anamnese.
 
+### Conformidade legal — LGPD Tier 1 (2026-07-27, ADR-0018)
+
+- **Divisão controlador/operador**: para conta/billing/telemetria de usuário da plataforma,
+  o **ASO é controlador**; para dados de clientes/pacientes do estúdio (customers, anamnese,
+  anexos), o **estúdio (organization) é controlador** e o ASO atua só como **operador**.
+  Formalizado em `apps/frontend/src/features/legal/` (4 páginas: termos, privacidade,
+  cookies, adendo de tratamento de dados) e no ADR.
+- **Regra de texto legal exibido a um titular: sempre gerado no servidor, nunca confiado ao
+  cliente, snapshotado na linha do registro e impresso no artefato final.** Mesmo padrão de
+  `anamnesis_responses.questions_snapshot`. Aplicado a dois lugares: aceite de termos no
+  cadastro (`users.terms_accepted_at`/`terms_version`) e consentimento da ficha de anamnese
+  (`anamnesis_responses.consent_text_snapshot`/`consent_version`/`consent_accepted_at`,
+  gerado por `anamnesis/domain/build-anamnesis-consent-text.ts`). Submissão rejeita
+  (`ANAMNESIS_CONSENT_REQUIRED`) se a versão enviada pelo cliente não bater com a vigente no
+  servidor — protege contra formulário aberto durante um deploy do texto.
+- **Sem banner de cookies**: decisão deliberada, não lacuna — o app não grava
+  `document.cookie`, não usa analytics/pixel de terceiros, fontes são self-hosted em build.
+  Único armazenamento local é `inkops_session` (necessário) e `theme` (funcional). Se isso
+  mudar (analytics, pixel), a Política de Cookies e um consent manager real precisam entrar
+  juntos, antes da ativação.
+- **Migration escrita à mão exige registro manual em `meta/_journal.json`** — o
+  `migrate()` do drizzle-orm só aplica migrations listadas no journal; uma migration nova
+  sem entrada correspondente é **silenciosamente ignorada** por `db:migrate` (sem erro,
+  simplesmente não aplica). Todo fluxo de migration manual (ver `env_migration_snapshot_gap`
+  na memória de sessão) precisa desse passo extra antes de rodar `db:migrate`.
+- **Pendência dura fora do código**: `features/legal/constants/entity.ts` (`LEGAL_ENTITY`)
+  tem placeholders `[PREENCHER: ...]` para razão social/CNPJ/endereço/encarregado — bloqueia
+  o site de ir ao ar até serem preenchidos com dados reais (identificação do fornecedor,
+  CDC; encarregado, LGPD art. 41).
+- **Tier 2 (não resolvido nesta fatia)**: cron de retenção (anamnese expirada, convites
+  expirados, notifications, audit logs), `anamnesis_responses.customer_id` órfão ao deletar
+  cliente (FK `set null`), limpeza de Storage no delete de qualquer entidade, bucket
+  `avatars` público com path adivinhável, PII em `audit_logs.metadata` sem TTL, export de
+  dados por titular.
+
 ### Notificações — núcleo reutilizável (2026-06-15)
 - **Módulo `modules/notifications/`**: `NotificationService.notify({userId, orgId?, type, title, body?, data?, email?, actionUrl?, actionLabel?})` cria a notificação **in-app** (tabela `notifications`, migration `0008`) e dispara **e-mail** via `MailService.sendNotification` (best-effort em `try/catch` — falha nunca quebra agenda/estoque/cron). **Outros módulos injetam `NotificationService`** (exportado).
 - **E-mail transacional centralizado (ADR-0012)**: módulo dedicado `modules/mail/` (sem dep de auth/notifications → evita ciclo) é dono do port `IEmailSender`/`ResendEmailSender` e do `MailService` (`sendOrgInvite`/`sendPasswordReset`/`sendWelcome`/`sendNotification`). Templates **React Email** `.tsx` em `modules/mail/templates/` (preview: `pnpm --filter backend email:dev`). **`IEmailSender.send`**: `false` = desabilitado (no-op, dev), `true` = enviado, **lança** em falha real. **Críticos (abortam):** convite (cria→envia→em falha **reverte** o convite + `InvitationEmailFailedException`/HTTP 502) e **reset de senha**. **Best-effort:** notificações/crons e welcome. **Reset de senha saiu do GoTrue**: `IAuthProvider.generatePasswordResetLink` (`admin.generateLink type=recovery`, sem enviar) → enviamos via Resend; `null` p/ user inexistente (sem enumeração). Welcome no sign-up. `NOTIFICATIONS_FROM_EMAIL` exige domínio verificado no Resend.

@@ -9,6 +9,8 @@ import { AnamnesisResponseAlreadySubmittedException } from "../../domain/excepti
 import { AnamnesisResponseExpiredException } from "../../domain/exceptions/anamnesis-response-expired.exception";
 import { AnamnesisInvalidAnswersException } from "../../domain/exceptions/anamnesis-invalid-answers.exception";
 import { AnamnesisSignatureRequiredException } from "../../domain/exceptions/anamnesis-signature-required.exception";
+import { AnamnesisConsentRequiredException } from "../../domain/exceptions/anamnesis-consent-required.exception";
+import { ANAMNESIS_CONSENT_VERSION } from "../../domain/build-anamnesis-consent-text";
 import type { AnamnesisQuestion } from "../../domain/anamnesis-question";
 import { IStorageProvider } from "../../../auth/application/ports/storage-provider.interface";
 import { IAnamnesisDocumentGenerator } from "../../domain/ports/anamnesis-document-generator.port";
@@ -43,6 +45,7 @@ function buildResponse(
   return Object.assign(entity, {
     customerName: "Maria Silva",
     customerEmail: "maria@example.com",
+    organizationName: "Estúdio Teste",
   });
 }
 
@@ -102,6 +105,8 @@ function buildInput(
     signatureImageBase64: VALID_SIGNATURE_BASE64,
     requestIp: "203.0.113.1",
     requestUserAgent: "jest-test-agent",
+    consentAccepted: true,
+    consentVersion: ANAMNESIS_CONSENT_VERSION,
     ...overrides,
   };
 }
@@ -180,6 +185,40 @@ describe("SubmitAnamnesisResponseUseCase", () => {
     expect(repo.markSubmitted).not.toHaveBeenCalled();
   });
 
+  it("lança AnamnesisConsentRequiredException quando o consentimento não foi aceito", async () => {
+    const repo = buildFakeRepo({
+      findByToken: jest.fn().mockResolvedValue(buildResponse()),
+    });
+    const useCase = new SubmitAnamnesisResponseUseCase(
+      repo,
+      buildFakeStorage(),
+      buildFakeDocumentGenerator(),
+      buildFakeMail(),
+    );
+
+    await expect(
+      useCase.execute(buildInput({ consentAccepted: false })),
+    ).rejects.toBeInstanceOf(AnamnesisConsentRequiredException);
+    expect(repo.markSubmitted).not.toHaveBeenCalled();
+  });
+
+  it("lança AnamnesisConsentRequiredException quando a versão do termo está desatualizada", async () => {
+    const repo = buildFakeRepo({
+      findByToken: jest.fn().mockResolvedValue(buildResponse()),
+    });
+    const useCase = new SubmitAnamnesisResponseUseCase(
+      repo,
+      buildFakeStorage(),
+      buildFakeDocumentGenerator(),
+      buildFakeMail(),
+    );
+
+    await expect(
+      useCase.execute(buildInput({ consentVersion: "2020-01-01" })),
+    ).rejects.toBeInstanceOf(AnamnesisConsentRequiredException);
+    expect(repo.markSubmitted).not.toHaveBeenCalled();
+  });
+
   it("lança AnamnesisSignatureRequiredException quando a assinatura não é um PNG válido", async () => {
     const repo = buildFakeRepo({
       findByToken: jest.fn().mockResolvedValue(buildResponse()),
@@ -245,6 +284,9 @@ describe("SubmitAnamnesisResponseUseCase", () => {
       pdfHashSha256: expect.any(String),
       requestIp: "203.0.113.1",
       requestUserAgent: "jest-test-agent",
+      consentTextSnapshot: expect.any(String),
+      consentVersion: ANAMNESIS_CONSENT_VERSION,
+      consentAcceptedAt: expect.any(Date),
     });
 
     expect(mail.sendSignedAnamnesisResponseCopy).toHaveBeenCalledWith({

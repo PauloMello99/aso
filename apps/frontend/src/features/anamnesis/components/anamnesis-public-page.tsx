@@ -16,6 +16,7 @@ import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { Label } from "@/shared/components/ui/label"
+import { Checkbox } from "@/shared/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -42,6 +43,8 @@ const SUBMIT_ERROR_MESSAGES: Record<string, string> = {
     "Não foi possível validar suas respostas. Revise os campos e tente novamente.",
   ANAMNESIS_SIGNATURE_REQUIRED:
     "Não foi possível processar a assinatura. Tente desenhar novamente.",
+  ANAMNESIS_CONSENT_REQUIRED:
+    "É necessário concordar com o termo de consentimento. Se o problema persistir, recarregue a página.",
 }
 const DEFAULT_SUBMIT_ERROR_MESSAGE =
   "Não foi possível enviar suas respostas. Tente novamente."
@@ -138,6 +141,8 @@ interface AnamnesisResponseFormProps {
   token: string
   questions: AnamnesisQuestion[]
   customerName: string
+  organizationName: string
+  consent: { version: string; text: string }
   onSubmitted: () => void
 }
 
@@ -145,6 +150,8 @@ function AnamnesisResponseForm({
   token,
   questions,
   customerName,
+  organizationName,
+  consent,
   onSubmitted,
 }: AnamnesisResponseFormProps) {
   const { mutateAsync: submit, isPending: submitting } =
@@ -167,10 +174,12 @@ function AnamnesisResponseForm({
         signerFullName: "",
         signerCpf: "",
         signatureImageBase64: "",
+        consentAccepted: false,
       },
     })
 
   const signatureValue = watch("signatureImageBase64")
+  const consentAcceptedValue = watch("consentAccepted")
 
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null)
@@ -193,6 +202,8 @@ function AnamnesisResponseForm({
         signerFullName: values.signerFullName.trim(),
         signerCpf: cpfDigits.length > 0 ? cpfDigits : undefined,
         signatureImageBase64: values.signatureImageBase64,
+        consentAccepted: values.consentAccepted,
+        consentVersion: consent.version,
       })
       onSubmitted()
     } catch (err) {
@@ -205,7 +216,8 @@ function AnamnesisResponseForm({
       <CardHeader>
         <CardTitle className="text-xl">Ficha de anamnese</CardTitle>
         <CardDescription className="text-foreground/40">
-          Olá, {customerName}. Responda as perguntas abaixo.
+          Olá, {customerName}. {organizationName} solicita que você responda as
+          perguntas abaixo.
         </CardDescription>
       </CardHeader>
 
@@ -257,6 +269,41 @@ function AnamnesisResponseForm({
 
         <div className="flex flex-col gap-1.5">
           <Label>
+            Termo de Consentimento
+            <span className="ml-1 text-destructive">*</span>
+          </Label>
+          <div className="max-h-40 overflow-y-auto whitespace-pre-line rounded-md border border-foreground/10 bg-foreground/5 p-3 text-xs leading-relaxed text-foreground/60">
+            {consent.text}
+          </div>
+          <div className="flex items-start gap-2 pt-1">
+            <Controller
+              control={control}
+              name="consentAccepted"
+              render={({ field }) => (
+                <Checkbox
+                  id="consentAccepted"
+                  checked={field.value}
+                  onCheckedChange={(checked) => field.onChange(checked === true)}
+                  className="mt-0.5"
+                />
+              )}
+            />
+            <Label
+              htmlFor="consentAccepted"
+              className="text-sm font-normal leading-relaxed text-foreground/60"
+            >
+              Li e concordo com o termo de consentimento acima.
+            </Label>
+          </div>
+          {formState.errors.consentAccepted && (
+            <p className="text-xs text-destructive">
+              {formState.errors.consentAccepted.message}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label>
             Assinatura
             <span className="ml-1 text-destructive">*</span>
           </Label>
@@ -284,7 +331,7 @@ function AnamnesisResponseForm({
         <Button
           type="submit"
           className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-          disabled={submitting || !signatureValue}
+          disabled={submitting || !signatureValue || !consentAcceptedValue}
         >
           {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Enviar respostas
@@ -349,6 +396,8 @@ export function AnamnesisPublicPage({ token }: AnamnesisPublicPageProps) {
         token={token}
         questions={lookup.questions}
         customerName={lookup.customerName}
+        organizationName={lookup.organizationName}
+        consent={lookup.consent}
         onSubmitted={() => setSubmitted(true)}
       />
     </Centered>

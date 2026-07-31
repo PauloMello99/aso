@@ -12,6 +12,8 @@ export interface UserEntityProps {
   birthDate: string | null;
   gender: Gender | null;
   onboardingCompletedAt: Date | null;
+  termsAcceptedAt: Date | null;
+  termsVersion: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -20,6 +22,8 @@ export interface CreateUserData {
   authId: string;
   name: string;
   email: string;
+  termsAcceptedAt?: Date;
+  termsVersion?: string;
 }
 
 export interface UpdateUserData {
@@ -40,6 +44,8 @@ export class UserEntity {
   readonly birthDate: string | null;
   readonly gender: Gender | null;
   readonly onboardingCompletedAt: Date | null;
+  readonly termsAcceptedAt: Date | null;
+  readonly termsVersion: string | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 
@@ -54,6 +60,8 @@ export class UserEntity {
     this.birthDate = props.birthDate;
     this.gender = props.gender;
     this.onboardingCompletedAt = props.onboardingCompletedAt;
+    this.termsAcceptedAt = props.termsAcceptedAt;
+    this.termsVersion = props.termsVersion;
     this.createdAt = props.createdAt;
     this.updatedAt = props.updatedAt;
   }

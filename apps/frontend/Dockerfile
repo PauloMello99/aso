@@ -29,6 +29,20 @@ WORKDIR /app
 COPY --from=pruner /app/out/json/ ./
 RUN pnpm install --frozen-lockfile
 COPY --from=pruner /app/out/full/ ./
+# GATE DE CONFORMIDADE LEGAL (ADR-0018): bloqueia QUALQUER deploy (staging e production)
+# enquanto os dados da pessoa juridica em features/legal/constants/entity.ts ainda forem
+# placeholders `[PREENCHER: ...]`. Sem CNPJ/razao social/endereco/DPO reais, o site nao
+# pode ir ao ar (identificacao do fornecedor — Decreto 7.962/2013 + CDC; encarregado —
+# LGPD art. 41). Fica aqui, e nao no `pnpm build`, porque o Railway deploya por push na
+# branch do ambiente e ignora o resultado do GitHub Actions: o build da imagem e o unico
+# ponto que o deploy obrigatoriamente atravessa. Nao bloqueia dev nem merge em
+# `development`. Remover este bloco quando LEGAL_ENTITY estiver preenchido.
+RUN if grep -q '\[PREENCHER' apps/frontend/src/features/legal/constants/entity.ts; then \
+      echo "ERRO: LEGAL_ENTITY ainda contem placeholders [PREENCHER: ...]." >&2; \
+      echo "Preencha razao social, CNPJ, endereco e encarregado/DPO em" >&2; \
+      echo "apps/frontend/src/features/legal/constants/entity.ts antes de deployar." >&2; \
+      exit 1; \
+    fi
 # NEXT_PUBLIC_* tem que existir no build (Next inlina no bundle)
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL

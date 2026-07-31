@@ -2,6 +2,7 @@ import { Type } from "class-transformer";
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsDefined,
   IsOptional,
   IsString,
@@ -40,4 +41,11 @@ export class SubmitAnamnesisResponseDto {
   @Matches(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/)
   @MaxLength(80_000)
   signatureImageBase64!: string;
+
+  @IsBoolean()
+  consentAccepted!: boolean;
+
+  @IsString()
+  @MinLength(1)
+  consentVersion!: string;
 }

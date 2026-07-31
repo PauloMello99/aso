@@ -11,6 +11,8 @@ import {
   USER_REPOSITORY,
 } from "../../user/domain/user.repository.interface";
 import { AuditService } from "../../audit/audit.service";
+import { CURRENT_TERMS_VERSION } from "../domain/legal-terms-version";
+import { TermsAcceptanceRequiredException } from "../domain/exceptions/terms-acceptance-required.exception";
 
 @Injectable()
 export class SignUpUseCase {
@@ -28,7 +30,12 @@ export class SignUpUseCase {
     email: string,
     password: string,
     name: string,
+    acceptedTermsVersion: string,
   ): Promise<AuthSession> {
+    if (acceptedTermsVersion !== CURRENT_TERMS_VERSION) {
+      throw new TermsAcceptanceRequiredException();
+    }
+
     const session = await this.auth.signUp(email, password);
 
     let createdUserId: string | null = null;
@@ -37,6 +44,8 @@ export class SignUpUseCase {
         authId: session.user.id,
         email: session.user.email,
         name,
+        termsAcceptedAt: new Date(),
+        termsVersion: CURRENT_TERMS_VERSION,
       });
       createdUserId = created.id;
     } catch (err) {

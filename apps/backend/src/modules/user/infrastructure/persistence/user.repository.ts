@@ -51,7 +51,13 @@ export class DrizzleUserRepository implements IUserRepository {
   async create(data: CreateUserData): Promise<UserEntity> {
     const [row] = await this.admin
       .insert(schema.users)
-      .values({ authId: data.authId, name: data.name, email: data.email })
+      .values({
+        authId: data.authId,
+        name: data.name,
+        email: data.email,
+        termsAcceptedAt: data.termsAcceptedAt,
+        termsVersion: data.termsVersion,
+      })
       .onConflictDoNothing()
       .returning();
     return UserMapper.toDomain(row!);

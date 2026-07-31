@@ -33,6 +33,7 @@ describe("buildAnamnesisAnswersSchema", () => {
       answers: [{ questionId: "q1", value: undefined }],
       signerFullName: VALID_SIGNER_NAME,
       signatureImageBase64: VALID_SIGNATURE,
+      consentAccepted: true,
     })
     expect(result.success).toBe(false)
   })
@@ -43,6 +44,7 @@ describe("buildAnamnesisAnswersSchema", () => {
       answers: [{ questionId: "q1", value: "   " }],
       signerFullName: VALID_SIGNER_NAME,
       signatureImageBase64: VALID_SIGNATURE,
+      consentAccepted: true,
     })
     expect(result.success).toBe(false)
   })
@@ -53,6 +55,7 @@ describe("buildAnamnesisAnswersSchema", () => {
       answers: [{ questionId: "q2", value: undefined }],
       signerFullName: VALID_SIGNER_NAME,
       signatureImageBase64: VALID_SIGNATURE,
+      consentAccepted: true,
     })
     expect(result.success).toBe(false)
   })
@@ -63,6 +66,7 @@ describe("buildAnamnesisAnswersSchema", () => {
       answers: [{ questionId: "q3", value: undefined }],
       signerFullName: VALID_SIGNER_NAME,
       signatureImageBase64: VALID_SIGNATURE,
+      consentAccepted: true,
     })
     expect(result.success).toBe(true)
   })
@@ -81,6 +85,7 @@ describe("buildAnamnesisAnswersSchema", () => {
       ],
       signerFullName: VALID_SIGNER_NAME,
       signatureImageBase64: VALID_SIGNATURE,
+      consentAccepted: true,
     })
     expect(result.success).toBe(true)
   })
@@ -114,6 +119,7 @@ describe("buildAnamnesisAnswersSchema", () => {
       signerFullName: VALID_SIGNER_NAME,
       signerCpf: "",
       signatureImageBase64: VALID_SIGNATURE,
+      consentAccepted: true,
     })
     expect(withEmptyString.success).toBe(true)
 
@@ -121,8 +127,20 @@ describe("buildAnamnesisAnswersSchema", () => {
       answers: [{ questionId: "q3", value: undefined }],
       signerFullName: VALID_SIGNER_NAME,
       signatureImageBase64: VALID_SIGNATURE,
+      consentAccepted: true,
     })
     expect(withOmitted.success).toBe(true)
+  })
+
+  it("rejeita quando o consentimento não foi aceito", () => {
+    const schema = buildAnamnesisAnswersSchema([TEXT_OPTIONAL])
+    const result = schema.safeParse({
+      answers: [{ questionId: "q3", value: undefined }],
+      signerFullName: VALID_SIGNER_NAME,
+      signatureImageBase64: VALID_SIGNATURE,
+      consentAccepted: false,
+    })
+    expect(result.success).toBe(false)
   })
 
   it("rejeita signatureImageBase64 sem o prefixo data:image/png", () => {

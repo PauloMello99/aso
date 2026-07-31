@@ -17,6 +17,9 @@ export interface AnamnesisDocumentInput {
   formHash: string;
   requestIp: string | null;
   requestUserAgent: string | null;
+  consentText: string;
+  consentVersion: string;
+  consentAcceptedAt: Date;
 }
 
 export interface IAnamnesisDocumentGenerator {

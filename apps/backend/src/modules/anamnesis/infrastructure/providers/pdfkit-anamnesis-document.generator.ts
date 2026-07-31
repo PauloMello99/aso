@@ -52,9 +52,18 @@ export class PdfKitAnamnesisDocumentGenerator
       }
       doc.moveDown(1);
 
+      doc.fontSize(14).text("Termo de Consentimento");
+      doc.moveDown(0.5);
+      doc.fontSize(10).text(input.consentText, { align: "justify" });
+      doc.moveDown(1);
+
+      const SIGNATURE_HEIGHT = 120;
+      if (doc.y + SIGNATURE_HEIGHT > doc.page.height - doc.page.margins.bottom) {
+        doc.addPage();
+      }
       doc.fontSize(14).text("Assinatura");
       doc.moveDown(0.5);
-      doc.image(input.signaturePng, { fit: [240, 120] });
+      doc.image(input.signaturePng, { fit: [240, SIGNATURE_HEIGHT] });
       doc.moveDown(1);
 
       doc.fontSize(14).text("Evidências");
@@ -69,9 +78,17 @@ export class PdfKitAnamnesisDocumentGenerator
         )
         .text(`Id da resposta: ${input.responseId}`)
         .text(`Versão do formulário: ${input.formVersionId ?? "-"}`)
-        .text(`Endereço IP: ${input.requestIp ?? "-"}`)
+        .text(
+          `Endereço IP: ${input.requestIp ?? "-"} (registrado como evidência de autoria, conforme informado no Termo de Consentimento)`,
+        )
         .text(`User-Agent: ${input.requestUserAgent ?? "-"}`)
-        .text(`Hash do formulário: ${input.formHash}`);
+        .text(`Hash do formulário: ${input.formHash}`)
+        .text(`Versão do termo de consentimento: ${input.consentVersion}`)
+        .text(
+          `Consentimento aceito em: ${input.consentAcceptedAt.toLocaleString("pt-BR", {
+            timeZone: "America/Sao_Paulo",
+          })}`,
+        );
 
       doc.end();
     });

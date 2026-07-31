@@ -43,6 +43,8 @@ export class PublicAnamnesisController {
       signatureImageBase64: dto.signatureImageBase64,
       requestIp: ip,
       requestUserAgent: userAgent,
+      consentAccepted: dto.consentAccepted,
+      consentVersion: dto.consentVersion,
     });
   }
 }

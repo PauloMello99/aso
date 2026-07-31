@@ -24,6 +24,8 @@ interface SubmitAnamnesisResponseBody {
   signerFullName: string
   signerCpf?: string
   signatureImageBase64: string
+  consentAccepted: boolean
+  consentVersion: string
 }
 
 export function useSubmitAnamnesisResponse(token: string | undefined) {

@@ -22,6 +22,21 @@ development ──PR──▶ staging ──PR──▶ main
 - CI (`.github/workflows/ci.yml`) roda lint + type-check + build em todo PR. Deploy é por push na
   branch do ambiente (integração Git do Railway).
 
+## 🚫 Deploy BLOQUEADO — gate de conformidade legal (ADR-0018)
+
+O build da imagem do frontend (`apps/frontend/Dockerfile`, estágio `builder`) **falha de
+propósito** enquanto `apps/frontend/src/features/legal/constants/entity.ts` contiver
+placeholders `[PREENCHER: ...]`. Isso bloqueia **staging e production**, já que o Railway
+deploya por push na branch do ambiente e o build da imagem é o único ponto pelo qual o
+deploy obrigatoriamente passa (o resultado do GitHub Actions **não** barra o Railway — a
+branch `staging` não tem branch protection).
+
+Para desbloquear: preencher `LEGAL_ENTITY` com razão social, CNPJ, endereço e
+encarregado/DPO reais e remover o bloco `RUN if grep -q '\[PREENCHER'` do Dockerfile.
+Sem isso, a identificação do fornecedor (Decreto 7.962/2013 + CDC) e a do encarregado
+(LGPD art. 41) ficam publicamente exibidas como placeholders. O `pnpm build` local e o CI
+em `development` **não** são afetados.
+
 ## Serviços a provisionar
 
 | Serviço | Para quê | Custo |
