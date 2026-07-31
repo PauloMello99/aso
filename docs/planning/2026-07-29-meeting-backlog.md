@@ -212,7 +212,7 @@ minor nos dois apps, testes obrigatorios.
 | **N-C — DatePicker: liberar mes futuro no form de evento** (N4/N5) | Tornar `startMonth`/`endMonth` do `DatePicker` compartilhado configuraveis via prop (hoje hardcoded pro caso data-de-nascimento) e o `event-form.tsx` da agenda passar um teto futuro adequado (+2 anos). Bloqueio de data futura de SERVICO (M2) intocado — confirmado sem relacao. | intermediaria (componente compartilhado, ~11 outros usos verificados) | ✅ concluido |
 | ~~**N-D — Presenca em evento coletivo** (N3)~~ | **Absorvido pelo N-A** — mesma causa-raiz (corpo vazio em 2xx). Nao precisa de milestone propria; validar junto do N-A. | — | absorvido |
 | **N-E — Overview por permissao** (N18) | Cards do overview dirigidos por permissao do membro; gate nos DOIS lados (backend omite a chave do modulo negado, nunca `[]`; frontend so renderiza o card permitido). `useBalance`/`BalanceCards` habilitados/renderizados juntos por `vis.cashier` (evita saldo falso de R$0,00). `canSeeCost` removido do card de estoque — nao reintroduz granularidade fina. Reviewer: approved_with_notes, 2 achados low nao-bloqueantes (guard de metodo vs classe no controller; card pode mostrar "saudavel/livre" em vez de estado de acesso negado se a permissao mudar com o cache stale). | **complexa** (auth/permissoes/tenancy) + `reviewer` | ✅ concluido |
-| **N-F — Caixa: errata em transacao de servico** (N6) | Permitir errata pelo caixa em transacao originada de servico, mantendo a integridade append-only e a simetria com a aba de servico. | **complexa** (caixa/dinheiro) + `database-guardian` + `reviewer` | pendente |
+| **N-F — Caixa: errata em transacao de servico** (N6) | Correcao pelo Caixa DELEGA para o fluxo ja existente e testado do lado Servico (`CorrectServicePaymentUseCase`) em vez de duplicar logica de sync — endpoint generico do caixa continua recusando transacao de servico, so a UI roteia. `serviceId` exposto na listagem via JOIN (sem migration). Guard de estorno solto intocado. Reviewer: approved_with_notes apos 2 rodadas; achado medium residual documentado (ver abaixo). | **complexa** (caixa/dinheiro) + `database-guardian` (approved_with_notes) + `reviewer` (approved_with_notes) | ✅ concluido |
 | **N-G — Caixa: estorno como categoria fixa + filtro** (N11, N10) | Estorno protegido e filtravel; nomes de categoria da org nos destinos de transferencia. | **complexa** (caixa/dinheiro; pode precisar migration) + `database-guardian` | pendente |
 | **N-H — Exportacao por formato** (N9) | Seletor de formato (.csv/.xlsx) substituindo o de delimitador. | intermediaria | pendente |
 | **N-I — Acesso ao overview do cliente** (N8) | Clique simples no nome + botao "Detalhes", mobile-first. | simples | pendente |
@@ -265,6 +265,27 @@ observabilidade, nao investigacao.
   Ruan quer manter isso vivo apos o lancamento para justificar aumento de plano; ficou
   explicitamente no campo imaginativo — lancar o ASO primeiro, coletar feedback de outros
   estudios, lapidar, e so depois investir nos perifericos.
+
+## Debito conhecido registrado no N-F (nao bloqueante, documentado)
+
+- **Divergencia de data pre-preenchida na correcao de pagamento de servico**:
+  `Service` (backend) so expoe `paymentTransactionId`, nao a data da transacao
+  de pagamento. Por isso `services-page.tsx` pre-popula o form de correcao com
+  `performedAt` (execucao do servico) e `cashier-page.tsx` usa `transactedAt`
+  (data real do pagamento, correto). Diverge sempre que o servico e pago em dia
+  diferente da execucao (fluxo "pagar depois") — nao e caso raro. Campo e
+  editavel antes do submit, entao nao ha corrupcao silenciosa, so risco de UX
+  se o usuario nao revisar. Corrigir de vez requer expor a data da transacao de
+  pagamento no `Service` do backend (join com `transactions.transacted_at` via
+  `paymentTransactionId`) — fora de escopo desta milestone. Documentado em
+  JSDoc de `ServicePaymentCorrectionTarget.dateISO`.
+- **Follow-up de indice** (achado do database-guardian, low, nao bloqueante):
+  `services.payment_transaction_id` nao tem indice — a query nova de
+  `serviceId` na listagem do caixa faz seq scan em `services` a cada chamada.
+  Sugestao do guardian: `CREATE UNIQUE INDEX ... ON services(payment_transaction_id)
+  WHERE payment_transaction_id IS NOT NULL` (resolve indice + garante a
+  invariante 1:1 de uma vez) — precisa validar ausencia de duplicata em dado
+  real antes de criar o unique index.
 
 ## Pendencias externas (fora do controle do codigo)
 

@@ -9,11 +9,16 @@ import {
   IMemberRepository,
   MEMBER_REPOSITORY,
 } from "../../../organizations/domain/member.repository.interface";
+import {
+  IServiceRepository,
+  SERVICE_REPOSITORY,
+} from "../../../services/domain/service.repository.interface";
 import { resolveActor } from "./resolve-actor";
 
 export interface TransactionView {
   entity: TransactionEntity;
   reversed: boolean;
+  serviceId: string | null;
 }
 
 export interface ListTransactionsInput {
@@ -29,6 +34,8 @@ export class ListTransactionsUseCase {
     private readonly transactionRepo: ITransactionRepository,
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepo: IMemberRepository,
+    @Inject(SERVICE_REPOSITORY)
+    private readonly serviceRepo: IServiceRepository,
   ) {}
 
   async execute(input: ListTransactionsInput): Promise<TransactionView[]> {
@@ -46,9 +53,16 @@ export class ListTransactionsUseCase {
       this.transactionRepo.findReversedIds(input.orgId),
     ]);
 
+    const serviceIdsByTransactionId =
+      await this.serviceRepo.findServiceIdsByTransactionIds(
+        input.orgId,
+        transactions.map((t) => t.id),
+      );
+
     return transactions.map((entity) => ({
       entity,
       reversed: reversedIds.has(entity.id),
+      serviceId: serviceIdsByTransactionId.get(entity.id) ?? null,
     }));
   }
 }

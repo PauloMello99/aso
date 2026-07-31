@@ -1,5 +1,15 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, desc, eq, gte, isNotNull, isNull, lte, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  sql,
+} from "drizzle-orm";
 import { DRIZZLE, DrizzleDB } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
 import {
@@ -249,6 +259,32 @@ export class DrizzleServiceRepository implements IServiceRepository {
       .where(eq(schema.services.paymentTransactionId, transactionId))
       .limit(1);
     return result.length > 0;
+  }
+
+  async findServiceIdsByTransactionIds(
+    orgId: string,
+    transactionIds: string[],
+  ): Promise<Map<string, string>> {
+    if (transactionIds.length === 0) return new Map();
+
+    const rows = await this.db
+      .select({
+        id: schema.services.id,
+        txId: schema.services.paymentTransactionId,
+      })
+      .from(schema.services)
+      .where(
+        and(
+          eq(schema.services.orgId, orgId),
+          inArray(schema.services.paymentTransactionId, transactionIds),
+        ),
+      );
+
+    const map = new Map<string, string>();
+    for (const row of rows) {
+      if (row.txId) map.set(row.txId, row.id);
+    }
+    return map;
   }
 
   async markCanceled(id: string): Promise<void> {

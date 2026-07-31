@@ -39,20 +39,35 @@ import {
 import {
   SERVICE_PAYMENT_METHODS,
   SERVICE_PAYMENT_METHOD_LABELS,
-  type Service,
+  type ServicePaymentMethod,
 } from "../types"
+
+export interface ServicePaymentCorrectionTarget {
+  amountCents: number
+  paymentMethod: ServicePaymentMethod
+  /**
+   * O Service (backend) só expõe `paymentTransactionId`, não a data da
+   * transação de pagamento — por isso services-page.tsx pré-popula com
+   * `performedAt` (execução do serviço), enquanto cashier-page.tsx usa
+   * `transactedAt` da própria transação (correto). Isso diverge sempre que o
+   * serviço é pago em dia diferente da execução (fluxo "pagar depois"), não é
+   * caso raro. Campo é editável no form antes do submit. Corrigir de vez
+   * requer expor a data da transação de pagamento no Service do backend.
+   */
+  dateISO?: string | null
+}
 
 interface ServicePaymentCorrectionSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  service: Service | null
+  target: ServicePaymentCorrectionTarget | null
   onSubmit: (values: CorrectServicePaymentFormValues) => Promise<void>
 }
 
 export function ServicePaymentCorrectionSheet({
   open,
   onOpenChange,
-  service,
+  target,
   onSubmit,
 }: ServicePaymentCorrectionSheetProps) {
   const form = useForm<CorrectServicePaymentFormValues>({
@@ -65,16 +80,20 @@ export function ServicePaymentCorrectionSheet({
     },
   })
 
+  const amountCents = target?.amountCents
+  const paymentMethod = target?.paymentMethod
+  const dateISO = target?.dateISO
+
   useEffect(() => {
-    if (open && service) {
+    if (open && amountCents !== undefined && paymentMethod) {
       form.reset({
-        amount: centsToReaisInput(service.amountCents),
-        paymentMethod: service.paymentMethod,
+        amount: centsToReaisInput(amountCents),
+        paymentMethod,
         description: "",
-        transactedAt: service.performedAt ? service.performedAt.slice(0, 10) : "",
+        transactedAt: dateISO ? dateISO.slice(0, 10) : "",
       })
     }
-  }, [open, service, form])
+  }, [open, amountCents, paymentMethod, dateISO, form])
 
   const handleSubmit = form.handleSubmit(async (values) => {
     await onSubmit(values)
@@ -96,14 +115,14 @@ export function ServicePaymentCorrectionSheet({
             </SheetHeader>
 
             <SheetBody className="flex flex-col gap-4 py-6">
-              {service && (
+              {target && (
                 <div className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3 text-sm">
                   <p className="text-xs uppercase tracking-wide text-foreground/30">
                     Original
                   </p>
                   <p className="mt-1 tabular-nums text-foreground/70">
-                    {formatBRL(service.amountCents)} ·{" "}
-                    {SERVICE_PAYMENT_METHOD_LABELS[service.paymentMethod]}
+                    {formatBRL(target.amountCents)} ·{" "}
+                    {SERVICE_PAYMENT_METHOD_LABELS[target.paymentMethod]}
                   </p>
                 </div>
               )}

@@ -33,6 +33,7 @@ export interface TransactionCategory {
 export interface TransactionView {
   entity: Transaction
   reversed: boolean
+  serviceId: string | null
 }
 
 export interface Balance {
