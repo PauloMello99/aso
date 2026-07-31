@@ -11,6 +11,8 @@ import { ServiceNotFoundException } from "../../domain/exceptions/service-not-fo
 import { ServiceAlreadyCanceledException } from "../../domain/exceptions/service-already-canceled.exception";
 import { ServiceForbiddenException } from "../../domain/exceptions/service-forbidden.exception";
 import { ServicePaymentNotCorrectableException } from "../../domain/exceptions/service-payment-not-correctable.exception";
+import { ITransactionCategoryRepository } from "../../../cashier/domain/transaction-category.repository.interface";
+import { TransactionCategoryEntity } from "../../../cashier/domain/transaction-category.entity";
 
 function buildService(
   overrides: Partial<Parameters<typeof ServiceEntity.create>[0]> = {},
@@ -139,11 +141,40 @@ function buildFakeFeeRepo(
   } as unknown as jest.Mocked<IPaymentFeeRepository>;
 }
 
+function buildCategory(
+  overrides: Partial<Parameters<typeof TransactionCategoryEntity.create>[0]> = {},
+): TransactionCategoryEntity {
+  return TransactionCategoryEntity.create({
+    id: "cat-estorno",
+    orgId: "org-1",
+    name: "Estorno",
+    isProtected: true,
+    systemKey: "reversal",
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    ...overrides,
+  });
+}
+
+function buildFakeCategoryRepo(
+  overrides: Partial<jest.Mocked<ITransactionCategoryRepository>> = {},
+): jest.Mocked<ITransactionCategoryRepository> {
+  return {
+    findByOrg: jest.fn(),
+    findById: jest.fn(),
+    findBySystemKey: jest.fn().mockResolvedValue(buildCategory()),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    ...overrides,
+  } as unknown as jest.Mocked<ITransactionCategoryRepository>;
+}
+
 interface Fakes {
   serviceRepo: jest.Mocked<IServiceRepository>;
   memberRepo: jest.Mocked<IMemberRepository>;
   transactionRepo: jest.Mocked<ITransactionRepository>;
   feeRepo: jest.Mocked<IPaymentFeeRepository>;
+  categoryRepo: jest.Mocked<ITransactionCategoryRepository>;
 }
 
 function buildUseCase(overrides: Partial<Fakes> = {}) {
@@ -152,6 +183,7 @@ function buildUseCase(overrides: Partial<Fakes> = {}) {
     memberRepo: buildFakeMemberRepo(),
     transactionRepo: buildFakeTransactionRepo(),
     feeRepo: buildFakeFeeRepo(),
+    categoryRepo: buildFakeCategoryRepo(),
     ...overrides,
   };
   const useCase = new CorrectServicePaymentUseCase(
@@ -159,6 +191,7 @@ function buildUseCase(overrides: Partial<Fakes> = {}) {
     fakes.memberRepo,
     fakes.transactionRepo,
     fakes.feeRepo,
+    fakes.categoryRepo,
   );
   return { useCase, ...fakes };
 }
@@ -227,6 +260,7 @@ describe("CorrectServicePaymentUseCase", () => {
         feeCents: original.feeCents,
         netCents: original.netCents,
         paymentMethod: original.paymentMethod,
+        categoryId: "cat-estorno",
       }),
     );
     expect(feeRepo.findByOrgAndMethod).toHaveBeenCalledWith(
@@ -244,6 +278,9 @@ describe("CorrectServicePaymentUseCase", () => {
         paymentMethod: "credit_card",
         type: "income",
       }),
+    );
+    expect(transactionRepo.create.mock.calls[1]![0]).not.toHaveProperty(
+      "categoryId",
     );
     expect(serviceRepo.correctPayment).toHaveBeenCalledWith(
       service.id,
@@ -447,6 +484,44 @@ describe("CorrectServicePaymentUseCase", () => {
     expect(transactionRepo.create).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({ description: "Tatuagem braço" }),
+    );
+  });
+
+  it("degrada para categoryId null na reversão quando a categoria de estorno não existe, sem falhar", async () => {
+    const service = buildService();
+    const original = buildTransaction();
+    const reversal = buildTransaction({ id: "tx-2", type: "outcome" });
+    const replacement = buildTransaction({ id: "tx-3" });
+
+    const { useCase, transactionRepo, categoryRepo } = buildUseCase({
+      serviceRepo: buildFakeServiceRepo({
+        findById: jest
+          .fn()
+          .mockResolvedValueOnce(service)
+          .mockResolvedValueOnce(service),
+      }),
+      transactionRepo: buildFakeTransactionRepo({
+        findById: jest.fn().mockResolvedValue(original),
+        findReversalOf: jest.fn().mockResolvedValue(null),
+        create: jest
+          .fn()
+          .mockResolvedValueOnce(reversal)
+          .mockResolvedValueOnce(replacement),
+      }),
+      categoryRepo: buildFakeCategoryRepo({
+        findBySystemKey: jest.fn().mockResolvedValue(null),
+      }),
+    });
+
+    await useCase.execute(baseInput);
+
+    expect(categoryRepo.findBySystemKey).toHaveBeenCalledWith(
+      "org-1",
+      "reversal",
+    );
+    expect(transactionRepo.create).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ categoryId: null }),
     );
   });
 

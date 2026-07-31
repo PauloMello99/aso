@@ -12,6 +12,7 @@ function buildCategory(
     orgId: "org-1",
     name: "Aluguel",
     isProtected: false,
+    systemKey: null,
     createdAt: new Date("2026-07-01T10:00:00Z"),
     ...overrides,
   });
@@ -23,6 +24,7 @@ function buildFakeRepo(
   return {
     findByOrg: jest.fn(),
     findById: jest.fn(),
+    findBySystemKey: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),

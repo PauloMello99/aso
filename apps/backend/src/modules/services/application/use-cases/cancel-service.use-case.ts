@@ -20,6 +20,11 @@ import {
   ITransactionRepository,
   TRANSACTION_REPOSITORY,
 } from "../../../cashier/domain/transaction.repository.interface";
+import {
+  ITransactionCategoryRepository,
+  TRANSACTION_CATEGORY_REPOSITORY,
+} from "../../../cashier/domain/transaction-category.repository.interface";
+import { resolveReversalCategoryId } from "../../../cashier/domain/reversal-category";
 import { ServiceNotFoundException } from "../../domain/exceptions/service-not-found.exception";
 import { ServiceAlreadyCanceledException } from "../../domain/exceptions/service-already-canceled.exception";
 import { ServiceForbiddenException } from "../../domain/exceptions/service-forbidden.exception";
@@ -44,6 +49,8 @@ export class CancelServiceUseCase {
     private readonly movementRepo: IStockMovementRepository,
     @Inject(TRANSACTION_REPOSITORY)
     private readonly transactionRepo: ITransactionRepository,
+    @Inject(TRANSACTION_CATEGORY_REPOSITORY)
+    private readonly categoryRepo: ITransactionCategoryRepository,
   ) {}
 
   async execute(input: CancelServiceInput): Promise<ServiceEntity> {
@@ -76,6 +83,10 @@ export class CancelServiceUseCase {
       if (original && !original.isReversal) {
         const existing = await this.transactionRepo.findReversalOf(original.id);
         if (!existing) {
+          const categoryId = await resolveReversalCategoryId(
+            this.categoryRepo,
+            original.orgId,
+          );
           await this.transactionRepo.create({
             orgId: original.orgId,
             createdBy: currentUserId,
@@ -85,6 +96,7 @@ export class CancelServiceUseCase {
             feeCents: original.feeCents,
             netCents: original.netCents,
             paymentMethod: original.paymentMethod,
+            categoryId,
             reversesTransactionId: original.id,
           });
         }

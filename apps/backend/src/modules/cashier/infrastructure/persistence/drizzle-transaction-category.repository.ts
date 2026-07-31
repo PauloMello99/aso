@@ -15,6 +15,7 @@ function toDomain(row: typeof schema.transactionCategories.$inferSelect) {
     orgId: row.orgId,
     name: row.name,
     isProtected: row.isProtected,
+    systemKey: row.systemKey,
     createdAt: row.createdAt,
   });
 }
@@ -50,6 +51,26 @@ export class DrizzleTransactionCategoryRepository
         and(
           eq(schema.transactionCategories.id, id),
           eq(schema.transactionCategories.orgId, orgId),
+        ),
+      )
+      .limit(1);
+    return row ? toDomain(row) : null;
+  }
+
+  // SELECT direto, sem passar pelo TtlCache de findByOrg: uma reversão criada dentro
+  // da janela de cache herdaria categoryId null para sempre, já que o caixa é
+  // append-only e o lançamento não pode ser corrigido depois.
+  async findBySystemKey(
+    orgId: string,
+    systemKey: string,
+  ): Promise<TransactionCategoryEntity | null> {
+    const [row] = await this.db
+      .select()
+      .from(schema.transactionCategories)
+      .where(
+        and(
+          eq(schema.transactionCategories.orgId, orgId),
+          eq(schema.transactionCategories.systemKey, systemKey),
         ),
       )
       .limit(1);

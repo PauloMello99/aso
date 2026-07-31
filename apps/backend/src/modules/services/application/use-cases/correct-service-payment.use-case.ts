@@ -17,6 +17,11 @@ import {
   PAYMENT_FEE_REPOSITORY,
 } from "../../../cashier/domain/payment-fee.repository.interface";
 import { computeNet } from "../../../cashier/domain/fee-calculator";
+import {
+  ITransactionCategoryRepository,
+  TRANSACTION_CATEGORY_REPOSITORY,
+} from "../../../cashier/domain/transaction-category.repository.interface";
+import { resolveReversalCategoryId } from "../../../cashier/domain/reversal-category";
 import { ServiceNotFoundException } from "../../domain/exceptions/service-not-found.exception";
 import { ServiceAlreadyCanceledException } from "../../domain/exceptions/service-already-canceled.exception";
 import { ServiceForbiddenException } from "../../domain/exceptions/service-forbidden.exception";
@@ -44,6 +49,8 @@ export class CorrectServicePaymentUseCase {
     private readonly transactionRepo: ITransactionRepository,
     @Inject(PAYMENT_FEE_REPOSITORY)
     private readonly feeRepo: IPaymentFeeRepository,
+    @Inject(TRANSACTION_CATEGORY_REPOSITORY)
+    private readonly categoryRepo: ITransactionCategoryRepository,
   ) {}
 
   async execute(input: CorrectServicePaymentInput): Promise<ServiceEntity> {
@@ -84,6 +91,11 @@ export class CorrectServicePaymentUseCase {
       throw new ServicePaymentNotCorrectableException(input.serviceId);
     }
 
+    const reversalCategoryId = await resolveReversalCategoryId(
+      this.categoryRepo,
+      input.orgId,
+    );
+
     await this.transactionRepo.create({
       orgId: input.orgId,
       createdBy: currentUserId,
@@ -93,6 +105,7 @@ export class CorrectServicePaymentUseCase {
       feeCents: original.feeCents,
       netCents: original.netCents,
       paymentMethod: original.paymentMethod,
+      categoryId: reversalCategoryId,
       reversesTransactionId: original.id,
     });
 

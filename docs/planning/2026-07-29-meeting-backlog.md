@@ -211,7 +211,7 @@ minor nos dois apps, testes obrigatorios.
 | ~~**N-D — Presenca em evento coletivo** (N3)~~ | **Absorvido pelo N-A** — mesma causa-raiz (corpo vazio em 2xx). Nao precisa de milestone propria; validar junto do N-A. | — | absorvido |
 | **N-E — Overview por permissao** (N18) | Cards do overview dirigidos por permissao do membro; gate nos DOIS lados (backend omite a chave do modulo negado, nunca `[]`; frontend so renderiza o card permitido). `useBalance`/`BalanceCards` habilitados/renderizados juntos por `vis.cashier` (evita saldo falso de R$0,00). `canSeeCost` removido do card de estoque — nao reintroduz granularidade fina. Reviewer: approved_with_notes, 2 achados low nao-bloqueantes (guard de metodo vs classe no controller; card pode mostrar "saudavel/livre" em vez de estado de acesso negado se a permissao mudar com o cache stale). | **complexa** (auth/permissoes/tenancy) + `reviewer` | ✅ concluido |
 | **N-F — Caixa: errata em transacao de servico** (N6) | Correcao pelo Caixa DELEGA para o fluxo ja existente e testado do lado Servico (`CorrectServicePaymentUseCase`) em vez de duplicar logica de sync — endpoint generico do caixa continua recusando transacao de servico, so a UI roteia. `serviceId` exposto na listagem via JOIN (sem migration). Guard de estorno solto intocado. Reviewer: approved_with_notes apos 2 rodadas; achado medium residual documentado (ver abaixo). | **complexa** (caixa/dinheiro) + `database-guardian` (approved_with_notes) + `reviewer` (approved_with_notes) | ✅ concluido |
-| **N-G — Caixa: estorno como categoria fixa + filtro** (N11, N10) | Estorno protegido e filtravel; nomes de categoria da org nos destinos de transferencia. | **complexa** (caixa/dinheiro; pode precisar migration) + `database-guardian` | pendente |
+| **N-G — Caixa: estorno como categoria fixa + filtro** (N11, N10) | N11: `system_key='reversal'` da identidade estavel a categoria Estorno (rename permitido, delete bloqueado por `is_protected`, regra do M5 intocada); aplicado nos 3 pontos que criam reversao (ReverseTransaction, CancelService, CorrectServicePayment — CorrectTransaction delega e herda de graca); categoria ausente degrada pra `categoryId: null`, nunca lanca excecao (RLS de INSERT exige owner, entao nao da pra criar sob demanda). Migration 0035 valida ao vivo (apply/rollback/reapply) contra o banco local. N10: escopo corrigido apos confirmar com o Paulo — e so troca de rotulo (`TRANSFER_METHOD_LABELS`) no dialogo de transferencia, sem tocar em `transaction_categories`. | **complexa** (caixa/dinheiro + migration) + `database-guardian` (approved_with_notes) + `reviewer` (approved_with_notes) | ✅ concluido |
 | **N-H — Exportacao por formato** (N9) | Seletor de formato (.csv/.xlsx) substituindo o de delimitador. | intermediaria | pendente |
 | **N-I — Acesso ao overview do cliente** (N8) | Clique simples no nome + botao "Detalhes", mobile-first. | simples | pendente |
 | **N-J — Pendencias do M7** (N16, N17) | Investigar a regra 18+ (por que nao dispara) e o renomear-arquivo-pos-upload. | intermediaria + `database-guardian` se tocar storage | pendente |
@@ -286,6 +286,28 @@ observabilidade, nao investigacao.
   WHERE payment_transaction_id IS NOT NULL` (resolve indice + garante a
   invariante 1:1 de uma vez) — precisa validar ausencia de duplicata em dado
   real antes de criar o unique index.
+
+## Debito conhecido registrado no N-G (nao bloqueante, documentado)
+
+- **Validacao manual via HTTP real pendente**: a regra central do N11 ("toda reversao,
+  em qualquer caminho, fica marcada como Estorno") esta provada por 10 specs novas/
+  ajustadas com repositorio mockado, e a migration foi validada ao vivo (apply/rollback/
+  reapply) contra o banco local — mas nenhum teste exercita o caminho real
+  Drizzle+RLS+HTTP de ponta a ponta. Reviewer recomendou especificamente: chamar
+  `POST /orgs/:orgId/services/:id/cancel` autenticado como FUNCIONARIO (nao owner) sobre
+  um servico PAGO, e conferir no banco que a reversao resultante tem `category_id`
+  apontando pra categoria com `system_key='reversal'` da org — precedente do proprio
+  projeto (`feedback_manual_e2e_catches_integrity_bugs`) mostra que revisao de codigo ja
+  deixou passar bug de integridade que so chamada HTTP real expos.
+- **Adocao por nome exato na migration 0035** (achado do database-guardian, low, aceito
+  e documentado, nao corrigir): uma org que tenha renomeado outra categoria pra
+  "Estorno" antes da migration teve essa linha adotada como categoria de sistema,
+  herdando o historico associado. Sem perda de dado nem vazamento entre orgs — so
+  poluicao de relatorio/filtro na org especifica que fez esse rename. Nao tentar
+  "corrigir" o predicado de adocao em migration futura (quebraria o UNIQUE(org_id,name)).
+- **`.down.sql` da 0035 nao reverte `is_protected`** (achado do guardian, low, aceito,
+  mesmo padrao da 0025): apos rollback, a categoria Estorno permanece protegida contra
+  delete. Nao destrutivo.
 
 ## Pendencias externas (fora do controle do codigo)
 
