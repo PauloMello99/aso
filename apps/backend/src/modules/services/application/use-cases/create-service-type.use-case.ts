@@ -16,7 +16,13 @@ export class CreateServiceTypeUseCase {
     orgId: string,
     name: string,
     description?: string | null,
+    requiresAgeVerification?: boolean,
   ): Promise<ServiceTypeEntity> {
-    return this.typeRepo.create(orgId, name, description ?? null);
+    return this.typeRepo.create(
+      orgId,
+      name,
+      description ?? null,
+      requiresAgeVerification ?? false,
+    );
   }
 }

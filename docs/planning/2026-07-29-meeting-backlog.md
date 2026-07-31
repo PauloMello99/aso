@@ -214,8 +214,8 @@ minor nos dois apps, testes obrigatorios.
 | **N-G — Caixa: estorno como categoria fixa + filtro** (N11, N10) | N11: `system_key='reversal'` da identidade estavel a categoria Estorno (rename permitido, delete bloqueado por `is_protected`, regra do M5 intocada); aplicado nos 3 pontos que criam reversao (ReverseTransaction, CancelService, CorrectServicePayment — CorrectTransaction delega e herda de graca); categoria ausente degrada pra `categoryId: null`, nunca lanca excecao (RLS de INSERT exige owner, entao nao da pra criar sob demanda). Migration 0035 valida ao vivo (apply/rollback/reapply) contra o banco local. N10: escopo corrigido apos confirmar com o Paulo — e so troca de rotulo (`TRANSFER_METHOD_LABELS`) no dialogo de transferencia, sem tocar em `transaction_categories`. | **complexa** (caixa/dinheiro + migration) + `database-guardian` (approved_with_notes) + `reviewer` (approved_with_notes) | ✅ concluido |
 | **N-H — Exportacao por formato** (N9) | Verificado em 2026-07-31: `shared/components/ui/export-menu.tsx` ja implementa exatamente o pedido — seletor de Formato (CSV/Excel) primeiro, Delimitador so aparece quando formato=CSV. Ja entregue no M8, nenhuma mudanca necessaria. | intermediaria | ✅ ja implementado (M8) |
 | **N-I — Acesso ao overview do cliente** (N8) | Mobile ja tinha clique simples no card (`CustomerCard`). Adicionado clique simples na celula do nome tambem no desktop (`CustomerRow`), mantendo o double-click da linha inteira e a acao explicita "Ver detalhes" ja existente no `ActionMenu` (dropdown) — todas as formas de acesso pedidas pelo Paulo coexistem, sem remover nenhuma. | simples | ✅ concluido |
-| **N-J-1 — Expor toggle de 18+ no tipo de servico** (N16) | Adicionar campo/switch "Requer maior de 18 anos" nos dialogs de criar/editar tipo de servico (frontend). Backend ja pronto e testado — so falta UI. | simples/intermediaria (so frontend) | pendente |
-| **N-J-2 — Renomear anexo do cliente** (N17) | Endpoint PATCH novo pra editar `file_name` do anexo + use-case + mutation no hook + acao na UI de anexos (input inline ou dialog). Feature nova, nao fix. | intermediaria (endpoint novo + storage) | pendente |
+| **N-J-1 — Expor toggle de 18+ no tipo de servico** (N16) | Switch "Requer maior de 18 anos" nos dialogs de criar/editar tipo de servico + badge indicador. DTO/use-case de criacao no backend tambem nao aceitava o campo (so o de update) — corrigido junto. | simples/intermediaria (so frontend + gap pequeno de backend) | ✅ concluido |
+| **N-J-2 — Renomear anexo do cliente** (N17) | Endpoint PATCH novo + use-case + RLS. Faltava policy de UPDATE em `customer_attachments` (so tinha select/insert/delete desde a 0011) — sem a migration 0036 o rename daria 0 rows silenciosamente em producao, passando despercebido em teste com repo mockado. `database-guardian`: approved_with_notes (limite de tamanho no fileName ausente, corrigido; fallback de `DATABASE_APP_URL` pre-existente registrado como divida, fora de escopo). | intermediaria (endpoint novo + migration RLS) + `database-guardian` (approved_with_notes) | ✅ concluido |
 | **N-K — Observabilidade do backend** (N12) | Ja diagnosticado no N-A: backend nao tinha nada pra logar (200 de verdade). Fechado 2026-07-31: `apiRequest` agora captura e reporta (`captureError`) corpo 2xx com JSON malformado, que antes passava silencioso na telemetria (so >=500/rede disparavam) e ainda por cima escapava sem nem virar `ApiError` (SyntaxError cru). | intermediaria | ✅ concluido |
 
 **N12** (observabilidade) esta na tabela mas nao no inventario de bugs por ser
@@ -309,6 +309,15 @@ observabilidade, nao investigacao.
 - **`.down.sql` da 0035 nao reverte `is_protected`** (achado do guardian, low, aceito,
   mesmo padrao da 0025): apos rollback, a categoria Estorno permanece protegida contra
   delete. Nao destrutivo.
+
+## Debito conhecido registrado no N-J-2 (nao bloqueante, documentado)
+
+- **Fallback silencioso de `DATABASE_APP_URL`** (achado do database-guardian, pre-existente,
+  fora do diff): `database.module.ts` cai pra `DATABASE_URL` (role `postgres`, BYPASSRLS)
+  quando `DATABASE_APP_URL` nao esta setada, o que neutralizaria TODA policy de RLS —
+  incluindo a nova `customer_attachments_update` — sem erro nenhum. `docs/deployment.md`
+  ja exige a variavel em producao; verificar que esta setada antes de deployar staging/prod.
+  Nao corrigir aqui — e mudanca transversal a toda a app, nao especifica desta feature.
 
 ## Pendencias externas (fora do controle do codigo)
 

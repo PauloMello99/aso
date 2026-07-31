@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Loader2, Pencil, Plus } from "lucide-react"
+import { Loader2, Pencil, Plus, ShieldAlert } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import {
   Select,
@@ -55,6 +55,7 @@ export function ServiceTypesSettingsPage({
               {serviceTypes.map((type) => (
                 <SelectItem key={type.id} value={type.id}>
                   {type.name}
+                  {type.requiresAgeVerification ? " (18+)" : ""}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -81,6 +82,12 @@ export function ServiceTypesSettingsPage({
           >
             <Pencil className="h-4 w-4" />
           </Button>
+          {selectedType?.requiresAgeVerification && (
+            <span className="flex items-center gap-1 text-xs text-warning">
+              <ShieldAlert className="h-3.5 w-3.5" />
+              Requer 18+
+            </span>
+          )}
         </div>
       </div>
 

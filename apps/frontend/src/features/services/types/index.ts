@@ -40,6 +40,7 @@ export interface ServiceType {
   orgId: string
   name: string
   description: string | null
+  requiresAgeVerification: boolean
 }
 
 export interface ServicesFilter {
