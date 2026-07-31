@@ -41,7 +41,6 @@ import { ListMaterialsUseCase } from "../application/use-cases/list-materials.us
 import { ExportMaterialsUseCase } from "../application/use-cases/export-materials.use-case";
 import {
   parseFields,
-  resolveCsvDelimiter,
   resolveExportFormat,
 } from "../../../common/csv/csv.util";
 import { ListStockMovementsUseCase } from "../application/use-cases/list-stock-movements.use-case";
@@ -157,7 +156,6 @@ export class MaterialsController {
     @Query("maxCost") maxCost?: string,
     @Query("fields") fields?: string,
     @Query("format") format?: string,
-    @Query("delimiter") delimiter?: string,
   ) {
     const exportFormat = resolveExportFormat(format);
     const file = await this.exportMaterials.execute(
@@ -179,7 +177,6 @@ export class MaterialsController {
       parseFields(fields),
       user.id,
       exportFormat,
-      resolveCsvDelimiter(delimiter),
     );
     const date = new Date().toISOString().slice(0, 10);
     if (exportFormat === "xlsx") {

@@ -22,16 +22,13 @@ export interface ExportColumn {
   label: string
 }
 
+// Decisão de produto: sem seletor de delimitador. CSV é sempre vírgula; XLSX é
+// OOXML binário (ExcelJS) e não tem conceito de delimitador. Não reintroduzir.
 export type ExportFormat = "csv" | "xlsx"
-export type ExportDelimiter = "comma" | "semicolon" | "tab"
 
 interface ExportMenuProps {
   columns: ExportColumn[]
-  onExport: (
-    fields: string[],
-    format: ExportFormat,
-    delimiter: ExportDelimiter,
-  ) => Promise<void> | void
+  onExport: (fields: string[], format: ExportFormat) => Promise<void> | void
   disabled?: boolean
 }
 
@@ -40,7 +37,6 @@ export function ExportMenu({ columns, onExport, disabled }: ExportMenuProps) {
     () => new Set(columns.map((c) => c.key)),
   )
   const [format, setFormat] = React.useState<ExportFormat>("csv")
-  const [delimiter, setDelimiter] = React.useState<ExportDelimiter>("comma")
   const [busy, setBusy] = React.useState(false)
 
   const allChecked = selected.size === columns.length
@@ -63,7 +59,7 @@ export function ExportMenu({ columns, onExport, disabled }: ExportMenuProps) {
     if (fields.length === 0) return
     setBusy(true)
     try {
-      await onExport(fields, format, delimiter)
+      await onExport(fields, format)
     } finally {
       setBusy(false)
     }
@@ -98,23 +94,6 @@ export function ExportMenu({ columns, onExport, disabled }: ExportMenuProps) {
               </SelectContent>
             </Select>
           </FilterField>
-          {format === "csv" && (
-            <FilterField label="Delimitador">
-              <Select
-                value={delimiter}
-                onValueChange={(v) => setDelimiter(v as ExportDelimiter)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="comma">Vírgula (,)</SelectItem>
-                  <SelectItem value="semicolon">Ponto e vírgula (;)</SelectItem>
-                  <SelectItem value="tab">Tabulação</SelectItem>
-                </SelectContent>
-              </Select>
-            </FilterField>
-          )}
         </div>
         <div className="mt-4 flex items-center justify-between">
           <span className="text-sm font-medium text-foreground">Campos</span>

@@ -5,10 +5,8 @@ import { TransactionEntity } from "../../domain/transaction.entity";
 import {
   buildCsv,
   csvDate,
-  csvDelimiterChar,
   csvMoneyCents,
   type CsvColumn,
-  type CsvDelimiter,
   type ExportFormat,
 } from "../../../../common/csv/csv.util";
 import { buildXlsx } from "../../../../common/csv/xlsx.util";
@@ -66,7 +64,6 @@ export class ExportTransactionsUseCase {
     filter?: ListTransactionsFilter,
     fields?: string[],
     format?: ExportFormat,
-    delimiter?: CsvDelimiter,
   ): Promise<string | Buffer> {
     const views = await this.listTransactions.execute({
       orgId,
@@ -77,11 +74,6 @@ export class ExportTransactionsUseCase {
     if (format === "xlsx") {
       return buildXlsx(entities, TRANSACTION_CSV_COLUMNS, fields);
     }
-    return buildCsv(
-      entities,
-      TRANSACTION_CSV_COLUMNS,
-      fields,
-      csvDelimiterChar(delimiter ?? "comma"),
-    );
+    return buildCsv(entities, TRANSACTION_CSV_COLUMNS, fields);
   }
 }

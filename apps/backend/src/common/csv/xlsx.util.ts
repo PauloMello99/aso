@@ -1,3 +1,5 @@
+// XLSX é um formato binário OOXML gerado via ExcelJS — não existe conceito de
+// delimitador (isso só se aplica a texto plano como CSV).
 import ExcelJS from "exceljs";
 import { type CsvColumn, resolveColumns } from "./csv.util";
 

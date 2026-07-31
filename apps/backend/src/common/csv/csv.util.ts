@@ -37,33 +37,16 @@ export function resolveExportFormat(raw?: string): ExportFormat {
   return raw === "xlsx" ? "xlsx" : "csv";
 }
 
-export type CsvDelimiter = "comma" | "semicolon" | "tab";
-
-export function resolveCsvDelimiter(raw?: string): CsvDelimiter {
-  return raw === "semicolon" || raw === "tab" ? raw : "comma";
-}
-
-export function csvDelimiterChar(delimiter: CsvDelimiter): string {
-  switch (delimiter) {
-    case "semicolon":
-      return ";";
-    case "tab":
-      return "\t";
-    default:
-      return ",";
-  }
-}
-
+// CSV sempre usa vírgula — delimitador não é mais configurável (decisão de produto).
 export function buildCsv<T>(
   rows: T[],
   columns: CsvColumn<T>[],
   fields?: string[],
-  delimiterChar = ",",
 ): string {
   const cols = resolveColumns(columns, fields);
-  const header = cols.map((c) => c.header).join(delimiterChar);
+  const header = cols.map((c) => c.header).join(",");
   const lines = rows.map((r) =>
-    cols.map((c) => csvCell(c.value(r), delimiterChar)).join(delimiterChar),
+    cols.map((c) => csvCell(c.value(r))).join(","),
   );
   const bom = String.fromCharCode(0xfeff);
   return bom + [header, ...lines].join("\r\n");

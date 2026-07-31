@@ -5,9 +5,7 @@ import { CustomerEntity } from "../../domain/customer.entity";
 import {
   buildCsv,
   csvDate,
-  csvDelimiterChar,
   type CsvColumn,
-  type CsvDelimiter,
   type ExportFormat,
 } from "../../../../common/csv/csv.util";
 import { buildXlsx } from "../../../../common/csv/xlsx.util";
@@ -48,17 +46,11 @@ export class ExportCustomersUseCase {
     filter?: ListCustomersFilter,
     fields?: string[],
     format?: ExportFormat,
-    delimiter?: CsvDelimiter,
   ): Promise<string | Buffer> {
     const customers = await this.listCustomers.execute(orgId, filter);
     if (format === "xlsx") {
       return buildXlsx(customers, CUSTOMER_CSV_COLUMNS, fields);
     }
-    return buildCsv(
-      customers,
-      CUSTOMER_CSV_COLUMNS,
-      fields,
-      csvDelimiterChar(delimiter ?? "comma"),
-    );
+    return buildCsv(customers, CUSTOMER_CSV_COLUMNS, fields);
   }
 }

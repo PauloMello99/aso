@@ -19,7 +19,6 @@ import {
 import {
   ExportMenu,
   type ExportFormat,
-  type ExportDelimiter,
 } from "@/shared/components/ui/export-menu"
 import { downloadExport } from "@/shared/lib/download-export"
 import { useMaterials, isLowStock } from "../hooks/use-materials"
@@ -71,11 +70,7 @@ export function StockPage({ orgId }: StockPageProps) {
     setAdvanced({ minCost: "", maxCost: "" })
   }
 
-  async function handleExport(
-    fields: string[],
-    format: ExportFormat,
-    delimiter: ExportDelimiter,
-  ) {
+  async function handleExport(fields: string[], format: ExportFormat) {
     await downloadExport(
       `/orgs/${orgId}/materials/export`,
       `estoque-${new Date().toISOString().slice(0, 10)}`,
@@ -94,7 +89,6 @@ export function StockPage({ orgId }: StockPageProps) {
           ? advanced.maxCost.replace(",", ".")
           : undefined,
         fields: fields.join(","),
-        delimiter: format === "csv" ? delimiter : undefined,
       },
     )
   }

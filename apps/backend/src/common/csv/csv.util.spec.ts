@@ -1,4 +1,4 @@
-import { buildCsv, csvDelimiterChar, type CsvColumn } from "./csv.util";
+import { buildCsv, type CsvColumn } from "./csv.util";
 
 interface Row {
   name: string;
@@ -21,26 +21,15 @@ function stripBom(csv: string): string[] {
 }
 
 describe("buildCsv", () => {
-  it("usa vírgula como delimitador por padrão (comportamento atual preservado)", () => {
+  it("sempre usa vírgula como delimitador (não configurável)", () => {
     const lines = stripBom(buildCsv(ROWS, COLUMNS));
     expect(lines[0]).toBe("Nome,Valor");
     expect(lines[1]).toBe("Ana,100");
   });
 
-  it("aceita um delimitador customizado (ponto e vírgula)", () => {
-    const lines = stripBom(
-      buildCsv(ROWS, COLUMNS, undefined, csvDelimiterChar("semicolon")),
-    );
-    expect(lines[0]).toBe("Nome;Valor");
-    expect(lines[1]).toBe("Ana;100");
-  });
-
-  it("escapa células que contenham o delimitador ativo (tab)", () => {
-    const lines = stripBom(
-      buildCsv(ROWS, COLUMNS, undefined, csvDelimiterChar("tab")),
-    );
-    expect(lines[0]).toBe("Nome\tValor");
-    expect(lines[2]).toBe('"Contém ""aspas"", vírgula"\t200');
+  it("escapa células que contenham aspas e vírgula (quoting)", () => {
+    const lines = stripBom(buildCsv(ROWS, COLUMNS));
+    expect(lines[2]).toBe('"Contém ""aspas"", vírgula",200');
   });
 
   it("respeita `fields` para selecionar/ordenar colunas", () => {
