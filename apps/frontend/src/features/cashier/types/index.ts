@@ -27,6 +27,7 @@ export interface TransactionCategory {
   orgId: string
   name: string
   isProtected: boolean
+  systemKey: string | null
   createdAt: string
 }
 

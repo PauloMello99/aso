@@ -1,5 +1,6 @@
 export { CashierPage } from "./components/cashier-page"
 export { PaymentFeesForm } from "./components/payment-fees-form"
+export { TransactionCategoriesSection } from "./components/transaction-categories-section"
 export type {
   Transaction,
   TransactionView,
@@ -8,4 +9,5 @@ export type {
   PaymentMethod,
   TransactionType,
   TransactionsFilter,
+  TransactionCategory,
 } from "./types"

@@ -52,3 +52,15 @@ export const feesSchema = z.object({
 })
 
 export type FeesFormValues = z.infer<typeof feesSchema>
+
+export const transactionCategorySchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Nome é obrigatório")
+    .max(60, "Máximo de 60 caracteres"),
+})
+
+export type TransactionCategoryFormValues = z.infer<
+  typeof transactionCategorySchema
+>

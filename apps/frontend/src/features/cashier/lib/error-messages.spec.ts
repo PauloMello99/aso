@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { ApiError } from "@/infrastructure/api/client"
-import { cashierErrorMessage } from "./error-messages"
+import { cashierErrorMessage, categoryErrorMessage } from "./error-messages"
 
 describe("cashierErrorMessage", () => {
   it("maps SERVICE_PAYMENT_NOT_CORRECTABLE to a pt-BR message", () => {
@@ -133,5 +133,75 @@ describe("cashierErrorMessage", () => {
 
   it("falls back to a generic message for a non-Error value", () => {
     expect(cashierErrorMessage("boom")).toBe("Não foi possível corrigir.")
+  })
+})
+
+describe("categoryErrorMessage", () => {
+  it("maps TRANSACTION_CATEGORY_NAME_CONFLICT to a pt-BR message", () => {
+    const err = new ApiError(
+      "conflict",
+      409,
+      "/orgs/1/cashier/categories",
+      "TRANSACTION_CATEGORY_NAME_CONFLICT",
+    )
+    expect(categoryErrorMessage(err)).toBe(
+      "Já existe uma categoria com esse nome.",
+    )
+  })
+
+  it("maps TRANSACTION_CATEGORY_NOT_FOUND to a pt-BR message", () => {
+    const err = new ApiError(
+      "not found",
+      404,
+      "/orgs/1/cashier/categories/1",
+      "TRANSACTION_CATEGORY_NOT_FOUND",
+    )
+    expect(categoryErrorMessage(err)).toBe("Categoria não encontrada.")
+  })
+
+  it("maps TRANSACTION_CATEGORY_PROTECTED to a pt-BR message", () => {
+    const err = new ApiError(
+      "protected",
+      409,
+      "/orgs/1/cashier/categories/1",
+      "TRANSACTION_CATEGORY_PROTECTED",
+    )
+    expect(categoryErrorMessage(err)).toBe(
+      "Esta categoria não pode ser excluída.",
+    )
+  })
+
+  it("uses err.message for SUBSCRIPTION_REQUIRED (client.ts already translates it to pt-BR)", () => {
+    const err = new ApiError(
+      "Assinatura necessária. Regularize a assinatura desta organização em Configurações → Assinatura.",
+      402,
+      "/orgs/1/cashier/categories",
+      "SUBSCRIPTION_REQUIRED",
+    )
+    expect(categoryErrorMessage(err)).toBe(
+      "Assinatura necessária. Regularize a assinatura desta organização em Configurações → Assinatura.",
+    )
+  })
+
+  it("falls back to its own generic message for an unmapped ApiError code (never leaks err.message, never uses the cashier fallback)", () => {
+    const err = new ApiError(
+      "some other server error",
+      500,
+      "/orgs/1/cashier/categories",
+      "SOME_OTHER_CODE",
+    )
+    expect(categoryErrorMessage(err)).toBe(
+      "Não foi possível salvar a categoria.",
+    )
+  })
+
+  it("falls back to err.message for a generic Error without a code", () => {
+    expect(categoryErrorMessage(new Error("boom"))).toBe("boom")
+  })
+
+  it("falls back to a generic message for a non-Error value", () => {
+    expect(categoryErrorMessage("boom")).toBe(
+      "Não foi possível salvar a categoria.",
+    )
   })
 })

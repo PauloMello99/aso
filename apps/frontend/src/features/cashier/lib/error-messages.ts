@@ -30,3 +30,26 @@ export function cashierErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message
   return GENERIC_MESSAGE
 }
+
+const CATEGORY_GENERIC_MESSAGE = "Não foi possível salvar a categoria."
+
+const CATEGORY_CODE_MESSAGES: Record<string, string> = {
+  TRANSACTION_CATEGORY_NAME_CONFLICT: "Já existe uma categoria com esse nome.",
+  TRANSACTION_CATEGORY_NOT_FOUND: "Categoria não encontrada.",
+  TRANSACTION_CATEGORY_PROTECTED: "Esta categoria não pode ser excluída.",
+}
+
+export function categoryErrorMessage(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.code) {
+      const mapped = CATEGORY_CODE_MESSAGES[err.code]
+      if (mapped) return mapped
+      // client.ts já traduz SUBSCRIPTION_REQUIRED para uma mensagem pt-BR
+      // específica em ApiError.message — não engolir com o fallback genérico.
+      if (err.code === "SUBSCRIPTION_REQUIRED") return err.message
+    }
+    return CATEGORY_GENERIC_MESSAGE
+  }
+  if (err instanceof Error) return err.message
+  return CATEGORY_GENERIC_MESSAGE
+}
