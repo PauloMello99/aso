@@ -117,6 +117,21 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
   quando NÃO é o owner real (funcionário ou não-membro = `actingAsAdmin`); **sutil** ("Acesso de
   super_admin") quando É o owner real (ex.: Ruan/João + Ink House). Auditoria das ações =
   **PLAT-3** (pendente). Não-membro sem super_admin → 404 (sem vazar).
+- **Endpoint agregador multi-módulo (ex. `GET /orgs/:orgId/overview`) deve filtrar seção por
+  `hasModuleAccess`, não confiar em não ter `@RequireModule` na rota (2026-07-30).** Todo
+  controller org-scoped de módulo único já tem `@RequireModule`/`OrgModuleGuard`
+  (services, calendar, materials, customers, cashier); um endpoint que agrega dado de
+  vários módulos numa resposta só (overview) fica **fora** desse guard por natureza — mas
+  isso não autoriza devolver dado do módulo negado. `GetOverviewUseCase` só busca (nunca
+  busca-e-esconde) a seção de cada módulo se `hasModuleAccess` for true, e a chave fica
+  **ausente** do payload quando negada, nunca `[]` (array vazio seria indistinguível de
+  "módulo liberado sem dados"). O frontend replica o mesmo binário via
+  `features/overview/lib/overview-visibility.ts` (reusa `canAccessModule` de
+  `features/dashboard/lib/nav.ts`, mesmo padrão do `org-sidebar.tsx`) — mas o gate real é
+  o do backend, o do front é só UX. **Acesso a módulo é binário, sem granularidade fina**
+  (ex. "ver quantidade sem ver valor" foi decisão explícita rejeitada em reunião de
+  produto) — não introduzir sub-permissão por valor ou por ação dentro de um módulo já
+  liberado.
 - ✅ **RLS habilitada e enforced no backend** (defense-in-depth, ativada 2026-06-14 — ver ADR-0005):
   - Repositórios injetam `DRIZZLE` (pool **`app_user`**, `NOBYPASSRLS`). O `RlsInterceptor`
     global abre uma transação por request com `set_config('request.jwt.claims', {sub:authId}, true)`,
