@@ -18,11 +18,11 @@ import { cn } from "@/shared/lib/utils"
 import { Badge } from "@/shared/components/ui/badge"
 import { SectionCard } from "@/shared/components/section-card"
 import { useCurrentOrg } from "@/features/dashboard"
-import { canAccessModule } from "@/features/dashboard/lib/nav"
 import { useBalance } from "@/features/cashier/hooks/use-balance"
 import { BalanceCards } from "@/features/cashier/components/balance-cards"
 import { useOverview } from "../hooks/use-overview"
 import { useOverviewAnalytics } from "../hooks/use-overview-analytics"
+import { overviewVisibility } from "../lib/overview-visibility"
 import {
   PerformanceSection,
   EmployeePerformance,
@@ -283,12 +283,10 @@ function LowStockSection({
   materials,
   loading,
   basePath,
-  canSeeCost,
 }: {
   materials: Material[]
   loading: boolean
   basePath: string
-  canSeeCost: boolean
 }) {
   const { totalCents, missingCost } = restockEstimate(materials)
 
@@ -302,7 +300,7 @@ function LowStockSection({
         <>
           <Rows>
             {materials.map((m) => {
-              const cents = canSeeCost ? restockCents(m) : null
+              const cents = restockCents(m)
               return (
                 <li
                   key={m.id}
@@ -327,15 +325,13 @@ function LowStockSection({
               )
             })}
           </Rows>
-          {canSeeCost && (
-            <div className="mt-3 flex items-center justify-between border-t border-foreground/[0.06] pt-3 text-sm">
-              <span className="text-foreground/50">Repor tudo (estimado)</span>
-              <span className="font-semibold text-foreground">
-                {formatBRL(totalCents)}
-              </span>
-            </div>
-          )}
-          {canSeeCost && missingCost > 0 && (
+          <div className="mt-3 flex items-center justify-between border-t border-foreground/[0.06] pt-3 text-sm">
+            <span className="text-foreground/50">Repor tudo (estimado)</span>
+            <span className="font-semibold text-foreground">
+              {formatBRL(totalCents)}
+            </span>
+          </div>
+          {missingCost > 0 && (
             <p className="mt-1 text-xs text-foreground/30">
               {missingCost}{" "}
               {missingCost === 1
@@ -491,7 +487,7 @@ function BandLabel({ children }: { children: React.ReactNode }) {
 export function OverviewPage() {
   const { org, orgId } = useCurrentOrg()
   const isOwner = org.role === "owner"
-  const canSeeCost = canAccessModule(org.role, org.permissions, "stock")
+  const vis = overviewVisibility(org.role, org.permissions)
   const basePath = `/dashboard/org/${org.slug}`
 
   const [periodKey, setPeriodKey] = React.useState<PeriodKey>("month")
@@ -501,9 +497,10 @@ export function OverviewPage() {
   const { data: analytics, loading: analyticsLoading } = useOverviewAnalytics(
     orgId,
     range,
+    { enabled: vis.services },
   )
   const { balance, loading: balanceLoading } = useBalance(orgId, {
-    enabled: isOwner,
+    enabled: vis.cashier,
   })
 
   return (
@@ -517,48 +514,64 @@ export function OverviewPage() {
         </p>
       </div>
 
-      {isOwner && <BalanceCards balance={balance} loading={balanceLoading} />}
+      {vis.cashier && (
+        <BalanceCards balance={balance} loading={balanceLoading} />
+      )}
 
-      <section className="space-y-3">
-        <BandLabel>Operações</BandLabel>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <RecentServicesSection
-            services={(data?.recentServices ?? []).slice(0, 5)}
-            loading={loading}
-            basePath={basePath}
-            showProfessional={isOwner}
+      {vis.hasAnyCard ? (
+        <section className="space-y-3">
+          <BandLabel>Operações</BandLabel>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {vis.services && (
+              <RecentServicesSection
+                services={(data?.recentServices ?? []).slice(0, 5)}
+                loading={loading}
+                basePath={basePath}
+                showProfessional={isOwner}
+              />
+            )}
+            {vis.schedule && (
+              <UpcomingEventsSection
+                events={(data?.upcomingEvents ?? []).slice(0, 5)}
+                loading={loading}
+                basePath={basePath}
+              />
+            )}
+            {vis.stock && (
+              <LowStockSection
+                materials={data?.lowStock ?? []}
+                loading={loading}
+                basePath={basePath}
+              />
+            )}
+            {vis.cashier && (
+              <RecentTransactionsSection
+                transactions={(data?.recentTransactions ?? []).slice(0, 5)}
+                categories={data?.transactionCategories ?? []}
+                loading={loading}
+                basePath={basePath}
+              />
+            )}
+            {vis.clients && (
+              <RecentCustomersSection
+                customers={(data?.recentCustomers ?? []).slice(0, 5)}
+                loading={loading}
+                basePath={basePath}
+              />
+            )}
+            {vis.cashier && (
+              <CashBalanceSection orgId={orgId} basePath={basePath} />
+            )}
+          </div>
+        </section>
+      ) : (
+        <SectionCard title="Sem acesso" icon={Package} className="min-h-[10rem]">
+          <EmptyState
+            icon={Package}
+            title="Nenhum módulo liberado para você. Fale com o administrador do estúdio."
           />
-          <UpcomingEventsSection
-            events={(data?.upcomingEvents ?? []).slice(0, 5)}
-            loading={loading}
-            basePath={basePath}
-          />
-          <LowStockSection
-            materials={data?.lowStock ?? []}
-            loading={loading}
-            basePath={basePath}
-            canSeeCost={canSeeCost}
-          />
-          {isOwner && (
-            <RecentTransactionsSection
-              transactions={(data?.recentTransactions ?? []).slice(0, 5)}
-              categories={data?.transactionCategories ?? []}
-              loading={loading}
-              basePath={basePath}
-            />
-          )}
-          {isOwner && (
-            <RecentCustomersSection
-              customers={(data?.recentCustomers ?? []).slice(0, 5)}
-              loading={loading}
-              basePath={basePath}
-            />
-          )}
-          {isOwner && (
-            <CashBalanceSection orgId={orgId} basePath={basePath} />
-          )}
-        </div>
-      </section>
+        </SectionCard>
+      )}
 
       {isOwner ? (
         <PerformanceSection
@@ -568,12 +581,14 @@ export function OverviewPage() {
           onPeriodChange={setPeriodKey}
         />
       ) : (
-        <EmployeePerformance
-          data={analytics}
-          loading={analyticsLoading}
-          periodKey={periodKey}
-          onPeriodChange={setPeriodKey}
-        />
+        vis.services && (
+          <EmployeePerformance
+            data={analytics}
+            loading={analyticsLoading}
+            periodKey={periodKey}
+            onPeriodChange={setPeriodKey}
+          />
+        )
       )}
     </div>
   )
