@@ -33,7 +33,7 @@ import {
   useRevokeComp,
 } from "../hooks/use-admin-subscription"
 import { fmtDate } from "../lib/format"
-import { ConfirmDialog } from "./confirm-dialog"
+import { ConfirmDialog } from "@/shared/components/ui/confirm-dialog"
 
 const TYPE_LABELS: Record<SubscriptionType, string> = {
   free: "Gratuito",

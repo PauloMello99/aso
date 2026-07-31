@@ -39,6 +39,8 @@ export const queryKeys = {
       ["customers", orgId, "list", filter ?? {}] as const,
     detail: (orgId: string, id: string) =>
       ["customers", orgId, "detail", id] as const,
+    attachments: (orgId: string, customerId: string) =>
+      ["customers", orgId, "detail", customerId, "attachments"] as const,
   },
 
   cashier: {

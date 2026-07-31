@@ -14,15 +14,29 @@ import {
   StatusBadge,
 } from "@/features/services/components/service-list"
 import { serviceStatus, type Service } from "@/features/services/types"
+import { cn } from "@/shared/lib/utils"
 
 interface CustomerServiceHistoryListProps {
   services: Service[]
+  onSelect?: (service: Service) => void
 }
 
-function ServiceCard({ service }: { service: Service }) {
+function ServiceCard({
+  service,
+  onSelect,
+}: {
+  service: Service
+  onSelect?: (service: Service) => void
+}) {
   const status = serviceStatus(service)
   return (
-    <div className="flex items-start justify-between gap-3 rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4">
+    <div
+      onClick={() => onSelect?.(service)}
+      className={cn(
+        "flex items-start justify-between gap-3 rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4",
+        onSelect && "cursor-pointer",
+      )}
+    >
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="truncate font-medium text-foreground">
@@ -44,6 +58,7 @@ function ServiceCard({ service }: { service: Service }) {
 
 export function CustomerServiceHistoryList({
   services,
+  onSelect,
 }: CustomerServiceHistoryListProps) {
   if (services.length === 0) {
     return (
@@ -59,7 +74,7 @@ export function CustomerServiceHistoryList({
     <>
       <div className="grid gap-3 sm:hidden">
         {services.map((s) => (
-          <ServiceCard key={s.id} service={s} />
+          <ServiceCard key={s.id} service={s} onSelect={onSelect} />
         ))}
       </div>
 
@@ -78,7 +93,11 @@ export function CustomerServiceHistoryList({
             {services.map((s) => {
               const status = serviceStatus(s)
               return (
-                <TableRow key={s.id}>
+                <TableRow
+                  key={s.id}
+                  onClick={() => onSelect?.(s)}
+                  className={cn(onSelect && "cursor-pointer")}
+                >
                   <TableCell className="pl-4 font-medium text-foreground">
                     {s.typeName ?? "—"}
                   </TableCell>

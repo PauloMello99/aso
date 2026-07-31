@@ -80,6 +80,7 @@ function buildStorage(
     uploadAvatar: jest.fn(),
     uploadFile: jest.fn(),
     createSignedUrl: jest.fn(),
+    createSignedFileUrls: jest.fn(),
     removeFile: jest.fn(),
     ...overrides,
   } as unknown as jest.Mocked<IStorageProvider>;
@@ -175,23 +176,50 @@ describe("UploadServiceMediaUseCase", () => {
 });
 
 describe("ListServiceMediaUseCase", () => {
-  it("anota cada item com a signed URL, sem download forçado", async () => {
+  it("anota cada item com url (inline) e downloadUrl via assinatura em lote", async () => {
     const record = buildMediaRecord();
     const mediaRepo = buildMediaRepo({
       findByService: jest.fn().mockResolvedValue([record]),
     });
     const storage = buildStorage({
-      createSignedUrl: jest.fn().mockResolvedValue("https://signed.example/x"),
+      createSignedFileUrls: jest.fn().mockResolvedValue({
+        [record.storagePath]: {
+          url: "https://signed.example/x",
+          downloadUrl: "https://signed.example/x?download=foto.png",
+        },
+      }),
     });
     const useCase = new ListServiceMediaUseCase(mediaRepo, storage);
 
     const result = await useCase.execute("service-1", "org-1");
 
-    expect(storage.createSignedUrl).toHaveBeenCalledWith(
+    expect(storage.createSignedFileUrls).toHaveBeenCalledWith(
       "service-media",
-      record.storagePath,
+      [record.storagePath],
+      {
+        downloadFileNameByPath: { [record.storagePath]: record.fileName },
+      },
     );
-    expect(result).toEqual([{ ...record, url: "https://signed.example/x" }]);
+    expect(result).toEqual([
+      {
+        ...record,
+        url: "https://signed.example/x",
+        downloadUrl: "https://signed.example/x?download=foto.png",
+      },
+    ]);
+  });
+
+  it("retorna lista vazia sem chamar o storage quando não há mídia", async () => {
+    const mediaRepo = buildMediaRepo({
+      findByService: jest.fn().mockResolvedValue([]),
+    });
+    const storage = buildStorage();
+    const useCase = new ListServiceMediaUseCase(mediaRepo, storage);
+
+    const result = await useCase.execute("service-1", "org-1");
+
+    expect(result).toEqual([]);
+    expect(storage.createSignedFileUrls).not.toHaveBeenCalled();
   });
 });
 

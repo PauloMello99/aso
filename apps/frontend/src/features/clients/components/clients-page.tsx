@@ -20,7 +20,6 @@ import {
 import {
   ExportMenu,
   type ExportFormat,
-  type ExportDelimiter,
 } from "@/shared/components/ui/export-menu"
 import { downloadExport } from "@/shared/lib/download-export"
 import { KpiCard } from "@/shared/components/kpi-card"
@@ -178,11 +177,7 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
     await deleteCustomer(customer.id)
   }
 
-  async function handleExport(
-    fields: string[],
-    format: ExportFormat,
-    delimiter: ExportDelimiter,
-  ) {
+  async function handleExport(fields: string[], format: ExportFormat) {
     await downloadExport(
       `/orgs/${orgId}/customers/export`,
       `clientes-${new Date().toISOString().slice(0, 10)}`,
@@ -198,7 +193,6 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
         city: advanced.city,
         state: advanced.state,
         fields: fields.join(","),
-        delimiter: format === "csv" ? delimiter : undefined,
       },
     )
   }

@@ -33,6 +33,11 @@ import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { DatePicker } from "@/shared/components/ui/date-picker"
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/shared/components/ui/alert"
 import { centsToReaisInput } from "@/features/cashier/lib/money"
 import { ApiError } from "@/infrastructure/api/client"
 import type { Customer } from "@/features/clients/types"
@@ -53,6 +58,19 @@ import {
 import { MaterialLines } from "./material-lines"
 import { ServiceTypeDialog } from "./service-type-dialog"
 import { ServiceMediaSection } from "./service-media-section"
+import { checkAgeRequirement } from "../lib/age"
+import {
+  AGE_VERIFICATION_REQUIRED_MESSAGE,
+  serviceErrorMessage,
+  type ServiceErrorMessage,
+} from "../lib/error-messages"
+
+const AGE_UNKNOWN_MESSAGE: ServiceErrorMessage = {
+  title: "Data de nascimento não informada",
+  description:
+    "Este tipo de serviço exige maioridade e o cadastro do cliente não tem data de nascimento válida. Preencha a data no cadastro antes de lançar o serviço.",
+  variant: "warning",
+}
 
 const TYPE_CREATE = "__create__"
 
@@ -106,7 +124,9 @@ export function ServiceForm({
   })
 
   const [typeDialogOpen, setTypeDialogOpen] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<ServiceErrorMessage | null>(
+    null,
+  )
 
   useEffect(() => {
     if (!open) return
@@ -145,20 +165,49 @@ export function ServiceForm({
           const available = err.details?.available ?? "0"
           const requested = err.details?.requested ?? "0"
           const message = `Estoque insuficiente de "${mat.name}": disponível ${available}, necessário ${requested}.`
-          setSubmitError(message)
+          setSubmitError({
+            title: "Estoque insuficiente",
+            description: message,
+            variant: "destructive",
+          })
           if (index >= 0) {
             form.setError(`materials.${index}.materialId`, { message })
           }
         } else {
-          setSubmitError("Estoque insuficiente para um dos materiais informados.")
+          setSubmitError({
+            title: "Estoque insuficiente",
+            description:
+              "Estoque insuficiente para um dos materiais informados.",
+            variant: "destructive",
+          })
         }
         return
       }
-      setSubmitError(
-        err instanceof Error ? err.message : "Falha ao lançar o serviço.",
-      )
+      setSubmitError(serviceErrorMessage(err))
     }
   })
+
+  const watchedCustomerId = form.watch("customerId")
+  const watchedServiceTypeId = form.watch("serviceTypeId")
+  const watchedPerformedAt = form.watch("performedAt")
+
+  const selectedServiceType = serviceTypes.find(
+    (t) => t.id === watchedServiceTypeId,
+  )
+  const selectedCustomer = customers.find((c) => c.id === watchedCustomerId)
+
+  let ageWarning: ServiceErrorMessage | null = null
+  if (selectedServiceType?.requiresAgeVerification && selectedCustomer) {
+    const check = checkAgeRequirement(
+      selectedCustomer.birthDate,
+      watchedPerformedAt ?? "",
+    )
+    if (check === "minor") {
+      ageWarning = AGE_VERIFICATION_REQUIRED_MESSAGE
+    } else if (check === "unknown") {
+      ageWarning = AGE_UNKNOWN_MESSAGE
+    }
+  }
 
   const activeMembers = members.filter((m) => m.enabled)
 
@@ -283,6 +332,13 @@ export function ServiceForm({
                     </FormItem>
                   )}
                 />
+
+                {ageWarning && (
+                  <Alert variant={ageWarning.variant}>
+                    <AlertTitle>{ageWarning.title}</AlertTitle>
+                    <AlertDescription>{ageWarning.description}</AlertDescription>
+                  </Alert>
+                )}
 
                 <FormField
                   control={form.control}
@@ -445,7 +501,10 @@ export function ServiceForm({
               )}
 
               {submitError && (
-                <p className="text-sm text-destructive">{submitError}</p>
+                <Alert variant={submitError.variant}>
+                  <AlertTitle>{submitError.title}</AlertTitle>
+                  <AlertDescription>{submitError.description}</AlertDescription>
+                </Alert>
               )}
             </SheetBody>
 

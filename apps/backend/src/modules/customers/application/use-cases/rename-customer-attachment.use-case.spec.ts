@@ -34,9 +34,11 @@ function buildFakeRepo(
 }
 
 describe("RenameCustomerAttachmentUseCase", () => {
-  it("atualiza o fileName mantendo o storagePath intocado", async () => {
+  it("compõe o fileName com a extensão do storagePath, ignorando qualquer extensão no baseName", async () => {
+    const existing = buildAttachment();
     const renamed = buildAttachment({ fileName: "novo-nome.pdf" });
     const repo = buildFakeRepo({
+      findById: jest.fn().mockResolvedValue(existing),
       updateFileName: jest.fn().mockResolvedValue(renamed),
     });
     const useCase = new RenameCustomerAttachmentUseCase(repo);
@@ -45,7 +47,7 @@ describe("RenameCustomerAttachmentUseCase", () => {
       "attachment-1",
       "customer-1",
       "org-1",
-      "novo-nome.pdf",
+      "novo-nome",
     );
 
     expect(repo.updateFileName).toHaveBeenCalledWith(
@@ -58,10 +60,20 @@ describe("RenameCustomerAttachmentUseCase", () => {
     expect(result.storagePath).toBe("org-1/customer-1/uuid_original.pdf");
   });
 
-  it("faz trim do fileName antes de persistir", async () => {
-    const renamed = buildAttachment({ fileName: "nome com espaco.pdf" });
+  it("não permite remover a extensão mesmo que o baseName venha vazio de extensão", async () => {
+    const existing = buildAttachment({
+      storagePath: "org-1/customer-1/uuid_original.png",
+    });
     const repo = buildFakeRepo({
-      updateFileName: jest.fn().mockResolvedValue(renamed),
+      findById: jest.fn().mockResolvedValue(existing),
+      updateFileName: jest
+        .fn()
+        .mockResolvedValue(
+          buildAttachment({
+            fileName: "sem-extensao-no-input.png",
+            storagePath: "org-1/customer-1/uuid_original.png",
+          }),
+        ),
     });
     const useCase = new RenameCustomerAttachmentUseCase(repo);
 
@@ -69,25 +81,79 @@ describe("RenameCustomerAttachmentUseCase", () => {
       "attachment-1",
       "customer-1",
       "org-1",
-      "  nome com espaco.pdf  ",
+      "sem-extensao-no-input",
     );
 
     expect(repo.updateFileName).toHaveBeenCalledWith(
       "attachment-1",
       "customer-1",
       "org-1",
-      "nome com espaco.pdf",
+      "sem-extensao-no-input.png",
     );
   });
 
-  it("lança CustomerAttachmentNotFoundException quando o anexo não existe/não pertence ao cliente/org", async () => {
+  it("conserta anexo legado sem extensão no storage_path (fica sem extensão, mas não regride)", async () => {
+    const existing = buildAttachment({
+      storagePath: "org-1/customer-1/uuid_semextensao",
+    });
     const repo = buildFakeRepo({
+      findById: jest.fn().mockResolvedValue(existing),
+      updateFileName: jest
+        .fn()
+        .mockResolvedValue(buildAttachment({ fileName: "novo-nome" })),
+    });
+    const useCase = new RenameCustomerAttachmentUseCase(repo);
+
+    await useCase.execute(
+      "attachment-1",
+      "customer-1",
+      "org-1",
+      "novo-nome",
+    );
+
+    expect(repo.updateFileName).toHaveBeenCalledWith(
+      "attachment-1",
+      "customer-1",
+      "org-1",
+      "novo-nome",
+    );
+  });
+
+  it("lança CustomerAttachmentNotFoundException quando o anexo não existe na org", async () => {
+    const repo = buildFakeRepo({
+      findById: jest.fn().mockResolvedValue(null),
+    });
+    const useCase = new RenameCustomerAttachmentUseCase(repo);
+
+    await expect(
+      useCase.execute("attachment-1", "customer-1", "org-1", "novo-nome"),
+    ).rejects.toBeInstanceOf(CustomerAttachmentNotFoundException);
+    expect(repo.updateFileName).not.toHaveBeenCalled();
+  });
+
+  it("lança CustomerAttachmentNotFoundException quando o anexo pertence a outro cliente", async () => {
+    const existing = buildAttachment({ customerId: "outro-cliente" });
+    const repo = buildFakeRepo({
+      findById: jest.fn().mockResolvedValue(existing),
+    });
+    const useCase = new RenameCustomerAttachmentUseCase(repo);
+
+    await expect(
+      useCase.execute("attachment-1", "customer-1", "org-1", "novo-nome"),
+    ).rejects.toBeInstanceOf(CustomerAttachmentNotFoundException);
+    expect(repo.updateFileName).not.toHaveBeenCalled();
+  });
+
+  it("lança CustomerAttachmentNotFoundException quando updateFileName retorna null (corrida com delete)", async () => {
+    const existing = buildAttachment();
+    const repo = buildFakeRepo({
+      findById: jest.fn().mockResolvedValue(existing),
       updateFileName: jest.fn().mockResolvedValue(null),
     });
     const useCase = new RenameCustomerAttachmentUseCase(repo);
 
     await expect(
-      useCase.execute("attachment-1", "customer-1", "org-1", "novo-nome.pdf"),
+      useCase.execute("attachment-1", "customer-1", "org-1", "novo-nome"),
     ).rejects.toBeInstanceOf(CustomerAttachmentNotFoundException);
   });
 });

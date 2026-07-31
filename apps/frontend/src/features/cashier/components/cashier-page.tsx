@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { Plus, RefreshCw, Search, ArrowLeftRight, Tag } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
@@ -20,7 +21,6 @@ import {
 import {
   ExportMenu,
   type ExportFormat,
-  type ExportDelimiter,
 } from "@/shared/components/ui/export-menu"
 import { downloadExport } from "@/shared/lib/download-export"
 import { useCurrentOrg } from "@/features/dashboard"
@@ -42,7 +42,6 @@ import { TransactionForm } from "./transaction-form"
 import { CorrectionSheet } from "./correction-sheet"
 import { ReverseDialog } from "./reverse-dialog"
 import { TransferDialog } from "./transfer-dialog"
-import { CategoryManagerDialog } from "./category-manager-dialog"
 import { parseReaisToCents } from "../lib/money"
 import { cashierErrorMessage } from "../lib/error-messages"
 import type {
@@ -134,11 +133,7 @@ export function CashierPage({ orgId }: CashierPageProps) {
     }))
   }
 
-  async function handleExport(
-    fields: string[],
-    format: ExportFormat,
-    delimiter: ExportDelimiter,
-  ) {
+  async function handleExport(fields: string[], format: ExportFormat) {
     await downloadExport(
       `/orgs/${orgId}/cashier/transactions/export`,
       `caixa-${new Date().toISOString().slice(0, 10)}`,
@@ -154,7 +149,6 @@ export function CashierPage({ orgId }: CashierPageProps) {
         createdBy: filter.createdBy,
         q: filter.q,
         fields: fields.join(","),
-        delimiter: format === "csv" ? delimiter : undefined,
       },
     )
   }
@@ -171,18 +165,12 @@ export function CashierPage({ orgId }: CashierPageProps) {
   } = useTransactions(orgId, filter)
   const { balance, loading: balanceLoading } = useBalance(orgId)
   const { fees } = usePaymentFees(orgId)
-  const {
-    categories,
-    createCategory,
-    updateCategory,
-    deleteCategory,
-  } = useTransactionCategories(orgId)
+  const { categories } = useTransactionCategories(orgId)
 
   const [formOpen, setFormOpen] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false)
   const [correctOpen, setCorrectOpen] = useState(false)
   const [reverseOpen, setReverseOpen] = useState(false)
-  const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [active, setActive] = useState<TransactionView | null>(null)
   const { correctPayment: correctServicePayment } = useCorrectServicePayment(orgId)
 
@@ -256,13 +244,11 @@ export function CashierPage({ orgId }: CashierPageProps) {
                 <ArrowLeftRight className="h-4 w-4" />
                 <span className="hidden sm:inline">Transferir</span>
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => setCategoriesOpen(true)}
-                className="shrink-0"
-              >
-                <Tag className="h-4 w-4" />
-                <span className="hidden sm:inline">Categorias</span>
+              <Button variant="outline" asChild className="shrink-0">
+                <Link href={`/dashboard/org/${org.slug}/settings/cashier`}>
+                  <Tag className="h-4 w-4" />
+                  <span className="hidden sm:inline">Categorias</span>
+                </Link>
               </Button>
             </>
           )}
@@ -478,14 +464,6 @@ export function CashierPage({ orgId }: CashierPageProps) {
             onOpenChange={setReverseOpen}
             transaction={active?.entity ?? null}
             onConfirm={handleReverse}
-          />
-          <CategoryManagerDialog
-            open={categoriesOpen}
-            onOpenChange={setCategoriesOpen}
-            categories={categories}
-            onCreate={createCategory}
-            onUpdate={updateCategory}
-            onDelete={deleteCategory}
           />
         </>
       )}

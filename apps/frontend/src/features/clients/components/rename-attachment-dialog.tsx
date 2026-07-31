@@ -13,12 +13,13 @@ import {
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
+import { splitFileName } from "@/shared/lib/file-name"
 
 interface RenameAttachmentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   currentName: string
-  onSave: (fileName: string) => Promise<void>
+  onSave: (baseName: string) => Promise<void>
 }
 
 export function RenameAttachmentDialog({
@@ -27,19 +28,21 @@ export function RenameAttachmentDialog({
   currentName,
   onSave,
 }: RenameAttachmentDialogProps) {
-  const [fileName, setFileName] = useState(currentName)
+  const { base: currentBase, ext } = splitFileName(currentName)
+  const [baseName, setBaseName] = useState(currentBase)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
-      setFileName(currentName)
+      setBaseName(currentBase)
       setError(null)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/currentName transitions
   }, [open, currentName])
 
   async function handleSubmit() {
-    const trimmed = fileName.trim()
+    const trimmed = baseName.trim()
     if (!trimmed) return
     setSaving(true)
     setError(null)
@@ -63,7 +66,7 @@ export function RenameAttachmentDialog({
         <DialogHeader>
           <DialogTitle>Renomear anexo</DialogTitle>
           <DialogDescription>
-            Escolha um novo nome para este arquivo.
+            Escolha um novo nome para este arquivo. A extensão é mantida.
           </DialogDescription>
         </DialogHeader>
 
@@ -71,26 +74,34 @@ export function RenameAttachmentDialog({
           <Label htmlFor="rename-attachment-name">
             Nome <span className="text-destructive">*</span>
           </Label>
-          <Input
-            id="rename-attachment-name"
-            value={fileName}
-            onChange={(e) => setFileName(e.target.value)}
-            autoFocus
-            autoComplete="off"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault()
-                void handleSubmit()
-              }
-            }}
-          />
+          <div className="flex items-center gap-1.5">
+            <Input
+              id="rename-attachment-name"
+              value={baseName}
+              onChange={(e) => setBaseName(e.target.value)}
+              autoFocus
+              autoComplete="off"
+              className="flex-1"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault()
+                  void handleSubmit()
+                }
+              }}
+            />
+            {ext && (
+              <span className="shrink-0 text-sm text-foreground/40">
+                {ext}
+              </span>
+            )}
+          </div>
           {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
 
         <DialogFooter showCloseButton>
           <Button
             type="button"
-            disabled={!fileName.trim() || saving}
+            disabled={!baseName.trim() || saving}
             onClick={() => void handleSubmit()}
           >
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

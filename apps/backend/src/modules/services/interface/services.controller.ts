@@ -33,7 +33,6 @@ import { ExportServicesUseCase } from "../application/use-cases/export-services.
 import { GetServiceUseCase } from "../application/use-cases/get-service.use-case";
 import {
   parseFields,
-  resolveCsvDelimiter,
   resolveExportFormat,
 } from "../../../common/csv/csv.util";
 import { CreateServiceUseCase } from "../application/use-cases/create-service.use-case";
@@ -193,7 +192,6 @@ export class ServicesController {
     @Query("q") q?: string,
     @Query("fields") fields?: string,
     @Query("format") format?: string,
-    @Query("delimiter") delimiter?: string,
   ) {
     const exportFormat = resolveExportFormat(format);
     const file = await this.exportServices.execute(
@@ -219,7 +217,6 @@ export class ServicesController {
       },
       parseFields(fields),
       exportFormat,
-      resolveCsvDelimiter(delimiter),
     );
     const date = new Date().toISOString().slice(0, 10);
     if (exportFormat === "xlsx") {

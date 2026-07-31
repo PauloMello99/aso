@@ -24,7 +24,6 @@ import { ListTransactionsUseCase } from "../application/use-cases/list-transacti
 import { ExportTransactionsUseCase } from "../application/use-cases/export-transactions.use-case";
 import {
   parseFields,
-  resolveCsvDelimiter,
   resolveExportFormat,
 } from "../../../common/csv/csv.util";
 import { CreateTransactionUseCase } from "../application/use-cases/create-transaction.use-case";
@@ -136,7 +135,6 @@ export class CashierController {
     @Query("customerId") customerId?: string,
     @Query("fields") fields?: string,
     @Query("format") format?: string,
-    @Query("delimiter") delimiter?: string,
   ) {
     const exportFormat = resolveExportFormat(format);
     const file = await this.exportTransactions.execute(
@@ -160,7 +158,6 @@ export class CashierController {
       },
       parseFields(fields),
       exportFormat,
-      resolveCsvDelimiter(delimiter),
     );
     const date = new Date().toISOString().slice(0, 10);
     if (exportFormat === "xlsx") {

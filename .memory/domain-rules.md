@@ -356,6 +356,25 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   (pegadinha que ocultou `transaction.categoryId` até o teste e2e).
 - **Fora do escopo (por design):** super-admin panel, módulo de Serviços, Google Calendar, push
   externo, caixa-poupança, tema/exclusão de conta.
+- **Preview inline vs download forçado — Supabase Storage (2026-07-31)**: `createSignedUrl(bucket,
+  path, expires, downloadFileName?)` do `IStorageProvider` força `Content-Disposition: attachment`
+  quando `downloadFileName` é passado — sem ele, a URL é inline (`<img>`/`<iframe>` funcionam
+  direto). **Descoberta que evita assinar duas vezes**: no supabase-js, `download` **não entra na
+  assinatura** — é query param concatenado à URL já assinada (`?download=<nome>` ou
+  `&download=<nome>`). Uma única `createSignedUrl`/`createSignedUrls` basta para os dois links;
+  a versão de download é só `url + (url.includes('?') ? '&' : '?') + 'download=' +
+  encodeURIComponent(nome)`. Para listagens, usar `createSignedUrls` (plural) — 1 chamada HTTP
+  para N arquivos, mapeando o resultado por `path` (a ordem de retorno não é garantida), nunca
+  por índice, e omitindo entradas com `signedUrl: null`/`error` sem derrubar as demais.
+- **Travar extensão de arquivo por composição, não validação (2026-07-31)**: quando um campo de
+  nome de arquivo é editável pelo usuário (rename, ou nome-antes-do-upload), não valide que a
+  extensão foi preservada — **componha** o nome final no backend a partir da extensão real
+  (`storage_path` já salvo, ou `file.originalname` no upload) + só o nome-base vindo do usuário.
+  Não existe caminho de input que quebre a extensão, então não precisa de exceção de domínio nova.
+  Bônus: conserta de graça qualquer arquivo legado salvo sem extensão no próximo rename.
+  Utilitário `extensionOf`/`splitFileName`/`joinFileName` (extrai o *basename* antes de procurar
+  a extensão) é duplicado em `apps/frontend/src/shared/lib/file-name.ts` e
+  `apps/backend/src/common/lib/file-name.ts` — os dois apps não compartilham workspace para isso.
 
 ### Caixa & Financeiro — implementado (2026-06-16)
 

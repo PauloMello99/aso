@@ -2,18 +2,26 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { apiRequest } from "@/infrastructure/api/client"
+import { queryKeys } from "@/infrastructure/query/query-keys"
+import { buildAttachmentFormData } from "../lib/attachment-form"
 
 export interface CustomerAttachment {
   id: string
   fileName: string
   contentType: string | null
   url: string
+  downloadUrl: string
   createdAt: string
 }
 
+type CustomerAttachmentRecord = Omit<
+  CustomerAttachment,
+  "url" | "downloadUrl"
+>
+
 export function useCustomerAttachments(orgId: string, customerId: string | null) {
   const queryClient = useQueryClient()
-  const key = ["customer-attachments", orgId, customerId] as const
+  const key = queryKeys.customers.attachments(orgId, customerId ?? "")
 
   const { data = [], isLoading } = useQuery({
     queryKey: key,
@@ -29,14 +37,11 @@ export function useCustomerAttachments(orgId: string, customerId: string | null)
   }
 
   const uploadMutation = useMutation({
-    mutationFn: (file: File) => {
-      const form = new FormData()
-      form.append("file", file)
-      return apiRequest<CustomerAttachment>(
+    mutationFn: ({ file, baseName }: { file: File; baseName?: string }) =>
+      apiRequest<CustomerAttachmentRecord>(
         `/orgs/${orgId}/customers/${customerId}/attachments`,
-        { method: "POST", body: form },
-      )
-    },
+        { method: "POST", body: buildAttachmentFormData(file, baseName) },
+      ),
     onSuccess: invalidate,
   })
 
@@ -50,10 +55,10 @@ export function useCustomerAttachments(orgId: string, customerId: string | null)
   })
 
   const renameMutation = useMutation({
-    mutationFn: ({ id, fileName }: { id: string; fileName: string }) =>
-      apiRequest<Omit<CustomerAttachment, "url">>(
+    mutationFn: ({ id, baseName }: { id: string; baseName: string }) =>
+      apiRequest<CustomerAttachmentRecord>(
         `/orgs/${orgId}/customers/${customerId}/attachments/${id}`,
-        { method: "PATCH", body: JSON.stringify({ fileName }) },
+        { method: "PATCH", body: JSON.stringify({ baseName }) },
       ),
     onSuccess: invalidate,
   })
@@ -61,10 +66,11 @@ export function useCustomerAttachments(orgId: string, customerId: string | null)
   return {
     attachments: data,
     loading: isLoading,
-    uploadAttachment: (file: File) => uploadMutation.mutateAsync(file),
+    uploadAttachment: (file: File, baseName?: string) =>
+      uploadMutation.mutateAsync({ file, baseName }),
     deleteAttachment: (id: string) => deleteMutation.mutateAsync(id),
-    renameAttachment: async (attachmentId: string, fileName: string) => {
-      await renameMutation.mutateAsync({ id: attachmentId, fileName })
+    renameAttachment: async (attachmentId: string, baseName: string) => {
+      await renameMutation.mutateAsync({ id: attachmentId, baseName })
     },
   }
 }
