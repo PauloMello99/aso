@@ -386,6 +386,25 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   criada **server-side via `TRANSACTION_REPOSITORY`** dentro do use-case — o gate owner-only do
   `CashierController` **não** bloqueia, pois RLS `transactions_insert = is_org_member`.
 
+- **Categoria de sistema com identidade estável (2026-07-31)**: `is_protected` só
+  bloqueia DELETE (regra do M5) — rename continua permitido em qualquer categoria,
+  inclusive protegida. Quando código precisa achar uma categoria específica de forma
+  confiável (ex.: marcar toda transação de reversão com a categoria "Estorno"), NÃO
+  identificar por `name` (frágil a rename) — usar `transaction_categories.system_key`
+  (nullable, único por org quando presente) como identidade interna estável. Padrão:
+  `resolveReversalCategoryId` (`cashier/domain/reversal-category.ts`) resolve por
+  `system_key='reversal'` via `findBySystemKey`, que é query DIRETA (sem passar pelo
+  `TtlCache` de 1h de `findByOrg` — categoria resolvida da lista cacheada poderia nascer
+  `null` numa reversão criada durante a janela de cache, e o caixa é append-only, sem
+  como corrigir depois). Categoria de sistema ausente **nunca** lança exceção — degrada
+  pra `categoryId: null` e o fluxo prossegue (a RLS de INSERT em `transaction_categories`
+  exige `is_org_owner`, então o código de reversão, que também roda para funcionário via
+  `CancelServiceUseCase`, nunca pode criar a categoria sob demanda). Aplicado nos 3
+  pontos reais que criam transação de reversão: `ReverseTransactionUseCase`,
+  `CancelServiceUseCase`, `CorrectServicePaymentUseCase` (só na reversão, nunca na
+  transação de substituição) — `CorrectTransactionUseCase` delega pra
+  `ReverseTransactionUseCase` e herda de graça.
+
 ### Serviços / Atendimentos (módulo `services`, 2026-06-21)
 - **Serviço = evento central** (cliente + profissional + materiais + pagamento). Backend
   `modules/services/` (Clean Arch, espelha cashier/materials). Rota
