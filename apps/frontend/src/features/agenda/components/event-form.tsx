@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { format, parseISO } from "date-fns"
+import { addYears, format, parseISO } from "date-fns"
 import {
   Sheet,
   SheetBody,
@@ -303,6 +303,7 @@ export function EventForm({
                         value={field.value}
                         onChange={field.onChange}
                         placeholder="Hoje"
+                        endMonth={addYears(new Date(), 2)}
                       />
                     </FormControl>
                     <FormMessage />

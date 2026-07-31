@@ -20,6 +20,8 @@ interface DatePickerProps {
   placeholder?: string;
   className?: string;
   align?: "start" | "end" | "center";
+  startMonth?: Date;
+  endMonth?: Date;
 }
 
 export function DatePicker({
@@ -29,6 +31,8 @@ export function DatePicker({
   placeholder = "Selecione uma data",
   className,
   align = "center",
+  startMonth = new Date(1920, 0),
+  endMonth = new Date(),
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -60,9 +64,9 @@ export function DatePicker({
           selected={selected}
           defaultMonth={selected}
           captionLayout="dropdown"
-          startMonth={new Date(1920, 0)}
+          startMonth={startMonth}
           className="rounded-lg border"
-          endMonth={new Date()}
+          endMonth={endMonth}
           onSelect={(d) => {
             onChange?.(d ? format(d, "yyyy-MM-dd") : "");
             setOpen(false);
