@@ -18,13 +18,20 @@ const moneyString = z
 export const serviceMaterialLineSchema = z.object({
   materialId: z.string().min(1),
   shareable: z.boolean(),
-  quantity: z.string().optional().or(z.literal("")),
+  quantity: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine(
+      (v) => !v || /^\d+$/.test(v),
+      "Informe uma quantidade inteira (sem casas decimais)",
+    ),
   finished: z.boolean().optional(),
 })
 
 export const serviceSchema = z.object({
   customerId: z.string().min(1, "Selecione o cliente"),
-  serviceTypeId: z.string().optional().or(z.literal("")),
+  serviceTypeId: z.string().min(1, "Selecione o tipo de serviço"),
   performedBy: z.string().optional().or(z.literal("")),
   description: z.string().max(500).optional().or(z.literal("")),
   amount: moneyString,

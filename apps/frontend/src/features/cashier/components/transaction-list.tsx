@@ -36,8 +36,8 @@ import {
 interface TransactionListProps {
   transactions: TransactionView[]
   categories?: TransactionCategory[]
-  onReverse: (t: Transaction) => void
-  onCorrect: (t: Transaction) => void
+  onReverse: (v: TransactionView) => void
+  onCorrect: (v: TransactionView) => void
   canManage?: boolean
 }
 
@@ -59,10 +59,11 @@ function ActionMenu({
   onCorrect,
 }: {
   view: TransactionView
-  onReverse: (t: Transaction) => void
-  onCorrect: (t: Transaction) => void
+  onReverse: (v: TransactionView) => void
+  onCorrect: (v: TransactionView) => void
 }) {
   if (!canMutate(view)) return null
+  const isServicePayment = view.serviceId !== null
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -77,13 +78,24 @@ function ActionMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[170px]">
-        <DropdownMenuItem onClick={() => onCorrect(view.entity)}>
+        <DropdownMenuItem onClick={() => onCorrect(view)}>
           <Pencil className="h-3.5 w-3.5 shrink-0" />
           Corrigir (errata)
         </DropdownMenuItem>
-        <DropdownMenuItem variant="destructive" onClick={() => onReverse(view.entity)}>
+        <DropdownMenuItem
+          variant="destructive"
+          disabled={isServicePayment}
+          onClick={() => !isServicePayment && onReverse(view)}
+        >
           <Undo2 className="h-3.5 w-3.5 shrink-0" />
-          Estornar
+          <span className="flex flex-col">
+            Estornar
+            {isServicePayment && (
+              <span className="text-xs font-normal text-foreground/40">
+                Estorno pelo serviço (cancele o serviço)
+              </span>
+            )}
+          </span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -122,8 +134,8 @@ function MobileCard({
   canManage,
 }: {
   view: TransactionView
-  onReverse: (t: Transaction) => void
-  onCorrect: (t: Transaction) => void
+  onReverse: (v: TransactionView) => void
+  onCorrect: (v: TransactionView) => void
   canManage: boolean
 }) {
   const t = view.entity
@@ -154,6 +166,9 @@ function MobileCard({
             {t.description}
           </span>
           <StatusBadge view={view} />
+          {view.serviceId !== null && (
+            <Badge variant="secondary">Serviço</Badge>
+          )}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-foreground/40">
           <span>{PAYMENT_METHOD_LABELS[t.paymentMethod]}</span>
@@ -243,6 +258,9 @@ export function TransactionList({
                         {t.description}
                       </span>
                       <StatusBadge view={v} />
+                      {v.serviceId !== null && (
+                        <Badge variant="secondary">Serviço</Badge>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>

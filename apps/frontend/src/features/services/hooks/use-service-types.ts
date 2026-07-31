@@ -17,10 +17,16 @@ export function useServiceTypes(orgId: string) {
   })
 
   const createMutation = useMutation({
-    mutationFn: (name: string) =>
+    mutationFn: ({
+      name,
+      requiresAgeVerification,
+    }: {
+      name: string
+      requiresAgeVerification?: boolean
+    }) =>
       apiRequest<ServiceType>(`/orgs/${orgId}/services/types`, {
         method: "POST",
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, requiresAgeVerification }),
       }),
     onSuccess: (created) => {
       queryClient.setQueryData<ServiceType[]>(
@@ -39,7 +45,11 @@ export function useServiceTypes(orgId: string) {
       data,
     }: {
       id: string
-      data: { name?: string; description?: string | null }
+      data: {
+        name?: string
+        description?: string | null
+        requiresAgeVerification?: boolean
+      }
     }) =>
       apiRequest<ServiceType>(`/orgs/${orgId}/services/types/${id}`, {
         method: "PATCH",
@@ -62,10 +72,15 @@ export function useServiceTypes(orgId: string) {
   return {
     serviceTypes: data ?? EMPTY,
     loading: isLoading,
-    createServiceType: (name: string) => createMutation.mutateAsync(name),
+    createServiceType: (name: string, requiresAgeVerification?: boolean) =>
+      createMutation.mutateAsync({ name, requiresAgeVerification }),
     updateServiceType: (
       id: string,
-      data: { name?: string; description?: string | null },
+      data: {
+        name?: string
+        description?: string | null
+        requiresAgeVerification?: boolean
+      },
     ) => updateMutation.mutateAsync({ id, data }),
   }
 }

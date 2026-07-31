@@ -19,10 +19,10 @@ export function useAnamnesisForm(orgId: string, serviceTypeId: string) {
 
   const currentQuery = useQuery({
     queryKey: formKey,
-    queryFn: () =>
-      apiRequest<AnamnesisFormVersion | null>(
+    queryFn: async () =>
+      (await apiRequest<AnamnesisFormVersion | null>(
         `/orgs/${orgId}/service-types/${serviceTypeId}/anamnesis-form`,
-      ),
+      )) ?? null,
     enabled,
   })
 

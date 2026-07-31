@@ -20,6 +20,7 @@ export interface CreateAnamnesisResponseData {
 export type AnamnesisResponseWithCustomerName = AnamnesisResponseEntity & {
   customerName: string;
   customerEmail: string;
+  organizationName: string;
 };
 
 export interface MarkSubmittedData {
@@ -31,6 +32,9 @@ export interface MarkSubmittedData {
   pdfHashSha256: string;
   requestIp: string | null;
   requestUserAgent: string | null;
+  consentTextSnapshot: string;
+  consentVersion: string;
+  consentAcceptedAt: Date;
 }
 
 export interface IAnamnesisResponseRepository {

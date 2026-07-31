@@ -9,7 +9,9 @@ import { AnamnesisResponseNotFoundException } from "../../domain/exceptions/anam
 import { AnamnesisResponseAlreadySubmittedException } from "../../domain/exceptions/anamnesis-response-already-submitted.exception";
 import { AnamnesisResponseExpiredException } from "../../domain/exceptions/anamnesis-response-expired.exception";
 import { AnamnesisSignatureRequiredException } from "../../domain/exceptions/anamnesis-signature-required.exception";
+import { AnamnesisConsentRequiredException } from "../../domain/exceptions/anamnesis-consent-required.exception";
 import { validateAnamnesisAnswers } from "../../domain/validate-anamnesis-answers";
+import { buildAnamnesisConsentText } from "../../domain/build-anamnesis-consent-text";
 import {
   ANAMNESIS_DOCUMENT_GENERATOR,
   IAnamnesisDocumentGenerator,
@@ -32,6 +34,8 @@ export interface SubmitAnamnesisResponseInput {
   signatureImageBase64: string;
   requestIp: string | null;
   requestUserAgent: string | null;
+  consentAccepted: boolean;
+  consentVersion: string;
 }
 
 @Injectable()
@@ -57,6 +61,13 @@ export class SubmitAnamnesisResponseUseCase {
     }
     if (response.isExpired) {
       throw new AnamnesisResponseExpiredException();
+    }
+
+    const consent = buildAnamnesisConsentText({
+      orgName: response.organizationName,
+    });
+    if (!input.consentAccepted || input.consentVersion !== consent.version) {
+      throw new AnamnesisConsentRequiredException();
     }
 
     const normalizedAnswers = validateAnamnesisAnswers(
@@ -101,6 +112,9 @@ export class SubmitAnamnesisResponseUseCase {
         formHash,
         requestIp: input.requestIp,
         requestUserAgent: input.requestUserAgent,
+        consentText: consent.text,
+        consentVersion: consent.version,
+        consentAcceptedAt: signedAt,
       });
     } catch {
       throw new AnamnesisSignatureRequiredException(response.id);
@@ -134,6 +148,9 @@ export class SubmitAnamnesisResponseUseCase {
       pdfHashSha256,
       requestIp: input.requestIp,
       requestUserAgent: input.requestUserAgent,
+      consentTextSnapshot: consent.text,
+      consentVersion: consent.version,
+      consentAcceptedAt: signedAt,
     });
     if (!claimed) {
       throw new AnamnesisResponseAlreadySubmittedException();

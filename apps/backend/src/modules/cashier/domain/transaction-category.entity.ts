@@ -3,6 +3,7 @@ export interface TransactionCategoryProps {
   orgId: string;
   name: string;
   isProtected: boolean;
+  systemKey: string | null;
   createdAt: Date;
 }
 
@@ -11,6 +12,7 @@ export class TransactionCategoryEntity {
   readonly orgId: string;
   readonly name: string;
   readonly isProtected: boolean;
+  readonly systemKey: string | null;
   readonly createdAt: Date;
 
   private constructor(props: TransactionCategoryProps) {
@@ -18,6 +20,7 @@ export class TransactionCategoryEntity {
     this.orgId = props.orgId;
     this.name = props.name;
     this.isProtected = props.isProtected;
+    this.systemKey = props.systemKey;
     this.createdAt = props.createdAt;
   }
 

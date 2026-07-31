@@ -33,6 +33,7 @@ export interface TransactionCategory {
 export interface TransactionView {
   entity: Transaction
   reversed: boolean
+  serviceId: string | null
 }
 
 export interface Balance {
@@ -77,6 +78,16 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   credit_card: "Cartão de crédito",
   debit_card: "Cartão de débito",
 }
+
+// Rótulos de CARTEIRA usados apenas no diálogo de transferência entre caixas
+// (origem/destino). Não confundir com PAYMENT_METHOD_LABELS, usado em todo o
+// resto da UI de caixa (extrato, form, errata, taxas, filtro, histórico).
+export const TRANSFER_METHOD_LABELS = {
+  cash: "Dinheiro Físico",
+  bank_transfer: "Banco Digital",
+} as const satisfies Record<string, string>
+
+export type TransferMethod = keyof typeof TRANSFER_METHOD_LABELS
 
 export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   income: "Entrada",

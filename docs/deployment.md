@@ -22,6 +22,18 @@ development ──PR──▶ staging ──PR──▶ main
 - CI (`.github/workflows/ci.yml`) roda lint + type-check + build em todo PR. Deploy é por push na
   branch do ambiente (integração Git do Railway).
 
+## ✅ Gate de conformidade legal (ADR-0018) — resolvido, guarda permanente ativa
+
+`LEGAL_ENTITY` (`apps/frontend/src/features/legal/constants/entity.ts`) foi preenchido com
+dados reais em 2026-07-31. O build da imagem do frontend (`apps/frontend/Dockerfile`,
+estágio `builder`) mantém uma checagem que **falha de propósito** se algum valor voltar a
+conter `[PREENCHER: ...]` — bloqueando **staging e production**, já que o Railway deploya
+por push na branch do ambiente e o build da imagem é o único ponto pelo qual o deploy
+obrigatoriamente passa (o resultado do GitHub Actions **não** barra o Railway — a branch
+`staging` não tem branch protection). Serve como guarda contra regressão (ex.: reverter
+`LEGAL_ENTITY` por engano), não como bloqueio ativo. O `pnpm build` local e o CI em
+`development` **não** são afetados.
+
 ## Serviços a provisionar
 
 | Serviço | Para quê | Custo |

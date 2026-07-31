@@ -103,6 +103,9 @@ export const anamnesisResponses = pgTable("anamnesis_responses", {
   pdfHashSha256: text("pdf_hash_sha256"),
   requestIp: text("request_ip"),
   requestUserAgent: text("request_user_agent"),
+  consentTextSnapshot: text("consent_text_snapshot"),
+  consentVersion: text("consent_version"),
+  consentAcceptedAt: timestamp("consent_accepted_at", { withTimezone: true }),
 });
 
 export const anamnesisFormsRelations = relations(

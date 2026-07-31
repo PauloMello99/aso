@@ -49,10 +49,22 @@ export function useCustomerAttachments(orgId: string, customerId: string | null)
     onSuccess: invalidate,
   })
 
+  const renameMutation = useMutation({
+    mutationFn: ({ id, fileName }: { id: string; fileName: string }) =>
+      apiRequest<Omit<CustomerAttachment, "url">>(
+        `/orgs/${orgId}/customers/${customerId}/attachments/${id}`,
+        { method: "PATCH", body: JSON.stringify({ fileName }) },
+      ),
+    onSuccess: invalidate,
+  })
+
   return {
     attachments: data,
     loading: isLoading,
     uploadAttachment: (file: File) => uploadMutation.mutateAsync(file),
     deleteAttachment: (id: string) => deleteMutation.mutateAsync(id),
+    renameAttachment: async (attachmentId: string, fileName: string) => {
+      await renameMutation.mutateAsync({ id: attachmentId, fileName })
+    },
   }
 }

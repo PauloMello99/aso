@@ -69,6 +69,28 @@ RLS/tenancy, ADRs) — consulte lá primeiro para contexto de produto/arquitetur
 - **`features/notifications/hooks/use-notifications.ts`**: polling de 60s só com a aba em foco
   (`refetchIntervalInBackground: false`) + `refetchOnWindowFocus: true` para atualizar assim que
   o usuário volta — evita polling em background desnecessário.
+- **`queryFn` NUNCA pode resolver `undefined`** — o React Query v5 rejeita a promise com
+  "Query data cannot be undefined" e coloca a query em estado de erro. Quando o endpoint pode não
+  ter recurso ("ficha ainda não criada"), normalize com `?? null` **dentro da `queryFn`**, como em
+  `features/anamnesis/hooks/use-anamnesis-form.ts`. Isso é sutil porque o erro não parece vir da
+  lib: aparece como falha de carregamento genérica na UI. `mutationFn` **aceita** `undefined` sem
+  problema, então só as queries precisam disso.
+
+### Cliente HTTP (`infrastructure/api/client.ts`)
+
+- **Corpo vazio em 2xx não é só 204** (corrigido em 2026-07-30, N-A do backlog de 29/07). O
+  NestJS responde **200 com corpo vazio** — não 204 — quando o handler retorna `null` ou `void`
+  sem `@HttpCode(HttpStatus.NO_CONTENT)`. Por isso o `apiRequest` lê `res.text()` e só chama
+  `JSON.parse` se houver conteúdo, em vez de checar apenas `status === 204`. Antes disso,
+  `res.json()` lançava `SyntaxError: Unexpected end of JSON input` e **um handler `void` do
+  backend virava um bug de frontend aparentemente sem relação** — três bugs reportados como
+  independentes na reunião de 29/07 (anamnese não carrega com HTTP 200, botão de criar pergunta
+  "ausente", presença em evento coletivo falhando) tinham essa única causa. Pior: em mutation, a
+  escrita **funcionava** no servidor e só a invalidação de cache não rodava, o que parecia
+  inconsistência de dados. Endpoints que hoje respondem 2xx com corpo vazio:
+  `GET /orgs/:orgId/service-types/:serviceTypeId/anamnesis-form` (retorna `null` quando não há
+  ficha) e `PUT /orgs/:orgId/calendar/events/:id/rsvp` (`Promise<void>`). A spec
+  `client.spec.ts` trava a regressão — mantenha-a ao mexer no cliente.
 
 ### React Hook Form
 

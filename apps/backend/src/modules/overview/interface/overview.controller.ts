@@ -8,7 +8,9 @@ import {
 } from "@nestjs/common";
 import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
+import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
+import { RequireModule } from "../../auth/decorators/require-module.decorator";
 import type { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { GetOverviewUseCase } from "../application/get-overview.use-case";
 import { GetOverviewAnalyticsUseCase } from "../application/get-overview-analytics.use-case";
@@ -35,6 +37,8 @@ export class OverviewController {
   }
 
   @Get("analytics")
+  @UseGuards(OrgModuleGuard)
+  @RequireModule("services")
   analytics(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @CurrentUser() user: AuthUser,

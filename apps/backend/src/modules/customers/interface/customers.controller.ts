@@ -41,9 +41,11 @@ import {
   UploadCustomerAttachmentUseCase,
   ListCustomerAttachmentsUseCase,
   DeleteCustomerAttachmentUseCase,
+  RenameCustomerAttachmentUseCase,
 } from "../application/use-cases/customer-attachments.use-cases";
 import { CreateCustomerDto } from "./dto/create-customer.dto";
 import { UpdateCustomerDto } from "./dto/update-customer.dto";
+import { RenameCustomerAttachmentDto } from "./dto/rename-customer-attachment.dto";
 import type { ListCustomersFilter } from "../domain/customer.repository.interface";
 import {
   parseFields,
@@ -110,6 +112,7 @@ export class CustomersController {
     private readonly uploadAttachment: UploadCustomerAttachmentUseCase,
     private readonly listAttachments: ListCustomerAttachmentsUseCase,
     private readonly deleteAttachment: DeleteCustomerAttachmentUseCase,
+    private readonly renameAttachment: RenameCustomerAttachmentUseCase,
   ) {}
 
   @Get()
@@ -290,5 +293,21 @@ export class CustomersController {
     @Param("attachmentId", ParseUUIDPipe) attachmentId: string,
   ) {
     await this.deleteAttachment.execute(attachmentId, orgId);
+  }
+
+  @Patch(":id/attachments/:attachmentId")
+  @UseGuards(ActiveSubscriptionGuard)
+  async renameAttachmentHandler(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("attachmentId", ParseUUIDPipe) attachmentId: string,
+    @Body() dto: RenameCustomerAttachmentDto,
+  ) {
+    return this.renameAttachment.execute(
+      attachmentId,
+      id,
+      orgId,
+      dto.fileName,
+    );
   }
 }

@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString } from "class-validator";
+import { IsBoolean, IsNotEmpty, IsOptional, IsString } from "class-validator";
 
 export class CreateServiceTypeDto {
   @IsString()
@@ -8,4 +8,8 @@ export class CreateServiceTypeDto {
   @IsString()
   @IsOptional()
   description?: string | null;
+
+  @IsBoolean()
+  @IsOptional()
+  requiresAgeVerification?: boolean;
 }

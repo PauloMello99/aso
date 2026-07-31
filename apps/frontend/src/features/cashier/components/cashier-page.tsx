@@ -25,6 +25,13 @@ import {
 import { downloadExport } from "@/shared/lib/download-export"
 import { useCurrentOrg } from "@/features/dashboard"
 import { useMembers } from "@/features/organizations/hooks/use-members"
+import {
+  ServicePaymentCorrectionSheet,
+  type ServicePaymentCorrectionTarget,
+  useCorrectServicePayment,
+  toCorrectPaymentBody,
+  type CorrectServicePaymentFormValues,
+} from "@/features/services"
 import { useTransactions } from "../hooks/use-transactions"
 import { useBalance } from "../hooks/use-balance"
 import { usePaymentFees } from "../hooks/use-payment-fees"
@@ -37,6 +44,7 @@ import { ReverseDialog } from "./reverse-dialog"
 import { TransferDialog } from "./transfer-dialog"
 import { CategoryManagerDialog } from "./category-manager-dialog"
 import { parseReaisToCents } from "../lib/money"
+import { cashierErrorMessage } from "../lib/error-messages"
 import type {
   TransactionFormValues,
   CorrectionFormValues,
@@ -44,9 +52,9 @@ import type {
 import {
   PAYMENT_METHOD_LABELS,
   type PaymentMethod,
-  type Transaction,
   type TransactionType,
   type TransactionsFilter,
+  type TransactionView,
 } from "../types"
 
 interface CashierPageProps {
@@ -175,7 +183,8 @@ export function CashierPage({ orgId }: CashierPageProps) {
   const [correctOpen, setCorrectOpen] = useState(false)
   const [reverseOpen, setReverseOpen] = useState(false)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
-  const [active, setActive] = useState<Transaction | null>(null)
+  const [active, setActive] = useState<TransactionView | null>(null)
+  const { correctPayment: correctServicePayment } = useCorrectServicePayment(orgId)
 
   async function handleCreate(values: TransactionFormValues) {
     await createTransaction(toApiBody(values))
@@ -184,22 +193,29 @@ export function CashierPage({ orgId }: CashierPageProps) {
   async function handleCorrect(values: CorrectionFormValues) {
     if (!active) return
     try {
-      await correctTransaction(active.id, toApiBody(values))
+      await correctTransaction(active.entity.id, toApiBody(values))
     } catch (err) {
-      alert(
-        err instanceof Error ? err.message : "Não foi possível corrigir.",
-      )
+      alert(cashierErrorMessage(err))
+    }
+  }
+
+  async function handleCorrectServicePayment(
+    values: CorrectServicePaymentFormValues,
+  ) {
+    if (!active || !active.serviceId) return
+    try {
+      await correctServicePayment(active.serviceId, toCorrectPaymentBody(values))
+    } catch (err) {
+      alert(cashierErrorMessage(err))
     }
   }
 
   async function handleReverse() {
     if (!active) return
     try {
-      await reverseTransaction(active.id)
+      await reverseTransaction(active.entity.id)
     } catch (err) {
-      alert(
-        err instanceof Error ? err.message : "Não foi possível estornar.",
-      )
+      alert(cashierErrorMessage(err))
     }
   }
 
@@ -408,12 +424,12 @@ export function CashierPage({ orgId }: CashierPageProps) {
           transactions={transactions}
           categories={categories}
           canManage={isOwner}
-          onReverse={(t) => {
-            setActive(t)
+          onReverse={(v) => {
+            setActive(v)
             setReverseOpen(true)
           }}
-          onCorrect={(t) => {
-            setActive(t)
+          onCorrect={(v) => {
+            setActive(v)
             setCorrectOpen(true)
           }}
         />
@@ -436,15 +452,31 @@ export function CashierPage({ orgId }: CashierPageProps) {
             onSubmit={transfer}
           />
           <CorrectionSheet
-            open={correctOpen}
+            open={correctOpen && active !== null && active.serviceId === null}
             onOpenChange={setCorrectOpen}
-            transaction={active}
+            transaction={
+              active !== null && active.serviceId === null ? active.entity : null
+            }
             onSubmit={handleCorrect}
+          />
+          <ServicePaymentCorrectionSheet
+            open={correctOpen && active !== null && active.serviceId !== null}
+            onOpenChange={setCorrectOpen}
+            target={
+              active !== null && active.serviceId !== null
+                ? ({
+                    amountCents: active.entity.grossCents,
+                    paymentMethod: active.entity.paymentMethod,
+                    dateISO: active.entity.transactedAt,
+                  } satisfies ServicePaymentCorrectionTarget)
+                : null
+            }
+            onSubmit={handleCorrectServicePayment}
           />
           <ReverseDialog
             open={reverseOpen}
             onOpenChange={setReverseOpen}
-            transaction={active}
+            transaction={active?.entity ?? null}
             onConfirm={handleReverse}
           />
           <CategoryManagerDialog

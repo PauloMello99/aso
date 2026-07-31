@@ -7,6 +7,12 @@ metadata:
 
 # Roadmap & Situação — ink-ops
 
+> **CICLO ATIVO (2026-07-29 → lançamento em 13/08/2026)**: o backlog vigente é
+> `docs/planning/2026-07-29-meeting-backlog.md` (milestones N-A a N-K), vindo da reunião
+> de revisão pós-testes de 29/07. O backlog anterior
+> (`docs/planning/2026-07-10-meeting-backlog.md`, M0–M11) está **encerrado**. Bloqueio
+> duro de deploy ativo: `LEGAL_ENTITY` com placeholders (ADR-0018, `docs/deployment.md`).
+>
 > Snapshot de **2026-06-22**. Fonte única de follow-up com stakeholders (a documentação
 > de produto anterior estava defasada). Espelhado no Notion (board de tarefas).
 > Convenções: **Planejar** = entra no ciclo de planejamento/refinamento; **Backlog** =

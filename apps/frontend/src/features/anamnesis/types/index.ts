@@ -31,11 +31,18 @@ export const ANAMNESIS_QUESTION_TYPE_LABELS: Record<
 
 export type AnamnesisPublicStatus = "pending" | "submitted" | "expired"
 
+export interface AnamnesisConsent {
+  version: string
+  text: string
+}
+
 export interface AnamnesisPublicLookup {
   questions: AnamnesisQuestion[]
   customerName: string
+  organizationName: string
   status: AnamnesisPublicStatus
   expiresAt: string
+  consent: AnamnesisConsent
 }
 
 export interface AnamnesisAnswerInput {

@@ -56,6 +56,15 @@ export interface IServiceRepository {
   ): Promise<ServiceEntity[]>;
   setPaymentTransaction(id: string, transactionId: string): Promise<void>;
   existsByPaymentTransactionId(transactionId: string): Promise<boolean>;
+  /**
+   * Retorna o mapeamento transactionId -> serviceId para as transações de
+   * PAGAMENTO informadas (services.payment_transaction_id). Transações sem
+   * serviço vinculado simplesmente não aparecem no Map retornado.
+   */
+  findServiceIdsByTransactionIds(
+    orgId: string,
+    transactionIds: string[],
+  ): Promise<Map<string, string>>;
   markCanceled(id: string): Promise<void>;
   correctPayment(
     id: string,

@@ -34,6 +34,7 @@ import { Input } from "@/shared/components/ui/input"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { DatePicker } from "@/shared/components/ui/date-picker"
 import { centsToReaisInput } from "@/features/cashier/lib/money"
+import { ApiError } from "@/infrastructure/api/client"
 import type { Customer } from "@/features/clients/types"
 import type { Member } from "@/features/organizations/types"
 import type { Material } from "@/features/stock/types"
@@ -53,7 +54,6 @@ import { MaterialLines } from "./material-lines"
 import { ServiceTypeDialog } from "./service-type-dialog"
 import { ServiceMediaSection } from "./service-media-section"
 
-const TYPE_NONE = "none"
 const TYPE_CREATE = "__create__"
 
 function emptyValues(): ServiceFormValues {
@@ -130,10 +130,30 @@ export function ServiceForm({
 
   const handleSubmit = form.handleSubmit(async (values) => {
     setSubmitError(null)
+    form.clearErrors("materials")
     try {
       await onSubmit(values)
       onOpenChange(false)
     } catch (err) {
+      if (err instanceof ApiError && err.code === "INSUFFICIENT_STOCK") {
+        const materialId = err.details?.materialId
+        const mat = materials.find((m) => m.id === materialId)
+        const index = values.materials.findIndex(
+          (line) => line.materialId === materialId,
+        )
+        if (mat) {
+          const available = err.details?.available ?? "0"
+          const requested = err.details?.requested ?? "0"
+          const message = `Estoque insuficiente de "${mat.name}": disponível ${available}, necessário ${requested}.`
+          setSubmitError(message)
+          if (index >= 0) {
+            form.setError(`materials.${index}.materialId`, { message })
+          }
+        } else {
+          setSubmitError("Estoque insuficiente para um dos materiais informados.")
+        }
+        return
+      }
       setSubmitError(
         err instanceof Error ? err.message : "Falha ao lançar o serviço.",
       )
@@ -145,7 +165,7 @@ export function ServiceForm({
   return (
     <>
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="gap-0 sm:max-w-lg">
+      <SheetContent side="right" className="gap-0 sm:max-w-2xl">
         <Form {...form}>
           <form onSubmit={handleSubmit} className="flex h-full flex-col">
             <SheetHeader>
@@ -228,22 +248,21 @@ export function ServiceForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Tipo de serviço{" "}
-                        <span className="text-xs text-foreground/30">(opcional)</span>
+                        Tipo de serviço <span className="text-destructive">*</span>
                       </FormLabel>
                       <Select
-                        value={field.value || TYPE_NONE}
+                        value={field.value || ""}
                         onValueChange={(v) => {
                           if (v === TYPE_CREATE) {
                             setTimeout(() => setTypeDialogOpen(true), 0)
                             return
                           }
-                          field.onChange(v === TYPE_NONE ? "" : v)
+                          field.onChange(v)
                         }}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Sem tipo" />
+                            <SelectValue placeholder="Selecione o tipo de serviço" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -253,7 +272,6 @@ export function ServiceForm({
                               Criar novo tipo
                             </span>
                           </SelectItem>
-                          <SelectItem value={TYPE_NONE}>Sem tipo</SelectItem>
                           {serviceTypes.map((t) => (
                             <SelectItem key={t.id} value={t.id}>
                               {t.name}

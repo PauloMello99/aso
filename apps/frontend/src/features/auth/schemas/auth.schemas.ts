@@ -11,10 +11,15 @@ export const signupSchema = z
     email: z.string().email("E-mail inválido"),
     password: z.string().min(8, "Senha deve ter ao menos 8 caracteres"),
     confirmPassword: z.string().min(1, "Confirme a senha"),
+    acceptedTerms: z.boolean(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Senhas não coincidem",
     path: ["confirmPassword"],
+  })
+  .refine((data) => data.acceptedTerms === true, {
+    message: "É necessário aceitar os Termos de Uso e a Política de Privacidade.",
+    path: ["acceptedTerms"],
   })
 
 export const recoverSchema = z.object({

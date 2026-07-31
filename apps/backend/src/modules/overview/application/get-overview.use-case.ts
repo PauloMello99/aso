@@ -4,6 +4,7 @@ import {
   MEMBER_REPOSITORY,
 } from "../../organizations/domain/member.repository.interface";
 import { OrgForbiddenException } from "../../organizations/domain/exceptions/org-forbidden.exception";
+import { hasModuleAccess } from "../../organizations/domain/member-permissions";
 import { ListServicesUseCase } from "../../services/application/use-cases/list-services.use-case";
 import {
   ListTransactionsUseCase,
@@ -33,12 +34,12 @@ const UPCOMING_WINDOW_DAYS = 90;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface OverviewResult {
-  recentServices: ServiceEntity[];
-  upcomingEvents: CalendarEventEntity[];
-  lowStock: MaterialListItemView[];
-  recentTransactions: TransactionView[];
-  transactionCategories: TransactionCategoryEntity[];
-  recentCustomers: CustomerEntity[];
+  recentServices?: ServiceEntity[];
+  upcomingEvents?: CalendarEventEntity[];
+  lowStock?: MaterialListItemView[];
+  recentTransactions?: TransactionView[];
+  transactionCategories?: TransactionCategoryEntity[];
+  recentCustomers?: CustomerEntity[];
 }
 
 @Injectable()
@@ -56,58 +57,81 @@ export class GetOverviewUseCase {
   async execute(orgId: string, authId: string): Promise<OverviewResult> {
     const member = await this.memberRepo.findByAuthId(orgId, authId);
     if (!member) throw new OrgForbiddenException();
-    const isOwner = member.role === "owner";
+
+    const permissions = member.permissions;
+    const canServices = hasModuleAccess(member.role, permissions, "services");
+    const canSchedule = hasModuleAccess(member.role, permissions, "schedule");
+    const canStock = hasModuleAccess(member.role, permissions, "stock");
+    const canCashier = hasModuleAccess(member.role, permissions, "cashier");
+    const canClients = hasModuleAccess(member.role, permissions, "clients");
 
     const now = new Date();
     const windowEnd = new Date(now.getTime() + UPCOMING_WINDOW_DAYS * DAY_MS);
-
-    const [services, events, materials] = await Promise.all([
-      this.listServices.execute({ orgId, authId }),
-      this.listEvents.execute({ orgId, authId, start: now, end: windowEnd }),
-      this.listMaterials.execute(orgId, { lowStockOnly: true }, authId),
-    ]);
-
-    const recentServices = [...services]
-      .sort((a, b) => +b.performedAt - +a.performedAt)
-      .slice(0, LIMITS.services);
-
     const nowMs = now.getTime();
-    const upcomingEvents = events
-      .filter((e) => e.status !== "canceled" && +e.endsAt >= nowMs)
-      .sort((a, b) => +a.startsAt - +b.startsAt)
-      .slice(0, LIMITS.events);
 
-    const lowStock = materials.slice(0, LIMITS.lowStock);
+    const result: OverviewResult = {};
+    const tasks: Promise<void>[] = [];
 
-    let recentTransactions: TransactionView[] = [];
-    let transactionCategories: TransactionCategoryEntity[] = [];
-    let recentCustomers: CustomerEntity[] = [];
-
-    if (isOwner) {
-      const [transactions, categories, customers] = await Promise.all([
-        this.listTransactions.execute({ orgId, authId }),
-        this.listCategories.execute(orgId),
-        this.listCustomers.execute(orgId),
-      ]);
-
-      recentTransactions = [...transactions]
-        .sort(
-          (a, b) => +b.entity.transactedAt - +a.entity.transactedAt,
-        )
-        .slice(0, LIMITS.transactions);
-      transactionCategories = categories;
-      recentCustomers = [...customers]
-        .sort((a, b) => +b.createdAt - +a.createdAt)
-        .slice(0, LIMITS.customers);
+    if (canServices) {
+      tasks.push(
+        this.listServices.execute({ orgId, authId }).then((services) => {
+          result.recentServices = [...services]
+            .sort((a, b) => +b.performedAt - +a.performedAt)
+            .slice(0, LIMITS.services);
+        }),
+      );
     }
 
-    return {
-      recentServices,
-      upcomingEvents,
-      lowStock,
-      recentTransactions,
-      transactionCategories,
-      recentCustomers,
-    };
+    if (canSchedule) {
+      tasks.push(
+        this.listEvents
+          .execute({ orgId, authId, start: now, end: windowEnd })
+          .then((events) => {
+            result.upcomingEvents = events
+              .filter((e) => e.status !== "canceled" && +e.endsAt >= nowMs)
+              .sort((a, b) => +a.startsAt - +b.startsAt)
+              .slice(0, LIMITS.events);
+          }),
+      );
+    }
+
+    if (canStock) {
+      tasks.push(
+        this.listMaterials
+          .execute(orgId, { lowStockOnly: true }, authId)
+          .then((materials) => {
+            result.lowStock = materials.slice(0, LIMITS.lowStock);
+          }),
+      );
+    }
+
+    if (canCashier) {
+      tasks.push(
+        this.listTransactions.execute({ orgId, authId }).then((transactions) => {
+          result.recentTransactions = [...transactions]
+            .sort((a, b) => +b.entity.transactedAt - +a.entity.transactedAt)
+            .slice(0, LIMITS.transactions);
+        }),
+      );
+      tasks.push(
+        this.listCategories.execute(orgId).then((categories) => {
+          result.transactionCategories = categories;
+        }),
+      );
+    }
+
+    if (canClients) {
+      tasks.push(
+        this.listCustomers.execute(orgId).then((customers) => {
+          result.recentCustomers = [...customers]
+            .sort((a, b) => +b.createdAt - +a.createdAt)
+            .slice(0, LIMITS.customers);
+        }),
+      );
+    }
+
+    await Promise.all(tasks);
+
+    return result;
   }
 }

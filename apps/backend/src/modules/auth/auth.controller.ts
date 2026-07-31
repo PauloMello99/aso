@@ -62,7 +62,12 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post("sign-up")
   signUp(@Body() dto: SignUpDto) {
-    return this.signUpUseCase.execute(dto.email, dto.password, dto.name);
+    return this.signUpUseCase.execute(
+      dto.email,
+      dto.password,
+      dto.name,
+      dto.acceptedTermsVersion,
+    );
   }
 
   @Throttle({ default: { limit: 10, ttl: 60_000 } })

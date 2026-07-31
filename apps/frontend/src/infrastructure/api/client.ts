@@ -19,6 +19,7 @@ export class ApiError extends Error {
     readonly status: number,
     readonly path: string,
     readonly code?: string,
+    readonly details?: Record<string, string>,
   ) {
     super(message)
     this.name = "ApiError"
@@ -98,13 +99,20 @@ export async function apiRequest<T>(
     const body = (await res.json().catch(() => ({}))) as {
       message?: string
       code?: string
+      details?: Record<string, string>
     }
     let message = body.message ?? `Request failed with status ${res.status}`
     if (body.code === "SUBSCRIPTION_REQUIRED") {
       message =
         "Assinatura necessária. Regularize a assinatura desta organização em Configurações → Assinatura."
     }
-    const apiError = new ApiError(message, res.status, path, body.code)
+    const apiError = new ApiError(
+      message,
+      res.status,
+      path,
+      body.code,
+      body.details,
+    )
 
     if (res.status >= 500) {
       captureError(apiError, {
@@ -121,5 +129,28 @@ export async function apiRequest<T>(
   }
 
   if (res.status === 204) return undefined as T
-  return res.json() as Promise<T>
+
+  const text = await res.text()
+  if (!text) return undefined as T
+
+  try {
+    return JSON.parse(text) as T
+  } catch (parseError) {
+    // Corpo 2xx que não é JSON válido é bug de contrato (backend ou proxy), não
+    // erro de negócio — sem isso, captureError nunca via essa classe de falha
+    // (só dispara em status >= 500 ou falha de rede), então ela passava
+    // silenciosa na telemetria mesmo sendo uma requisição "bem-sucedida".
+    captureError(parseError, {
+      source: "api",
+      module: moduleFromPath(path),
+      path,
+      method,
+      status: res.status,
+    })
+    throw new ApiError(
+      "Resposta inválida do servidor.",
+      res.status,
+      path,
+    )
+  }
 }

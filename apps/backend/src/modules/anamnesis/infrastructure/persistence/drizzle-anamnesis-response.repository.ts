@@ -74,11 +74,16 @@ export class DrizzleAnamnesisResponseRepository
         response: schema.anamnesisResponses,
         customerName: schema.customers.name,
         customerEmail: schema.customers.email,
+        organizationName: schema.organizations.name,
       })
       .from(schema.anamnesisResponses)
       .leftJoin(
         schema.customers,
         eq(schema.customers.id, schema.anamnesisResponses.customerId),
+      )
+      .innerJoin(
+        schema.organizations,
+        eq(schema.organizations.id, schema.anamnesisResponses.orgId),
       )
       .where(eq(schema.anamnesisResponses.token, token))
       .limit(1);
@@ -89,6 +94,7 @@ export class DrizzleAnamnesisResponseRepository
     return Object.assign(entity, {
       customerName: row.customerName ?? "",
       customerEmail: row.customerEmail ?? "",
+      organizationName: row.organizationName,
     });
   }
 
@@ -108,6 +114,9 @@ export class DrizzleAnamnesisResponseRepository
         pdfHashSha256: data.pdfHashSha256,
         requestIp: data.requestIp,
         requestUserAgent: data.requestUserAgent,
+        consentTextSnapshot: data.consentTextSnapshot,
+        consentVersion: data.consentVersion,
+        consentAcceptedAt: data.consentAcceptedAt,
         submittedAt: new Date(),
       })
       .where(

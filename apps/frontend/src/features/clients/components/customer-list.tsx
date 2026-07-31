@@ -153,7 +153,10 @@ function CustomerRow({
       onDoubleClick={() => onViewDetail(customer)}
       className="cursor-pointer"
     >
-      <TableCell className="pl-4 font-medium text-foreground">
+      <TableCell
+        onClick={() => onViewDetail(customer)}
+        className="pl-4 font-medium text-foreground hover:underline"
+      >
         {customer.name}
       </TableCell>
       <TableCell className="text-foreground/40">

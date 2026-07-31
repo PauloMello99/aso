@@ -6,6 +6,8 @@ import { TransactionAlreadyReversedException } from "../../domain/exceptions/tra
 import { TransactionNotReversibleException } from "../../domain/exceptions/transaction-not-reversible.exception";
 import { TransactionIsServicePaymentException } from "../../domain/exceptions/transaction-is-service-payment.exception";
 import { IServiceRepository } from "../../../services/domain/service.repository.interface";
+import { ITransactionCategoryRepository } from "../../domain/transaction-category.repository.interface";
+import { TransactionCategoryEntity } from "../../domain/transaction-category.entity";
 
 function buildTransaction(
   overrides: Partial<Parameters<typeof TransactionEntity.create>[0]> = {},
@@ -64,6 +66,34 @@ function buildFakeServiceRepo(
   } as unknown as jest.Mocked<IServiceRepository>;
 }
 
+function buildCategory(
+  overrides: Partial<Parameters<typeof TransactionCategoryEntity.create>[0]> = {},
+): TransactionCategoryEntity {
+  return TransactionCategoryEntity.create({
+    id: "cat-estorno",
+    orgId: "org-1",
+    name: "Estorno",
+    isProtected: true,
+    systemKey: "reversal",
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    ...overrides,
+  });
+}
+
+function buildFakeCategoryRepo(
+  overrides: Partial<jest.Mocked<ITransactionCategoryRepository>> = {},
+): jest.Mocked<ITransactionCategoryRepository> {
+  return {
+    findByOrg: jest.fn(),
+    findById: jest.fn(),
+    findBySystemKey: jest.fn().mockResolvedValue(buildCategory()),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    ...overrides,
+  } as unknown as jest.Mocked<ITransactionCategoryRepository>;
+}
+
 describe("ReverseTransactionUseCase", () => {
   it("cria a linha de estorno com tipo invertido e vínculo com a original", async () => {
     const original = buildTransaction();
@@ -79,7 +109,8 @@ describe("ReverseTransactionUseCase", () => {
       create: jest.fn().mockResolvedValue(reversal),
     });
     const serviceRepo = buildFakeServiceRepo();
-    const useCase = new ReverseTransactionUseCase(repo, serviceRepo);
+    const categoryRepo = buildFakeCategoryRepo();
+    const useCase = new ReverseTransactionUseCase(repo, serviceRepo, categoryRepo);
 
     const result = await useCase.execute({
       orgId: "org-1",
@@ -98,12 +129,63 @@ describe("ReverseTransactionUseCase", () => {
     expect(result).toBe(reversal);
   });
 
+  it("resolve a categoria de estorno via findBySystemKey e a inclui no create", async () => {
+    const original = buildTransaction();
+    const reversal = buildTransaction({ id: "tx-2", type: "outcome" });
+    const repo = buildFakeRepo({
+      findById: jest.fn().mockResolvedValue(original),
+      findReversalOf: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue(reversal),
+    });
+    const serviceRepo = buildFakeServiceRepo();
+    const categoryRepo = buildFakeCategoryRepo({
+      findBySystemKey: jest.fn().mockResolvedValue(buildCategory({ id: "cat-1" })),
+    });
+    const useCase = new ReverseTransactionUseCase(repo, serviceRepo, categoryRepo);
+
+    await useCase.execute({ orgId: "org-1", transactionId: original.id });
+
+    expect(categoryRepo.findBySystemKey).toHaveBeenCalledWith(
+      original.orgId,
+      "reversal",
+    );
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ categoryId: "cat-1" }),
+    );
+  });
+
+  it("degrada para categoryId null sem lançar quando a categoria de estorno não existe", async () => {
+    const original = buildTransaction();
+    const reversal = buildTransaction({ id: "tx-2", type: "outcome" });
+    const repo = buildFakeRepo({
+      findById: jest.fn().mockResolvedValue(original),
+      findReversalOf: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue(reversal),
+    });
+    const serviceRepo = buildFakeServiceRepo();
+    const categoryRepo = buildFakeCategoryRepo({
+      findBySystemKey: jest.fn().mockResolvedValue(null),
+    });
+    const useCase = new ReverseTransactionUseCase(repo, serviceRepo, categoryRepo);
+
+    const result = await useCase.execute({
+      orgId: "org-1",
+      transactionId: original.id,
+    });
+
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ categoryId: null }),
+    );
+    expect(result).toBe(reversal);
+  });
+
   it("lança TransactionNotFoundException quando a transação não existe", async () => {
     const repo = buildFakeRepo({
       findById: jest.fn().mockResolvedValue(null),
     });
     const serviceRepo = buildFakeServiceRepo();
-    const useCase = new ReverseTransactionUseCase(repo, serviceRepo);
+    const categoryRepo = buildFakeCategoryRepo();
+    const useCase = new ReverseTransactionUseCase(repo, serviceRepo, categoryRepo);
 
     await expect(
       useCase.execute({ orgId: "org-1", transactionId: "missing" }),
@@ -119,7 +201,8 @@ describe("ReverseTransactionUseCase", () => {
       findById: jest.fn().mockResolvedValue(alreadyReversal),
     });
     const serviceRepo = buildFakeServiceRepo();
-    const useCase = new ReverseTransactionUseCase(repo, serviceRepo);
+    const categoryRepo = buildFakeCategoryRepo();
+    const useCase = new ReverseTransactionUseCase(repo, serviceRepo, categoryRepo);
 
     await expect(
       useCase.execute({ orgId: "org-1", transactionId: alreadyReversal.id }),
@@ -134,7 +217,8 @@ describe("ReverseTransactionUseCase", () => {
       findReversalOf: jest.fn().mockResolvedValue(buildTransaction({ id: "tx-2" })),
     });
     const serviceRepo = buildFakeServiceRepo();
-    const useCase = new ReverseTransactionUseCase(repo, serviceRepo);
+    const categoryRepo = buildFakeCategoryRepo();
+    const useCase = new ReverseTransactionUseCase(repo, serviceRepo, categoryRepo);
 
     await expect(
       useCase.execute({ orgId: "org-1", transactionId: original.id }),
@@ -150,7 +234,8 @@ describe("ReverseTransactionUseCase", () => {
     const serviceRepo = buildFakeServiceRepo({
       existsByPaymentTransactionId: jest.fn().mockResolvedValue(true),
     });
-    const useCase = new ReverseTransactionUseCase(repo, serviceRepo);
+    const categoryRepo = buildFakeCategoryRepo();
+    const useCase = new ReverseTransactionUseCase(repo, serviceRepo, categoryRepo);
 
     await expect(
       useCase.execute({ orgId: "org-1", transactionId: original.id }),

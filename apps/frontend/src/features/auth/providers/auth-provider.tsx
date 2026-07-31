@@ -19,10 +19,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     name: string,
     email: string,
     password: string,
+    acceptedTermsVersion: string,
   ): Promise<void> => {
     const session = await apiRequest<AuthSession>("/auth/sign-up", {
       method: "POST",
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name, email, password, acceptedTermsVersion }),
       skipAuth: true,
     })
     saveSession(session)

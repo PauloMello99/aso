@@ -4,9 +4,10 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   boolean,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { organizations } from "../organizations";
 
 export const serviceTypes = pgTable(
@@ -67,11 +68,17 @@ export const transactionCategories = pgTable(
       .references(() => organizations.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     isProtected: boolean("is_protected").notNull().default(false),
+    systemKey: text("system_key"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
-  (t) => [unique().on(t.orgId, t.name)],
+  (t) => [
+    unique().on(t.orgId, t.name),
+    uniqueIndex("transaction_categories_org_system_key_idx")
+      .on(t.orgId, t.systemKey)
+      .where(sql`${t.systemKey} is not null`),
+  ],
 );
 
 export const serviceTypesRelations = relations(serviceTypes, ({ one }) => ({

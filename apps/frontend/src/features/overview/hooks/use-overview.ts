@@ -10,12 +10,12 @@ import type { Customer } from "@/features/clients/types"
 import type { TransactionView, TransactionCategory } from "@/features/cashier/types"
 
 export interface OverviewData {
-  recentServices: Service[]
-  upcomingEvents: CalendarEvent[]
-  lowStock: Material[]
-  recentTransactions: TransactionView[]
-  transactionCategories: TransactionCategory[]
-  recentCustomers: Customer[]
+  recentServices?: Service[]
+  upcomingEvents?: CalendarEvent[]
+  lowStock?: Material[]
+  recentTransactions?: TransactionView[]
+  transactionCategories?: TransactionCategory[]
+  recentCustomers?: Customer[]
 }
 
 export function useOverview(orgId: string) {

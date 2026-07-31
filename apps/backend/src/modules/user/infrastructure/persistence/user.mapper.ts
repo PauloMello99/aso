@@ -14,6 +14,8 @@ export class UserMapper {
       birthDate: row.birthDate ?? null,
       gender: row.gender ?? null,
       onboardingCompletedAt: row.onboardingCompletedAt ?? null,
+      termsAcceptedAt: row.termsAcceptedAt ?? null,
+      termsVersion: row.termsVersion ?? null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });

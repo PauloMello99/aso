@@ -63,7 +63,15 @@ export interface AnalyticsPeriod {
   to?: string
 }
 
-export function useOverviewAnalytics(orgId: string, period: AnalyticsPeriod) {
+interface UseOverviewAnalyticsOptions {
+  enabled?: boolean
+}
+
+export function useOverviewAnalytics(
+  orgId: string,
+  period: AnalyticsPeriod,
+  options?: UseOverviewAnalyticsOptions,
+) {
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.overview.analytics(orgId, period.from, period.to),
     queryFn: () => {
@@ -75,7 +83,7 @@ export function useOverviewAnalytics(orgId: string, period: AnalyticsPeriod) {
         `/orgs/${orgId}/overview/analytics${qs}`,
       )
     },
-    enabled: !!orgId,
+    enabled: !!orgId && (options?.enabled ?? true),
   })
 
   return {

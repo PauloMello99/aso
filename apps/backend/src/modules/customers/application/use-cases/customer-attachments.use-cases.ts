@@ -14,6 +14,7 @@ import {
   ICustomerRepository,
 } from "../../domain/customer.repository.interface";
 import { CustomerNotFoundException } from "../../domain/exceptions/customer-not-found.exception";
+import { CustomerAttachmentNotFoundException } from "../../domain/exceptions/customer-attachment-not-found.exception";
 
 export const CUSTOMER_FILES_BUCKET = "customer-files";
 
@@ -108,5 +109,30 @@ export class DeleteCustomerAttachmentUseCase {
     if (!att) return;
     await this.storage.removeFile(CUSTOMER_FILES_BUCKET, att.storagePath);
     await this.repo.delete(id, orgId);
+  }
+}
+
+@Injectable()
+export class RenameCustomerAttachmentUseCase {
+  constructor(
+    @Inject(CUSTOMER_ATTACHMENT_REPOSITORY)
+    private readonly repo: ICustomerAttachmentRepository,
+  ) {}
+
+  async execute(
+    id: string,
+    customerId: string,
+    orgId: string,
+    fileName: string,
+  ): Promise<CustomerAttachmentRecord> {
+    const trimmed = fileName.trim();
+    const att = await this.repo.updateFileName(
+      id,
+      customerId,
+      orgId,
+      trimmed,
+    );
+    if (!att) throw new CustomerAttachmentNotFoundException(id);
+    return att;
   }
 }

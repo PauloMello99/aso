@@ -20,6 +20,7 @@
 | ADR-0015 | RAG: bge-m3 híbrido (dense+BM25+RRF), parent-document, código TS, Qdrant compartilhado com larmony | 2026-07-15 | Aceito |
 | ADR-0016 | Billing Stripe (M11): trial via Checkout com cartão, comp local, desconto via Coupon API, tier único `standard` paid-only, `ActiveSubscriptionGuard` por-controller | 2026-07-18 | Aceito |
 | ADR-0017 | Rebrand ASO: identidade visual teal (paleta larmony), Inter, tokens semânticos success/warning/info, telas padronizadas | 2026-07-19 | Aceito |
+| ADR-0018 | Conformidade legal Tier 1: divisão controlador (ASO)/operador (estúdio), sem banner de cookies, consentimento versionado e snapshotado (signup + anamnese), identificação do fornecedor no footer | 2026-07-27 | Aceito |
 
 ## Decisões/registros recentes (sem ADR)
 

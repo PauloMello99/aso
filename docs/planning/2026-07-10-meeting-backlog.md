@@ -10,7 +10,9 @@
 > M11 em 3 fatias: M11a/M11b/M11c — todas mergeadas). Versao atual (`apps/backend` e
 > `apps/frontend`): **0.18.0**. **Backlog original desta reuniao encerrado** — M11
 > (Stripe: trial + assinatura) era o unico item restante. Este arquivo continua sendo a
-> fonte de verdade historica; para o proximo ciclo de trabalho, ver `.memory/roadmap.md`.
+> fonte de verdade historica; para o proximo ciclo de trabalho, ver
+> **`docs/planning/2026-07-29-meeting-backlog.md`** (reuniao de revisao pos-testes deste
+> backlog, milestones N-A a N-K, lancamento em 13/08/2026) e `.memory/roadmap.md`.
 
 ## Contexto
 
@@ -423,10 +425,13 @@ Paulo), bump de versao minor nos dois apps, testes obrigatorios.
 ## Pendencias (bloqueiam so a parte especifica, nao o milestone inteiro)
 
 - **LGPD (A3-admin)**: pesquisa de conformidade para exclusao/anonimizacao de conta de
-  admin — segue **NAO resolvida**. Nao ha nenhuma mencao de LGPD/anonimizacao em
-  `.memory/domain-rules.md` (so uma nota nao relacionada sobre CPF em texto puro no
-  M10c). Continua bloqueada aguardando pesquisa do Paulo; a parte funcionario do A3 ja
-  foi resolvida no M3 e nao depende disso.
+  admin — **PARCIALMENTE endereçada em 2026-07-27** (ADR-0018, Tier 1 de conformidade
+  legal): paginas legais, identificacao do fornecedor, consentimento versionado no
+  cadastro e na anamnese. **Ainda NAO resolvido** (Tier 2, ver `.memory/domain-rules.md`):
+  exclusao/anonimizacao de conta em si, cron de retencao, anamnese orfa ao deletar
+  cliente, limpeza de Storage no delete, export de dados por titular. Continua bloqueada
+  aguardando pesquisa do Paulo para o restante; a parte funcionario do A3 ja foi
+  resolvida no M3 e nao depende disso.
 - **Logo vetorizado + paleta do IOS** (Ruan/Joao Pedro, prometido ate 14/07) — bloqueia
   rebranding visual, nao bloqueia nenhum milestone tecnico deste backlog. Assunto de
   branding, fora da alcada de verificacao tecnica deste documento — nao verificado

@@ -29,8 +29,10 @@ import { useMembers } from "@/features/organizations/hooks/use-members"
 import { useMaterials } from "@/features/stock/hooks/use-materials"
 import type { MaterialFormValues } from "@/features/stock/schemas/stock.schemas"
 import { parseReaisToCents } from "@/features/cashier/lib/money"
+import { cashierErrorMessage } from "@/features/cashier/lib/error-messages"
 import { useServices } from "../hooks/use-services"
 import { useServiceTypes } from "../hooks/use-service-types"
+import { toCorrectPaymentBody } from "../lib/correct-payment-body"
 import { ServiceList } from "./service-list"
 import { ServiceForm } from "./service-form"
 import { ServicePaymentCorrectionSheet } from "./service-payment-correction-sheet"
@@ -219,16 +221,9 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
   async function handleCorrectPayment(values: CorrectServicePaymentFormValues) {
     if (!correctingPayment) return
     try {
-      await correctPayment(correctingPayment.id, {
-        grossCents: parseReaisToCents(values.amount),
-        paymentMethod: values.paymentMethod,
-        description: values.description || undefined,
-        transactedAt: values.transactedAt
-          ? new Date(values.transactedAt).toISOString()
-          : undefined,
-      })
+      await correctPayment(correctingPayment.id, toCorrectPaymentBody(values))
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Não foi possível corrigir.")
+      alert(cashierErrorMessage(err))
     }
   }
 
@@ -490,7 +485,13 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
       <ServicePaymentCorrectionSheet
         open={!!correctingPayment}
         onOpenChange={(v) => !v && setCorrectingPayment(null)}
-        service={correctingPayment}
+        target={
+          correctingPayment && {
+            amountCents: correctingPayment.amountCents,
+            paymentMethod: correctingPayment.paymentMethod,
+            dateISO: correctingPayment.performedAt,
+          }
+        }
         onSubmit={handleCorrectPayment}
       />
     </div>

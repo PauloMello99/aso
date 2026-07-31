@@ -13,6 +13,7 @@ import {
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
+import { Switch } from "@/shared/components/ui/switch"
 import type { ServiceType } from "../types"
 
 interface EditServiceTypeDialogProps {
@@ -21,7 +22,11 @@ interface EditServiceTypeDialogProps {
   serviceType: ServiceType
   onSave: (
     id: string,
-    data: { name?: string; description?: string | null },
+    data: {
+      name?: string
+      description?: string | null
+      requiresAgeVerification?: boolean
+    },
   ) => Promise<ServiceType>
   onSaved?: (type: ServiceType) => void
 }
@@ -37,6 +42,9 @@ export function EditServiceTypeDialog({
   const [description, setDescription] = useState(
     serviceType.description ?? "",
   )
+  const [requiresAgeVerification, setRequiresAgeVerification] = useState(
+    serviceType.requiresAgeVerification,
+  )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -44,6 +52,7 @@ export function EditServiceTypeDialog({
     if (open) {
       setName(serviceType.name)
       setDescription(serviceType.description ?? "")
+      setRequiresAgeVerification(serviceType.requiresAgeVerification)
       setError(null)
     }
   }, [open, serviceType])
@@ -57,6 +66,7 @@ export function EditServiceTypeDialog({
       const updated = await onSave(serviceType.id, {
         name: trimmed,
         description: description.trim() || null,
+        requiresAgeVerification,
       })
       onSaved?.(updated)
       onOpenChange(false)
@@ -116,6 +126,23 @@ export function EditServiceTypeDialog({
                 void handleSubmit()
               }
             }}
+          />
+        </div>
+
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3">
+          <div className="space-y-0.5">
+            <Label htmlFor="edit-service-type-age-verification">
+              Requer maior de 18 anos
+            </Label>
+            <p className="text-xs text-foreground/40">
+              Bloqueia lançar serviço deste tipo para clientes menores de 18
+              anos.
+            </p>
+          </div>
+          <Switch
+            id="edit-service-type-age-verification"
+            checked={requiresAgeVerification}
+            onCheckedChange={setRequiresAgeVerification}
           />
         </div>
 

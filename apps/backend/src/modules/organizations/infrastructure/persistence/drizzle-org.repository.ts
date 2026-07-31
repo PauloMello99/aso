@@ -149,13 +149,27 @@ export class DrizzleOrgRepository implements IOrganizationRepository {
           ),
         )
         .onConflictDoNothing();
+      const seedCategories: (typeof schema.transactionCategories.$inferInsert)[] =
+        [
+          ...[
+            "Serviço",
+            "Funcionário",
+            "Material",
+            "Conta",
+            "Reforma",
+            "Transferência",
+            "Outros",
+          ].map((name) => ({ orgId: org.id, name, isProtected: true })),
+          {
+            orgId: org.id,
+            name: "Estorno",
+            isProtected: true,
+            systemKey: "reversal",
+          },
+        ];
       await tx
         .insert(schema.transactionCategories)
-        .values(
-          ["Serviço", "Funcionário", "Material", "Conta", "Reforma", "Transferência", "Outros"].map(
-            (name) => ({ orgId: org.id, name, isProtected: true }),
-          ),
-        )
+        .values(seedCategories)
         .onConflictDoNothing();
 
       await tx.insert(schema.subscriptions).values({

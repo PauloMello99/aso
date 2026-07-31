@@ -117,6 +117,21 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
   quando NÃO é o owner real (funcionário ou não-membro = `actingAsAdmin`); **sutil** ("Acesso de
   super_admin") quando É o owner real (ex.: Ruan/João + Ink House). Auditoria das ações =
   **PLAT-3** (pendente). Não-membro sem super_admin → 404 (sem vazar).
+- **Endpoint agregador multi-módulo (ex. `GET /orgs/:orgId/overview`) deve filtrar seção por
+  `hasModuleAccess`, não confiar em não ter `@RequireModule` na rota (2026-07-30).** Todo
+  controller org-scoped de módulo único já tem `@RequireModule`/`OrgModuleGuard`
+  (services, calendar, materials, customers, cashier); um endpoint que agrega dado de
+  vários módulos numa resposta só (overview) fica **fora** desse guard por natureza — mas
+  isso não autoriza devolver dado do módulo negado. `GetOverviewUseCase` só busca (nunca
+  busca-e-esconde) a seção de cada módulo se `hasModuleAccess` for true, e a chave fica
+  **ausente** do payload quando negada, nunca `[]` (array vazio seria indistinguível de
+  "módulo liberado sem dados"). O frontend replica o mesmo binário via
+  `features/overview/lib/overview-visibility.ts` (reusa `canAccessModule` de
+  `features/dashboard/lib/nav.ts`, mesmo padrão do `org-sidebar.tsx`) — mas o gate real é
+  o do backend, o do front é só UX. **Acesso a módulo é binário, sem granularidade fina**
+  (ex. "ver quantidade sem ver valor" foi decisão explícita rejeitada em reunião de
+  produto) — não introduzir sub-permissão por valor ou por ação dentro de um módulo já
+  liberado.
 - ✅ **RLS habilitada e enforced no backend** (defense-in-depth, ativada 2026-06-14 — ver ADR-0005):
   - Repositórios injetam `DRIZZLE` (pool **`app_user`**, `NOBYPASSRLS`). O `RlsInterceptor`
     global abre uma transação por request com `set_config('request.jwt.claims', {sub:authId}, true)`,
@@ -370,6 +385,25 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
 - **Integração Serviço→transação:** entregue no módulo de Serviços (abaixo). A transação é
   criada **server-side via `TRANSACTION_REPOSITORY`** dentro do use-case — o gate owner-only do
   `CashierController` **não** bloqueia, pois RLS `transactions_insert = is_org_member`.
+
+- **Categoria de sistema com identidade estável (2026-07-31)**: `is_protected` só
+  bloqueia DELETE (regra do M5) — rename continua permitido em qualquer categoria,
+  inclusive protegida. Quando código precisa achar uma categoria específica de forma
+  confiável (ex.: marcar toda transação de reversão com a categoria "Estorno"), NÃO
+  identificar por `name` (frágil a rename) — usar `transaction_categories.system_key`
+  (nullable, único por org quando presente) como identidade interna estável. Padrão:
+  `resolveReversalCategoryId` (`cashier/domain/reversal-category.ts`) resolve por
+  `system_key='reversal'` via `findBySystemKey`, que é query DIRETA (sem passar pelo
+  `TtlCache` de 1h de `findByOrg` — categoria resolvida da lista cacheada poderia nascer
+  `null` numa reversão criada durante a janela de cache, e o caixa é append-only, sem
+  como corrigir depois). Categoria de sistema ausente **nunca** lança exceção — degrada
+  pra `categoryId: null` e o fluxo prossegue (a RLS de INSERT em `transaction_categories`
+  exige `is_org_owner`, então o código de reversão, que também roda para funcionário via
+  `CancelServiceUseCase`, nunca pode criar a categoria sob demanda). Aplicado nos 3
+  pontos reais que criam transação de reversão: `ReverseTransactionUseCase`,
+  `CancelServiceUseCase`, `CorrectServicePaymentUseCase` (só na reversão, nunca na
+  transação de substituição) — `CorrectTransactionUseCase` delega pra
+  `ReverseTransactionUseCase` e herda de graça.
 
 ### Serviços / Atendimentos (módulo `services`, 2026-06-21)
 - **Serviço = evento central** (cliente + profissional + materiais + pagamento). Backend
@@ -699,6 +733,41 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   membro da org via RLS `is_org_member`), não bloqueante. Não resolvido nesta fatia.
 - **F10 está completo**: M10a (construtor+versionamento) + M10b (link público+submissão)
   + M10c (assinatura) cobrem o fluxo inteiro de ficha de anamnese.
+
+### Conformidade legal — LGPD Tier 1 (2026-07-27, ADR-0018)
+
+- **Divisão controlador/operador**: para conta/billing/telemetria de usuário da plataforma,
+  o **ASO é controlador**; para dados de clientes/pacientes do estúdio (customers, anamnese,
+  anexos), o **estúdio (organization) é controlador** e o ASO atua só como **operador**.
+  Formalizado em `apps/frontend/src/features/legal/` (4 páginas: termos, privacidade,
+  cookies, adendo de tratamento de dados) e no ADR.
+- **Regra de texto legal exibido a um titular: sempre gerado no servidor, nunca confiado ao
+  cliente, snapshotado na linha do registro e impresso no artefato final.** Mesmo padrão de
+  `anamnesis_responses.questions_snapshot`. Aplicado a dois lugares: aceite de termos no
+  cadastro (`users.terms_accepted_at`/`terms_version`) e consentimento da ficha de anamnese
+  (`anamnesis_responses.consent_text_snapshot`/`consent_version`/`consent_accepted_at`,
+  gerado por `anamnesis/domain/build-anamnesis-consent-text.ts`). Submissão rejeita
+  (`ANAMNESIS_CONSENT_REQUIRED`) se a versão enviada pelo cliente não bater com a vigente no
+  servidor — protege contra formulário aberto durante um deploy do texto.
+- **Sem banner de cookies**: decisão deliberada, não lacuna — o app não grava
+  `document.cookie`, não usa analytics/pixel de terceiros, fontes são self-hosted em build.
+  Único armazenamento local é `inkops_session` (necessário) e `theme` (funcional). Se isso
+  mudar (analytics, pixel), a Política de Cookies e um consent manager real precisam entrar
+  juntos, antes da ativação.
+- **Migration escrita à mão exige registro manual em `meta/_journal.json`** — o
+  `migrate()` do drizzle-orm só aplica migrations listadas no journal; uma migration nova
+  sem entrada correspondente é **silenciosamente ignorada** por `db:migrate` (sem erro,
+  simplesmente não aplica). Todo fluxo de migration manual (ver `env_migration_snapshot_gap`
+  na memória de sessão) precisa desse passo extra antes de rodar `db:migrate`.
+- **Pendência dura fora do código**: `features/legal/constants/entity.ts` (`LEGAL_ENTITY`)
+  tem placeholders `[PREENCHER: ...]` para razão social/CNPJ/endereço/encarregado — bloqueia
+  o site de ir ao ar até serem preenchidos com dados reais (identificação do fornecedor,
+  CDC; encarregado, LGPD art. 41).
+- **Tier 2 (não resolvido nesta fatia)**: cron de retenção (anamnese expirada, convites
+  expirados, notifications, audit logs), `anamnesis_responses.customer_id` órfão ao deletar
+  cliente (FK `set null`), limpeza de Storage no delete de qualquer entidade, bucket
+  `avatars` público com path adivinhável, PII em `audit_logs.metadata` sem TTL, export de
+  dados por titular.
 
 ### Notificações — núcleo reutilizável (2026-06-15)
 - **Módulo `modules/notifications/`**: `NotificationService.notify({userId, orgId?, type, title, body?, data?, email?, actionUrl?, actionLabel?})` cria a notificação **in-app** (tabela `notifications`, migration `0008`) e dispara **e-mail** via `MailService.sendNotification` (best-effort em `try/catch` — falha nunca quebra agenda/estoque/cron). **Outros módulos injetam `NotificationService`** (exportado).

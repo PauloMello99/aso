@@ -5,7 +5,6 @@ import {
   IsBoolean,
   IsIn,
   IsInt,
-  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
@@ -26,7 +25,7 @@ export class ServiceMaterialLineDto {
   @IsUUID()
   materialId!: string;
 
-  @IsNumber()
+  @IsInt()
   @Min(0)
   @IsOptional()
   quantity?: number;
@@ -42,8 +41,7 @@ export class CreateServiceDto {
   customerId?: string | null;
 
   @IsUUID()
-  @IsOptional()
-  serviceTypeId?: string | null;
+  serviceTypeId!: string;
 
   @IsUUID()
   @IsOptional()

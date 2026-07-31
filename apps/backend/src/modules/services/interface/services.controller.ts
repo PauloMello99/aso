@@ -112,7 +112,12 @@ export class ServicesController {
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Body() dto: CreateServiceTypeDto,
   ) {
-    return this.createType.execute(orgId, dto.name, dto.description ?? null);
+    return this.createType.execute(
+      orgId,
+      dto.name,
+      dto.description ?? null,
+      dto.requiresAgeVerification,
+    );
   }
 
   @Patch("types/:typeId")
