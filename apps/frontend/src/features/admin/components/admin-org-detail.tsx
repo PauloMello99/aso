@@ -34,7 +34,7 @@ import {
   useSetOrgSuspended,
 } from "../hooks/use-admin"
 import { fmtDate } from "../lib/format"
-import { ConfirmDialog } from "./confirm-dialog"
+import { ConfirmDialog } from "@/shared/components/ui/confirm-dialog"
 import { OrgSubscriptionPanel } from "./org-subscription-panel"
 import type {
   AdminOrgDetail as AdminOrgDetailData,

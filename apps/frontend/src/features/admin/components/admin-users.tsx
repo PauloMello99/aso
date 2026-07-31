@@ -18,7 +18,7 @@ import { useMe } from "@/features/auth/hooks/use-me"
 import { useAdminUsers } from "../hooks/use-admin"
 import { fmtDate } from "../lib/format"
 import { useDebouncedValue } from "../lib/use-debounced-value"
-import { ConfirmDialog } from "./confirm-dialog"
+import { ConfirmDialog } from "@/shared/components/ui/confirm-dialog"
 import { SortHead } from "./sort-head"
 import type { AdminUser, SortDir, UserRoleFilter, UserSortKey } from "../types"
 

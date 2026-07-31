@@ -17,7 +17,7 @@ import {
 import { useAdminOrgs } from "../hooks/use-admin"
 import { fmtDate } from "../lib/format"
 import { useDebouncedValue } from "../lib/use-debounced-value"
-import { ConfirmDialog } from "./confirm-dialog"
+import { ConfirmDialog } from "@/shared/components/ui/confirm-dialog"
 import { SortHead } from "./sort-head"
 import type { AdminOrg, OrgSortKey, OrgStatusFilter, SortDir } from "../types"
 
