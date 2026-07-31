@@ -97,6 +97,36 @@ Entregas do backlog de 10/07 que passaram no teste:
 
 ---
 
+## 🔎 CAUSA-RAIZ UNICA de N1 + N2 + N3 (diagnosticado em 2026-07-30)
+
+Tres bugs reportados como independentes tem **um unico defeito na origem**, em
+`apps/frontend/src/infrastructure/api/client.ts` (linha 123 antes da correcao):
+
+```ts
+if (res.status === 204) return undefined as T
+return res.json() as Promise<T>   // <-- lanca em 200 com corpo VAZIO
+```
+
+Só 204 era tratado. O **NestJS responde 200 com corpo vazio** (nao 204) quando o handler
+retorna `null` ou `void` — nesses casos `res.json()` lança
+`SyntaxError: Unexpected end of JSON input`. Isso explica exatamente os tres relatos,
+inclusive o "backend responde 200 mas o front da erro" que parecia contraditorio:
+
+| Item | Endpoint | Retorno do handler | Sintoma observado |
+|---|---|---|---|
+| **N1** | `GET /orgs/:orgId/service-types/:serviceTypeId/anamnesis-form` | `null` quando o tipo de servico ainda nao tem ficha (deliberado) | "não foi possível carregar a ficha" **com HTTP 200** |
+| **N2** | (consequencia de N1) | — | O `if (loadError) return` do form builder faz early-exit e **esconde a UI inteira**, incluindo o botao "Adicionar pergunta", que **ja existia**. Nao era feature faltando. |
+| **N3** | `PUT /orgs/:orgId/calendar/events/:id/rsvp` | `Promise<void>` sem `@HttpCode(204)` | O erro literal `Failed to execute 'json' on 'Response'`. A escrita **funciona** no servidor, mas o cliente lança ao parsear e a invalidacao de cache do React Query nunca roda — e por isso "a presenca nao computa de imediato, mas aparece ao sair e entrar de novo". |
+
+**Nao era deploy velho** — nenhum dos tres. A correcao e no cliente HTTP (tratar corpo
+vazio em qualquer 2xx), nao endpoint por endpoint. Os status codes do backend ficam como
+estao: mudar `void` para 204 seria mais correto em REST, mas e alteracao de contrato sem
+ganho aqui, ja que o cliente passa a ser robusto aos dois.
+
+**Licao durável**: um cliente HTTP que assume corpo JSON em toda resposta 2xx transforma
+todo handler `void`/`null` do Nest num bug de frontend aparentemente sem relacao. A spec
+`client.spec.ts` trava a regressao.
+
 ## 🐛 Bugs reportados (prioridade de correcao)
 
 | Id | Bug | Evidencia da transcricao | Suspeita inicial |
@@ -173,10 +203,10 @@ minor nos dois apps, testes obrigatorios.
 
 | Milestone | Conteudo | Risco (skill) | Status |
 |---|---|---|---|
-| **N-A — Anamnese: carregamento + criacao de pergunta** (N1, N2) | Corrigir o 200-com-erro-no-front; depois reavaliar a UI de criar pergunta (estado vazio com CTA explicito). | intermediaria (contrato front↔back; comecar com `debugger`) | pendente |
+| **N-A — Corpo vazio em 2xx no cliente HTTP** (N1, N2, N3) | Causa-raiz unica: `apiRequest` so tratava 204 e lancava em 200 com corpo vazio. Corrige anamnese (N1), a UI de criar pergunta que estava escondida pelo early-exit (N2) e a presenca em evento coletivo (N3) de uma vez. Spec `client.spec.ts` trava a regressao. | intermediaria (contrato front↔back) | em andamento |
 | **N-B — Correcoes rapidas do form de servico** (N14, N15, N13, N7) | Tipo obrigatorio, quantidade inteira, largura do form, mensagem de estoque em pt-BR sem id interno. | simples/intermediaria (so front + mensagem de erro) | pendente |
 | **N-C — Reproduzir a classe "deploy velho"** (N4, N5) | **Investigacao antes de codigo.** Reproduzir local contra `development`; N5 exige confirmacao de requisito com o Paulo (conflita com regra deliberada do M2). | intermediaria (`debugger`, read-only primeiro) | pendente |
-| **N-D — Presenca em evento coletivo** (N3) | Corrigir o `Unexpected end of JSON input` (resposta sem corpo sendo parseada). | intermediaria | pendente |
+| ~~**N-D — Presenca em evento coletivo** (N3)~~ | **Absorvido pelo N-A** — mesma causa-raiz (corpo vazio em 2xx). Nao precisa de milestone propria; validar junto do N-A. | — | absorvido |
 | **N-E — Overview por permissao** (N18) | Cards do overview dirigidos por permissao do membro; esconder modulo e valores nao permitidos. Layout dinamico e responsivo. | **complexa** (auth/permissoes/tenancy) + `reviewer` | pendente |
 | **N-F — Caixa: errata em transacao de servico** (N6) | Permitir errata pelo caixa em transacao originada de servico, mantendo a integridade append-only e a simetria com a aba de servico. | **complexa** (caixa/dinheiro) + `database-guardian` + `reviewer` | pendente |
 | **N-G — Caixa: estorno como categoria fixa + filtro** (N11, N10) | Estorno protegido e filtravel; nomes de categoria da org nos destinos de transferencia. | **complexa** (caixa/dinheiro; pode precisar migration) + `database-guardian` | pendente |
@@ -187,9 +217,14 @@ minor nos dois apps, testes obrigatorios.
 
 **N12** (observabilidade) esta na tabela mas nao no inventario de bugs por ser
 infraestrutura: 13:48 — "Graçado que só tem front-end reportando... eu tenho que dar uma
-olhada no BetterSec, entender porque o back-end não reportou o problema". Ver
-`project_error_tracking` na memoria (ADR-0014): so 5xx/network/unmapped/unexpected sao
-enviados, o que pode explicar a ausencia — se N3 respondeu 204, nao havia 5xx para logar.
+olhada no BetterSec, entender porque o back-end não reportou o problema". **Ja explicado
+pelo diagnostico do N-A**: o backend respondeu **200 com sucesso** nos dois casos — nao
+havia erro nenhum para o backend logar. O defeito era 100% no cliente HTTP, e o
+`captureError` do `apiRequest` so envia em status >= 500 ou falha de rede (ADR-0014,
+`project_error_tracking`), entao o `SyntaxError` de parse nao caia em nenhum dos dois.
+**Pendencia real remanescente**: erros de parse/contrato no cliente hoje passam
+silenciosos na telemetria — vale capturar essa classe. Reclassificado como melhoria de
+observabilidade, nao investigacao.
 
 ---
 
