@@ -89,4 +89,24 @@ export class DrizzleCustomerAttachmentRepository
         ),
       );
   }
+
+  async updateFileName(
+    id: string,
+    customerId: string,
+    orgId: string,
+    fileName: string,
+  ): Promise<CustomerAttachmentRecord | null> {
+    const [row] = await this.db
+      .update(schema.customerAttachments)
+      .set({ fileName })
+      .where(
+        and(
+          eq(schema.customerAttachments.id, id),
+          eq(schema.customerAttachments.customerId, customerId),
+          eq(schema.customerAttachments.orgId, orgId),
+        ),
+      )
+      .returning();
+    return row ? toRecord(row) : null;
+  }
 }

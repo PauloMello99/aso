@@ -253,6 +253,13 @@
       "when": 1782002500000,
       "tag": "0035_transaction_categories_system_key",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1782002600000,
+      "tag": "0036_customer_attachments_update_policy",
+      "breakpoints": true
     }
   ]
 }

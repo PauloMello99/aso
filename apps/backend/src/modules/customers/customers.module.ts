@@ -12,6 +12,7 @@ import {
   UploadCustomerAttachmentUseCase,
   ListCustomerAttachmentsUseCase,
   DeleteCustomerAttachmentUseCase,
+  RenameCustomerAttachmentUseCase,
 } from "./application/use-cases/customer-attachments.use-cases";
 import { CustomersInfrastructureModule } from "./infrastructure/customers-infrastructure.module";
 import { CustomersController } from "./interface/customers.controller";
@@ -30,6 +31,7 @@ import { CustomersController } from "./interface/customers.controller";
     UploadCustomerAttachmentUseCase,
     ListCustomerAttachmentsUseCase,
     DeleteCustomerAttachmentUseCase,
+    RenameCustomerAttachmentUseCase,
   ],
   exports: [CustomersInfrastructureModule],
 })

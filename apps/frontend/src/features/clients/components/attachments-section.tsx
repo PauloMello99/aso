@@ -1,9 +1,17 @@
 "use client"
 
 import { useRef, useState } from "react"
-import { FileText, Loader2, Paperclip, Trash2, Upload } from "lucide-react"
+import {
+  FileText,
+  Loader2,
+  Paperclip,
+  Pencil,
+  Trash2,
+  Upload,
+} from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { useCustomerAttachments } from "../hooks/use-customer-attachments"
+import { RenameAttachmentDialog } from "./rename-attachment-dialog"
 
 interface AttachmentsSectionProps {
   orgId: string
@@ -12,12 +20,24 @@ interface AttachmentsSectionProps {
 
 const MAX_BYTES = 10 * 1024 * 1024
 
-export function AttachmentsSection({ orgId, customerId }: AttachmentsSectionProps) {
-  const { attachments, loading, uploadAttachment, deleteAttachment } =
-    useCustomerAttachments(orgId, customerId)
+export function AttachmentsSection({
+  orgId,
+  customerId,
+}: AttachmentsSectionProps) {
+  const {
+    attachments,
+    loading,
+    uploadAttachment,
+    deleteAttachment,
+    renameAttachment,
+  } = useCustomerAttachments(orgId, customerId)
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false)
+  const renamingAttachment =
+    attachments.find((a) => a.id === renamingId) ?? null
 
   async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -93,6 +113,17 @@ export function AttachmentsSection({ orgId, customerId }: AttachmentsSectionProp
               </a>
               <button
                 type="button"
+                onClick={() => {
+                  setRenamingId(a.id)
+                  setRenameDialogOpen(true)
+                }}
+                className="shrink-0 text-foreground/30 hover:text-foreground"
+                title="Renomear"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
                 onClick={() => deleteAttachment(a.id)}
                 className="shrink-0 text-foreground/30 hover:text-destructive"
                 title="Remover"
@@ -102,6 +133,17 @@ export function AttachmentsSection({ orgId, customerId }: AttachmentsSectionProp
             </li>
           ))}
         </ul>
+      )}
+
+      {renamingAttachment && (
+        <RenameAttachmentDialog
+          open={renameDialogOpen}
+          onOpenChange={setRenameDialogOpen}
+          currentName={renamingAttachment.fileName}
+          onSave={(fileName) =>
+            renameAttachment(renamingAttachment.id, fileName)
+          }
+        />
       )}
     </div>
   )
