@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest"
 import { createServiceSchema } from "./services.schemas"
 
-function buildInput(materials: unknown) {
+function buildInput(materials: unknown, serviceTypeId = "type-1") {
   return {
     customerId: "customer-1",
-    serviceTypeId: "",
+    serviceTypeId,
     performedBy: "",
     description: "",
     amount: "150,00",
@@ -19,6 +19,12 @@ function materialsErrors(materials: unknown) {
   const result = createServiceSchema.safeParse(buildInput(materials))
   if (result.success) return []
   return result.error.issues.filter((i) => i.path[0] === "materials")
+}
+
+function serviceTypeErrors(serviceTypeId: string, materials: unknown = []) {
+  const result = createServiceSchema.safeParse(buildInput(materials, serviceTypeId))
+  if (result.success) return []
+  return result.error.issues.filter((i) => i.path[0] === "serviceTypeId")
 }
 
 describe("createServiceSchema materials consumption", () => {
@@ -67,5 +73,43 @@ describe("createServiceSchema materials consumption", () => {
       { materialId: "m2", shareable: false, quantity: "1", finished: false },
     ])
     expect(errors).toHaveLength(0)
+  })
+
+  it("rejeita quantidade decimal com ponto", () => {
+    const errors = materialsErrors([
+      { materialId: "m1", shareable: false, quantity: "1.5", finished: false },
+    ])
+    expect(errors.length).toBeGreaterThan(0)
+  })
+
+  it("rejeita quantidade decimal com vírgula", () => {
+    const errors = materialsErrors([
+      { materialId: "m1", shareable: false, quantity: "1,5", finished: false },
+    ])
+    expect(errors.length).toBeGreaterThan(0)
+  })
+
+  it("aceita quantidade inteira", () => {
+    const errors = materialsErrors([
+      { materialId: "m1", shareable: false, quantity: "2", finished: false },
+    ])
+    expect(errors).toHaveLength(0)
+  })
+
+  it("aceita quantidade vazia em material compartilhável (sem regressão)", () => {
+    const errors = materialsErrors([
+      { materialId: "m1", shareable: true, quantity: "", finished: true },
+    ])
+    expect(errors).toHaveLength(0)
+  })
+})
+
+describe("createServiceSchema serviceTypeId", () => {
+  it("rejeita serviceTypeId vazio", () => {
+    expect(serviceTypeErrors("").length).toBeGreaterThan(0)
+  })
+
+  it("aceita serviceTypeId preenchido", () => {
+    expect(serviceTypeErrors("type-1")).toHaveLength(0)
   })
 })

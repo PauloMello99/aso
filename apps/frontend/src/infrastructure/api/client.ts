@@ -19,6 +19,7 @@ export class ApiError extends Error {
     readonly status: number,
     readonly path: string,
     readonly code?: string,
+    readonly details?: Record<string, string>,
   ) {
     super(message)
     this.name = "ApiError"
@@ -98,13 +99,20 @@ export async function apiRequest<T>(
     const body = (await res.json().catch(() => ({}))) as {
       message?: string
       code?: string
+      details?: Record<string, string>
     }
     let message = body.message ?? `Request failed with status ${res.status}`
     if (body.code === "SUBSCRIPTION_REQUIRED") {
       message =
         "Assinatura necessária. Regularize a assinatura desta organização em Configurações → Assinatura."
     }
-    const apiError = new ApiError(message, res.status, path, body.code)
+    const apiError = new ApiError(
+      message,
+      res.status,
+      path,
+      body.code,
+      body.details,
+    )
 
     if (res.status >= 500) {
       captureError(apiError, {

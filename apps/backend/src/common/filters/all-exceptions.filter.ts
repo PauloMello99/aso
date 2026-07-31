@@ -38,6 +38,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         message: exception.message,
         path: request.url,
         timestamp,
+        ...(exception.details && { details: exception.details }),
       });
 
       this.maybeReport(status, exception, request, exception.code);

@@ -79,6 +79,24 @@ describe("apiRequest", () => {
     ).rejects.toBeInstanceOf(ApiError)
   })
 
+  it("throws ApiError carrying structured details from a non-ok JSON body", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(422, {
+        message: "Insufficient stock for the requested material",
+        code: "INSUFFICIENT_STOCK",
+        details: { materialId: "m-1", available: "0", requested: "1" },
+      }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    await expect(
+      apiRequest("/anything", { skipAuth: true }),
+    ).rejects.toMatchObject({
+      code: "INSUFFICIENT_STOCK",
+      details: { materialId: "m-1", available: "0", requested: "1" },
+    })
+  })
+
   it("throws ApiError with the default message when the non-ok response has an empty body", async () => {
     const fetchMock = vi.fn().mockResolvedValue(emptyResponse(500))
     vi.stubGlobal("fetch", fetchMock)

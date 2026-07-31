@@ -204,7 +204,7 @@ minor nos dois apps, testes obrigatorios.
 | Milestone | Conteudo | Risco (skill) | Status |
 |---|---|---|---|
 | **N-A — Corpo vazio em 2xx no cliente HTTP** (N1, N2, N3) | Causa-raiz unica: `apiRequest` so tratava 204 e lancava em 200 com corpo vazio. Corrige anamnese (N1), a UI de criar pergunta que estava escondida pelo early-exit (N2) e a presenca em evento coletivo (N3) de uma vez. Spec `client.spec.ts` trava a regressao. | intermediaria (contrato front↔back) | em andamento |
-| **N-B — Correcoes rapidas do form de servico** (N14, N15, N13, N7) | Tipo obrigatorio, quantidade inteira, largura do form, mensagem de estoque em pt-BR sem id interno. | simples/intermediaria (so front + mensagem de erro) | pendente |
+| **N-B — Correcoes rapidas do form de servico** (N14, N15, N13, N7) | Tipo obrigatorio, quantidade inteira, largura do form, mensagem de estoque em pt-BR sem id interno (via `details` estruturado na DomainException, seguindo o padrao de i18n proprio por code do SUBSCRIPTION_REQUIRED). | intermediaria (DTO backend + front) | ✅ concluido |
 | **N-C — Reproduzir a classe "deploy velho"** (N4, N5) | **Investigacao antes de codigo.** Reproduzir local contra `development`; N5 exige confirmacao de requisito com o Paulo (conflita com regra deliberada do M2). | intermediaria (`debugger`, read-only primeiro) | pendente |
 | ~~**N-D — Presenca em evento coletivo** (N3)~~ | **Absorvido pelo N-A** — mesma causa-raiz (corpo vazio em 2xx). Nao precisa de milestone propria; validar junto do N-A. | — | absorvido |
 | **N-E — Overview por permissao** (N18) | Cards do overview dirigidos por permissao do membro; esconder modulo e valores nao permitidos. Layout dinamico e responsivo. | **complexa** (auth/permissoes/tenancy) + `reviewer` | pendente |
