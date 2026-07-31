@@ -9,8 +9,11 @@ export interface ServiceMedia {
   fileName: string
   contentType: string | null
   url: string
+  downloadUrl: string
   createdAt: string
 }
+
+type ServiceMediaRecord = Omit<ServiceMedia, "url" | "downloadUrl">
 
 export function useServiceMedia(orgId: string, serviceId: string | null) {
   const queryClient = useQueryClient()
@@ -31,7 +34,7 @@ export function useServiceMedia(orgId: string, serviceId: string | null) {
     mutationFn: (file: File) => {
       const form = new FormData()
       form.append("file", file)
-      return apiRequest<Omit<ServiceMedia, "url">>(
+      return apiRequest<ServiceMediaRecord>(
         `/orgs/${orgId}/services/${serviceId}/media`,
         { method: "POST", body: form },
       )

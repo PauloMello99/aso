@@ -1,17 +1,19 @@
 "use client"
 
 import { useRef, useState } from "react"
-import {
-  FileText,
-  Loader2,
-  Paperclip,
-  Pencil,
-  Trash2,
-  Upload,
-} from "lucide-react"
+import { FileText, Paperclip, Upload } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
-import { useCustomerAttachments } from "../hooks/use-customer-attachments"
+import { ConfirmDialog } from "@/shared/components/ui/confirm-dialog"
+import {
+  FilePreviewDialog,
+  type PreviewFile,
+} from "@/shared/components/file-preview-dialog"
+import {
+  useCustomerAttachments,
+  type CustomerAttachment,
+} from "../hooks/use-customer-attachments"
 import { RenameAttachmentDialog } from "./rename-attachment-dialog"
+import { UploadAttachmentDialog } from "./upload-attachment-dialog"
 
 interface AttachmentsSectionProps {
   orgId: string
@@ -19,6 +21,16 @@ interface AttachmentsSectionProps {
 }
 
 const MAX_BYTES = 10 * 1024 * 1024
+
+function toPreviewFile(a: CustomerAttachment): PreviewFile {
+  return {
+    id: a.id,
+    fileName: a.fileName,
+    contentType: a.contentType,
+    url: a.url,
+    downloadUrl: a.downloadUrl,
+  }
+}
 
 export function AttachmentsSection({
   orgId,
@@ -32,14 +44,29 @@ export function AttachmentsSection({
     renameAttachment,
   } = useCustomerAttachments(orgId, customerId)
   const inputRef = useRef<HTMLInputElement>(null)
-  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
+
+  const [previewId, setPreviewId] = useState<string | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
+
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
+
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
   const renamingAttachment =
     attachments.find((a) => a.id === renamingId) ?? null
+  const deletingAttachment =
+    attachments.find((a) => a.id === deletingId) ?? null
+  const previewIndex = attachments.findIndex((a) => a.id === previewId)
 
-  async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     e.target.value = ""
     if (!file) return
@@ -48,13 +75,36 @@ export function AttachmentsSection({
       setError("Arquivo deve ter no máximo 10 MB.")
       return
     }
-    setUploading(true)
+    setPendingFile(file)
+    setUploadDialogOpen(true)
+  }
+
+  function openRename(attachmentId: string) {
+    setPreviewOpen(false)
+    setRenamingId(attachmentId)
+    setRenameDialogOpen(true)
+  }
+
+  function openDelete(attachmentId: string) {
+    setPreviewOpen(false)
+    setDeleteError(null)
+    setDeletingId(attachmentId)
+    setDeleteDialogOpen(true)
+  }
+
+  async function handleConfirmDelete() {
+    if (!deletingAttachment) return
+    setDeleteLoading(true)
+    setDeleteError(null)
     try {
-      await uploadAttachment(file)
+      await deleteAttachment(deletingAttachment.id)
+      setDeleteDialogOpen(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha no envio.")
+      setDeleteError(
+        err instanceof Error ? err.message : "Falha ao remover anexo.",
+      )
     } finally {
-      setUploading(false)
+      setDeleteLoading(false)
     }
   }
 
@@ -75,14 +125,9 @@ export function AttachmentsSection({
           type="button"
           variant="outline"
           size="sm"
-          disabled={uploading}
           onClick={() => inputRef.current?.click()}
         >
-          {uploading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Upload className="h-4 w-4" />
-          )}
+          <Upload className="h-4 w-4" />
           Enviar
         </Button>
       </div>
@@ -97,42 +142,58 @@ export function AttachmentsSection({
         </p>
       ) : (
         <ul className="grid gap-1.5">
-          {attachments.map((a) => (
-            <li
-              key={a.id}
-              className="flex items-center gap-2 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] px-3 py-2"
-            >
-              <FileText className="h-4 w-4 shrink-0 text-foreground/40" />
-              <a
-                href={a.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="min-w-0 flex-1 truncate text-sm text-foreground/70 hover:text-foreground hover:underline"
-              >
-                {a.fileName}
-              </a>
-              <button
-                type="button"
-                onClick={() => {
-                  setRenamingId(a.id)
-                  setRenameDialogOpen(true)
-                }}
-                className="shrink-0 text-foreground/30 hover:text-foreground"
-                title="Renomear"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => deleteAttachment(a.id)}
-                className="shrink-0 text-foreground/30 hover:text-destructive"
-                title="Remover"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </li>
-          ))}
+          {attachments.map((a) => {
+            const isImage = a.contentType?.startsWith("image/") ?? false
+            return (
+              <li key={a.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreviewId(a.id)
+                    setPreviewOpen(true)
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] px-3 py-2 text-left hover:bg-foreground/[0.04]"
+                >
+                  {isImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={a.url}
+                      alt={a.fileName}
+                      className="h-8 w-8 shrink-0 rounded object-cover"
+                    />
+                  ) : (
+                    <FileText className="h-4 w-4 shrink-0 text-foreground/40" />
+                  )}
+                  <span className="min-w-0 flex-1 truncate text-sm text-foreground/70">
+                    {a.fileName}
+                  </span>
+                </button>
+              </li>
+            )
+          })}
         </ul>
+      )}
+
+      {previewIndex >= 0 && (
+        <FilePreviewDialog
+          open={previewOpen}
+          onOpenChange={setPreviewOpen}
+          files={attachments.map(toPreviewFile)}
+          startIndex={previewIndex}
+          onRename={(f) => openRename(f.id)}
+          onRemove={(f) => openDelete(f.id)}
+        />
+      )}
+
+      {pendingFile && (
+        <UploadAttachmentDialog
+          open={uploadDialogOpen}
+          onOpenChange={setUploadDialogOpen}
+          file={pendingFile}
+          onConfirm={async (file, baseName) => {
+            await uploadAttachment(file, baseName)
+          }}
+        />
       )}
 
       {renamingAttachment && (
@@ -140,11 +201,27 @@ export function AttachmentsSection({
           open={renameDialogOpen}
           onOpenChange={setRenameDialogOpen}
           currentName={renamingAttachment.fileName}
-          onSave={(fileName) =>
-            renameAttachment(renamingAttachment.id, fileName)
+          onSave={(baseName) =>
+            renameAttachment(renamingAttachment.id, baseName)
           }
         />
       )}
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Remover anexo"
+        description={
+          deletingAttachment
+            ? `Tem certeza que deseja remover "${deletingAttachment.fileName}"? Esta ação não pode ser desfeita.`
+            : undefined
+        }
+        confirmLabel="Remover"
+        destructive
+        loading={deleteLoading}
+        error={deleteError}
+        onConfirm={() => void handleConfirmDelete()}
+      />
     </div>
   )
 }
