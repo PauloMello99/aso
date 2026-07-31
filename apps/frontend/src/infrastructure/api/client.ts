@@ -132,5 +132,25 @@ export async function apiRequest<T>(
 
   const text = await res.text()
   if (!text) return undefined as T
-  return JSON.parse(text) as T
+
+  try {
+    return JSON.parse(text) as T
+  } catch (parseError) {
+    // Corpo 2xx que não é JSON válido é bug de contrato (backend ou proxy), não
+    // erro de negócio — sem isso, captureError nunca via essa classe de falha
+    // (só dispara em status >= 500 ou falha de rede), então ela passava
+    // silenciosa na telemetria mesmo sendo uma requisição "bem-sucedida".
+    captureError(parseError, {
+      source: "api",
+      module: moduleFromPath(path),
+      path,
+      method,
+      status: res.status,
+    })
+    throw new ApiError(
+      "Resposta inválida do servidor.",
+      res.status,
+      path,
+    )
+  }
 }

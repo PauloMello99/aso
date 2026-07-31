@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { log } from "@logtail/next"
 
 vi.mock("@logtail/next", () => ({
   log: { error: vi.fn(), info: vi.fn() },
@@ -24,7 +25,20 @@ function emptyResponse(status: number): Response {
   } as Response
 }
 
+function malformedJsonResponse(status: number): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: () => Promise.reject(new SyntaxError("Unexpected token")),
+    text: () => Promise.resolve("{not valid json"),
+  } as Response
+}
+
 describe("apiRequest", () => {
+  beforeEach(() => {
+    vi.mocked(log.error).mockClear()
+  })
+
   afterEach(() => {
     vi.unstubAllGlobals()
   })
@@ -95,6 +109,22 @@ describe("apiRequest", () => {
       code: "INSUFFICIENT_STOCK",
       details: { materialId: "m-1", available: "0", requested: "1" },
     })
+  })
+
+  it("throws ApiError and reports to telemetry when a 2xx response has a malformed JSON body", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(malformedJsonResponse(200))
+    vi.stubGlobal("fetch", fetchMock)
+
+    await expect(
+      apiRequest("/anything", { skipAuth: true }),
+    ).rejects.toMatchObject({
+      message: "Resposta inválida do servidor.",
+      status: 200,
+    })
+    await expect(
+      apiRequest("/anything", { skipAuth: true }),
+    ).rejects.toBeInstanceOf(ApiError)
+    expect(log.error).toHaveBeenCalled()
   })
 
   it("throws ApiError with the default message when the non-ok response has an empty body", async () => {
