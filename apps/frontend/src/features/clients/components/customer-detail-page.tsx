@@ -12,13 +12,16 @@ import { useCustomerDetail } from "../hooks/use-customer-detail"
 import { useCustomers } from "../hooks/use-customers"
 import { useCustomerOrigins } from "../hooks/use-customer-origins"
 import { useServices } from "@/features/services/hooks/use-services"
+import { ServiceDetailSheet } from "@/features/services/components/service-detail-sheet"
 import { useTransactions } from "@/features/cashier/hooks/use-transactions"
+import { AttachmentsSection } from "./attachments-section"
 import { CustomerForm } from "./customer-form"
 import { StatusBadge } from "./customer-list"
 import { CustomerServiceHistoryList } from "./customer-service-history-list"
 import { CustomerTransactionHistoryList } from "./customer-transaction-history-list"
 import type { CustomerFormValues } from "../schemas/client.schemas"
 import type { Gender } from "../types"
+import type { Service } from "@/features/services/types"
 
 interface CustomerDetailPageProps {
   orgId: string
@@ -82,6 +85,9 @@ export function CustomerDetailPage({
 
   const [formOpen, setFormOpen] = useState(false)
   const [anamnesisDialogOpen, setAnamnesisDialogOpen] = useState(false)
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(
+    null,
+  )
 
   const originName = useMemo(() => {
     if (!customer?.originId) return "Não informado"
@@ -238,6 +244,11 @@ export function CustomerDetailPage({
       </div>
 
       <section className="space-y-3">
+        <h2 className="text-sm font-medium text-foreground">Anexos</h2>
+        <AttachmentsSection orgId={orgId} customerId={customer.id} />
+      </section>
+
+      <section className="space-y-3">
         <h2 className="text-sm font-medium text-foreground">Serviços</h2>
         {servicesError ? (
           <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
@@ -246,7 +257,10 @@ export function CustomerDetailPage({
         ) : servicesLoading ? (
           <SectionSkeleton />
         ) : (
-          <CustomerServiceHistoryList services={services} />
+          <CustomerServiceHistoryList
+            services={services}
+            onSelect={(service: Service) => setSelectedServiceId(service.id)}
+          />
         )}
       </section>
 
@@ -281,6 +295,15 @@ export function CustomerDetailPage({
           customerName={customer.name}
         />
       )}
+
+      <ServiceDetailSheet
+        open={!!selectedServiceId}
+        onOpenChange={(next) => {
+          if (!next) setSelectedServiceId(null)
+        }}
+        orgId={orgId}
+        serviceId={selectedServiceId ?? undefined}
+      />
     </div>
   )
 }
