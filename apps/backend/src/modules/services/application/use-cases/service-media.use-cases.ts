@@ -22,6 +22,7 @@ const MAX_SERVICE_MEDIA = 3;
 
 export interface ServiceMediaView extends ServiceMediaRecord {
   url: string;
+  downloadUrl: string;
 }
 
 @Injectable()
@@ -88,15 +89,24 @@ export class ListServiceMediaUseCase {
 
   async execute(serviceId: string, orgId: string): Promise<ServiceMediaView[]> {
     const items = await this.repo.findByService(serviceId, orgId);
-    return Promise.all(
-      items.map(async (m) => ({
-        ...m,
-        url: await this.storage.createSignedUrl(
-          SERVICE_MEDIA_BUCKET,
-          m.storagePath,
-        ),
-      })),
+    if (items.length === 0) return [];
+
+    const downloadFileNameByPath: Record<string, string> = {};
+    for (const m of items) downloadFileNameByPath[m.storagePath] = m.fileName;
+
+    const signed = await this.storage.createSignedFileUrls(
+      SERVICE_MEDIA_BUCKET,
+      items.map((m) => m.storagePath),
+      { downloadFileNameByPath },
     );
+
+    return items
+      .filter((m) => signed[m.storagePath])
+      .map((m) => ({
+        ...m,
+        url: signed[m.storagePath]!.url,
+        downloadUrl: signed[m.storagePath]!.downloadUrl,
+      }));
   }
 }
 

@@ -21,5 +21,14 @@ export interface IStorageProvider {
     downloadFileName?: string,
   ): Promise<string>;
 
+  createSignedFileUrls(
+    bucket: string,
+    paths: string[],
+    opts?: {
+      expiresInSeconds?: number;
+      downloadFileNameByPath?: Record<string, string>;
+    },
+  ): Promise<Record<string, { url: string; downloadUrl: string }>>;
+
   removeFile(bucket: string, path: string): Promise<void>;
 }

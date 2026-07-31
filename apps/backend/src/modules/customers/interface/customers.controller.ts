@@ -46,10 +46,10 @@ import {
 import { CreateCustomerDto } from "./dto/create-customer.dto";
 import { UpdateCustomerDto } from "./dto/update-customer.dto";
 import { RenameCustomerAttachmentDto } from "./dto/rename-customer-attachment.dto";
+import { UploadCustomerAttachmentDto } from "./dto/upload-customer-attachment.dto";
 import type { ListCustomersFilter } from "../domain/customer.repository.interface";
 import {
   parseFields,
-  resolveCsvDelimiter,
   resolveExportFormat,
 } from "../../../common/csv/csv.util";
 
@@ -169,7 +169,6 @@ export class CustomersController {
     @Query("state") state?: string,
     @Query("fields") fields?: string,
     @Query("format") format?: string,
-    @Query("delimiter") delimiter?: string,
   ) {
     const exportFormat = resolveExportFormat(format);
     const file = await this.exportCustomers.execute(
@@ -188,7 +187,6 @@ export class CustomersController {
       }),
       parseFields(fields),
       exportFormat,
-      resolveCsvDelimiter(delimiter),
     );
     const date = new Date().toISOString().slice(0, 10);
     if (exportFormat === "xlsx") {
@@ -263,6 +261,7 @@ export class CustomersController {
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthUser,
+    @Body() dto: UploadCustomerAttachmentDto,
     @UploadedFile(
       new ParseFilePipe({
         validators: [
@@ -279,6 +278,7 @@ export class CustomersController {
       orgId,
       customerId: id,
       fileName: file.originalname,
+      baseName: dto.baseName,
       contentType: file.mimetype,
       file: file.buffer,
       uploadedBy: user.id,
@@ -307,7 +307,7 @@ export class CustomersController {
       attachmentId,
       id,
       orgId,
-      dto.fileName,
+      dto.baseName,
     );
   }
 }

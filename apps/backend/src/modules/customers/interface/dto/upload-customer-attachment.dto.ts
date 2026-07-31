@@ -1,6 +1,13 @@
-import { IsNotEmpty, IsString, Matches, MaxLength } from "class-validator";
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+} from "class-validator";
 
-export class RenameCustomerAttachmentDto {
+export class UploadCustomerAttachmentDto {
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
   @MaxLength(200)
@@ -9,5 +16,5 @@ export class RenameCustomerAttachmentDto {
   @Matches(/^[^/\\\x00-\x1f]+$/, {
     message: "baseName must not contain path separators or control characters",
   })
-  baseName!: string;
+  baseName?: string;
 }

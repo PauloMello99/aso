@@ -9,39 +9,63 @@ function buildDto(
 }
 
 describe("RenameCustomerAttachmentDto", () => {
-  it("aceita um fileName válido", async () => {
-    const errors = await validate(buildDto({ fileName: "documento.pdf" }));
+  it("aceita um baseName válido", async () => {
+    const errors = await validate(buildDto({ baseName: "documento" }));
 
     expect(errors).toHaveLength(0);
   });
 
-  it("rejeita fileName vazio", async () => {
-    const errors = await validate(buildDto({ fileName: "" }));
+  it("rejeita baseName vazio", async () => {
+    const errors = await validate(buildDto({ baseName: "" }));
 
-    expect(errors.find((e) => e.property === "fileName")).toBeDefined();
+    expect(errors.find((e) => e.property === "baseName")).toBeDefined();
   });
 
-  it("rejeita fileName contendo apenas espaços", async () => {
-    const errors = await validate(buildDto({ fileName: "   " }));
+  it("rejeita baseName contendo apenas espaços", async () => {
+    const errors = await validate(buildDto({ baseName: "   " }));
 
-    expect(errors.find((e) => e.property === "fileName")).toBeDefined();
+    expect(errors.find((e) => e.property === "baseName")).toBeDefined();
   });
 
-  it("rejeita fileName ausente", async () => {
+  it("rejeita baseName ausente", async () => {
     const errors = await validate(buildDto());
 
-    expect(errors.find((e) => e.property === "fileName")).toBeDefined();
+    expect(errors.find((e) => e.property === "baseName")).toBeDefined();
   });
 
-  it("aceita fileName com exatamente 255 caracteres", async () => {
-    const errors = await validate(buildDto({ fileName: "a".repeat(255) }));
+  it("aceita baseName com exatamente 200 caracteres", async () => {
+    const errors = await validate(buildDto({ baseName: "a".repeat(200) }));
 
     expect(errors).toHaveLength(0);
   });
 
-  it("rejeita fileName com mais de 255 caracteres", async () => {
-    const errors = await validate(buildDto({ fileName: "a".repeat(256) }));
+  it("rejeita baseName com mais de 200 caracteres", async () => {
+    const errors = await validate(buildDto({ baseName: "a".repeat(201) }));
 
-    expect(errors.find((e) => e.property === "fileName")).toBeDefined();
+    expect(errors.find((e) => e.property === "baseName")).toBeDefined();
+  });
+
+  it("rejeita baseName contendo separador de path", async () => {
+    const errors = await validate(buildDto({ baseName: "foo/bar" }));
+
+    expect(errors.find((e) => e.property === "baseName")).toBeDefined();
+  });
+
+  it("rejeita baseName contendo barra invertida", async () => {
+    const errors = await validate(buildDto({ baseName: "foo\\bar" }));
+
+    expect(errors.find((e) => e.property === "baseName")).toBeDefined();
+  });
+
+  it("rejeita baseName contendo caractere de controle", async () => {
+    const errors = await validate(buildDto({ baseName: "foo\x00bar" }));
+
+    expect(errors.find((e) => e.property === "baseName")).toBeDefined();
+  });
+
+  it("aceita baseName com extensão embutida (é só um nome-base comum)", async () => {
+    const errors = await validate(buildDto({ baseName: "documento.pdf" }));
+
+    expect(errors).toHaveLength(0);
   });
 });

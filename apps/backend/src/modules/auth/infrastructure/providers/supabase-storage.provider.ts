@@ -80,6 +80,52 @@ export class SupabaseStorageProvider implements IStorageProvider {
     return data.signedUrl;
   }
 
+  async createSignedFileUrls(
+    bucket: string,
+    paths: string[],
+    opts?: {
+      expiresInSeconds?: number;
+      downloadFileNameByPath?: Record<string, string>;
+    },
+  ): Promise<Record<string, { url: string; downloadUrl: string }>> {
+    if (paths.length === 0) return {};
+
+    const { data, error } = await this.admin.storage
+      .from(bucket)
+      .createSignedUrls(paths, opts?.expiresInSeconds ?? 3600);
+    if (error || !data) {
+      throw new AvatarUploadFailedException(
+        error?.message ?? "Failed to sign URLs",
+      );
+    }
+
+    const requestedPaths = new Set(paths);
+    const bucketPrefix = `${bucket}/`;
+
+    const result: Record<string, { url: string; downloadUrl: string }> = {};
+    for (const entry of data) {
+      if (entry.error || !entry.signedUrl || !entry.path) continue;
+
+      // The Storage API is expected to echo back the exact path we sent, but
+      // fall back to stripping a leading `${bucket}/` in case a future
+      // version of the API starts returning bucket-qualified paths — without
+      // this, a mismatch would silently drop the item from the result.
+      const key = requestedPaths.has(entry.path)
+        ? entry.path
+        : entry.path.startsWith(bucketPrefix)
+          ? entry.path.slice(bucketPrefix.length)
+          : entry.path;
+
+      const downloadFileName = opts?.downloadFileNameByPath?.[key];
+      const downloadUrl = downloadFileName
+        ? `${entry.signedUrl}${entry.signedUrl.includes("?") ? "&" : "?"}download=${encodeURIComponent(downloadFileName)}`
+        : entry.signedUrl;
+
+      result[key] = { url: entry.signedUrl, downloadUrl };
+    }
+    return result;
+  }
+
   async removeFile(bucket: string, path: string): Promise<void> {
     await this.admin.storage.from(bucket).remove([path]);
   }
