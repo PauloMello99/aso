@@ -36,7 +36,8 @@ COPY --from=pruner /app/out/full/ ./
 # LGPD art. 41). Fica aqui, e nao no `pnpm build`, porque o Railway deploya por push na
 # branch do ambiente e ignora o resultado do GitHub Actions: o build da imagem e o unico
 # ponto que o deploy obrigatoriamente atravessa. Nao bloqueia dev nem merge em
-# `development`. Remover este bloco quando LEGAL_ENTITY estiver preenchido.
+# `development`. LEGAL_ENTITY foi preenchido em 2026-07-31 — o grep abaixo fica como
+# guarda permanente contra regressao (ex.: reverter para placeholder por engano).
 RUN if grep -q '\[PREENCHER' apps/frontend/src/features/legal/constants/entity.ts; then \
       echo "ERRO: LEGAL_ENTITY ainda contem placeholders [PREENCHER: ...]." >&2; \
       echo "Preencha razao social, CNPJ, endereco e encarregado/DPO em" >&2; \

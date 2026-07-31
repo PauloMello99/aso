@@ -96,10 +96,10 @@ aparente de dado pessoal sem finalidade nem handler); adicionada linha de identi
 - A Política de Privacidade descreve atendimento de solicitações de titular **manual, por
   e-mail, com SLA de 15 dias** — não promete nada que o produto não cumpre hoje (não há
   endpoint de export/deleção automatizado; isso é Tier 2).
-- Pendência dura, fora do controle deste ADR: os placeholders `[PREENCHER: ...]` em
-  `LEGAL_ENTITY` (razão social, CNPJ, endereço, encarregado) precisam ser preenchidos com
-  dados reais antes do site ir ao ar — sem isso a identificação do fornecedor (CDC) e do
-  encarregado (LGPD art. 41) ficam incompletas.
+- **Resolvido em 2026-07-31**: `LEGAL_ENTITY` preenchido com dados reais (razão social,
+  CNPJ, endereço, encarregado). Identificação do fornecedor (CDC) e do encarregado (LGPD
+  art. 41) completas. O gate no `apps/frontend/Dockerfile` fica como guarda permanente
+  contra regressão (reintrodução acidental de placeholder), não bloqueia mais o deploy.
 - Tier 2 (retenção, anamnese órfã, storage cleanup, bucket avatars público, PII em audit
   logs, export por titular) permanece como débito conhecido, já documentado no levantamento
   desta sessão; não bloqueia o lançamento mas deve ser endereçado em seguida.

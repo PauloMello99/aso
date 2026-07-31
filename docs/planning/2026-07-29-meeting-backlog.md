@@ -70,14 +70,12 @@ reais so apareceram em chamada HTTP de verdade).
 7. **Duvidas de requisito de negocio**: parar e perguntar ao Paulo. Nao adivinhar em
    dinheiro, LGPD, RLS ou contrato com Stripe.
 
-### 🚫 Gate de deploy ativo (nao remover sem preencher LEGAL_ENTITY)
+### ✅ Gate de deploy — LEGAL_ENTITY preenchido em 2026-07-31
 
-O build da imagem do frontend **falha de proposito** enquanto
-`apps/frontend/src/features/legal/constants/entity.ts` contiver placeholders
-`[PREENCHER: ...]` — bloqueia staging **e** production. Ver `docs/deployment.md` e
-ADR-0018. O Paulo precisa fornecer razao social, CNPJ, endereco e encarregado/DPO reais.
-Isso e **pre-requisito do lancamento de 13/08**, nao detalhe tecnico: o Stripe em modo
-producao exige a conformidade legal (falado em 45:31–47:04 da transcricao).
+`apps/frontend/src/features/legal/constants/entity.ts` foi preenchido com dados reais
+(razao social, CNPJ, endereco, encarregado/DPO). O gate no `apps/frontend/Dockerfile`
+fica como guarda permanente contra regressao, nao bloqueia mais o lancamento. Ver
+`docs/deployment.md` e ADR-0018.
 
 ---
 
@@ -238,10 +236,12 @@ observabilidade, nao investigacao.
    que em 5 a gente resolve, mas a gente precisa de uma gordurinha pra caso dê tudo
    errado". Fluxo: correcoes → ciclo de teste dos stakeholders → reuniao de conformidade
    legal/Stripe → lancamento.
-2. **Stripe em producao exige conformidade legal.** Apontar para o **CNPJ da Ink House**,
-   deixar explicito ao usuario final o que esta sendo assinado (ASO, da Ink House, CNPJ).
-   Reuniao dedicada pendente. Ja parcialmente endereçado pelo ADR-0018 (Tier 1), mas
-   **bloqueado pelos placeholders de `LEGAL_ENTITY`**.
+2. **Stripe em producao exige conformidade legal.** Deixar explicito ao usuario final o
+   que esta sendo assinado. Reuniao dedicada pendente. ADR-0018 (Tier 1) e `LEGAL_ENTITY`
+   ja preenchidos (2026-07-31) com CNPJ 42.879.564/0001-96 (Joao Pedro Siqueira Perim) —
+   **nota**: a reuniao mencionou apontar para o CNPJ da Ink House; confirmar com o Paulo
+   se essa e de fato a entidade correta para a configuracao do Stripe antes da reuniao
+   dedicada, ja que o CNPJ preenchido e diferente.
 3. **Modelo de negocio**: o ASO e o **primeiro produto da AssessorInc**; a AssessorInc e o
    produto cobrado no Stripe. Novas ferramentas ⇒ aumento do valor do plano, com o Stripe
    gerenciando a transicao de quem ja assina (preocupacao do Ruan explicitamente
@@ -289,8 +289,10 @@ observabilidade, nao investigacao.
 
 ## Pendencias externas (fora do controle do codigo)
 
-- **`LEGAL_ENTITY` real** (razao social, CNPJ, endereco, encarregado/DPO) — bloqueia
-  deploy por gate no Dockerfile. **Pre-requisito do lancamento.**
+- ~~**`LEGAL_ENTITY` real**~~ — **preenchido em 2026-07-31.** Confirmar com o Paulo se o
+  CNPJ usado (42.879.564/0001-96, Joao Pedro Siqueira Perim) e o mesmo que devera ser
+  configurado no Stripe, ja que a reuniao mencionou "CNPJ da Ink House" (ver item 2 de
+  "Decisoes de produto e lancamento" acima).
 - **Hospedagem/dominio**: o trial expirou e o site caiu durante a reuniao; Paulo ia
   contratar (~R$30/mes). Ambiente de teste instavel invalida o ciclo de QA — resolver
   antes de pedir novo round de testes aos stakeholders.

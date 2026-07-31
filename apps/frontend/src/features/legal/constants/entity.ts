@@ -1,20 +1,20 @@
 /**
  * Fonte única de dados da pessoa jurídica e versionamento de documentos legais.
  *
- * ATENÇÃO: os valores de `LEGAL_ENTITY` estão como placeholder e DEVEM ser substituídos
- * pelos dados reais (razão social, CNPJ, endereço físico e encarregado/DPO) antes do
- * site ir ao ar — exigência de identificação do fornecedor (Decreto 7.962/2013 + CDC)
- * e do encarregado (LGPD art. 41). Ver .memory/adr/0018-conformidade-legal-lgpd-tier1.md.
+ * Preenchido em 2026-07-31 (identificação do fornecedor — Decreto 7.962/2013 + CDC —
+ * e do encarregado — LGPD art. 41). Ver .memory/adr/0018-conformidade-legal-lgpd-tier1.md.
+ * Ao alterar qualquer valor abaixo, revisar as 4 páginas legais e o footer, que exibem
+ * esses dados publicamente.
  */
 export const LEGAL_ENTITY = {
-  razaoSocial: "[PREENCHER: Razão Social Ltda.]",
+  razaoSocial: "JOAO PEDRO SIQUEIRA PERIM 46599540805",
   nomeFantasia: "ASO",
-  cnpj: "[PREENCHER: 00.000.000/0000-00]",
-  endereco: "[PREENCHER: logradouro, número, bairro, cidade/UF, CEP]",
-  emailContato: "[PREENCHER: contato@example.com]",
+  cnpj: "42.879.564/0001-96",
+  endereco: "Rua Silva Jardim 1278, Bairro Alto, Piracicaba/SP, 13.419-140",
+  emailContato: "jpperim06@gmail.com",
   encarregado: {
-    nome: "[PREENCHER: nome do encarregado/DPO]",
-    email: "[PREENCHER: dpo@example.com]",
+    nome: "João Pedro Siqueira Perim",
+    email: "jpperim06@gmail.com",
   },
 } as const
 
