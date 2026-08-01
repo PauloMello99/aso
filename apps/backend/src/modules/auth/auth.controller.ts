@@ -99,11 +99,7 @@ export class AuthController {
   @Post("reset-password")
   @HttpCode(HttpStatus.NO_CONTENT)
   resetPassword(@Body() dto: ResetPasswordDto) {
-    return this.resetPasswordUseCase.execute(
-      dto.accessToken,
-      dto.newPassword,
-      dto.refreshToken,
-    );
+    return this.resetPasswordUseCase.execute(dto.tokenHash, dto.newPassword);
   }
 
   @Get("me")

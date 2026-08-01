@@ -19,11 +19,7 @@ export interface IAuthProvider {
   signOut(accessToken: string): Promise<void>;
   refreshToken(refreshToken: string): Promise<AuthSession>;
   generatePasswordResetLink(email: string): Promise<string | null>;
-  resetPassword(
-    accessToken: string,
-    newPassword: string,
-    refreshToken?: string,
-  ): Promise<void>;
+  resetPassword(tokenHash: string, newPassword: string): Promise<void>;
   verifyToken(accessToken: string): Promise<AuthUser>;
   updateEmail(authId: string, email: string): Promise<void>;
   deleteUser(authId: string): Promise<void>;

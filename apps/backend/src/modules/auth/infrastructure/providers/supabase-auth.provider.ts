@@ -82,27 +82,33 @@ export class SupabaseAuthProvider implements IAuthProvider {
       email,
       options: { redirectTo: `${frontendUrl}/auth/reset-password` },
     });
-    if (error) {
+    if (error || !data.properties?.hashed_token) {
       return null;
     }
-    return data.properties?.action_link ?? null;
+    // Não usamos o action_link do Supabase: ele aponta para o /auth/v1/verify
+    // do próprio Supabase, que consome o token via GET — scanners de e-mail
+    // (Outlook Safe Links, proxies corporativos) fazem esse GET antes do
+    // clique real do usuário e invalidam o link. Mandamos nosso próprio link,
+    // com o token_hash em query string; o consumo só acontece no submit do
+    // form (verifyOtp abaixo), nunca num GET automático.
+    const params = new URLSearchParams({
+      token_hash: data.properties.hashed_token,
+      type: "recovery",
+    });
+    return `${frontendUrl}/auth/reset-password?${params.toString()}`;
   }
 
-  async resetPassword(
-    accessToken: string,
-    newPassword: string,
-    refreshToken?: string,
-  ): Promise<void> {
+  async resetPassword(tokenHash: string, newPassword: string): Promise<void> {
     const url = this.config.getOrThrow<string>("SUPABASE_URL");
     const anonKey = this.config.getOrThrow<string>("SUPABASE_ANON_KEY");
     const client = createClient(url, anonKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
-    const { error: sessionError } = await client.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken ?? "",
+    const { error: verifyError } = await client.auth.verifyOtp({
+      token_hash: tokenHash,
+      type: "recovery",
     });
-    if (sessionError) throw new InvalidCredentialsException(sessionError.message);
+    if (verifyError) throw new InvalidCredentialsException(verifyError.message);
     const { error } = await client.auth.updateUser({ password: newPassword });
     if (error) throw new InvalidCredentialsException(error.message);
   }
