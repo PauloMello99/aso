@@ -57,14 +57,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
   }
 
-  const resetPassword = async (
-    accessToken: string,
-    newPassword: string,
-    refreshToken?: string,
-  ): Promise<void> => {
+  const resetPassword = async (tokenHash: string, newPassword: string): Promise<void> => {
     await apiRequest("/auth/reset-password", {
       method: "POST",
-      body: JSON.stringify({ accessToken, newPassword, refreshToken }),
+      body: JSON.stringify({ tokenHash, newPassword }),
       skipAuth: true,
     })
   }

@@ -288,6 +288,16 @@ a UI deve refletir o papel da org *ativa*:
   `forgotPassword(user.email)`; o link do e-mail abre `/auth/reset-password`, que **recupera a sessão
   pelo token do link** e mostra a tela de nova senha (fluxo reusa o de recuperação existente).
 - **Org switcher** (breadcrumb) tem item final "Ver todas as organizações" → `/dashboard/organizations`.
+- **Link de reset de senha nunca usa o `action_link` do Supabase (2026-08-01, bug real)**:
+  esse link aponta pro `/auth/v1/verify` do próprio Supabase, que **consome o token via GET** —
+  scanners de e-mail (Outlook Safe Links, proxies corporativos) batem nesse GET antes do clique
+  real e invalidam o token; e o Supabase manda os tokens resultantes no **hash** (`#access_token=`),
+  que o form só lia via **query string** (bug duplo). Fix: `generatePasswordResetLink` monta o
+  próprio link (`${frontendUrl}/auth/reset-password?token_hash=...&type=recovery`) a partir de
+  `data.properties.hashed_token` do `generateLink`; `resetPassword` troca o token por sessão via
+  `client.auth.verifyOtp({ token_hash, type: 'recovery' })` — só no **submit** do form, nunca num
+  `useEffect` de mount (senão reintroduz o problema do scanner). Larmony tinha o mesmo bug (código
+  idêntico) — não copiar de lá sem aplicar o mesmo fix.
 
 ### Relação serviço ↔ transação financeira
 
