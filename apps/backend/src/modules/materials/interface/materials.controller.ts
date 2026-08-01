@@ -18,7 +18,11 @@ import type { Response } from "express";
 import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
-import { RequireModule } from "../../auth/decorators/require-module.decorator";
+import { ActiveSubscriptionGuard } from "../../subscriptions/interface/guards/active-subscription.guard";
+import {
+  AllowAnyOrgMember,
+  RequireModule,
+} from "../../auth/decorators/require-module.decorator";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { AdjustStockUseCase } from "../application/use-cases/adjust-stock.use-case";
@@ -35,7 +39,10 @@ import { CreateMaterialUseCase } from "../application/use-cases/create-material.
 import { DeleteMaterialUseCase } from "../application/use-cases/delete-material.use-case";
 import { ListMaterialsUseCase } from "../application/use-cases/list-materials.use-case";
 import { ExportMaterialsUseCase } from "../application/use-cases/export-materials.use-case";
-import { parseFields } from "../../../common/csv/csv.util";
+import {
+  parseFields,
+  resolveExportFormat,
+} from "../../../common/csv/csv.util";
 import { ListStockMovementsUseCase } from "../application/use-cases/list-stock-movements.use-case";
 import { RestockMaterialUseCase } from "../application/use-cases/restock-material.use-case";
 import { UpdateMaterialUseCase } from "../application/use-cases/update-material.use-case";
@@ -64,14 +71,13 @@ export class MaterialsController {
     private readonly listVerifications: ListStockVerificationsUseCase,
   ) {}
 
-  /* ─── Conferência periódica de estoque ──────────────────────── */
-
   @Get("stock-settings")
   async stockSettings(@Param("orgId", ParseUUIDPipe) orgId: string) {
     return this.getStockSettings.execute(orgId);
   }
 
   @Put("stock-settings")
+  @UseGuards(ActiveSubscriptionGuard)
   async saveStockSettings(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Body() dto: SetStockIntervalDto,
@@ -86,6 +92,7 @@ export class MaterialsController {
   }
 
   @Post("verifications")
+  @UseGuards(ActiveSubscriptionGuard)
   async addVerification(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Body() dto: CreateVerificationDto,
@@ -101,8 +108,10 @@ export class MaterialsController {
   }
 
   @Get()
+  @AllowAnyOrgMember()
   async list(
     @Param("orgId", ParseUUIDPipe) orgId: string,
+    @CurrentUser() user: AuthUser,
     @Query("categoryId") categoryId?: string,
     @Query("lowStock") lowStock?: string,
     @Query("q") q?: string,
@@ -112,23 +121,32 @@ export class MaterialsController {
     @Query("maxCost") maxCost?: string,
     @Query("sortBy") sortBy?: string,
   ) {
-    return this.listMaterials.execute(orgId, {
-      categoryId,
-      lowStockOnly: lowStock === "true",
-      name: q || undefined,
-      archived: archived === "true",
-      shareable:
-        shareable === "true" ? true : shareable === "false" ? false : undefined,
-      minCost: minCost || undefined,
-      maxCost: maxCost || undefined,
-      sortBy: sortBy === "name" ? "name" : "lastUsed",
-    });
+    return this.listMaterials.execute(
+      orgId,
+      {
+        categoryId,
+        lowStockOnly: lowStock === "true",
+        name: q || undefined,
+        archived: archived === "true",
+        shareable:
+          shareable === "true"
+            ? true
+            : shareable === "false"
+              ? false
+              : undefined,
+        minCost: minCost || undefined,
+        maxCost: maxCost || undefined,
+        sortBy: sortBy === "name" ? "name" : "lastUsed",
+      },
+      user.id,
+    );
   }
 
   @Get("export")
   async export(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Res() res: Response,
+    @CurrentUser() user: AuthUser,
     @Query("categoryId") categoryId?: string,
     @Query("lowStock") lowStock?: string,
     @Query("q") q?: string,
@@ -137,8 +155,10 @@ export class MaterialsController {
     @Query("minCost") minCost?: string,
     @Query("maxCost") maxCost?: string,
     @Query("fields") fields?: string,
+    @Query("format") format?: string,
   ) {
-    const csv = await this.exportMaterials.execute(
+    const exportFormat = resolveExportFormat(format);
+    const file = await this.exportMaterials.execute(
       orgId,
       {
         categoryId: categoryId || undefined,
@@ -155,17 +175,31 @@ export class MaterialsController {
         maxCost: maxCost || undefined,
       },
       parseFields(fields),
+      user.id,
+      exportFormat,
     );
     const date = new Date().toISOString().slice(0, 10);
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="estoque-${date}.csv"`,
-    );
-    res.send(csv);
+    if (exportFormat === "xlsx") {
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="estoque-${date}.xlsx"`,
+      );
+    } else {
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="estoque-${date}.csv"`,
+      );
+    }
+    res.send(file);
   }
 
   @Post()
+  @UseGuards(ActiveSubscriptionGuard)
   async create(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Body() dto: CreateMaterialDto,
@@ -174,6 +208,7 @@ export class MaterialsController {
   }
 
   @Patch(":id")
+  @UseGuards(ActiveSubscriptionGuard)
   async update(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -183,6 +218,7 @@ export class MaterialsController {
   }
 
   @Delete(":id")
+  @UseGuards(ActiveSubscriptionGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
     @Param("orgId", ParseUUIDPipe) orgId: string,
@@ -192,6 +228,7 @@ export class MaterialsController {
   }
 
   @Post(":id/restock")
+  @UseGuards(ActiveSubscriptionGuard)
   async restock(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -208,6 +245,7 @@ export class MaterialsController {
   }
 
   @Post(":id/adjust")
+  @UseGuards(ActiveSubscriptionGuard)
   async adjust(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -224,6 +262,7 @@ export class MaterialsController {
   }
 
   @Post(":id/archive")
+  @UseGuards(ActiveSubscriptionGuard)
   async archive(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -232,6 +271,7 @@ export class MaterialsController {
   }
 
   @Post(":id/unarchive")
+  @UseGuards(ActiveSubscriptionGuard)
   async unarchive(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,

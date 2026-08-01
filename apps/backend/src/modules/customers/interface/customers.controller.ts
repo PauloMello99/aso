@@ -23,7 +23,11 @@ import type { Response } from "express";
 import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
-import { RequireModule } from "../../auth/decorators/require-module.decorator";
+import { ActiveSubscriptionGuard } from "../../subscriptions/interface/guards/active-subscription.guard";
+import {
+  AllowAnyOrgMember,
+  RequireModule,
+} from "../../auth/decorators/require-module.decorator";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { CreateCustomerUseCase } from "../application/use-cases/create-customer.use-case";
@@ -31,16 +35,23 @@ import { DeleteCustomerUseCase } from "../application/use-cases/delete-customer.
 import { ListCustomersUseCase } from "../application/use-cases/list-customers.use-case";
 import { ListCustomerOriginsUseCase } from "../application/use-cases/list-customer-origins.use-case";
 import { ExportCustomersUseCase } from "../application/use-cases/export-customers.use-case";
+import { GetCustomerUseCase } from "../application/use-cases/get-customer.use-case";
 import { UpdateCustomerUseCase } from "../application/use-cases/update-customer.use-case";
 import {
   UploadCustomerAttachmentUseCase,
   ListCustomerAttachmentsUseCase,
   DeleteCustomerAttachmentUseCase,
+  RenameCustomerAttachmentUseCase,
 } from "../application/use-cases/customer-attachments.use-cases";
 import { CreateCustomerDto } from "./dto/create-customer.dto";
 import { UpdateCustomerDto } from "./dto/update-customer.dto";
+import { RenameCustomerAttachmentDto } from "./dto/rename-customer-attachment.dto";
+import { UploadCustomerAttachmentDto } from "./dto/upload-customer-attachment.dto";
 import type { ListCustomersFilter } from "../domain/customer.repository.interface";
-import { parseFields } from "../../../common/csv/csv.util";
+import {
+  parseFields,
+  resolveExportFormat,
+} from "../../../common/csv/csv.util";
 
 interface UploadedDoc {
   buffer: Buffer;
@@ -51,7 +62,6 @@ interface UploadedDoc {
 
 const GENDERS = ["male", "female", "other"] as const;
 
-/** Monta o filtro de listagem/export a partir dos query params (compartilhado). */
 function buildCustomersFilter(q: {
   search?: string;
   enabled?: string;
@@ -60,7 +70,11 @@ function buildCustomersFilter(q: {
   gender?: string;
   from?: string;
   to?: string;
+  birthMonth?: string;
+  city?: string;
+  state?: string;
 }): ListCustomersFilter {
+  const parsedBirthMonth = q.birthMonth ? Number(q.birthMonth) : NaN;
   return {
     search: q.search?.trim() || undefined,
     enabledOnly: q.enabled === "true",
@@ -72,6 +86,14 @@ function buildCustomersFilter(q: {
       : undefined,
     from: q.from ? new Date(q.from) : undefined,
     to: q.to ? new Date(q.to) : undefined,
+    birthMonth:
+      Number.isInteger(parsedBirthMonth) &&
+      parsedBirthMonth >= 1 &&
+      parsedBirthMonth <= 12
+        ? parsedBirthMonth
+        : undefined,
+    city: q.city?.trim() || undefined,
+    state: q.state?.trim() || undefined,
   };
 }
 
@@ -83,15 +105,18 @@ export class CustomersController {
     private readonly listCustomers: ListCustomersUseCase,
     private readonly listOrigins: ListCustomerOriginsUseCase,
     private readonly exportCustomers: ExportCustomersUseCase,
+    private readonly getCustomer: GetCustomerUseCase,
     private readonly createCustomer: CreateCustomerUseCase,
     private readonly updateCustomer: UpdateCustomerUseCase,
     private readonly deleteCustomer: DeleteCustomerUseCase,
     private readonly uploadAttachment: UploadCustomerAttachmentUseCase,
     private readonly listAttachments: ListCustomerAttachmentsUseCase,
     private readonly deleteAttachment: DeleteCustomerAttachmentUseCase,
+    private readonly renameAttachment: RenameCustomerAttachmentUseCase,
   ) {}
 
   @Get()
+  @AllowAnyOrgMember()
   async list(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Query("search") search?: string,
@@ -101,14 +126,29 @@ export class CustomersController {
     @Query("gender") gender?: string,
     @Query("from") from?: string,
     @Query("to") to?: string,
+    @Query("birthMonth") birthMonth?: string,
+    @Query("city") city?: string,
+    @Query("state") state?: string,
   ) {
     return this.listCustomers.execute(
       orgId,
-      buildCustomersFilter({ search, enabled, status, originId, gender, from, to }),
+      buildCustomersFilter({
+        search,
+        enabled,
+        status,
+        originId,
+        gender,
+        from,
+        to,
+        birthMonth,
+        city,
+        state,
+      }),
     );
   }
 
   @Get("origins")
+  @AllowAnyOrgMember()
   async origins(@Param("orgId", ParseUUIDPipe) orgId: string) {
     return this.listOrigins.execute(orgId);
   }
@@ -124,23 +164,60 @@ export class CustomersController {
     @Query("gender") gender?: string,
     @Query("from") from?: string,
     @Query("to") to?: string,
+    @Query("birthMonth") birthMonth?: string,
+    @Query("city") city?: string,
+    @Query("state") state?: string,
     @Query("fields") fields?: string,
+    @Query("format") format?: string,
   ) {
-    const csv = await this.exportCustomers.execute(
+    const exportFormat = resolveExportFormat(format);
+    const file = await this.exportCustomers.execute(
       orgId,
-      buildCustomersFilter({ search, enabled, status, originId, gender, from, to }),
+      buildCustomersFilter({
+        search,
+        enabled,
+        status,
+        originId,
+        gender,
+        from,
+        to,
+        birthMonth,
+        city,
+        state,
+      }),
       parseFields(fields),
+      exportFormat,
     );
     const date = new Date().toISOString().slice(0, 10);
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="clientes-${date}.csv"`,
-    );
-    res.send(csv);
+    if (exportFormat === "xlsx") {
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="clientes-${date}.xlsx"`,
+      );
+    } else {
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="clientes-${date}.csv"`,
+      );
+    }
+    res.send(file);
+  }
+
+  @Get(":id")
+  async findOne(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.getCustomer.execute(id, orgId);
   }
 
   @Post()
+  @UseGuards(ActiveSubscriptionGuard)
   async create(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Body() dto: CreateCustomerDto,
@@ -150,6 +227,7 @@ export class CustomersController {
   }
 
   @Patch(":id")
+  @UseGuards(ActiveSubscriptionGuard)
   async update(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -159,6 +237,7 @@ export class CustomersController {
   }
 
   @Delete(":id")
+  @UseGuards(ActiveSubscriptionGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
     @Param("orgId", ParseUUIDPipe) orgId: string,
@@ -166,8 +245,6 @@ export class CustomersController {
   ) {
     await this.deleteCustomer.execute(id, orgId);
   }
-
-  /* ─── Anexos ────────────────────────────────────────────────── */
 
   @Get(":id/attachments")
   async attachments(
@@ -178,11 +255,13 @@ export class CustomersController {
   }
 
   @Post(":id/attachments")
+  @UseGuards(ActiveSubscriptionGuard)
   @UseInterceptors(FileInterceptor("file"))
   async addAttachment(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthUser,
+    @Body() dto: UploadCustomerAttachmentDto,
     @UploadedFile(
       new ParseFilePipe({
         validators: [
@@ -199,6 +278,7 @@ export class CustomersController {
       orgId,
       customerId: id,
       fileName: file.originalname,
+      baseName: dto.baseName,
       contentType: file.mimetype,
       file: file.buffer,
       uploadedBy: user.id,
@@ -206,11 +286,28 @@ export class CustomersController {
   }
 
   @Delete(":id/attachments/:attachmentId")
+  @UseGuards(ActiveSubscriptionGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeAttachment(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("attachmentId", ParseUUIDPipe) attachmentId: string,
   ) {
     await this.deleteAttachment.execute(attachmentId, orgId);
+  }
+
+  @Patch(":id/attachments/:attachmentId")
+  @UseGuards(ActiveSubscriptionGuard)
+  async renameAttachmentHandler(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("attachmentId", ParseUUIDPipe) attachmentId: string,
+    @Body() dto: RenameCustomerAttachmentDto,
+  ) {
+    return this.renameAttachment.execute(
+      attachmentId,
+      id,
+      orgId,
+      dto.baseName,
+    );
   }
 }

@@ -1,0 +1,56 @@
+[mcp_servers.better-stack]
+url = "https://mcp.betterstack.com"
+bearer_token_env_var = "BETTERSTACK_TOKEN"
+
+[mcp_servers.github]
+url = "https://api.githubcopilot.com/mcp"
+bearer_token_env_var = "GITHUB_PAT"
+
+[mcp_servers.ink-memory]
+command = "wsl"
+args = [
+    "-e",
+    "bash",
+    "-lc",
+    "exec ~/ink-ops-rag-venv/bin/python /mnt/c/Users/Paulo/Documents/Repos/Pessoal/ink-ops/bin/scripts/rag/mcp_server.py",
+]
+
+[mcp_servers.postgres-local]
+command = "npx"
+args = [
+    "-y",
+    "@modelcontextprotocol/server-postgres",
+    "postgresql://postgres:postgres@localhost:54322/postgres",
+]
+
+[mcp_servers.postgres-staging]
+command = "npx"
+args = [
+    "-y",
+    "@modelcontextprotocol/server-postgres",
+    "postgresql://postgres.qcnrfuqqvcsyhfzvlrch:XoBbgbxJFlZSd1B9@aws-1-sa-east-1.pooler.supabase.com:5432/postgres",
+]
+
+[mcp_servers.railway]
+url = "https://mcp.railway.com"
+
+[mcp_servers.resend]
+command = "npx"
+args = [
+    "-y",
+    "resend-mcp",
+]
+env_vars = ["RESEND_API_KEY"]
+
+[mcp_servers.shadcn]
+command = "npx"
+args = [
+    "shadcn@latest",
+    "mcp",
+]
+
+[mcp_servers.supabase-local]
+url = "http://127.0.0.1:54321/mcp"
+
+[mcp_servers.supabase-staging]
+url = "https://mcp.supabase.com/mcp?project_ref=qcnrfuqqvcsyhfzvlrch"

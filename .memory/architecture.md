@@ -10,14 +10,17 @@ ink-ops/
 ├── packages/
 │   ├── eslint-config/        # @repo/eslint-config
 │   ├── typescript-config/    # @repo/typescript-config
-│   ├── ui/                   # @repo/ui (React components)
 │   ├── types/                # @repo/types (Supabase + shared types)
 │   └── utils/                # @repo/utils (cn, etc.)
 ├── .memory/                  # Banco de memória do Claude Code
 │   ├── adr/                  # ADRs (versionados em git)
 │   └── sessions/             # Notas de sessão (gitignored)
-└── bin/scripts/rag/          # Scripts de indexação (gitignored)
+├── bin/scripts/rag/          # Scripts de indexação RAG (versionados)
+└── docker-compose.rag.yml    # Qdrant compartilhado com outros projetos (versionado, ADR-0015)
 ```
+
+Não existe `packages/ui` — componentes shadcn/ui vivem direto em
+`apps/frontend/src/shared/components/ui/`, sem package compartilhado.
 
 ## Turborepo task pipeline
 
@@ -33,7 +36,6 @@ ink-ops/
 - Cada app/package tem `eslint.config.js` estendendo `@repo/eslint-config/<tipo>`
 - Cada package tem `tsconfig.json` estendendo `@repo/typescript-config/<tipo>`
 - Imports internos via workspace alias: `@repo/<nome>`
-- `@repo/ui` exporta raw `.tsx` (sem build step) — apps importam diretamente
 
 ## Backend — estrutura NestJS
 

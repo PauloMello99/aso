@@ -35,7 +35,6 @@ export class ListServicesUseCase {
 
     const filter: ListServicesFilter = { ...input.filter };
 
-    // Funcionário só enxerga os próprios atendimentos (força performedBy=self).
     if (!isOwner) {
       filter.performedBy = currentUserId;
     }

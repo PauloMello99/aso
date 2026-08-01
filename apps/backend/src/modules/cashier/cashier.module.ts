@@ -1,6 +1,8 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
 import { OrgsInfrastructureModule } from "../organizations/infrastructure/orgs-infrastructure.module";
+import { ServicesInfrastructureModule } from "../services/infrastructure/services-infrastructure.module";
+import { SubscriptionsModule } from "../subscriptions/subscriptions.module";
 import { CashierInfrastructureModule } from "./infrastructure/cashier-infrastructure.module";
 import { ListTransactionsUseCase } from "./application/use-cases/list-transactions.use-case";
 import { ExportTransactionsUseCase } from "./application/use-cases/export-transactions.use-case";
@@ -13,11 +15,19 @@ import { GetPaymentFeesUseCase } from "./application/use-cases/get-payment-fees.
 import { UpsertPaymentFeesUseCase } from "./application/use-cases/upsert-payment-fees.use-case";
 import { ListTransactionCategoriesUseCase } from "./application/use-cases/list-transaction-categories.use-case";
 import { CreateTransactionCategoryUseCase } from "./application/use-cases/create-transaction-category.use-case";
+import { UpdateTransactionCategoryUseCase } from "./application/use-cases/update-transaction-category.use-case";
+import { DeleteTransactionCategoryUseCase } from "./application/use-cases/delete-transaction-category.use-case";
 import { TransferUseCase } from "./application/use-cases/transfer.use-case";
 import { CashierController } from "./interface/cashier.controller";
 
 @Module({
-  imports: [CashierInfrastructureModule, OrgsInfrastructureModule, AuthModule],
+  imports: [
+    CashierInfrastructureModule,
+    OrgsInfrastructureModule,
+    ServicesInfrastructureModule,
+    AuthModule,
+    SubscriptionsModule,
+  ],
   controllers: [CashierController],
   providers: [
     ListTransactionsUseCase,
@@ -31,6 +41,8 @@ import { CashierController } from "./interface/cashier.controller";
     UpsertPaymentFeesUseCase,
     ListTransactionCategoriesUseCase,
     CreateTransactionCategoryUseCase,
+    UpdateTransactionCategoryUseCase,
+    DeleteTransactionCategoryUseCase,
     TransferUseCase,
   ],
   exports: [CashierInfrastructureModule],

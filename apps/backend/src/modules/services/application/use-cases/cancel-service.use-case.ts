@@ -20,6 +20,11 @@ import {
   ITransactionRepository,
   TRANSACTION_REPOSITORY,
 } from "../../../cashier/domain/transaction.repository.interface";
+import {
+  ITransactionCategoryRepository,
+  TRANSACTION_CATEGORY_REPOSITORY,
+} from "../../../cashier/domain/transaction-category.repository.interface";
+import { resolveReversalCategoryId } from "../../../cashier/domain/reversal-category";
 import { ServiceNotFoundException } from "../../domain/exceptions/service-not-found.exception";
 import { ServiceAlreadyCanceledException } from "../../domain/exceptions/service-already-canceled.exception";
 import { ServiceForbiddenException } from "../../domain/exceptions/service-forbidden.exception";
@@ -44,6 +49,8 @@ export class CancelServiceUseCase {
     private readonly movementRepo: IStockMovementRepository,
     @Inject(TRANSACTION_REPOSITORY)
     private readonly transactionRepo: ITransactionRepository,
+    @Inject(TRANSACTION_CATEGORY_REPOSITORY)
+    private readonly categoryRepo: ITransactionCategoryRepository,
   ) {}
 
   async execute(input: CancelServiceInput): Promise<ServiceEntity> {
@@ -59,7 +66,6 @@ export class CancelServiceUseCase {
     );
     if (!service) throw new ServiceNotFoundException(input.serviceId);
 
-    // Funcionário só cancela os próprios atendimentos.
     if (!isOwner && service.performedBy !== currentUserId) {
       throw new ServiceForbiddenException();
     }
@@ -67,10 +73,8 @@ export class CancelServiceUseCase {
       throw new ServiceAlreadyCanceledException(input.serviceId);
     }
 
-    // 1. Marca cancelado.
     await this.serviceRepo.markCanceled(service.id);
 
-    // 2. Estorna a transação de pagamento, se houver (errata: linha oposta).
     if (service.paymentTransactionId) {
       const original = await this.transactionRepo.findById(
         service.paymentTransactionId,
@@ -79,6 +83,10 @@ export class CancelServiceUseCase {
       if (original && !original.isReversal) {
         const existing = await this.transactionRepo.findReversalOf(original.id);
         if (!existing) {
+          const categoryId = await resolveReversalCategoryId(
+            this.categoryRepo,
+            original.orgId,
+          );
           await this.transactionRepo.create({
             orgId: original.orgId,
             createdBy: currentUserId,
@@ -88,13 +96,13 @@ export class CancelServiceUseCase {
             feeCents: original.feeCents,
             netCents: original.netCents,
             paymentMethod: original.paymentMethod,
+            categoryId,
             reversesTransactionId: original.id,
           });
         }
       }
     }
 
-    // 3. Devolve o estoque consumido (movimento positivo + saldo).
     for (const line of service.materials) {
       const qty = line.quantity;
       await this.materialRepo.updateStockQuantity(line.materialId, qty);

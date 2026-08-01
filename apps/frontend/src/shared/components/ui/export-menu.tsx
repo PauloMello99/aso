@@ -8,28 +8,35 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/shared/components/ui/popover"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select"
+import { FilterField } from "@/shared/components/ui/filter-popover"
 
 export interface ExportColumn {
   key: string
   label: string
 }
 
+// Decisão de produto: sem seletor de delimitador. CSV é sempre vírgula; XLSX é
+// OOXML binário (ExcelJS) e não tem conceito de delimitador. Não reintroduzir.
+export type ExportFormat = "csv" | "xlsx"
+
 interface ExportMenuProps {
-  /** Colunas disponíveis (chaves espelham o backend `?fields=`). */
   columns: ExportColumn[]
-  /** Dispara o download com as chaves selecionadas. */
-  onExport: (fields: string[]) => Promise<void> | void
+  onExport: (fields: string[], format: ExportFormat) => Promise<void> | void
   disabled?: boolean
 }
 
-/**
- * Botão "Exportar" + seletor de colunas (RPT-2). Por padrão todas marcadas;
- * o usuário ajusta quais campos vão no CSV e baixa pelo backend (respeita filtros).
- */
 export function ExportMenu({ columns, onExport, disabled }: ExportMenuProps) {
   const [selected, setSelected] = React.useState<Set<string>>(
     () => new Set(columns.map((c) => c.key)),
   )
+  const [format, setFormat] = React.useState<ExportFormat>("csv")
   const [busy, setBusy] = React.useState(false)
 
   const allChecked = selected.size === columns.length
@@ -52,7 +59,7 @@ export function ExportMenu({ columns, onExport, disabled }: ExportMenuProps) {
     if (fields.length === 0) return
     setBusy(true)
     try {
-      await onExport(fields)
+      await onExport(fields, format)
     } finally {
       setBusy(false)
     }
@@ -65,17 +72,31 @@ export function ExportMenu({ columns, onExport, disabled }: ExportMenuProps) {
           variant="outline"
           disabled={disabled}
           className="shrink-0 gap-2"
-          title="Exportar CSV"
+          title="Exportar dados"
         >
           <Download className="h-4 w-4" />
           <span className="hidden sm:inline">Exportar</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 p-4">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-foreground">
-            Campos do CSV
-          </span>
+        <div className="space-y-3">
+          <FilterField label="Formato">
+            <Select
+              value={format}
+              onValueChange={(v) => setFormat(v as ExportFormat)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="csv">CSV</SelectItem>
+                <SelectItem value="xlsx">Excel (.xlsx)</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterField>
+        </div>
+        <div className="mt-4 flex items-center justify-between">
+          <span className="text-sm font-medium text-foreground">Campos</span>
           <Button
             variant="ghost"
             size="sm"
@@ -111,7 +132,7 @@ export function ExportMenu({ columns, onExport, disabled }: ExportMenuProps) {
           ) : (
             <Download className="h-4 w-4" />
           )}
-          Baixar CSV
+          {format === "xlsx" ? "Baixar Excel" : "Baixar CSV"}
         </Button>
       </PopoverContent>
     </Popover>

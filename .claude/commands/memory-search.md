@@ -25,7 +25,12 @@ wsl ~/ink-ops-rag-venv/bin/python bin/scripts/rag/health.py
 wsl ~/ink-ops-rag-venv/bin/python bin/scripts/rag/health.py --validate --samples 5
 ```
 
+Busca em código indexado (opt-in):
+```powershell
+wsl ~/ink-ops-rag-venv/bin/python bin/scripts/rag/query.py --code --app backend --module audit "guard de super_admin"
+```
+
 Nota: durante um chat, o Claude deve buscar autonomamente via MCP tool
 `memory_search` (servidor `ink-memory`) **antes** de ler o código — aceita os mesmos
-filtros (`memory_type`, `document`, `section`). Este comando CLI é para inspeção/debug
-manual.
+filtros (`memory_type`, `document`, `section`, `app`, `module`, `layer`, `include_code`).
+Este comando CLI é para inspeção/debug manual.

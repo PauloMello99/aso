@@ -6,8 +6,7 @@ import * as schema from "../../../../database/schema";
 import { TransactionCategoryEntity } from "../../domain/transaction-category.entity";
 import { ITransactionCategoryRepository } from "../../domain/transaction-category.repository.interface";
 
-/** Categorias mudam raramente e aparecem em todo form de lançamento. */
-const CATEGORIES_TTL_MS = 60 * 60 * 1000; // 1h
+const CATEGORIES_TTL_MS = 60 * 60 * 1000;
 const categoriesKey = (orgId: string) => `categories:${orgId}`;
 
 function toDomain(row: typeof schema.transactionCategories.$inferSelect) {
@@ -15,6 +14,8 @@ function toDomain(row: typeof schema.transactionCategories.$inferSelect) {
     id: row.id,
     orgId: row.orgId,
     name: row.name,
+    isProtected: row.isProtected,
+    systemKey: row.systemKey,
     createdAt: row.createdAt,
   });
 }
@@ -56,6 +57,26 @@ export class DrizzleTransactionCategoryRepository
     return row ? toDomain(row) : null;
   }
 
+  // SELECT direto, sem passar pelo TtlCache de findByOrg: uma reversão criada dentro
+  // da janela de cache herdaria categoryId null para sempre, já que o caixa é
+  // append-only e o lançamento não pode ser corrigido depois.
+  async findBySystemKey(
+    orgId: string,
+    systemKey: string,
+  ): Promise<TransactionCategoryEntity | null> {
+    const [row] = await this.db
+      .select()
+      .from(schema.transactionCategories)
+      .where(
+        and(
+          eq(schema.transactionCategories.orgId, orgId),
+          eq(schema.transactionCategories.systemKey, systemKey),
+        ),
+      )
+      .limit(1);
+    return row ? toDomain(row) : null;
+  }
+
   async create(orgId: string, name: string): Promise<TransactionCategoryEntity> {
     const [row] = await this.db
       .insert(schema.transactionCategories)
@@ -70,5 +91,36 @@ export class DrizzleTransactionCategoryRepository
       .returning();
     this.cache.del(categoriesKey(orgId));
     return toDomain(row!);
+  }
+
+  async update(
+    id: string,
+    orgId: string,
+    name: string,
+  ): Promise<TransactionCategoryEntity> {
+    const [row] = await this.db
+      .update(schema.transactionCategories)
+      .set({ name })
+      .where(
+        and(
+          eq(schema.transactionCategories.id, id),
+          eq(schema.transactionCategories.orgId, orgId),
+        ),
+      )
+      .returning();
+    this.cache.del(categoriesKey(orgId));
+    return toDomain(row!);
+  }
+
+  async delete(id: string, orgId: string): Promise<void> {
+    await this.db
+      .delete(schema.transactionCategories)
+      .where(
+        and(
+          eq(schema.transactionCategories.id, id),
+          eq(schema.transactionCategories.orgId, orgId),
+        ),
+      );
+    this.cache.del(categoriesKey(orgId));
   }
 }

@@ -25,44 +25,42 @@ const INTEGRATIONS = [
 
 export function Integrations() {
   return (
-    <section id="integracoes" className="bg-white/[0.02]">
-      <Separator className="bg-white/5" />
+    <section id="integracoes" className="bg-foreground/[0.02]">
+      <Separator className="bg-foreground/5" />
 
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 md:py-24">
-        {/* Header */}
         <div className="mb-10 text-center sm:mb-16">
           <div className="mb-4 flex justify-center">
             <Badge
               variant="outline"
-              className="border-white/10 text-white/60"
+              className="border-foreground/10 text-foreground/60"
             >
               Integrações
             </Badge>
           </div>
-          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl">
+          <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl">
             Conecte suas ferramentas
           </h2>
-          <p className="mx-auto mt-4 max-w-lg text-white/50">
+          <p className="mx-auto mt-4 max-w-lg text-foreground/50">
             Integre com as plataformas que você já usa sem precisar trocar de
             ecossistema.
           </p>
         </div>
 
-        {/* Grid */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {INTEGRATIONS.map((item) => {
             const Icon = item.icon
             return (
               <div
                 key={item.name}
-                className="flex flex-col items-center gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-6 text-center transition-all hover:border-white/10"
+                className="flex flex-col items-center gap-3 rounded-xl border border-foreground/5 bg-foreground/[0.03] p-6 text-center transition-all hover:border-foreground/10"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/5">
-                  <Icon className="h-6 w-6 text-white/60" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-foreground/5">
+                  <Icon className="h-6 w-6 text-foreground/60" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-white">{item.name}</p>
-                  <p className="mt-0.5 text-xs text-white/40">
+                  <p className="text-sm font-medium text-foreground">{item.name}</p>
+                  <p className="mt-0.5 text-xs text-foreground/40">
                     {item.description}
                   </p>
                 </div>
@@ -72,7 +70,7 @@ export function Integrations() {
         </div>
       </div>
 
-      <Separator className="bg-white/5" />
+      <Separator className="bg-foreground/5" />
     </section>
   )
 }

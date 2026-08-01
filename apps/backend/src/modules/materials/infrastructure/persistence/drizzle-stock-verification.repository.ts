@@ -19,7 +19,6 @@ export class DrizzleStockVerificationRepository
 {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    // cron roda sem contexto de request → usa conexão privilegiada
     @Inject(DRIZZLE_ADMIN) private readonly admin: DrizzleDB,
   ) {}
 

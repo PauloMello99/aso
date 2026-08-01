@@ -101,6 +101,37 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
   `GET /orgs/:orgId/members`. Alternativa válida (orgs module): escopar por
   `findByIdAndAuthId`/`isOwner` no use-case. Regressão histórica: `list-members` vazava
   cross-org por não escopar (corrigido 2026-06-14).
+- **super_admin age como owner em QUALQUER org (2026-06-29).** A RLS já permitia
+  (`is_super_admin()` em toda policy); o bloqueio era só na app. Padrão: detectar super_admin
+  no **caminho de miss** (sem membership) via helper `common/auth/is-super-admin.ts`
+  `isSuperAdmin(db, authId)`. Aplicado em: os 3 guards (`OrgMembershipGuard` — inclusive org
+  suspensa, `OrgOwnerGuard`, `OrgModuleGuard`); `DrizzleOrgRepository.findByIdAndAuthId`/
+  `findBySlugAndAuthId`/`isOwner` (sintetizam role `owner`); e
+  `DrizzleMemberRepository.findByAuthId` (sintetiza membro owner com `memberId: ""` → cobre
+  `resolveActor` do caixa, `resolveMembership` de serviços, overview, transfer-ownership).
+  `transfer-ownership` trata o ator sintetizado rebaixando o owner **real**. `findAllByAuthId`
+  (switcher) **não** muda — super_admin não vê todas as orgs na lista; entra por deep-link
+  (`GET /orgs/by-slug/:slug`, botão "Gerenciar" no admin). **Visualização (2026-06-29):** no
+  `OrgLayout`, super_admin **sempre opera como owner** (override de `role` para "owner", paridade
+  com o backend) em qualquer org. Banner em 2 níveis: **forte** ("gerenciando como super_admin")
+  quando NÃO é o owner real (funcionário ou não-membro = `actingAsAdmin`); **sutil** ("Acesso de
+  super_admin") quando É o owner real (ex.: Ruan/João + Ink House). Auditoria das ações =
+  **PLAT-3** (pendente). Não-membro sem super_admin → 404 (sem vazar).
+- **Endpoint agregador multi-módulo (ex. `GET /orgs/:orgId/overview`) deve filtrar seção por
+  `hasModuleAccess`, não confiar em não ter `@RequireModule` na rota (2026-07-30).** Todo
+  controller org-scoped de módulo único já tem `@RequireModule`/`OrgModuleGuard`
+  (services, calendar, materials, customers, cashier); um endpoint que agrega dado de
+  vários módulos numa resposta só (overview) fica **fora** desse guard por natureza — mas
+  isso não autoriza devolver dado do módulo negado. `GetOverviewUseCase` só busca (nunca
+  busca-e-esconde) a seção de cada módulo se `hasModuleAccess` for true, e a chave fica
+  **ausente** do payload quando negada, nunca `[]` (array vazio seria indistinguível de
+  "módulo liberado sem dados"). O frontend replica o mesmo binário via
+  `features/overview/lib/overview-visibility.ts` (reusa `canAccessModule` de
+  `features/dashboard/lib/nav.ts`, mesmo padrão do `org-sidebar.tsx`) — mas o gate real é
+  o do backend, o do front é só UX. **Acesso a módulo é binário, sem granularidade fina**
+  (ex. "ver quantidade sem ver valor" foi decisão explícita rejeitada em reunião de
+  produto) — não introduzir sub-permissão por valor ou por ação dentro de um módulo já
+  liberado.
 - ✅ **RLS habilitada e enforced no backend** (defense-in-depth, ativada 2026-06-14 — ver ADR-0005):
   - Repositórios injetam `DRIZZLE` (pool **`app_user`**, `NOBYPASSRLS`). O `RlsInterceptor`
     global abre uma transação por request com `set_config('request.jwt.claims', {sub:authId}, true)`,
@@ -177,6 +208,20 @@ a UI deve refletir o papel da org *ativa*:
   quem transita entre orgs.
 - A filtragem de nav é **cosmética**: a fonte de verdade é o `OrgOwnerGuard` no backend
   (rotas owner-only respondem 403). Nunca confiar só no nav para autorização.
+
+**Roteamento Next (pages router) — gotchas (2026-06-29).**
+- **Lista + detalhe NÃO podem ser `foo.tsx` + `foo/[id].tsx`** (arquivo e diretório de mesmo
+  nome). É ambíguo: a rota dinâmica filha cai em **404 no dev** (o `next build` até passa,
+  mascarando). Usar sempre `foo/index.tsx` + `foo/[id].tsx`. Foi a causa do bug "ao abrir
+  `/admin/orgs/[id]` o super_admin era jogado para fora" — corrigido movendo
+  `admin/orgs.tsx`→`admin/orgs/index.tsx` e `admin/users.tsx`→`admin/users/index.tsx` (commit 54197b2).
+- **`pages/404.tsx` faz `router.replace("/dashboard/organizations")`** — qualquer 404 vira um
+  **redirect silencioso** para a lista de orgs, o que **mascara** erros de rota (parece
+  "redirect inesperado" em vez de 404). Ao depurar "fui redirecionado para fora", checar antes
+  se a rota está em 404.
+- Mover/renomear arquivos de página **com o dev server rodando** corrompe o manifest do Next
+  (404 em rotas válidas, `ERR_CONTENT_LENGTH_MISMATCH` em chunks antigos). Recuperação: parar o
+  dev, `rm apps/frontend/.next`, `pnpm dev` (mesma receita de [[env_turbopack_hydration]]).
 - Convite de funcionário **não** passa pelo Supabase admin — usa nosso token
   (`org_invitations`): lookup público por token, accept exige auth; login/cadastro
   carregam o token de volta para `/invite/accept`.
@@ -185,6 +230,15 @@ a UI deve refletir o papel da org *ativa*:
   `invitationRepo.delete` (admin). Assim o owner pode **reenviar o fluxo** (o `create`
   já faz upsert por `(orgId,email)` regenerando o token). Front: botão "Recusar" na tela
   de aceite → `/dashboard/organizations`.
+- **Guard inverso `GuestGuard` (2026-07-15)**: usuário **logado** que abre página de auth é
+  redirecionado para a área privada. Espelho de `AuthGuard` em
+  `features/auth/components/guest-guard.tsx` (mesmo spinner enquanto `loading`, lógica
+  invertida: `if (!loading && user) router.replace(...)`). Aplicado via `getLayout` em
+  `pages/auth/login|signup|recover.tsx`. Alvo: `/invite/accept?token=` se houver `?invite=`
+  na URL (paridade com login/signup-form), senão `/dashboard/organizations`.
+  **`reset-password.tsx` fica de fora** — é fluxo por token (`type=recovery`) que precisa
+  funcionar mesmo com sessão ativa. Como a sessão é client-side (`inkops_session` no
+  localStorage, sem middleware), o gate depende de `loading===false` antes de checar `user`.
 
 ### Organizações
 
@@ -267,9 +321,18 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
 - **Caixa = owner-only:** `CashierController` usa **`OrgOwnerGuard`** (novo, em `auth/guards/`) —
   funcionário recebe 403 ("funcionário não tem acesso ao caixa"). Nav esconde Caixa p/ employee.
 - **Categoria de transação:** tabela `transaction_categories` (por org, UNIQUE org+name) +
-  `transactions.category_id` (FK). Seed default por org (Serviço/Funcionário/Material/Conta/
-  Reforma/Transferência/Outros) na criação de org + migration p/ orgs existentes. **Descrição
-  permanece.** Rotas `GET/POST /orgs/:orgId/cashier/categories`.
+  `transactions.category_id` (FK, `onDelete: set null`). Seed default por org (Serviço/
+  Funcionário/Material/Conta/Reforma/Transferência/Outros) na criação de org + migration p/
+  orgs existentes. **Descrição permanece.** Rotas `GET/POST /orgs/:orgId/cashier/categories`.
+- **CRUD completo de categorias (M5, migration 0025):** coluna `is_protected` (default
+  `false`) marca as 7 categorias seed como fixas. `PUT/DELETE /orgs/:orgId/cashier/categories/:id`
+  (owner-only). Regras de negócio: **renomear é permitido mesmo em categoria protegida**
+  (rename é cosmético, não afeta vínculos); **excluir categoria protegida** → 409
+  `TRANSACTION_CATEGORY_PROTECTED`; **excluir categoria em uso é permitido** — `category_id`
+  das transações antigas simplesmente vira `null` (decisão de produto, não bloqueia); renomear
+  para um nome já usado na org → 409 `TRANSACTION_CATEGORY_NAME_CONFLICT`. UI: dialog
+  "Categorias" em `cashier-page.tsx` (owner-only), categorias protegidas mostram badge e
+  ocultam o botão de excluir.
 - **Transferência entre meios:** `POST /orgs/:orgId/cashier/transfers` → `TransferUseCase` cria
   **2 transações** (saída no método origem + entrada no destino), sem taxa.
 - **Membro ativo/inativo:** `org_memberships.enabled` (default true). `SetMemberStatusUseCase`
@@ -293,6 +356,25 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   (pegadinha que ocultou `transaction.categoryId` até o teste e2e).
 - **Fora do escopo (por design):** super-admin panel, módulo de Serviços, Google Calendar, push
   externo, caixa-poupança, tema/exclusão de conta.
+- **Preview inline vs download forçado — Supabase Storage (2026-07-31)**: `createSignedUrl(bucket,
+  path, expires, downloadFileName?)` do `IStorageProvider` força `Content-Disposition: attachment`
+  quando `downloadFileName` é passado — sem ele, a URL é inline (`<img>`/`<iframe>` funcionam
+  direto). **Descoberta que evita assinar duas vezes**: no supabase-js, `download` **não entra na
+  assinatura** — é query param concatenado à URL já assinada (`?download=<nome>` ou
+  `&download=<nome>`). Uma única `createSignedUrl`/`createSignedUrls` basta para os dois links;
+  a versão de download é só `url + (url.includes('?') ? '&' : '?') + 'download=' +
+  encodeURIComponent(nome)`. Para listagens, usar `createSignedUrls` (plural) — 1 chamada HTTP
+  para N arquivos, mapeando o resultado por `path` (a ordem de retorno não é garantida), nunca
+  por índice, e omitindo entradas com `signedUrl: null`/`error` sem derrubar as demais.
+- **Travar extensão de arquivo por composição, não validação (2026-07-31)**: quando um campo de
+  nome de arquivo é editável pelo usuário (rename, ou nome-antes-do-upload), não valide que a
+  extensão foi preservada — **componha** o nome final no backend a partir da extensão real
+  (`storage_path` já salvo, ou `file.originalname` no upload) + só o nome-base vindo do usuário.
+  Não existe caminho de input que quebre a extensão, então não precisa de exceção de domínio nova.
+  Bônus: conserta de graça qualquer arquivo legado salvo sem extensão no próximo rename.
+  Utilitário `extensionOf`/`splitFileName`/`joinFileName` (extrai o *basename* antes de procurar
+  a extensão) é duplicado em `apps/frontend/src/shared/lib/file-name.ts` e
+  `apps/backend/src/common/lib/file-name.ts` — os dois apps não compartilham workspace para isso.
 
 ### Caixa & Financeiro — implementado (2026-06-16)
 
@@ -323,6 +405,25 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   criada **server-side via `TRANSACTION_REPOSITORY`** dentro do use-case — o gate owner-only do
   `CashierController` **não** bloqueia, pois RLS `transactions_insert = is_org_member`.
 
+- **Categoria de sistema com identidade estável (2026-07-31)**: `is_protected` só
+  bloqueia DELETE (regra do M5) — rename continua permitido em qualquer categoria,
+  inclusive protegida. Quando código precisa achar uma categoria específica de forma
+  confiável (ex.: marcar toda transação de reversão com a categoria "Estorno"), NÃO
+  identificar por `name` (frágil a rename) — usar `transaction_categories.system_key`
+  (nullable, único por org quando presente) como identidade interna estável. Padrão:
+  `resolveReversalCategoryId` (`cashier/domain/reversal-category.ts`) resolve por
+  `system_key='reversal'` via `findBySystemKey`, que é query DIRETA (sem passar pelo
+  `TtlCache` de 1h de `findByOrg` — categoria resolvida da lista cacheada poderia nascer
+  `null` numa reversão criada durante a janela de cache, e o caixa é append-only, sem
+  como corrigir depois). Categoria de sistema ausente **nunca** lança exceção — degrada
+  pra `categoryId: null` e o fluxo prossegue (a RLS de INSERT em `transaction_categories`
+  exige `is_org_owner`, então o código de reversão, que também roda para funcionário via
+  `CancelServiceUseCase`, nunca pode criar a categoria sob demanda). Aplicado nos 3
+  pontos reais que criam transação de reversão: `ReverseTransactionUseCase`,
+  `CancelServiceUseCase`, `CorrectServicePaymentUseCase` (só na reversão, nunca na
+  transação de substituição) — `CorrectTransactionUseCase` delega pra
+  `ReverseTransactionUseCase` e herda de graça.
+
 ### Serviços / Atendimentos (módulo `services`, 2026-06-21)
 - **Serviço = evento central** (cliente + profissional + materiais + pagamento). Backend
   `modules/services/` (Clean Arch, espelha cashier/materials). Rota
@@ -351,8 +452,21 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   `bank_transfer` (Pix), crédito/débito — **`credits`/cashback adiados** (fora do enum do form).
 - **Cancelar (`POST /:id/cancel`):** marca `canceled_at` + **estorna** a transação (errata,
   `reversesTransactionId`) + **devolve estoque** (movimento `manual_adjustment` positivo).
-  Recancelar → `SERVICE_ALREADY_CANCELED` 409. **Editar** só campos não-financeiros
-  (tipo/cliente/profissional/local/descrição/data); valor/método/materiais = cancelar + recriar.
+  Recancelar → `SERVICE_ALREADY_CANCELED` 409. **Editar** (`PATCH /:id`) só campos
+  não-financeiros (tipo/cliente/profissional/local/descrição/data); materiais = cancelar + recriar.
+- **Corrigir valor de pagamento** (`PATCH /:id/payment`, owner-only, `CorrectServicePaymentUseCase`,
+  2026-07-17): estorna a transação de pagamento original e relança uma nova com o valor/método
+  corrigidos (fee/net recalculados via `computeNet` no NOVO método) — só então atualiza
+  `services.amount_cents`/`payment_method`/`payment_transaction_id`, nessa ordem exata (nunca deixa
+  o serviço apontando para uma transação já estornada). **Autoria**: o estorno usa o ator que
+  corrige (`createdBy: currentUserId`); o relançamento preserva o autor original
+  (`createdBy: original.createdBy`) — mesmo padrão do `CorrectTransactionUseCase` do cashier.
+  Serviço cancelado/pendente/já-estornado → `SERVICE_PAYMENT_NOT_CORRECTABLE` 422.
+  **Guarda simétrica no cashier**: `CorrectTransactionUseCase` e `ReverseTransactionUseCase`
+  (ambos em `cashier`) rejeitam (422 `TRANSACTION_IS_SERVICE_PAYMENT`) corrigir/estornar pelo
+  caminho genérico do Caixa uma transação vinculada a um serviço — `CashierModule` importa
+  `ServicesInfrastructureModule` só para isso (sem ciclo: essa infra-module só depende de
+  `DatabaseModule`). Ver ADR a considerar / `.memory/sessions/` para o raciocínio completo.
 - **Consumo de materiais:** linha não-compartilhável → quantidade (valida estoque, senão
   `INSUFFICIENT_STOCK` 422; debita via `updateStockQuantity` + movimento `service_consumption`
   + `touchLastUsed`). Compartilhável (`shareable`) → checkbox **"acabou?"**: marcado ⇒ baixa
@@ -381,7 +495,7 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
 
 ### Agenda — implementada (2026-06-15)
 
-- **Agenda por membro**: cada membro gerencia a **própria** agenda. `calendar_events.assigned_to` (FK `users.id`, NOT NULL) é o dono do horário. **Ninguém cria/edita evento de outro** — nem o owner.
+- **Agenda por membro**: cada membro gerencia a **própria** agenda. `calendar_events.assigned_to` (FK `users.id`, NOT NULL) é o dono do horário. `owner` pode **criar** evento em nome de um membro (`assignedTo` no create, só na criação); **editar/excluir de terceiro continua bloqueado** mesmo para owner (`CALENDAR_EVENT_FORBIDDEN`, 403) — corrigido 2026-07-17, a nota anterior ("ninguém cria evento de outro, nem owner") estava desatualizada frente ao código.
 - **Tipo de evento** (`calendar_event_type`, migration `0007`): `appointment` (com `customer_id` opcional) | `unavailability` (bloqueio).
 - **Sobreposição** proibida por membro: app-level em `CreateCalendarEventUseCase`/`UpdateCalendarEventUseCase` (`hasOverlap`) → `CALENDAR_EVENT_OVERLAP` (409). `ends_at > starts_at` → `CALENDAR_EVENT_INVALID_RANGE` (422). Editar/excluir de terceiro → `CALENDAR_EVENT_FORBIDDEN` (403).
 - **Visibilidade por papel**: `owner` = admin (vê todos; filtra por membro via `?assignedTo=<userId>`); `employee` vê só os seus (o use-case força `assignedTo = self`). No frontend, owner que abre evento de outro membro vê em **modo leitura** (`EventForm readOnly`).
@@ -390,8 +504,293 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
 - **Integração externa (Google/Outlook/Apple)**: **adiada** — só placeholder em `/dashboard/preferences` ("Calendários externos — em breve"). Conexão será **por usuário** (espelhamento bidirecional), nunca em nome de outro. Não bloqueia o fluxo nativo.
 - **Status do evento** (migration `0008`): `scheduled | canceled` (mínimo). Só o dono altera (`UpdateCalendarEventUseCase`). Eventos `canceled` aparecem esmaecidos/riscados nas visões. Marcar status NÃO cria serviço/transação (virá com Serviços/Caixa).
 
+### F6 — Eventos compartilhados + RSVP (M6, 2026-07-17)
+
+- **Visibilidade do evento** (`calendar_events.visibility` enum `private|shared`, migration `0026`, **default `private` NOT NULL**): evento `private` (padrão) só é visível para o dono + owner/admin; `shared` fica visível para **toda a organização** + ganha lista de presença. Toggle "Compartilhar com a equipe" no `EventForm`, só o dono edita (mesma regra de edição do evento).
+- **Backfill seguro**: `ADD COLUMN ... DEFAULT 'private' NOT NULL` sem nenhum `UPDATE` — todo evento pré-existente permanece `private`. Verificado com `database-guardian` + reviewer antes do merge (nenhum evento antigo vaza para a org).
+- **RLS não distingue private/shared**: a policy Postgres de `calendar_events`/`calendar_event_attendees` só isola por **tenant** (`is_org_member(org_id)`) — mesmo padrão de `service_materials` (tabela filha sem `org_id` direto, policy via `EXISTS` join). O filtro private/shared é **100% camada de aplicação**: `ListCalendarEventsUseCase` — `owner` vê tudo (ou filtra por `assignedTo`); `employee` **ignora** o `assignedTo` do input e busca `assignedTo = self OR visibility = 'shared'` (nunca vê `private` de terceiro).
+- **RSVP** (`calendar_event_attendees`: `event_id`+`user_id` FK cascade, unique `(event_id,user_id)`, `status` enum `going|not_going`): `SetEventRsvpUseCase` deriva `user_id` **sempre do membership da sessão** (nunca do body/client) e só aceita RSVP em evento `shared` (senão `CALENDAR_EVENT_NOT_SHARED`, 422). `pending` é **derivado, nunca persistido** — `ListEventAttendeesUseCase` monta o roster com todos os membros ativos da org, marcando `pending` quem não tem linha de attendee.
+- **Frontend gotcha**: `<EventAttendees>` (botões Vou/Não vou) fica **fora** do `<fieldset disabled={readOnly}>` do `EventForm` — funcionário abre evento `shared` de outro membro em modo leitura (não edita o evento), mas precisa conseguir votar a própria presença.
+- **Valor da sessão continua na descrição** — F6 não adicionou campo novo para isso.
+- **Migration manual**: `drizzle-kit generate` segue quebrado desde a `0011` (sem snapshot) — `0026` escrita à mão seguindo o padrão de `0025_transaction_categories_protected.sql` (+ `.down.sql` + entrada manual em `meta/_journal.json`).
+
+### F4/F7/F8 — Regras e mídia de serviços (M7, 2026-07-17)
+
+- **F4 — flag 18+ por tipo de serviço** (`service_types.requires_age_verification` boolean, migration `0027`, default `false`): decisão de produto confirmada pelo usuário é **BLOQUEIO**, não alerta. `assertAgeVerification` (helper isolado) calcula idade real por mês/dia (não só subtração de ano) na data efetiva do atendimento (`performedAt`); se o tipo exige e o cliente é menor, OU não há cliente selecionado, OU o cliente não tem `birthDate` válido → `ServiceAgeVerificationRequiredException` (422 `SERVICE_AGE_VERIFICATION_REQUIRED`). **Default seguro**: sem dado para confirmar maioridade = bloqueia. `update-service.use-case.ts` valida sobre os **valores efetivos pós-merge** (existing ⊕ patch) — trocar só o cliente para um menor, sem reenviar `serviceTypeId`, ainda bloqueia.
+- **Gerenciar a flag é owner-only**: `POST orgs/:orgId/services/types` (criação inline por qualquer membro, sem guard) **não aceita** `requiresAgeVerification` — só `PATCH orgs/:orgId/services/types/:typeId` (`OrgOwnerGuard`) pode habilitá-la, por ser regra de negócio/responsabilidade legal sensível.
+- **F7 — nome amigável preservado no download**: já existia ~90% em `customer-attachments` (path interno único `{orgId}/{customerId}/{uuid}_{safeName}`, `fileName` original preservado no registro). Gap fechado nesta sessão: `IStorageProvider.createSignedUrl` ganhou 4º parâmetro opcional `downloadFileName?` — quando passado, força `Content-Disposition: attachment; filename="..."` via Supabase Storage (`{ download: ... }`). Só `ListCustomerAttachmentsUseCase` passa isso; `ListServiceMediaUseCase` (F8) **não passa** de propósito (fotos exibidas inline, não forçadas a download).
+- **F8 — fotos do serviço** (`service_media`, migration `0027`, bucket privado `service-media`, 300KB/img, `image/png|jpeg|webp`): réplica exata do padrão `customer_attachments`, com `org_id` **denormalizado** na tabela (RLS direta `is_org_member(org_id)`, sem join — diferente do padrão de `calendar_event_attendees`/`service_materials`, que não tem `org_id` próprio). Limite de 3 imagens por serviço checado em app (`countByService` antes do insert, `SERVICE_MEDIA_LIMIT_EXCEEDED` 422) — sem constraint de banco (TOCTOU aceito nesta escala).
+- **Gotcha de migration/Storage**: `DELETE FROM storage.buckets`/`storage.objects` direto via SQL **falha** no Supabase local ("Direct deletion from storage tables is not allowed"). `.down.sql` de migration que cria bucket **não deve** tentar apagá-lo — deixar o bucket órfão após rollback é seguro (o `up` é idempotente via `ON CONFLICT DO UPDATE`). Bug idêntico (não corrigido, tarefa em backlog) existe nas migrations `0010` e `0012`, nunca exercitado antes desta sessão.
+- **Migration manual**: mesma situação da `0026` — `0027` escrita à mão (drizzle-kit generate quebrado desde `0011`).
+
+### M8 — Exportação de dados (A5, 2026-07-17)
+
+- **Formato configurável**: os 4 endpoints de export existentes (services, cashier,
+  customers, materials — RPT-2, 2026-06-27) ganharam query params opcionais `format`
+  (`'csv'|'xlsx'`, default `'csv'`) e `delimiter` (`'comma'|'semicolon'|'tab'`, só
+  relevante quando `format=csv`, default `'comma'`). **Retrocompatível**: nenhum
+  parâmetro novo = comportamento idêntico ao anterior (CSV com vírgula).
+  Normalização de valores inválidos/ausentes cai sempre no default — nunca lança erro por
+  `format`/`delimiter` desconhecido.
+- **`common/csv/csv.util.ts`**: `buildCsv()` ganhou 4º parâmetro opcional
+  `delimiterChar` (`,`/`;`/`\t`); `csvCell()` escapa o delimitador ativo além do escape
+  fixo já existente (`/[",\n;]/`) — superset estrito do comportamento anterior. Nova
+  `resolveColumns()` extraída (seleção/ordem via `fields`) para ser reusada tanto por
+  `buildCsv` quanto pela nova geração de Excel.
+- **`common/csv/xlsx.util.ts`** (novo): `buildXlsx<T>(rows, columns, fields?): Promise<Buffer>`
+  via **`exceljs`** — reusa a mesma `CsvColumn<T>[]`/`resolveColumns()` do CSV, escreve
+  valores com tipo nativo do Excel (number/Date/string conforme o que
+  `column.value(row)` já retorna), freeze da primeira linha, largura de coluna
+  automática. **Decisão de lib**: `exceljs`, não `xlsx`/SheetJS — o pacote `xlsx`
+  publicado no npm tem vulnerabilidade conhecida (prototype pollution/ReDoS) sem correção
+  no próprio registro (só corrigida no CDN deles, fora do fluxo normal de instalação).
+- **Content-Type/Content-Disposition por formato**: CSV mantém `text/csv; charset=utf-8`
+  + `.csv`; Excel usa
+  `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` + `.xlsx`.
+  `res.send()` aceita tanto `string` (CSV) quanto `Buffer` (Excel) sem tratamento
+  especial.
+- **Frontend**: `export-menu.tsx` (componente único reusado pelas 4 páginas) ganhou
+  `Select` de Formato (CSV/Excel) + `Select` de Delimitador (só visível quando CSV,
+  espelhando o padrão de campo condicional já usado no projeto). Textos renomeados:
+  "Exportar CSV" → "Exportar dados"; "Baixar CSV" → dinâmico conforme o formato
+  ("Baixar CSV"/"Baixar Excel"). `download-csv.ts` renomeado para `download-export.ts`
+  (função `downloadExport`), extensão do arquivo baixado derivada do formato escolhido.
+
+### M9 — Tour de onboarding (F9, 2026-07-17)
+
+- **Persistência no backend, não localStorage**: `users.onboarding_completed_at`
+  (timestamptz nullable, migration `0028`, SEM backfill — usuários existentes veem o
+  tour uma vez, é dismissível e barato). Decisão do usuário: correta entre
+  dispositivos/navegadores, mesmo elevando a tarefa de "intermediária" (rótulo original
+  do roadmap) para **complexa + database-guardian** por tocar schema.
+- **Timestamp sempre derivado no servidor**: `PATCH /auth/me` aceita
+  `onboardingCompletedAt` só como **sinal** (qualquer string truthy ou `null`) — o valor
+  em si é sempre `new Date()` no momento da chamada, nunca o timestamp enviado pelo
+  cliente (evita gravar uma data arbitrária de passado/futuro na própria linha).
+- **Sem endpoint novo**: reusa o fluxo já existente `PATCH /auth/me` →
+  `UpdateMeUseCase` → `userRepo.update` (mesma auditoria automática via
+  `changedFields`), em vez de criar uma rota dedicada.
+- **Lib de tour**: `driver.js` (vanilla JS, zero peer-deps — sem risco de conflito com
+  React 19). CSS global só pode ser importado em `pages/_app.tsx` (Next pages router);
+  importar em componente/hook quebra o build.
+- **Passos calculados dinamicamente**: `getTourSteps(org)` (função pura,
+  `features/dashboard/lib/onboarding-tour.ts`) reusa EXATAMENTE o mesmo filtro de
+  visibilidade de `org-sidebar.tsx` (role + `canAccessModule`) — funcionário com
+  permissões parciais vê só os passos dos módulos que realmente acessa; owner vê todos.
+- **Replay via query param, não navegação direta durante o tour**: botão "Ver tour
+  novamente" fica em **Minha Conta** (não em Configurações da org — o tour é por
+  usuário, não por org) e navega para `/dashboard/org/<slug>/overview?tour=1`;
+  `useOnboardingTour` (montado em `OrgLayout`) detecta `?tour=1` e inicia em modo
+  replay (sem regravar a flag). O tour em si NUNCA navega durante a execução dos
+  passos — só alterna o drawer mobile e o destaque entre elementos já montados.
+- **Gotcha de React Strict Mode**: o guard de dupla montagem (`startedRef`) só é
+  setado **dentro** do `setTimeout` de start, nunca antes de agendá-lo — senão o
+  cleanup do Strict Mode cancela a 1ª montagem e a 2ª nunca reagenda (tour morto).
+- **Mobile**: `onHighlightStarted` do driver.js abre o drawer antes de destacar item de
+  sidebar (`data-tour="nav-*"`) e fecha para os demais passos (popover central,
+  `user-menu`) — evita o overlay do drawer cobrindo o header por cima do popover.
+
+### M10a — Ficha de anamnese: construtor + versionamento (F10, 2026-07-17)
+
+- **F10 dividido em 3 fatias** (decisão do usuário, após pesquisa mostrar que
+  "complexa" no roadmap subestimava o escopo real): **M10a** (este) = construtor +
+  versionamento, admin-only, sem exposição pública. **M10b** (próximo) = link público
+  sem login + submissão de resposta (primeiro endpoint de escrita pública do app) +
+  e-mail + `services.anamnesis_response_id`. **M10c** (BLOQUEADO) = assinatura digital —
+  usuário precisa pesquisar validade jurídica (ICP-Brasil ou equivalente) antes de
+  qualquer código; não implementar sem confirmar que a pesquisa foi feita.
+- **Modelagem em 2 tabelas** (migration `0029`): `anamnesis_forms` (identidade — 1 por
+  tipo de serviço via `UNIQUE(service_type_id)`) + `anamnesis_form_versions` (conteúdo
+  — snapshot imutável das perguntas em `jsonb`, `UNIQUE(form_id, version_number)`,
+  `org_id` denormalizado pra RLS, mesmo padrão de `service_media`). Separar identidade
+  de conteúdo versionado é o que permite "1 formulário, N versões" sem ambiguidade.
+- **Imutabilidade de versão é estrutural, não só de convenção**: RLS de
+  `anamnesis_form_versions` não tem policy de UPDATE nem DELETE — nem `is_super_admin()`
+  consegue mudar uma versão existente pela conexão `DRIZZLE` (só `DRIZZLE_ADMIN`/dono da
+  tabela poderia, fora do caminho normal da app). O repositório também não expõe nenhum
+  método de update/delete de versão — toda gravação é `createVersion()` (get-or-create
+  do form + `INSERT` da próxima versão numa transação; `version_number` = `max()+1`).
+- **Só owner cria/edita** (`POST .../versions` com `OrgOwnerGuard` + RLS
+  `is_org_owner(org_id)`); qualquer membro lê (`GET` com `OrgMembershipGuard` + RLS
+  `is_org_member(org_id)`) — precisa saber se o tipo de serviço exige anamnese.
+  `createdBy` sempre resolvido de `authId` (sessão) → `users.id`, nunca aceito do
+  client/body.
+- **Perguntas sem schema no banco** (`jsonb` puro: `{ id: uuid, type: 'text'|'yes_no',
+  label, required }[]`) — a única validação é em aplicação (`class-validator` nested no
+  DTO, `whitelist: true` no `ValidationPipe` global remove chaves extras antes de
+  chegar no jsonb). Sem verificação de unicidade de `question.id` dentro do array ainda
+  — pendência registrada pra M10b resolver antes de mapear respostas por pergunta.
+- **Pendência explícita levada pro M10b** (achado do `database-guardian`):
+  `anamnesis_forms.service_type_id` é `ON DELETE CASCADE` — hoje inofensivo (M10a não
+  tem nenhuma resposta preenchida), mas quando M10b existir (`services` →
+  `anamnesis_responses` → `anamnesis_form_versions`), excluir um tipo de serviço vai
+  apagar em cascata todo o histórico de versões e, por extensão, o registro de
+  respostas preenchidas por clientes — decidir lá se isso é aceitável ou se o FK
+  precisa virar `RESTRICT`/a resposta precisa ficar self-contained (snapshot das
+  perguntas embutido na resposta, não só uma referência).
+- **Sem tela de gestão de tipos de serviço** existia antes desta fatia (tipos só eram
+  criados inline por nome ao lançar serviço) — criada uma página mínima
+  `settings/anamnesis` (owner-only) que lista os tipos existentes e permite configurar
+  a ficha de cada um; NÃO é CRUD completo de tipos (fora de escopo).
+
+### M10b — Ficha de anamnese: link público sem login + submissão (F10, 2026-07-17)
+
+- **Gatilho do envio é ação manual do owner/funcionário** (decisão do usuário) — NÃO
+  automático via `calendar_events` (sem `serviceTypeId` pra resolver o form) nem via
+  `service` (só criado depois do atendimento, tarde demais pra ficha de saúde). Botão
+  "Enviar ficha de anamnese" cria uma resposta `pending` (token + snapshot da versão
+  vigente) e dispara e-mail; quando o `service` financeiro é lançado depois, ele pode
+  referenciar manualmente uma resposta já `submitted` do mesmo cliente/tipo. Módulo
+  `calendar` não foi tocado nesta fatia.
+- **`anamnesis_responses` é autocontida por design** (migration `0030`): copia
+  `questionsSnapshot` da versão vigente NO MOMENTO DO ENVIO, nunca lida de
+  `anamnesis_form_versions` depois. Isso resolve a pendência que M10a deixou pro
+  `database-guardian`: `anamnesis_forms.service_type_id` continua `ON DELETE CASCADE`
+  com segurança, porque excluir o tipo/form/versões não afeta respostas já enviadas —
+  `formVersionId` na resposta é só proveniência (`ON DELETE SET NULL`).
+- **Primeiro endpoint de escrita público do app** (`public/anamnesis-responses/:token` +
+  `:token/submit`, sem `AuthGuard`): repositório usa `DRIZZLE_ADMIN` (bypassa RLS) SÓ em
+  `findByToken`/`markSubmitted`/`delete`/`deletePendingFor` — o resto do módulo
+  (`create`/`findById`/`findLinkable`) usa `DRIZZLE` normal com `organization_id` da
+  sessão. RLS da tabela habilitada mas SEM policy de UPDATE/DELETE (dado de saúde é
+  append-only por convenção; a única mutação pós-insert, `markSubmitted`, roda sempre
+  via admin porque quem submete não tem sessão).
+- **Minimização de PII no GET público**: retorna só `questions`, primeiro nome do
+  cliente (`customerName.split(" ")[0]`), `status` derivado e `expiresAt` — nunca nome
+  da org, ids internos, outros dados do cliente ou as `answers`. `@Throttle` mais
+  restrito no submit (5/60s vs. 120/min global) — token é 256 bits (`gen_random_bytes(32)`
+  hex), enumeração inviável mesmo sem o throttle mais apertado.
+- **Vínculo `services.anamnesis_response_id`** (índice único parcial `WHERE
+  anamnesis_response_id IS NOT NULL`): `assertAnamnesisResponseLinkable` faz o
+  pré-check de aplicação (existe na org, `status=submitted`, cliente/tipo batem
+  quando a resposta já os tem preenchidos), mas a violação do índice único
+  (resposta já vinculada a OUTRO service) é responsabilidade exclusiva do catch de
+  unicidade no repositório — não há pré-check de aplicação pra esse caso específico.
+- **Gotcha real, achado só em teste manual (não pelo `reviewer` estático)**:
+  `drizzle-orm@0.45.2` envolve o erro do pg num `DrizzleQueryError` — o `code` real da
+  violação (`23505`) fica em `error.cause.code`, não em `error.code`. O padrão
+  `isUniqueViolation(error)` que só checava `error.code` (copiado de
+  `drizzle-customer.repository.ts`) **não pegava mais a violação** e deixava vazar um
+  500 cru em vez do 409 de domínio — silenciosamente "funcionava" pro caso de cliente
+  porque `create-customer.use-case.ts` tem um pré-check de aplicação que intercepta
+  antes do insert; pro caso de anamnese não há esse pré-check (documentado no próprio
+  código), então o bug era 100% visível. Corrigido em
+  `drizzle-service.repository.ts` (`isUniqueViolation` agora também verifica
+  `error.cause?.code`). **O mesmo bug ainda existe em `drizzle-customer.repository.ts`**
+  (mascarado, não corrigido nesta fatia — spinned off como task separada). Qualquer
+  repositório novo que capture `23505` via `catch` deve usar esse padrão corrigido, não
+  copiar o antigo.
+- Achados `low` do `reviewer` aceitos sem ação: sem `@MaxLength` por campo em
+  `AnamnesisAnswerDto.value` (bounded pelo limite padrão do body-parser, ~100kb); e-mail
+  do cliente em log de erro (PII leve, consistente com o resto do código);
+  `SendAnamnesisInviteUseCase` não compensa (não deleta a resposta pendente) quando o
+  canal de e-mail está desabilitado/no-op (`sendAnamnesisLink` retorna `false` sem
+  lançar) — só relevante se um canal mal configurado em produção retornar `false` em
+  vez de lançar.
+
+### M10c — Ficha de anamnese: assinatura eletrônica (F10, parte 3/3, final, 2026-07-17)
+
+- **Pesquisa jurídica concluída antes de codar** (bloqueio explícito desde M10, decisão
+  do usuário): assinatura eletrônica SIMPLES (não ICP-Brasil) é válida no Brasil pra
+  este termo de consentimento — jurisprudência STJ 2024-2026 (REsp 2.197.156, STJ
+  03/12/2024, TJSP Ap. 1011554-80.2024.8.26.0451) valida assinatura em plataforma
+  própria/não certificada quando integridade é demonstrável. gov.br Assinador é
+  inviável (API restrita a órgãos públicos). Optou-se por implementação própria (DIY)
+  em vez de ClickSign/DocuSign: mesmo nível jurídico, custo zero, sem dependência
+  externa nova. **Isso é pesquisa registrada, não parecer jurídico formal.**
+- **Novas dependências**: `pdfkit` (+ `@types/pdfkit`, backend) pra geração de PDF
+  server-side sem DOM/browser; `signature_pad` (frontend) pro canvas de assinatura —
+  nenhuma tinha precedente no projeto antes desta fatia.
+- **Evidências gravadas na submissão** (migration `0032`, colunas nullable em
+  `anamnesis_responses`): `signer_full_name`, `signer_cpf` (opcional, só regex de 11
+  dígitos, sem checagem de dígito verificador), `signature_storage_path`,
+  `pdf_storage_path`, `pdf_hash_sha256`, `request_ip`, `request_user_agent`. Bucket
+  privado novo `anamnesis-documents` (1MB, `image/png`+`application/pdf`), mesmo padrão
+  de `service_media` (0027) — path com signed URL, nunca público.
+- **Caminho de storage inclui nonce por tentativa** (`{orgId}/{responseId}/{randomUUID}-signature.png`
+  e `...-signed-form.pdf`, não um path fixo por `responseId`): decisão pós-`reviewer`.
+  Path fixo + `upsert:true` permitia que duas submissões concorrentes do mesmo token
+  (double-tap, replay de rede) sobrescrevessem os artefatos uma da outra no Storage de
+  forma independente de qual `markSubmitted` vencesse a corrida no Postgres — o hash
+  gravado no banco podia não bater com o arquivo fisicamente armazenado. Com paths
+  únicos por tentativa, cada chamada só referencia os próprios arquivos; a tentativa
+  perdedora fica com blobs órfãos (inofensivos, nunca lidos) em vez de corromper a
+  integridade da vencedora. **`IStorageProvider.uploadFile` não tem mais parâmetro
+  `upsert`** (foi adicionado e depois revertido nesta mesma fatia — ver histórico do
+  PR — porque deixou de ser necessário uma vez que os paths são únicos).
+- **`markSubmitted` retorna `boolean`** (linhas afetadas > 0), não mais `void`: o
+  `WHERE status='pending'` já existia desde M10b como proteção contra dupla submissão,
+  mas o use-case não checava o resultado — uma submissão concorrente perdedora
+  reportava sucesso (200) mesmo sem ter sido persistida. Agora, 0 linhas afetadas ⇒
+  `AnamnesisResponseAlreadySubmittedException` (409), e o e-mail best-effort não é
+  disparado pra essa tentativa. Achado do `reviewer` (severidade high) só descoberto em
+  teste manual com duas requisições concorrentes de verdade — revisão estática de
+  código não pega essa classe de bug.
+- **Sem commit parcial**: ordem estrita no use-case — validar respostas → validar
+  magic-number PNG da assinatura (`0x89 0x50 0x4E 0x47`) → gerar PDF (falha aqui também
+  vira `AnamnesisSignatureRequiredException`, não 500 cru) → hash SHA-256 do PDF →
+  upload de assinatura+PDF → `markSubmitted` (só aqui a linha muda de estado) → e-mail
+  de cópia best-effort por último, nunca antes.
+- **E-mail de cópia é best-effort, NUNCA reverte a submissão** — diferente do padrão de
+  `send-anamnesis-invite.use-case.ts` (que reverte/compensa em falha de e-mail): aqui a
+  evidência (hash+storage+DB) já está durável antes da tentativa de e-mail, então uma
+  falha de envio só é logada (com `response.id`, nunca o e-mail do cliente em texto —
+  PII em log). `customerEmail` é carregado por `findByToken` mas NUNCA exposto pelo
+  DTO do GET público (`GetAnamnesisResponseByTokenUseCase`) — só usado internamente
+  pelo `submit`.
+- **`signatureImageBase64`**: data URI `data:image/png;base64,...`, `@MaxLength(80_000)`
+  no DTO. Canvas do frontend limita `devicePixelRatio` a no máximo 2x (não o valor real
+  do dispositivo, que pode chegar a 3-4x em celulares) — sem esse teto, uma assinatura
+  densa em tela HiDPI podia gerar um PNG grande o bastante pra flertar com o limite.
+- **Hash do formulário vs. hash do PDF**: o PDF gerado imprime um "Hash do formulário"
+  (SHA-256 do `questionsSnapshot` serializado com chaves em ordem fixa — prova QUAL
+  conjunto de perguntas foi assinado). O hash do PRÓPRIO PDF (`pdf_hash_sha256`,
+  gravado no banco, não impresso no documento — seria autorreferente) é a prova de
+  integridade do arquivo de evidência.
+- **CPF em texto puro, sem criptografia adicional** — sinalizado pelo
+  `database-guardian` como decisão de produto (LGPD: CPF é PII, legível por qualquer
+  membro da org via RLS `is_org_member`), não bloqueante. Não resolvido nesta fatia.
+- **F10 está completo**: M10a (construtor+versionamento) + M10b (link público+submissão)
+  + M10c (assinatura) cobrem o fluxo inteiro de ficha de anamnese.
+
+### Conformidade legal — LGPD Tier 1 (2026-07-27, ADR-0018)
+
+- **Divisão controlador/operador**: para conta/billing/telemetria de usuário da plataforma,
+  o **ASO é controlador**; para dados de clientes/pacientes do estúdio (customers, anamnese,
+  anexos), o **estúdio (organization) é controlador** e o ASO atua só como **operador**.
+  Formalizado em `apps/frontend/src/features/legal/` (4 páginas: termos, privacidade,
+  cookies, adendo de tratamento de dados) e no ADR.
+- **Regra de texto legal exibido a um titular: sempre gerado no servidor, nunca confiado ao
+  cliente, snapshotado na linha do registro e impresso no artefato final.** Mesmo padrão de
+  `anamnesis_responses.questions_snapshot`. Aplicado a dois lugares: aceite de termos no
+  cadastro (`users.terms_accepted_at`/`terms_version`) e consentimento da ficha de anamnese
+  (`anamnesis_responses.consent_text_snapshot`/`consent_version`/`consent_accepted_at`,
+  gerado por `anamnesis/domain/build-anamnesis-consent-text.ts`). Submissão rejeita
+  (`ANAMNESIS_CONSENT_REQUIRED`) se a versão enviada pelo cliente não bater com a vigente no
+  servidor — protege contra formulário aberto durante um deploy do texto.
+- **Sem banner de cookies**: decisão deliberada, não lacuna — o app não grava
+  `document.cookie`, não usa analytics/pixel de terceiros, fontes são self-hosted em build.
+  Único armazenamento local é `inkops_session` (necessário) e `theme` (funcional). Se isso
+  mudar (analytics, pixel), a Política de Cookies e um consent manager real precisam entrar
+  juntos, antes da ativação.
+- **Migration escrita à mão exige registro manual em `meta/_journal.json`** — o
+  `migrate()` do drizzle-orm só aplica migrations listadas no journal; uma migration nova
+  sem entrada correspondente é **silenciosamente ignorada** por `db:migrate` (sem erro,
+  simplesmente não aplica). Todo fluxo de migration manual (ver `env_migration_snapshot_gap`
+  na memória de sessão) precisa desse passo extra antes de rodar `db:migrate`.
+- **Pendência dura fora do código**: `features/legal/constants/entity.ts` (`LEGAL_ENTITY`)
+  tem placeholders `[PREENCHER: ...]` para razão social/CNPJ/endereço/encarregado — bloqueia
+  o site de ir ao ar até serem preenchidos com dados reais (identificação do fornecedor,
+  CDC; encarregado, LGPD art. 41).
+- **Tier 2 (não resolvido nesta fatia)**: cron de retenção (anamnese expirada, convites
+  expirados, notifications, audit logs), `anamnesis_responses.customer_id` órfão ao deletar
+  cliente (FK `set null`), limpeza de Storage no delete de qualquer entidade, bucket
+  `avatars` público com path adivinhável, PII em `audit_logs.metadata` sem TTL, export de
+  dados por titular.
+
 ### Notificações — núcleo reutilizável (2026-06-15)
-- **Módulo `modules/notifications/`**: `NotificationService.notify({userId, orgId?, type, title, body?, data?, email?})` cria a notificação **in-app** (tabela `notifications`, migration `0008`) e dispara **e-mail** (Resend) se `NOTIFICATIONS_EMAIL_ENABLED=true` + `RESEND_API_KEY`. Falha de e-mail nunca quebra o fluxo. **Outros módulos injetam `NotificationService`** (exportado).
+- **Módulo `modules/notifications/`**: `NotificationService.notify({userId, orgId?, type, title, body?, data?, email?, actionUrl?, actionLabel?})` cria a notificação **in-app** (tabela `notifications`, migration `0008`) e dispara **e-mail** via `MailService.sendNotification` (best-effort em `try/catch` — falha nunca quebra agenda/estoque/cron). **Outros módulos injetam `NotificationService`** (exportado).
+- **E-mail transacional centralizado (ADR-0012)**: módulo dedicado `modules/mail/` (sem dep de auth/notifications → evita ciclo) é dono do port `IEmailSender`/`ResendEmailSender` e do `MailService` (`sendOrgInvite`/`sendPasswordReset`/`sendWelcome`/`sendNotification`). Templates **React Email** `.tsx` em `modules/mail/templates/` (preview: `pnpm --filter backend email:dev`). **`IEmailSender.send`**: `false` = desabilitado (no-op, dev), `true` = enviado, **lança** em falha real. **Críticos (abortam):** convite (cria→envia→em falha **reverte** o convite + `InvitationEmailFailedException`/HTTP 502) e **reset de senha**. **Best-effort:** notificações/crons e welcome. **Reset de senha saiu do GoTrue**: `IAuthProvider.generatePasswordResetLink` (`admin.generateLink type=recovery`, sem enviar) → enviamos via Resend; `null` p/ user inexistente (sem enumeração). Welcome no sign-up. `NOTIFICATIONS_FROM_EMAIL` exige domínio verificado no Resend.
 - A tabela `notifications` **não tem RLS** — acesso só pelo módulo, sempre escopado por `user_id` no código, via **`DRIZZLE_ADMIN`**. Inbox por usuário: `GET/POST /me/notifications` (`AuthGuard`, resolve `authId→users.id`).
 - **Gatilhos atuais**: (1) indisponibilidade criada por um membro → notifica os **owners** (exceto o autor), no `CreateCalendarEventUseCase`; (2) **lembrete de agenda** via cron.
 - **Cron interno**: `CronSecretGuard` (header `x-cron-secret` == env `CRON_SECRET`) protege `POST /internal/cron/*` (sem Auth/Org guard). `POST /internal/cron/agenda-reminders` lembra appointments `scheduled` que começam nas próximas 24h e seta `reminder_sent_at` (**idempotente**). No Railway, um job agendado bate nesse endpoint. **Queries de cron/cross-user usam `DRIZZLE_ADMIN`** (sem contexto de request, RLS bloquearia; e a policy de `users` é self-only).

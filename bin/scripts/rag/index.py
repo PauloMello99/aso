@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
-"""Build or refresh the Qdrant memory index.
+"""Build or refresh the Qdrant memory index (hybrid dense+sparse, ADR-0015).
 
 Usage:
     python index.py                # full rebuild (recreates collection)
     python index.py --no-recreate  # true incremental: re-embed only changed chunks
 
-Each chunk is embedded from an *enriched* context (type + document + section +
-breadcrumb + body, see embedding_context.build_embedding_text) rather than the
-bare body, and carries structured metadata + a content hash in its payload.
+Markdown (memory bank, docs) is chunked structure/token-aware with parent-section
+offsets (chunker.py); TypeScript sources are chunked by top-level symbols
+(code_chunker.py) and tagged memory_type="code" + app/module/layer.
+
+Each chunk is embedded twice: dense (bge-m3 via Ollama, enriched context) and
+sparse (BM25 via fastembed) into named vectors {dense, sparse}.
 
 Incremental mode (`--no-recreate`):
-  - skips chunks whose stored `chunk_hash` matches the freshly computed one
-    (no embedding cost for unchanged content), and
-  - deletes orphaned points — stale chunks left behind when a file shrinks,
-    is re-sectioned, or renamed.
+  - skips chunks whose stored `chunk_hash` matches the freshly computed one, and
+  - deletes orphaned points (file shrank, re-sectioned, renamed, or removed).
 """
 import argparse
 import hashlib
@@ -25,14 +26,24 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from chunker import chunk_markdown
-from config import COLLECTION, EMBED_DIM, EXTRA_FILES, INDEX_GLOBS
+from code_chunker import chunk_code, code_path_metadata
+from config import (
+    CODE_EXCLUDES,
+    CODE_GLOBS,
+    COLLECTION,
+    EMBED_DIM,
+    EXTRA_FILES,
+    INDEX_GLOBS,
+)
 from embedding_context import build_embedding_text
 from metadata import extract_doc_metadata
 from ollama_client import embed
 from qdrant_client.models import PointIdsList, PointStruct
-from qdrant_store import ensure_collection, get_client, recreate_collection
+from qdrant_store import DENSE, SPARSE, ensure_collection, get_client, recreate_collection
+from sparse import embed_sparse
+from tokenizer import using_fallback
 
-BATCH_SIZE = 64
+BATCH_SIZE = 32  # bge-m3 is heavier than nomic
 SCROLL_PAGE = 256
 NS = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")  # UUID5 namespace
 
@@ -54,63 +65,96 @@ def _repo_root() -> Path:
     return current.parents[3]  # fallback
 
 
-def collect_files() -> list[Path]:
-    root = _repo_root()
+def _collect(root: Path, patterns: list[str], excludes: tuple = ()) -> list[Path]:
     files: list[Path] = []
     seen: set[str] = set()
-    for pattern in INDEX_GLOBS:
+    for pattern in patterns:
         for p in root.glob(pattern):
-            if p.is_file() and str(p) not in seen:
-                files.append(p)
-                seen.add(str(p))
-    for extra in EXTRA_FILES:
-        p = Path(extra)
-        if p.is_file() and str(p) not in seen:
+            posix = p.as_posix()
+            if not p.is_file() or posix in seen:
+                continue
+            if any(x in posix for x in excludes):
+                continue
             files.append(p)
-            seen.add(str(p))
+            seen.add(posix)
     return files
 
 
-def build_points(files: list[Path], root: Path) -> tuple[list[dict], dict[str, set]]:
-    """Build per-chunk records and the set of current point-ids per source.
+def collect_files(root: Path) -> tuple[list[Path], list[Path]]:
+    md = _collect(root, INDEX_GLOBS)
+    for extra in EXTRA_FILES:
+        p = Path(extra)
+        if p.is_file():
+            md.append(p)
+    code = _collect(root, CODE_GLOBS, CODE_EXCLUDES)
+    return md, code
 
-    Each record is ``{id, payload, embedding_text}``; the vector is filled later
-    only for chunks that actually need (re-)embedding.
-    """
+
+def _records_for_file(rel: str, raw: str, is_code: bool) -> list[dict]:
+    if is_code:
+        path_meta = code_path_metadata(rel)
+        doc_meta = {
+            "memory_type": "code",
+            "document": rel,
+            "title": Path(rel).name,
+            "category": "",
+            "tags": [],
+        }
+        chunks = chunk_code(raw, rel)
+        extra = {"language": "TypeScript", **path_meta}
+    else:
+        doc_meta = extract_doc_metadata(rel, raw)
+        chunks = chunk_markdown(raw, rel)
+        extra = {}
+
+    records = []
+    for i, chunk in enumerate(chunks):
+        payload = {
+            **doc_meta,
+            **extra,
+            "source": rel,
+            "breadcrumb": chunk["breadcrumb"],
+            "section": chunk["section"],
+            "text": chunk["body"],
+            "char_start": chunk.get("char_start", 0),
+            "char_end": chunk.get("char_end", 0),
+            "parent_source": rel,
+            "parent_section": chunk.get("parent_section", ""),
+            "parent_start": chunk.get("parent_start", 0),
+            "parent_end": chunk.get("parent_end", 0),
+            "parent_hash": chunk.get("parent_hash", ""),
+        }
+        embedding_text = build_embedding_text(payload)
+        payload["chunk_hash"] = chunk_hash(embedding_text)
+        records.append(
+            {
+                "id": point_id(rel, i),
+                "payload": payload,
+                "embedding_text": embedding_text,
+            }
+        )
+    return records
+
+
+def build_points(root: Path) -> tuple[list[dict], dict[str, set]]:
+    md_files, code_files = collect_files(root)
+    print(f"Indexing {len(md_files)} markdown + {len(code_files)} code file(s)...")
+
     records: list[dict] = []
     source_ids: dict[str, set] = defaultdict(set)
 
-    for fpath in files:
-        rel = fpath.relative_to(root).as_posix()
-        raw = fpath.read_text(encoding="utf-8", errors="ignore")
-        doc_meta = extract_doc_metadata(rel, raw)
-        chunks = chunk_markdown(raw, rel)
-
-        for i, chunk in enumerate(chunks):
-            payload = {
-                "memory_type": doc_meta["memory_type"],
-                "document": doc_meta["document"],
-                "title": doc_meta["title"],
-                "category": doc_meta["category"],
-                "tags": doc_meta["tags"],
-                "source": rel,
-                "breadcrumb": chunk["breadcrumb"],
-                "section": chunk["section"],
-                "text": chunk["body"],
-            }
-            embedding_text = build_embedding_text(payload)
-            payload["chunk_hash"] = chunk_hash(embedding_text)
-            pid = point_id(rel, i)
-            source_ids[rel].add(pid)
-            records.append(
-                {"id": pid, "payload": payload, "embedding_text": embedding_text}
-            )
+    for group, is_code in ((md_files, False), (code_files, True)):
+        for fpath in group:
+            rel = fpath.relative_to(root).as_posix()
+            raw = fpath.read_text(encoding="utf-8", errors="ignore")
+            for rec in _records_for_file(rel, raw, is_code):
+                source_ids[rel].add(rec["id"])
+                records.append(rec)
 
     return records, source_ids
 
 
 def _existing_hashes(client, ids: list[str]) -> dict[str, str]:
-    """Map point-id -> stored chunk_hash for ids already in the collection."""
     hashes: dict[str, str] = {}
     for start in range(0, len(ids), SCROLL_PAGE):
         batch = ids[start : start + SCROLL_PAGE]
@@ -128,12 +172,6 @@ def _existing_hashes(client, ids: list[str]) -> dict[str, str]:
 
 
 def _delete_orphans(client, source_ids: dict[str, set]) -> int:
-    """Delete stale points — any point not in the current valid id-set.
-
-    A single pass over the collection covers every staleness case: a shrunk file
-    (fewer chunks), a re-sectioned file (different ids), a renamed file, and a
-    file no longer matched by INDEX_GLOBS or deleted from disk entirely.
-    """
     valid: set[str] = set()
     for ids in source_ids.values():
         valid |= ids
@@ -161,13 +199,19 @@ def _delete_orphans(client, source_ids: dict[str, set]) -> int:
 
 
 def _upsert_records(client, records: list[dict]) -> None:
-    """Embed (enriched text) and upsert the given records in batches."""
+    """Embed (dense + sparse) and upsert the given records in batches."""
     for start in range(0, len(records), BATCH_SIZE):
         batch = records[start : start + BATCH_SIZE]
-        vectors = embed([r["embedding_text"] for r in batch])
+        texts = [r["embedding_text"] for r in batch]
+        dense_vecs = embed(texts)
+        sparse_vecs = embed_sparse([r["payload"]["text"] for r in batch])
         points = [
-            PointStruct(id=r["id"], vector=vec, payload=r["payload"])
-            for r, vec in zip(batch, vectors)
+            PointStruct(
+                id=r["id"],
+                vector={DENSE: dv, SPARSE: sv},
+                payload=r["payload"],
+            )
+            for r, dv, sv in zip(batch, dense_vecs, sparse_vecs)
         ]
         client.upsert(collection_name=COLLECTION, points=points)
         print(f"  Upserted {start + len(batch)}/{len(records)}")
@@ -178,18 +222,18 @@ def main() -> None:
     parser.add_argument("--no-recreate", action="store_true")
     args = parser.parse_args()
 
+    if using_fallback():
+        print("WARN: tokenizer fallback (chars/3.3) in use — run /rag-setup to fetch it.")
+
     incremental = args.no_recreate
     if incremental:
         ensure_collection()
     else:
         recreate_collection()
-        print(f"Collection '{COLLECTION}' recreated (dim={EMBED_DIM}).")
+        print(f"Collection '{COLLECTION}' recreated (dense dim={EMBED_DIM} + sparse BM25).")
 
     root = _repo_root()
-    files = collect_files()
-    print(f"Indexing {len(files)} file(s)...")
-
-    records, source_ids = build_points(files, root)
+    records, source_ids = build_points(root)
     total = len(records)
 
     client = get_client()

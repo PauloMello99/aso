@@ -5,6 +5,11 @@ import {
   TRANSACTION_REPOSITORY,
 } from "../../domain/transaction.repository.interface";
 import { TransactionNotFoundException } from "../../domain/exceptions/transaction-not-found.exception";
+import { TransactionIsServicePaymentException } from "../../domain/exceptions/transaction-is-service-payment.exception";
+import {
+  IServiceRepository,
+  SERVICE_REPOSITORY,
+} from "../../../services/domain/service.repository.interface";
 import { ReverseTransactionUseCase } from "./reverse-transaction.use-case";
 import { CreateTransactionUseCase } from "./create-transaction.use-case";
 
@@ -12,7 +17,6 @@ export interface CorrectTransactionInput {
   orgId: string;
   transactionId: string;
   correctedBy?: string | null;
-  // Novos valores do lançamento corrigido.
   description: string;
   type: TransactionType;
   grossCents: number;
@@ -25,16 +29,13 @@ export interface CorrectTransactionResult {
   replacement: TransactionEntity;
 }
 
-/**
- * Errata combinada: estorna a transação original e cria um novo lançamento
- * corrigido — preservando o append-only (nada é editado). Reaproveita os
- * use-cases de estorno e criação, então todas as validações se aplicam.
- */
 @Injectable()
 export class CorrectTransactionUseCase {
   constructor(
     @Inject(TRANSACTION_REPOSITORY)
     private readonly transactionRepo: ITransactionRepository,
+    @Inject(SERVICE_REPOSITORY)
+    private readonly serviceRepo: IServiceRepository,
     private readonly reverseTransaction: ReverseTransactionUseCase,
     private readonly createTransaction: CreateTransactionUseCase,
   ) {}
@@ -42,13 +43,17 @@ export class CorrectTransactionUseCase {
   async execute(
     input: CorrectTransactionInput,
   ): Promise<CorrectTransactionResult> {
-    // Autoria a preservar no lançamento corrigido (errata mantém quem lançou,
-    // não migra para o owner que corrige). Lido antes do estorno.
     const original = await this.transactionRepo.findById(
       input.transactionId,
       input.orgId,
     );
     if (!original) throw new TransactionNotFoundException(input.transactionId);
+
+    if (
+      await this.serviceRepo.existsByPaymentTransactionId(input.transactionId)
+    ) {
+      throw new TransactionIsServicePaymentException(input.transactionId);
+    }
 
     const reversal = await this.reverseTransaction.execute({
       orgId: input.orgId,
@@ -56,8 +61,6 @@ export class CorrectTransactionUseCase {
       reversedBy: input.correctedBy,
     });
 
-    // Correção é owner-only (guard). O lançamento corrigido **preserva** o
-    // created_by original (atribuição confiável — não revalida membro).
     const replacement = await this.createTransaction.execute({
       orgId: input.orgId,
       authId: input.correctedBy ?? "",

@@ -68,7 +68,7 @@ export function MonthView({
                 className={cn(
                   "flex h-6 w-6 items-center justify-center rounded-full text-xs",
                   isToday
-                    ? "bg-orange-500 font-semibold text-white"
+                    ? "bg-primary font-semibold text-primary-foreground"
                     : inMonth
                       ? "text-foreground/70"
                       : "text-foreground/25",
@@ -90,7 +90,7 @@ export function MonthView({
                       "truncate rounded px-1 py-0.5 text-[10px] leading-tight",
                       ev.type === "unavailability"
                         ? "bg-foreground/[0.06] text-foreground/50"
-                        : "bg-orange-500/15 text-orange-200",
+                        : "bg-primary-subtle text-primary-text",
                       ev.status === "canceled" && "line-through opacity-40",
                     )}
                   >

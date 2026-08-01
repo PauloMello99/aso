@@ -23,7 +23,6 @@ export interface UpsertPaymentFeesInput {
   fees: UpsertPaymentFeeItem[];
 }
 
-/** Configuração de taxas é exclusiva de admins (owner/super_admin). */
 @Injectable()
 export class UpsertPaymentFeesUseCase {
   constructor(

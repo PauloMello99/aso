@@ -9,13 +9,9 @@ import { Request } from "express";
 import { and, eq } from "drizzle-orm";
 import { DRIZZLE_ADMIN, type DrizzleDB } from "../../../database/database.module";
 import * as schema from "../../../database/schema";
+import { isSuperAdmin } from "../../../common/auth/is-super-admin";
 import { AuthUser } from "../application/ports/auth-provider.interface";
 
-/**
- * Autoriza apenas **owner** (ou super_admin) da `:orgId` da rota. Usar após
- * {@link AuthGuard}. Ex.: módulo de Caixa — "funcionário não tem acesso ao caixa".
- * Roda antes do RlsInterceptor → usa a conexão privilegiada (filtra pelo usuário).
- */
 @Injectable()
 export class OrgOwnerGuard implements CanActivate {
   constructor(@Inject(DRIZZLE_ADMIN) private readonly db: DrizzleDB) {}
@@ -50,6 +46,7 @@ export class OrgOwnerGuard implements CanActivate {
       .limit(1);
 
     if (!row) {
+      if (await isSuperAdmin(this.db, user.id)) return true;
       throw new ForbiddenException(
         "Only organization owners can access this resource",
       );

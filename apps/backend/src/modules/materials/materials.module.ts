@@ -2,6 +2,7 @@
 import { AuthModule } from "../auth/auth.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { OrgsInfrastructureModule } from "../organizations/infrastructure/orgs-infrastructure.module";
+import { SubscriptionsModule } from "../subscriptions/subscriptions.module";
 import { AdjustStockUseCase } from "./application/use-cases/adjust-stock.use-case";
 import { CreateMaterialUseCase } from "./application/use-cases/create-material.use-case";
 import { DeleteMaterialUseCase } from "./application/use-cases/delete-material.use-case";
@@ -18,7 +19,6 @@ import { ListStockVerificationsUseCase } from "./application/use-cases/list-stoc
 import { SendStockCheckRemindersUseCase } from "./application/use-cases/send-stock-check-reminders.use-case";
 import { MaterialsInfrastructureModule } from "./infrastructure/materials-infrastructure.module";
 import { MaterialsController } from "./interface/materials.controller";
-import { StockCronController } from "./interface/stock-cron.controller";
 
 @Module({
   imports: [
@@ -26,8 +26,9 @@ import { StockCronController } from "./interface/stock-cron.controller";
     AuthModule,
     NotificationsModule,
     OrgsInfrastructureModule,
+    SubscriptionsModule,
   ],
-  controllers: [MaterialsController, StockCronController],
+  controllers: [MaterialsController],
   providers: [
     ListMaterialsUseCase,
     ExportMaterialsUseCase,
@@ -44,7 +45,7 @@ import { StockCronController } from "./interface/stock-cron.controller";
     ListStockVerificationsUseCase,
     SendStockCheckRemindersUseCase,
   ],
-  exports: [MaterialsInfrastructureModule],
+  exports: [MaterialsInfrastructureModule, SendStockCheckRemindersUseCase],
 })
 export class MaterialsModule {}
 

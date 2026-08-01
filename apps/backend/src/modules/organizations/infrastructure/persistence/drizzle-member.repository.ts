@@ -7,6 +7,7 @@ import {
   type DrizzleDB,
 } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
+import { isSuperAdmin } from "../../../../common/auth/is-super-admin";
 import type {
   IMemberRepository,
   UpsertMembershipData,
@@ -19,7 +20,6 @@ import { MemberMapper } from "./member.mapper";
 export class DrizzleMemberRepository implements IMemberRepository {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    // upsert() roda no aceite de convite, antes de o usuário ser membro → bypass RLS.
     @Inject(DRIZZLE_ADMIN) private readonly admin: DrizzleDB,
   ) {}
 
@@ -35,7 +35,6 @@ export class DrizzleMemberRepository implements IMemberRepository {
       })
       .onConflictDoUpdate({
         target: [schema.orgMemberships.orgId, schema.orgMemberships.userId],
-        // Re-aceite preserva as permissões já configuradas (só reativa).
         set: { role: data.role, enabled: true },
       });
   }
@@ -120,8 +119,6 @@ export class DrizzleMemberRepository implements IMemberRepository {
     orgId: string,
     authId: string,
   ): Promise<MemberEntity | null> {
-    // Memoizado por request: a mesma associação é resolvida várias vezes no
-    // mesmo handler (resolveActor/resolveMembership + overview direto).
     return requestMemo(`member:byAuthId:${orgId}:${authId}`, async () => {
       const [row] = await this.db
         .select({
@@ -148,7 +145,32 @@ export class DrizzleMemberRepository implements IMemberRepository {
         )
         .limit(1);
 
-      return row ? MemberMapper.toDomain(row) : null;
+      if (row) return MemberMapper.toDomain(row);
+
+      if (await isSuperAdmin(this.admin, authId)) {
+        const [u] = await this.admin
+          .select({
+            id: schema.users.id,
+            name: schema.users.name,
+            email: schema.users.email,
+          })
+          .from(schema.users)
+          .where(eq(schema.users.authId, authId))
+          .limit(1);
+        if (!u) return null;
+        return MemberMapper.toDomain({
+          memberId: "",
+          orgId,
+          userId: u.id,
+          role: "owner",
+          enabled: true,
+          permissions: [],
+          userName: u.name,
+          userEmail: u.email,
+          joinedAt: new Date(0),
+        });
+      }
+      return null;
     });
   }
 
@@ -206,7 +228,6 @@ export class DrizzleMemberRepository implements IMemberRepository {
     return MemberMapper.toDomain(row);
   }
 
-  /** Conta owners ativos da org (para impedir desativar/remover o último). */
   async countActiveOwners(orgId: string): Promise<number> {
     const rows = await this.db
       .select({ id: schema.orgMemberships.id })
@@ -221,7 +242,6 @@ export class DrizzleMemberRepository implements IMemberRepository {
     return rows.length;
   }
 
-  /** Orgs em que o usuário é proprietário (qualquer status). */
   async countOwnedOrgs(userId: string): Promise<number> {
     const rows = await this.admin
       .select({ id: schema.orgMemberships.id })
@@ -248,7 +268,6 @@ export class DrizzleMemberRepository implements IMemberRepository {
     demotedPermissions: string[],
   ): Promise<void> {
     await this.db.transaction(async (tx) => {
-      // Antigo dono → funcionário (mantém acesso via permissions).
       await tx
         .update(schema.orgMemberships)
         .set({ role: "employee", permissions: demotedPermissions })
@@ -258,7 +277,6 @@ export class DrizzleMemberRepository implements IMemberRepository {
             eq(schema.orgMemberships.orgId, orgId),
           ),
         );
-      // Novo dono → owner (garante ativo).
       await tx
         .update(schema.orgMemberships)
         .set({ role: "owner", enabled: true })

@@ -1,5 +1,13 @@
-import { pgTable, uuid, text, timestamp, unique } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import {
+  pgTable,
+  uuid,
+  text,
+  timestamp,
+  unique,
+  uniqueIndex,
+  boolean,
+} from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
 import { organizations } from "../organizations";
 
 export const serviceTypes = pgTable(
@@ -11,6 +19,9 @@ export const serviceTypes = pgTable(
       .references(() => organizations.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     description: text("description"),
+    requiresAgeVerification: boolean("requires_age_verification")
+      .notNull()
+      .default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -48,8 +59,6 @@ export const customerOrigins = pgTable(
   (t) => [unique().on(t.orgId, t.name)],
 );
 
-// Categorias de transação por org (pré-definidas + criáveis). Padroniza descrições
-// divergentes e alimenta relatórios. A `transactions.description` permanece.
 export const transactionCategories = pgTable(
   "transaction_categories",
   {
@@ -58,11 +67,18 @@ export const transactionCategories = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    isProtected: boolean("is_protected").notNull().default(false),
+    systemKey: text("system_key"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
-  (t) => [unique().on(t.orgId, t.name)],
+  (t) => [
+    unique().on(t.orgId, t.name),
+    uniqueIndex("transaction_categories_org_system_key_idx")
+      .on(t.orgId, t.systemKey)
+      .where(sql`${t.systemKey} is not null`),
+  ],
 );
 
 export const serviceTypesRelations = relations(serviceTypes, ({ one }) => ({

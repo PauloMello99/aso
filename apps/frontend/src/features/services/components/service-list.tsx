@@ -1,6 +1,6 @@
 "use client"
 
-import { MoreVertical, Pencil, Undo2, Wallet } from "lucide-react"
+import { Coins, MoreVertical, Pencil, Undo2, Wallet } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Badge } from "@/shared/components/ui/badge"
 import {
@@ -28,12 +28,14 @@ import {
 
 interface ServiceListProps {
   services: Service[]
+  isOwner: boolean
   onEdit: (s: Service) => void
   onPay: (s: Service) => void
   onCancel: (s: Service) => void
+  onCorrectPayment: (s: Service) => void
 }
 
-function formatDate(iso: string): string {
+export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "short",
@@ -41,13 +43,13 @@ function formatDate(iso: string): string {
   })
 }
 
-function StatusBadge({ status }: { status: ServiceStatus }) {
+export function StatusBadge({ status }: { status: ServiceStatus }) {
   const variant =
     status === "paid"
-      ? "bg-emerald-500/10 text-emerald-400"
+      ? "bg-success/10 text-success"
       : status === "pending"
-        ? "bg-amber-500/10 text-amber-400"
-        : "bg-red-500/10 text-red-400"
+        ? "bg-warning/10 text-warning"
+        : "bg-destructive/10 text-destructive"
   return (
     <Badge variant="ghost" className={variant}>
       {SERVICE_STATUS_LABELS[status]}
@@ -57,14 +59,18 @@ function StatusBadge({ status }: { status: ServiceStatus }) {
 
 function ActionMenu({
   service,
+  isOwner,
   onEdit,
   onPay,
   onCancel,
+  onCorrectPayment,
 }: {
   service: Service
+  isOwner: boolean
   onEdit: (s: Service) => void
   onPay: (s: Service) => void
   onCancel: (s: Service) => void
+  onCorrectPayment: (s: Service) => void
 }) {
   const status = serviceStatus(service)
   if (status === "canceled") return null
@@ -92,6 +98,12 @@ function ActionMenu({
             Registrar pagamento
           </DropdownMenuItem>
         )}
+        {status === "paid" && isOwner && (
+          <DropdownMenuItem onClick={() => onCorrectPayment(service)}>
+            <Coins className="h-3.5 w-3.5 shrink-0" />
+            Corrigir valor
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem variant="destructive" onClick={() => onCancel(service)}>
           <Undo2 className="h-3.5 w-3.5 shrink-0" />
           Cancelar
@@ -103,14 +115,18 @@ function ActionMenu({
 
 function MobileCard({
   service,
+  isOwner,
   onEdit,
   onPay,
   onCancel,
+  onCorrectPayment,
 }: {
   service: Service
+  isOwner: boolean
   onEdit: (s: Service) => void
   onPay: (s: Service) => void
   onCancel: (s: Service) => void
+  onCorrectPayment: (s: Service) => void
 }) {
   const status = serviceStatus(service)
   const struck = status === "canceled"
@@ -146,9 +162,11 @@ function MobileCard({
       </div>
       <ActionMenu
         service={service}
+        isOwner={isOwner}
         onEdit={onEdit}
         onPay={onPay}
         onCancel={onCancel}
+        onCorrectPayment={onCorrectPayment}
       />
     </div>
   )
@@ -156,9 +174,11 @@ function MobileCard({
 
 export function ServiceList({
   services,
+  isOwner,
   onEdit,
   onPay,
   onCancel,
+  onCorrectPayment,
 }: ServiceListProps) {
   if (services.length === 0) {
     return (
@@ -173,20 +193,20 @@ export function ServiceList({
 
   return (
     <>
-      {/* Mobile: cards */}
       <div className="grid gap-3 sm:hidden">
         {services.map((s) => (
           <MobileCard
             key={s.id}
             service={s}
+            isOwner={isOwner}
             onEdit={onEdit}
             onPay={onPay}
             onCancel={onCancel}
+            onCorrectPayment={onCorrectPayment}
           />
         ))}
       </div>
 
-      {/* Desktop: table */}
       <div className="hidden rounded-xl border border-foreground/[0.06] sm:block">
         <Table className="min-w-[680px]">
           <TableHeader>
@@ -235,9 +255,11 @@ export function ServiceList({
                     <div className="flex justify-end">
                       <ActionMenu
                         service={s}
+                        isOwner={isOwner}
                         onEdit={onEdit}
                         onPay={onPay}
                         onCancel={onCancel}
+                        onCorrectPayment={onCorrectPayment}
                       />
                     </div>
                   </TableCell>

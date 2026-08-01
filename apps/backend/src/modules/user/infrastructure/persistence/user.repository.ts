@@ -18,7 +18,6 @@ import { UserMapper } from "./user.mapper";
 export class DrizzleUserRepository implements IUserRepository {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    // create() runs during sign-up (no auth context yet), so it bypasses RLS.
     @Inject(DRIZZLE_ADMIN) private readonly admin: DrizzleDB,
   ) {}
 
@@ -41,7 +40,6 @@ export class DrizzleUserRepository implements IUserRepository {
   }
 
   async findByEmail(email: string): Promise<UserEntity | null> {
-    // Roda no lookup do convite (sem contexto de auth) → conexão admin.
     const [row] = await this.admin
       .select()
       .from(schema.users)
@@ -53,14 +51,19 @@ export class DrizzleUserRepository implements IUserRepository {
   async create(data: CreateUserData): Promise<UserEntity> {
     const [row] = await this.admin
       .insert(schema.users)
-      .values({ authId: data.authId, name: data.name, email: data.email })
+      .values({
+        authId: data.authId,
+        name: data.name,
+        email: data.email,
+        termsAcceptedAt: data.termsAcceptedAt,
+        termsVersion: data.termsVersion,
+      })
       .onConflictDoNothing()
       .returning();
     return UserMapper.toDomain(row!);
   }
 
   async delete(authId: string): Promise<void> {
-    // Exclusão de conta roda fora de contexto multi-tenant → conexão admin.
     await this.admin.delete(schema.users).where(eq(schema.users.authId, authId));
   }
 
@@ -71,6 +74,9 @@ export class DrizzleUserRepository implements IUserRepository {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.email !== undefined && { email: data.email }),
         ...(data.avatarUrl !== undefined && { avatarUrl: data.avatarUrl }),
+        ...(data.onboardingCompletedAt !== undefined && {
+          onboardingCompletedAt: data.onboardingCompletedAt,
+        }),
         updatedAt: new Date(),
       })
       .where(eq(schema.users.authId, authId))

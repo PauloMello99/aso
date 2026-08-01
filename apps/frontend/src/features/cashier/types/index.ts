@@ -5,7 +5,6 @@ export type PaymentMethod =
   | "bank_transfer"
   | "credit_card"
   | "debit_card"
-  | "credits"
 
 export interface Transaction {
   id: string
@@ -13,13 +12,11 @@ export interface Transaction {
   createdBy: string | null
   description: string
   type: TransactionType
-  /** Líquido em centavos — o que o caixa reflete. */
   netCents: number
   grossCents: number
   feeCents: number
   paymentMethod: PaymentMethod
   categoryId: string | null
-  /** Quando preenchido, esta linha é o estorno da transação referenciada. */
   reversesTransactionId: string | null
   transactedAt: string
   createdAt: string
@@ -29,13 +26,15 @@ export interface TransactionCategory {
   id: string
   orgId: string
   name: string
+  isProtected: boolean
+  systemKey: string | null
   createdAt: string
 }
 
-/** Item da lista: a transação + se já foi estornada. */
 export interface TransactionView {
   entity: Transaction
   reversed: boolean
+  serviceId: string | null
 }
 
 export interface Balance {
@@ -69,8 +68,8 @@ export interface TransactionsFilter {
   categoryId?: string
   minCents?: number
   maxCents?: number
-  /** users.id — filtro de membro (só owner). */
   createdBy?: string
+  customerId?: string
   q?: string
 }
 
@@ -79,22 +78,29 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   bank_transfer: "Transferência / Pix",
   credit_card: "Cartão de crédito",
   debit_card: "Cartão de débito",
-  credits: "Créditos",
 }
+
+// Rótulos de CARTEIRA usados apenas no diálogo de transferência entre caixas
+// (origem/destino). Não confundir com PAYMENT_METHOD_LABELS, usado em todo o
+// resto da UI de caixa (extrato, form, errata, taxas, filtro, histórico).
+export const TRANSFER_METHOD_LABELS = {
+  cash: "Dinheiro Físico",
+  bank_transfer: "Banco Digital",
+} as const satisfies Record<string, string>
+
+export type TransferMethod = keyof typeof TRANSFER_METHOD_LABELS
 
 export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   income: "Entrada",
   outcome: "Saída",
 }
 
-/** Métodos cujo saldo cai no bucket digital (banco/cartão). */
 export const DIGITAL_METHODS: PaymentMethod[] = [
   "bank_transfer",
   "credit_card",
   "debit_card",
 ]
 
-/** Métodos que sofrem taxa configurável (cartão). */
 export const FEE_ELIGIBLE_METHODS: PaymentMethod[] = [
   "credit_card",
   "debit_card",

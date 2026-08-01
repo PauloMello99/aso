@@ -5,6 +5,8 @@ import Link from "next/link"
 import { useRouter } from "next/router"
 import { ArrowLeft, User, KeyRound, Palette, Trash2 } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
+import { useOrgs } from "@/features/dashboard/hooks/use-orgs"
+import { shouldShowDeleteAccount } from "@/features/account/lib/can-delete-account"
 import {
   AccessSection,
   AppearanceSection,
@@ -21,17 +23,22 @@ const SECTIONS = [
 
 export function AccountPage() {
   const router = useRouter()
+  const { orgs, loading: orgsLoading } = useOrgs()
   const [active, setActive] = React.useState<string>(SECTIONS[0].id)
 
-  // Item 7 — volta para onde estávamos; fallback p/ as organizações.
+  const sections = React.useMemo(
+    () =>
+      SECTIONS.filter(
+        ({ id }) => id !== "danger" || orgsLoading || shouldShowDeleteAccount(orgs),
+      ),
+    [orgs, orgsLoading],
+  )
+
   function handleBack() {
     if (window.history.length > 1) router.back()
     else void router.push("/dashboard/organizations")
   }
 
-  // Deep-link via #hash: rola para a seção ao montar e quando o hash muda.
-  // Reexecuta após um curto atraso porque seções com carga assíncrona (ex.: Perfil)
-  // alteram a altura da página depois do primeiro paint.
   React.useEffect(() => {
     function scrollToHash() {
       const id = window.location.hash.replace("#", "")
@@ -46,7 +53,6 @@ export function AccountPage() {
     }
   }, [])
 
-  // Scroll-spy: marca a seção visível como ativa na nav.
   React.useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -56,16 +62,15 @@ export function AccountPage() {
       },
       { rootMargin: "-20% 0px -70% 0px", threshold: 0 },
     )
-    SECTIONS.forEach(({ id }) => {
+    sections.forEach(({ id }) => {
       const el = document.getElementById(id)
       if (el) observer.observe(el)
     })
     return () => observer.disconnect()
-  }, [])
+  }, [sections])
 
   return (
     <div className="space-y-6">
-      {/* Item 7 — botão voltar */}
       <button
         type="button"
         onClick={handleBack}
@@ -76,9 +81,8 @@ export function AccountPage() {
       </button>
 
       <div className="flex min-h-full flex-col gap-6 md:flex-row md:gap-8">
-        {/* Mobile: barra de âncoras horizontal */}
         <nav className="flex gap-1 overflow-x-auto border-b border-foreground/[0.06] pb-3 md:hidden">
-          {SECTIONS.map(({ id, label }) => {
+          {sections.map(({ id, label }) => {
             const isDanger = id === "danger"
             const isActive = active === id
             return (
@@ -89,10 +93,10 @@ export function AccountPage() {
                   "flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-sm whitespace-nowrap transition-colors",
                   isActive
                     ? isDanger
-                      ? "bg-red-500/10 text-red-400"
+                      ? "bg-destructive/10 text-destructive"
                       : "bg-foreground/[0.08] text-foreground"
                     : isDanger
-                      ? "text-red-400/60 hover:text-red-400"
+                      ? "text-destructive/60 hover:text-destructive"
                       : "text-foreground/50 hover:bg-foreground/[0.04] hover:text-foreground",
                 )}
               >
@@ -102,14 +106,13 @@ export function AccountPage() {
           })}
         </nav>
 
-        {/* Desktop: submenu de âncoras fixo à esquerda (sticky) */}
         <aside className="hidden w-48 shrink-0 md:block">
           <div className="sticky top-6">
             <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-foreground/25">
               Minha Conta
             </p>
             <ul className="space-y-0.5">
-              {SECTIONS.map(({ id, label, icon: Icon }) => {
+              {sections.map(({ id, label, icon: Icon }) => {
                 const isDanger = id === "danger"
                 const isActive = active === id
                 return (
@@ -120,10 +123,10 @@ export function AccountPage() {
                         "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors",
                         isActive
                           ? isDanger
-                            ? "bg-red-500/10 text-red-400"
+                            ? "bg-destructive/10 text-destructive"
                             : "bg-foreground/[0.08] text-foreground"
                           : isDanger
-                            ? "text-red-400/60 hover:bg-red-500/5 hover:text-red-400"
+                            ? "text-destructive/60 hover:bg-destructive/5 hover:text-destructive"
                             : "text-foreground/50 hover:bg-foreground/[0.04] hover:text-foreground",
                       )}
                     >
@@ -132,10 +135,10 @@ export function AccountPage() {
                           "h-4 w-4 shrink-0",
                           isActive
                             ? isDanger
-                              ? "text-red-400"
-                              : "text-orange-400"
+                              ? "text-destructive"
+                              : "text-primary"
                             : isDanger
-                              ? "text-red-400/60"
+                              ? "text-destructive/60"
                               : "text-foreground/40",
                         )}
                       />
@@ -148,10 +151,9 @@ export function AccountPage() {
           </div>
         </aside>
 
-        {/* Sections empilhadas — conteúdo centralizado, com largura máxima */}
         <div className="min-w-0 flex-1">
           <div className="mx-auto max-w-3xl space-y-12">
-            {SECTIONS.map(({ id, Section }) => (
+            {sections.map(({ id, Section }) => (
               <section key={id} id={id} className="scroll-mt-20">
                 <Section />
               </section>

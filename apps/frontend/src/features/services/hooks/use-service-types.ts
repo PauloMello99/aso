@@ -17,14 +17,18 @@ export function useServiceTypes(orgId: string) {
   })
 
   const createMutation = useMutation({
-    mutationFn: (name: string) =>
+    mutationFn: ({
+      name,
+      requiresAgeVerification,
+    }: {
+      name: string
+      requiresAgeVerification?: boolean
+    }) =>
       apiRequest<ServiceType>(`/orgs/${orgId}/services/types`, {
         method: "POST",
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, requiresAgeVerification }),
       }),
     onSuccess: (created) => {
-      // Insere já no cache para que o novo tipo apareça no seletor de imediato
-      // (permite auto-selecioná-lo após criar pela modal, sem esperar refetch).
       queryClient.setQueryData<ServiceType[]>(
         queryKeys.services.types(orgId),
         (old) => (old ? [...old, created] : [created]),
@@ -35,9 +39,48 @@ export function useServiceTypes(orgId: string) {
     },
   })
 
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string
+      data: {
+        name?: string
+        description?: string | null
+        requiresAgeVerification?: boolean
+      }
+    }) =>
+      apiRequest<ServiceType>(`/orgs/${orgId}/services/types/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<ServiceType[]>(
+        queryKeys.services.types(orgId),
+        (old) =>
+          old
+            ? old.map((type) => (type.id === updated.id ? updated : type))
+            : [updated],
+      )
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.services.types(orgId),
+      })
+    },
+  })
+
   return {
     serviceTypes: data ?? EMPTY,
     loading: isLoading,
-    createServiceType: (name: string) => createMutation.mutateAsync(name),
+    createServiceType: (name: string, requiresAgeVerification?: boolean) =>
+      createMutation.mutateAsync({ name, requiresAgeVerification }),
+    updateServiceType: (
+      id: string,
+      data: {
+        name?: string
+        description?: string | null
+        requiresAgeVerification?: boolean
+      },
+    ) => updateMutation.mutateAsync({ id, data }),
   }
 }

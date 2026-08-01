@@ -33,11 +33,22 @@ import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { DatePicker } from "@/shared/components/ui/date-picker"
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/shared/components/ui/alert"
+import { centsToReaisInput } from "@/features/cashier/lib/money"
+import { ApiError } from "@/infrastructure/api/client"
 import type { Customer } from "@/features/clients/types"
 import type { Member } from "@/features/organizations/types"
 import type { Material } from "@/features/stock/types"
 import type { MaterialFormValues } from "@/features/stock/schemas/stock.schemas"
-import { serviceSchema, type ServiceFormValues } from "../schemas/services.schemas"
+import {
+  createServiceSchema,
+  serviceSchema,
+  type ServiceFormValues,
+} from "../schemas/services.schemas"
 import {
   SERVICE_PAYMENT_METHODS,
   SERVICE_PAYMENT_METHOD_LABELS,
@@ -46,8 +57,21 @@ import {
 } from "../types"
 import { MaterialLines } from "./material-lines"
 import { ServiceTypeDialog } from "./service-type-dialog"
+import { ServiceMediaSection } from "./service-media-section"
+import { checkAgeRequirement } from "../lib/age"
+import {
+  AGE_VERIFICATION_REQUIRED_MESSAGE,
+  serviceErrorMessage,
+  type ServiceErrorMessage,
+} from "../lib/error-messages"
 
-const TYPE_NONE = "none"
+const AGE_UNKNOWN_MESSAGE: ServiceErrorMessage = {
+  title: "Data de nascimento não informada",
+  description:
+    "Este tipo de serviço exige maioridade e o cadastro do cliente não tem data de nascimento válida. Preencha a data no cadastro antes de lançar o serviço.",
+  variant: "warning",
+}
+
 const TYPE_CREATE = "__create__"
 
 function emptyValues(): ServiceFormValues {
@@ -67,7 +91,7 @@ function emptyValues(): ServiceFormValues {
 interface ServiceFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** Quando presente, é edição (só campos não-financeiros). */
+  orgId: string
   service?: Service | null
   isOwner: boolean
   customers: Customer[]
@@ -75,7 +99,6 @@ interface ServiceFormProps {
   serviceTypes: ServiceType[]
   materials: Material[]
   onCreateType: (name: string) => Promise<ServiceType>
-  /** Cria um material a partir do form de serviço (modal reusa o MaterialForm). */
   onCreateMaterial: (values: MaterialFormValues) => Promise<Material>
   onSubmit: (values: ServiceFormValues) => Promise<void>
 }
@@ -83,6 +106,7 @@ interface ServiceFormProps {
 export function ServiceForm({
   open,
   onOpenChange,
+  orgId,
   service,
   isOwner,
   customers,
@@ -95,21 +119,25 @@ export function ServiceForm({
 }: ServiceFormProps) {
   const isEdit = !!service
   const form = useForm<ServiceFormValues>({
-    resolver: zodResolver(serviceSchema),
+    resolver: zodResolver(isEdit ? serviceSchema : createServiceSchema),
     defaultValues: emptyValues(),
   })
 
   const [typeDialogOpen, setTypeDialogOpen] = useState(false)
+  const [submitError, setSubmitError] = useState<ServiceErrorMessage | null>(
+    null,
+  )
 
   useEffect(() => {
     if (!open) return
+    setSubmitError(null)
     if (service) {
       form.reset({
         customerId: service.customerId ?? "",
         serviceTypeId: service.serviceTypeId ?? "",
         performedBy: service.performedBy ?? "",
         description: service.description ?? "",
-        amount: (service.amountCents / 100).toFixed(2),
+        amount: centsToReaisInput(service.amountCents),
         paymentMethod: service.paymentMethod,
         paymentStatus: service.paymentTransactionId ? "paid" : "pending",
         performedAt: service.performedAt ? service.performedAt.slice(0, 10) : "",
@@ -121,16 +149,72 @@ export function ServiceForm({
   }, [open, service, form])
 
   const handleSubmit = form.handleSubmit(async (values) => {
-    await onSubmit(values)
-    onOpenChange(false)
+    setSubmitError(null)
+    form.clearErrors("materials")
+    try {
+      await onSubmit(values)
+      onOpenChange(false)
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "INSUFFICIENT_STOCK") {
+        const materialId = err.details?.materialId
+        const mat = materials.find((m) => m.id === materialId)
+        const index = values.materials.findIndex(
+          (line) => line.materialId === materialId,
+        )
+        if (mat) {
+          const available = err.details?.available ?? "0"
+          const requested = err.details?.requested ?? "0"
+          const message = `Estoque insuficiente de "${mat.name}": disponível ${available}, necessário ${requested}.`
+          setSubmitError({
+            title: "Estoque insuficiente",
+            description: message,
+            variant: "destructive",
+          })
+          if (index >= 0) {
+            form.setError(`materials.${index}.materialId`, { message })
+          }
+        } else {
+          setSubmitError({
+            title: "Estoque insuficiente",
+            description:
+              "Estoque insuficiente para um dos materiais informados.",
+            variant: "destructive",
+          })
+        }
+        return
+      }
+      setSubmitError(serviceErrorMessage(err))
+    }
   })
+
+  const watchedCustomerId = form.watch("customerId")
+  const watchedServiceTypeId = form.watch("serviceTypeId")
+  const watchedPerformedAt = form.watch("performedAt")
+
+  const selectedServiceType = serviceTypes.find(
+    (t) => t.id === watchedServiceTypeId,
+  )
+  const selectedCustomer = customers.find((c) => c.id === watchedCustomerId)
+
+  let ageWarning: ServiceErrorMessage | null = null
+  if (selectedServiceType?.requiresAgeVerification && selectedCustomer) {
+    const check = checkAgeRequirement(
+      selectedCustomer.birthDate,
+      watchedPerformedAt ?? "",
+    )
+    if (check === "minor") {
+      ageWarning = AGE_VERIFICATION_REQUIRED_MESSAGE
+    } else if (check === "unknown") {
+      ageWarning = AGE_UNKNOWN_MESSAGE
+    }
+  }
 
   const activeMembers = members.filter((m) => m.enabled)
 
   return (
     <>
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="gap-0 sm:max-w-lg">
+      <SheetContent side="right" className="gap-0 sm:max-w-2xl">
         <Form {...form}>
           <form onSubmit={handleSubmit} className="flex h-full flex-col">
             <SheetHeader>
@@ -145,7 +229,6 @@ export function ServiceForm({
             </SheetHeader>
 
             <SheetBody className="flex flex-col gap-6 py-6">
-              {/* ── Seção: Dados do serviço ───────────────────────── */}
               <section className="flex flex-col gap-4">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/40">
                   Dados
@@ -157,7 +240,7 @@ export function ServiceForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Cliente <span className="text-red-400">*</span>
+                        Cliente <span className="text-destructive">*</span>
                       </FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
@@ -178,7 +261,6 @@ export function ServiceForm({
                   )}
                 />
 
-                {/* Profissional: só owner escolhe; funcionário lança para si. */}
                 {isOwner && (
                   <FormField
                     control={form.control}
@@ -215,35 +297,30 @@ export function ServiceForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Tipo de serviço{" "}
-                        <span className="text-xs text-foreground/30">(opcional)</span>
+                        Tipo de serviço <span className="text-destructive">*</span>
                       </FormLabel>
                       <Select
-                        value={field.value || TYPE_NONE}
+                        value={field.value || ""}
                         onValueChange={(v) => {
                           if (v === TYPE_CREATE) {
-                            // Defer p/ o Select fechar antes do Dialog abrir
-                            // (evita corrida de foco entre os dois portais Radix).
                             setTimeout(() => setTypeDialogOpen(true), 0)
                             return
                           }
-                          field.onChange(v === TYPE_NONE ? "" : v)
+                          field.onChange(v)
                         }}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Sem tipo" />
+                            <SelectValue placeholder="Selecione o tipo de serviço" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {/* Primeira opção: criar um novo tipo (abre modal). */}
                           <SelectItem value={TYPE_CREATE}>
-                            <span className="flex items-center gap-2 text-orange-400">
+                            <span className="flex items-center gap-2 text-primary">
                               <Plus className="h-4 w-4" />
                               Criar novo tipo
                             </span>
                           </SelectItem>
-                          <SelectItem value={TYPE_NONE}>Sem tipo</SelectItem>
                           {serviceTypes.map((t) => (
                             <SelectItem key={t.id} value={t.id}>
                               {t.name}
@@ -255,6 +332,13 @@ export function ServiceForm({
                     </FormItem>
                   )}
                 />
+
+                {ageWarning && (
+                  <Alert variant={ageWarning.variant}>
+                    <AlertTitle>{ageWarning.title}</AlertTitle>
+                    <AlertDescription>{ageWarning.description}</AlertDescription>
+                  </Alert>
+                )}
 
                 <FormField
                   control={form.control}
@@ -298,7 +382,15 @@ export function ServiceForm({
                 />
               </section>
 
-              {/* ── Seção: Materiais (só no lançamento) ───────────── */}
+              {isEdit && service && (
+                <section className="flex flex-col gap-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/40">
+                    Fotos
+                  </h3>
+                  <ServiceMediaSection orgId={orgId} serviceId={service.id} />
+                </section>
+              )}
+
               {!isEdit && (
                 <section className="flex flex-col gap-4">
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/40">
@@ -308,10 +400,16 @@ export function ServiceForm({
                     materials={materials}
                     onCreateMaterial={onCreateMaterial}
                   />
+                  {(form.formState.errors.materials?.root?.message ??
+                    form.formState.errors.materials?.message) && (
+                    <p className="text-sm text-destructive">
+                      {form.formState.errors.materials?.root?.message ??
+                        form.formState.errors.materials?.message}
+                    </p>
+                  )}
                 </section>
               )}
 
-              {/* ── Seção: Pagamento (só no lançamento) ───────────── */}
               {!isEdit && (
                 <section className="flex flex-col gap-4">
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/40">
@@ -324,7 +422,7 @@ export function ServiceForm({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>
-                          Valor <span className="text-red-400">*</span>
+                          Valor <span className="text-destructive">*</span>
                         </FormLabel>
                         <FormControl>
                           <div className="relative">
@@ -401,6 +499,13 @@ export function ServiceForm({
                   />
                 </section>
               )}
+
+              {submitError && (
+                <Alert variant={submitError.variant}>
+                  <AlertTitle>{submitError.title}</AlertTitle>
+                  <AlertDescription>{submitError.description}</AlertDescription>
+                </Alert>
+              )}
             </SheetBody>
 
             <SheetFooter>
@@ -430,14 +535,11 @@ export function ServiceForm({
       </SheetContent>
     </Sheet>
 
-      {/* Item 4 — criar tipo de serviço numa modal, sem sair do form. */}
       <ServiceTypeDialog
         open={typeDialogOpen}
         onOpenChange={setTypeDialogOpen}
         onCreate={onCreateType}
         onCreated={(type) =>
-          // Defer p/ a option recém-cacheada já estar no seletor quando o valor
-          // controlado mudar (senão o Radix Select ignora um value sem item).
           setTimeout(() => form.setValue("serviceTypeId", type.id), 0)
         }
       />

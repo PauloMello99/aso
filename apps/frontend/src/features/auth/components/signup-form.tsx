@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useForm } from "react-hook-form"
+import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/router"
 import Link from "next/link"
@@ -17,7 +17,10 @@ import {
 } from "@/shared/components/ui/card"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
+import { Checkbox } from "@/shared/components/ui/checkbox"
+import { BrandWordmark } from "@/shared/components/brand-wordmark"
 import { useAuth } from "@/features/auth/hooks/use-auth"
+import { LEGAL_ROUTES, LEGAL_VERSIONS } from "@/features/legal"
 import {
   signupSchema,
   type SignupFormValues,
@@ -35,24 +38,37 @@ export function SignupForm() {
 
   const {
     register,
+    control,
     handleSubmit,
     setError,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
-    defaultValues: { name: "", email: "", password: "", confirmPassword: "" },
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      acceptedTerms: false,
+    },
   })
 
   React.useEffect(() => {
     if (invitedEmail) {
-      reset({ name: "", email: invitedEmail, password: "", confirmPassword: "" })
+      reset({
+        name: "",
+        email: invitedEmail,
+        password: "",
+        confirmPassword: "",
+        acceptedTerms: false,
+      })
     }
   }, [invitedEmail, reset])
 
   const onSubmit = async (data: SignupFormValues) => {
     try {
-      await signUp(data.name, data.email, data.password)
+      await signUp(data.name, data.email, data.password, LEGAL_VERSIONS.terms)
       await router.push(
         inviteToken
           ? `/invite/accept?token=${encodeURIComponent(inviteToken)}`
@@ -68,11 +84,11 @@ export function SignupForm() {
     : "/auth/login"
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6">
       <Card className="w-full max-w-sm border-foreground/5 bg-foreground/[0.03]">
         <CardHeader className="text-center">
-          <div className="mb-2 text-xl font-bold">
-            ink<span className="text-orange-500">ops</span>
+          <div className="mb-2">
+            <BrandWordmark className="text-xl font-bold" />
           </div>
           <CardTitle className="text-xl">Criar conta</CardTitle>
           <CardDescription className="text-foreground/40">
@@ -149,13 +165,52 @@ export function SignupForm() {
                 </p>
               )}
             </div>
+
+            <div className="flex items-start gap-2">
+              <Controller
+                control={control}
+                name="acceptedTerms"
+                render={({ field }) => (
+                  <Checkbox
+                    id="acceptedTerms"
+                    checked={field.value}
+                    onCheckedChange={(checked) => field.onChange(checked === true)}
+                    className="mt-0.5"
+                  />
+                )}
+              />
+              <Label htmlFor="acceptedTerms" className="text-sm font-normal leading-relaxed text-foreground/60">
+                Li e concordo com os{" "}
+                <Link
+                  href={LEGAL_ROUTES.terms}
+                  target="_blank"
+                  className="text-primary hover:underline"
+                >
+                  Termos de Uso
+                </Link>{" "}
+                e a{" "}
+                <Link
+                  href={LEGAL_ROUTES.privacy}
+                  target="_blank"
+                  className="text-primary hover:underline"
+                >
+                  Política de Privacidade
+                </Link>
+                .
+              </Label>
+            </div>
+            {errors.acceptedTerms && (
+              <p className="text-xs text-destructive">
+                {errors.acceptedTerms.message}
+              </p>
+            )}
           </CardContent>
 
           <CardFooter className="flex flex-col gap-3">
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-orange-500 text-white hover:bg-orange-600"
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Criar conta
@@ -164,7 +219,7 @@ export function SignupForm() {
               Já tem conta?{" "}
               <Link
                 href={loginHref}
-                className="text-orange-400 hover:text-orange-300"
+                className="text-primary hover:text-primary/80"
               >
                 Entrar
               </Link>

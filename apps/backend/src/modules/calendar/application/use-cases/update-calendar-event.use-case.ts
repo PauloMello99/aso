@@ -3,6 +3,7 @@ import {
   CalendarEventEntity,
   CalendarEventStatus,
   CalendarEventType,
+  CalendarEventVisibility,
 } from "../../domain/calendar-event.entity";
 import {
   CALENDAR_EVENT_REPOSITORY,
@@ -25,6 +26,7 @@ export interface UpdateCalendarEventInput {
   startsAt?: Date;
   endsAt?: Date;
   allDay?: boolean;
+  visibility?: CalendarEventVisibility;
 }
 
 @Injectable()
@@ -41,7 +43,6 @@ export class UpdateCalendarEventUseCase {
     const existing = await this.repo.findById(input.id, input.orgId);
     if (!existing) throw new EventNotFoundException(input.id);
 
-    // Só o dono do evento pode editar (mesmo owner não edita de terceiros).
     if (existing.assignedTo !== membership.userId) {
       throw new EventForbiddenException();
     }
@@ -71,6 +72,7 @@ export class UpdateCalendarEventUseCase {
       startsAt: input.startsAt,
       endsAt: input.endsAt,
       allDay: input.allDay,
+      visibility: input.visibility,
     });
   }
 }

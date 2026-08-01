@@ -57,7 +57,7 @@ export function DeleteOrgDialog({ org, onConfirm }: DeleteOrgDialogProps) {
         <DialogHeader>
           <DialogTitle>Excluir organização</DialogTitle>
           <DialogDescription>
-            Esta ação é <span className="font-semibold text-red-400">irreversível</span>.
+            Esta ação é <span className="font-semibold text-destructive">irreversível</span>.
             Todos os dados da organização serão permanentemente excluídos.
           </DialogDescription>
         </DialogHeader>

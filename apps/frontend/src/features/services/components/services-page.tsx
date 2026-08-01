@@ -17,19 +17,28 @@ import {
   FilterField,
   RangeInputs,
 } from "@/shared/components/ui/filter-popover"
-import { ExportMenu } from "@/shared/components/ui/export-menu"
-import { downloadCsv } from "@/shared/lib/download-csv"
+import {
+  ExportMenu,
+  type ExportFormat,
+} from "@/shared/components/ui/export-menu"
+import { downloadExport } from "@/shared/lib/download-export"
 import { useCurrentOrg } from "@/features/dashboard"
 import { useCustomers } from "@/features/clients/hooks/use-customers"
 import { useMembers } from "@/features/organizations/hooks/use-members"
 import { useMaterials } from "@/features/stock/hooks/use-materials"
 import type { MaterialFormValues } from "@/features/stock/schemas/stock.schemas"
 import { parseReaisToCents } from "@/features/cashier/lib/money"
+import { cashierErrorMessage } from "@/features/cashier/lib/error-messages"
 import { useServices } from "../hooks/use-services"
 import { useServiceTypes } from "../hooks/use-service-types"
+import { toCorrectPaymentBody } from "../lib/correct-payment-body"
 import { ServiceList } from "./service-list"
 import { ServiceForm } from "./service-form"
-import type { ServiceFormValues } from "../schemas/services.schemas"
+import { ServicePaymentCorrectionSheet } from "./service-payment-correction-sheet"
+import type {
+  CorrectServicePaymentFormValues,
+  ServiceFormValues,
+} from "../schemas/services.schemas"
 import {
   SERVICE_STATUS_LABELS,
   SERVICE_PAYMENT_METHODS,
@@ -46,7 +55,6 @@ interface ServicesPageProps {
 
 const STATUS_VALUES: ServiceStatus[] = ["pending", "paid", "canceled"]
 
-/** Colunas exportáveis (chaves espelham o backend). */
 const EXPORT_COLUMNS = [
   { key: "date", label: "Data" },
   { key: "customer", label: "Cliente" },
@@ -146,13 +154,13 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
     updateService,
     cancelService,
     payService,
+    correctPayment,
   } = useServices(orgId, filter)
   const { serviceTypes, createServiceType } = useServiceTypes(orgId)
   const { customers } = useCustomers(orgId, { enabledOnly: true })
   const { materials, createMaterial } = useMaterials(orgId)
   const { members } = useMembers(orgId)
 
-  // Item 5 — cria um material a partir do form de serviço.
   async function handleCreateMaterial(values: MaterialFormValues) {
     return createMaterial({
       name: values.name,
@@ -164,6 +172,9 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
 
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Service | null>(null)
+  const [correctingPayment, setCorrectingPayment] = useState<Service | null>(
+    null,
+  )
 
   function openCreate() {
     setEditing(null)
@@ -173,6 +184,10 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
   function openEdit(s: Service) {
     setEditing(s)
     setFormOpen(true)
+  }
+
+  function openCorrectPayment(s: Service) {
+    setCorrectingPayment(s)
   }
 
   async function handleSubmit(values: ServiceFormValues) {
@@ -202,14 +217,24 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
     }
   }
 
+  async function handleCorrectPayment(values: CorrectServicePaymentFormValues) {
+    if (!correctingPayment) return
+    try {
+      await correctPayment(correctingPayment.id, toCorrectPaymentBody(values))
+    } catch (err) {
+      alert(cashierErrorMessage(err))
+    }
+  }
+
   function applySearch() {
     setFilter((f) => ({ ...f, q: search || undefined }))
   }
 
-  async function handleExport(fields: string[]) {
-    await downloadCsv(
+  async function handleExport(fields: string[], format: ExportFormat) {
+    await downloadExport(
       `/orgs/${orgId}/services/export`,
-      `servicos-${new Date().toISOString().slice(0, 10)}.csv`,
+      `servicos-${new Date().toISOString().slice(0, 10)}`,
+      format,
       {
         from: filter.from,
         to: filter.to,
@@ -228,7 +253,6 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Serviços</h1>
@@ -255,7 +279,6 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/30" />
@@ -416,14 +439,12 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
         </FilterPopover>
       </div>
 
-      {/* Error */}
       {error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      {/* List */}
       {loading && services.length === 0 ? (
         <div className="flex items-center justify-center py-16 text-foreground/30">
           <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
@@ -432,16 +453,18 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
       ) : (
         <ServiceList
           services={services}
+          isOwner={isOwner}
           onEdit={openEdit}
           onPay={handlePay}
           onCancel={handleCancel}
+          onCorrectPayment={openCorrectPayment}
         />
       )}
 
-      {/* Form */}
       <ServiceForm
         open={formOpen}
         onOpenChange={setFormOpen}
+        orgId={orgId}
         service={editing}
         isOwner={isOwner}
         customers={customers}
@@ -451,6 +474,19 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
         onCreateType={createServiceType}
         onCreateMaterial={handleCreateMaterial}
         onSubmit={handleSubmit}
+      />
+
+      <ServicePaymentCorrectionSheet
+        open={!!correctingPayment}
+        onOpenChange={(v) => !v && setCorrectingPayment(null)}
+        target={
+          correctingPayment && {
+            amountCents: correctingPayment.amountCents,
+            paymentMethod: correctingPayment.paymentMethod,
+            dateISO: correctingPayment.performedAt,
+          }
+        }
+        onSubmit={handleCorrectPayment}
       />
     </div>
   )

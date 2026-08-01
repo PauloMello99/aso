@@ -13,6 +13,11 @@ export const users = pgTable("users", {
   avatarUrl: text("avatar_url"),
   birthDate: date("birth_date"),
   gender: genderEnum("gender"),
+  onboardingCompletedAt: timestamp("onboarding_completed_at", {
+    withTimezone: true,
+  }),
+  termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
+  termsVersion: text("terms_version"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

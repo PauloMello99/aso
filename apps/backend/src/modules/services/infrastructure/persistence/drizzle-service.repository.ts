@@ -1,5 +1,15 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, desc, eq, gte, isNotNull, isNull, lte, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  sql,
+} from "drizzle-orm";
 import { DRIZZLE, DrizzleDB } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
 import {
@@ -14,8 +24,23 @@ import {
   ListServicesFilter,
   UpdateServiceData,
 } from "../../domain/service.repository.interface";
+import { AnamnesisResponseAlreadyLinkedException } from "../../../anamnesis/domain/exceptions/anamnesis-response-already-linked.exception";
 
 type ServiceRow = typeof schema.services.$inferSelect;
+
+function pgErrorCode(error: unknown): unknown {
+  if (typeof error !== "object" || error === null) return undefined;
+  if ("code" in error) return (error as { code?: unknown }).code;
+  return undefined;
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  if (pgErrorCode(error) === "23505") return true;
+  if (typeof error === "object" && error !== null && "cause" in error) {
+    return pgErrorCode((error as { cause?: unknown }).cause) === "23505";
+  }
+  return false;
+}
 
 interface JoinedNames {
   customerName: string | null;
@@ -34,6 +59,7 @@ function toDomain(
     serviceTypeId: row.serviceTypeId ?? null,
     customerId: row.customerId ?? null,
     paymentTransactionId: row.paymentTransactionId ?? null,
+    anamnesisResponseId: row.anamnesisResponseId ?? null,
     performedBy: row.performedBy ?? null,
     createdBy: row.createdBy ?? null,
     description: row.description ?? null,
@@ -58,20 +84,31 @@ export class DrizzleServiceRepository implements IServiceRepository {
     data: CreateServiceData,
     materials: CreateServiceMaterialData[],
   ): Promise<ServiceEntity> {
-    const [row] = await this.db
-      .insert(schema.services)
-      .values({
-        orgId: data.orgId,
-        serviceTypeId: data.serviceTypeId ?? null,
-        customerId: data.customerId ?? null,
-        performedBy: data.performedBy ?? null,
-        createdBy: data.createdBy ?? null,
-        description: data.description ?? null,
-        amountCents: data.amountCents,
-        paymentMethod: data.paymentMethod,
-        ...(data.performedAt ? { performedAt: data.performedAt } : {}),
-      })
-      .returning();
+    let row: ServiceRow | undefined;
+    try {
+      [row] = await this.db
+        .insert(schema.services)
+        .values({
+          orgId: data.orgId,
+          serviceTypeId: data.serviceTypeId ?? null,
+          customerId: data.customerId ?? null,
+          performedBy: data.performedBy ?? null,
+          createdBy: data.createdBy ?? null,
+          description: data.description ?? null,
+          amountCents: data.amountCents,
+          paymentMethod: data.paymentMethod,
+          anamnesisResponseId: data.anamnesisResponseId ?? null,
+          ...(data.performedAt ? { performedAt: data.performedAt } : {}),
+        })
+        .returning();
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new AnamnesisResponseAlreadyLinkedException(
+          data.anamnesisResponseId ?? "",
+        );
+      }
+      throw error;
+    }
 
     if (materials.length > 0) {
       await this.db.insert(schema.serviceMaterials).values(
@@ -215,6 +252,41 @@ export class DrizzleServiceRepository implements IServiceRepository {
       .where(eq(schema.services.id, id));
   }
 
+  async existsByPaymentTransactionId(transactionId: string): Promise<boolean> {
+    const result = await this.db
+      .select({ id: schema.services.id })
+      .from(schema.services)
+      .where(eq(schema.services.paymentTransactionId, transactionId))
+      .limit(1);
+    return result.length > 0;
+  }
+
+  async findServiceIdsByTransactionIds(
+    orgId: string,
+    transactionIds: string[],
+  ): Promise<Map<string, string>> {
+    if (transactionIds.length === 0) return new Map();
+
+    const rows = await this.db
+      .select({
+        id: schema.services.id,
+        txId: schema.services.paymentTransactionId,
+      })
+      .from(schema.services)
+      .where(
+        and(
+          eq(schema.services.orgId, orgId),
+          inArray(schema.services.paymentTransactionId, transactionIds),
+        ),
+      );
+
+    const map = new Map<string, string>();
+    for (const row of rows) {
+      if (row.txId) map.set(row.txId, row.id);
+    }
+    return map;
+  }
+
   async markCanceled(id: string): Promise<void> {
     await this.db
       .update(schema.services)
@@ -222,22 +294,49 @@ export class DrizzleServiceRepository implements IServiceRepository {
       .where(eq(schema.services.id, id));
   }
 
-  async update(id: string, data: UpdateServiceData): Promise<ServiceEntity> {
+  async correctPayment(
+    id: string,
+    data: { amountCents: number; paymentMethod: PaymentMethod },
+    transactionId: string,
+  ): Promise<void> {
     await this.db
       .update(schema.services)
       .set({
-        ...(data.serviceTypeId !== undefined && {
-          serviceTypeId: data.serviceTypeId,
-        }),
-        ...(data.customerId !== undefined && { customerId: data.customerId }),
-        ...(data.performedBy !== undefined && { performedBy: data.performedBy }),
-        ...(data.description !== undefined && { description: data.description }),
-        ...(data.performedAt !== undefined && { performedAt: data.performedAt }),
+        amountCents: data.amountCents,
+        paymentMethod: data.paymentMethod,
+        paymentTransactionId: transactionId,
         updatedAt: new Date(),
       })
       .where(eq(schema.services.id, id));
+  }
 
-    // orgId garantido pelo caller (use-case já validou findById).
+  async update(id: string, data: UpdateServiceData): Promise<ServiceEntity> {
+    try {
+      await this.db
+        .update(schema.services)
+        .set({
+          ...(data.serviceTypeId !== undefined && {
+            serviceTypeId: data.serviceTypeId,
+          }),
+          ...(data.customerId !== undefined && { customerId: data.customerId }),
+          ...(data.performedBy !== undefined && { performedBy: data.performedBy }),
+          ...(data.description !== undefined && { description: data.description }),
+          ...(data.performedAt !== undefined && { performedAt: data.performedAt }),
+          ...(data.anamnesisResponseId !== undefined && {
+            anamnesisResponseId: data.anamnesisResponseId,
+          }),
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.services.id, id));
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new AnamnesisResponseAlreadyLinkedException(
+          data.anamnesisResponseId ?? "",
+        );
+      }
+      throw error;
+    }
+
     const [row] = await this.db
       .select({ orgId: schema.services.orgId })
       .from(schema.services)
@@ -252,7 +351,6 @@ export class DrizzleServiceRepository implements IServiceRepository {
     from: Date,
     to: Date,
   ): Promise<number> {
-    // cost_per_unit é numeric (reais); ×100 → centavos. Serviços cancelados fora.
     const { rows } = await this.db.execute<{ cost_cents: string }>(sql`
       SELECT COALESCE(
         ROUND(SUM(sm.quantity * m.cost_per_unit) * 100),

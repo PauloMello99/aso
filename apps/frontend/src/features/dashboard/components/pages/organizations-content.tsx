@@ -19,23 +19,21 @@ export function OrganizationsContent() {
 
   async function handleCreate(values: CreateOrgFormValues) {
     await createOrg(values)
-    // invalidateQueries in useOrgMutations.onSuccess triggers automatic refetch
   }
 
   return (
     <div className="mx-auto max-w-3xl">
-      {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-foreground sm:text-2xl">
+          <h1 className="text-xl font-semibold text-foreground">
             Organizações
           </h1>
-          <p className="mt-1 text-sm text-foreground/40">
+          <p className="mt-0.5 text-sm text-foreground/40">
             Selecione uma organização para continuar
           </p>
         </div>
         <Button
-          className="w-full bg-orange-500 text-white hover:bg-orange-600 sm:w-auto"
+          className="w-full bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto"
           size="sm"
           onClick={() => setCreateOpen(true)}
         >
@@ -44,13 +42,12 @@ export function OrganizationsContent() {
         </Button>
       </div>
 
-      {/* Org list */}
       {orgs.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-foreground/10 py-16 text-center sm:py-20">
           <Building2 className="mb-4 h-10 w-10 text-foreground/20" />
           <p className="text-sm text-foreground/40">Nenhuma organização ainda.</p>
           <Button
-            className="mt-4 w-full bg-orange-500 text-white hover:bg-orange-600 sm:w-auto"
+            className="mt-4 w-full bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto"
             size="sm"
             onClick={() => setCreateOpen(true)}
           >
@@ -67,7 +64,7 @@ export function OrganizationsContent() {
                 className="group flex items-center justify-between rounded-xl border border-foreground/5 bg-foreground/[0.02] px-4 py-3.5 transition-all hover:border-foreground/10 hover:bg-foreground/[0.05] sm:px-5 sm:py-4"
               >
                 <div className="flex items-center gap-3 sm:gap-4">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-500/10 text-sm font-bold text-orange-400 sm:h-10 sm:w-10 sm:text-base">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary sm:h-10 sm:w-10 sm:text-base">
                     {org.name.charAt(0).toUpperCase()}
                   </span>
                   <div className="min-w-0">

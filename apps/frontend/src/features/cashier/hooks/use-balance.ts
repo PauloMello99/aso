@@ -5,11 +5,15 @@ import { apiRequest } from "@/infrastructure/api/client"
 import { queryKeys } from "@/infrastructure/query/query-keys"
 import type { Balance } from "../types"
 
-export function useBalance(orgId: string) {
+interface UseBalanceOptions {
+  enabled?: boolean
+}
+
+export function useBalance(orgId: string, options?: UseBalanceOptions) {
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.cashier.balance(orgId),
     queryFn: () => apiRequest<Balance>(`/orgs/${orgId}/cashier/balance`),
-    enabled: !!orgId,
+    enabled: !!orgId && (options?.enabled ?? true),
   })
 
   return {

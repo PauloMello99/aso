@@ -11,7 +11,6 @@ export interface ListCalendarEventsInput {
   authId: string;
   start: Date;
   end: Date;
-  /** users.id — filtro de membro (respeitado apenas para owner/admin). */
   assignedTo?: string;
 }
 
@@ -26,14 +25,18 @@ export class ListCalendarEventsUseCase {
     const membership = await this.repo.getMembership(input.orgId, input.authId);
     if (!membership) throw new EventForbiddenException();
 
-    // Employee: sempre só os seus. Owner: todos, ou filtrado por membro.
-    const assignedTo =
-      membership.role === "owner" ? input.assignedTo : membership.userId;
+    if (membership.role === "owner") {
+      return this.repo.findInRange(input.orgId, {
+        start: input.start,
+        end: input.end,
+        assignedTo: input.assignedTo,
+      });
+    }
 
     return this.repo.findInRange(input.orgId, {
       start: input.start,
       end: input.end,
-      assignedTo,
+      includeSharedForUserId: membership.userId,
     });
   }
 }

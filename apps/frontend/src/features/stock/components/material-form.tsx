@@ -103,7 +103,7 @@ export function MaterialForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Nome <span className="text-red-400">*</span>
+                        Nome <span className="text-destructive">*</span>
                       </FormLabel>
                       <FormControl>
                         <Input

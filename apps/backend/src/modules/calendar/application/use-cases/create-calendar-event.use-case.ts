@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import {
   CalendarEventEntity,
   CalendarEventType,
+  CalendarEventVisibility,
 } from "../../domain/calendar-event.entity";
 import {
   CALENDAR_EVENT_REPOSITORY,
@@ -17,7 +18,6 @@ import { NotificationService } from "../../../notifications/application/notifica
 export interface CreateCalendarEventInput {
   orgId: string;
   authId: string;
-  /** users.id do membro dono do horário (só owner; funcionário força = self). */
   assignedTo?: string | null;
   type: CalendarEventType;
   title: string;
@@ -26,6 +26,7 @@ export interface CreateCalendarEventInput {
   startsAt: Date;
   endsAt: Date;
   allDay?: boolean;
+  visibility?: CalendarEventVisibility;
 }
 
 @Injectable()
@@ -44,7 +45,6 @@ export class CreateCalendarEventUseCase {
       throw new EventInvalidRangeException();
     }
 
-    // Funcionário sempre cria para si; owner pode criar em nome de um membro ativo.
     let assignedTo = membership.userId;
     if (
       membership.role === "owner" &&
@@ -72,9 +72,9 @@ export class CreateCalendarEventUseCase {
       startsAt: input.startsAt,
       endsAt: input.endsAt,
       allDay: input.allDay ?? false,
+      visibility: input.visibility ?? "private",
     });
 
-    // Indisponibilidade → avisa os admins (owners) da org, exceto o autor.
     if (created.type === "unavailability") {
       await this.notifyOwnersOfUnavailability(input.orgId, membership.userId, membership.name, created.startsAt);
     }

@@ -1,5 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { PaymentMethod, TransactionEntity } from "../../domain/transaction.entity";
+import {
+  TransactionEntity,
+  TransferMethod,
+} from "../../domain/transaction.entity";
 import {
   ITransactionRepository,
   TRANSACTION_REPOSITORY,
@@ -8,8 +11,8 @@ import {
 export interface TransferInput {
   orgId: string;
   createdBy?: string | null;
-  fromMethod: PaymentMethod;
-  toMethod: PaymentMethod;
+  fromMethod: TransferMethod;
+  toMethod: TransferMethod;
   amountCents: number;
   description?: string;
   transactedAt?: Date;
@@ -20,11 +23,6 @@ export interface TransferResult {
   income: TransactionEntity;
 }
 
-/**
- * Transferência entre meios (ex.: dinheiro → banco): cria duas transações —
- * uma saída no método de origem e uma entrada no destino, mesmo valor, sem taxa.
- * Substitui o vai-e-vem manual de lançar saída + entrada (e o risco de erro).
- */
 @Injectable()
 export class TransferUseCase {
   constructor(

@@ -36,7 +36,6 @@ const PERIOD_LABELS: Record<PeriodKey, string> = {
   "90d": "90 dias",
 }
 
-/** Converte o preset em intervalo ISO [from, to]. */
 export function periodRange(key: PeriodKey): { from: string; to: string } {
   const now = new Date()
   const to = now.toISOString()
@@ -78,8 +77,6 @@ function PeriodSelector({
   )
 }
 
-/* ── KPI card with delta ─────────────────────────────────────────── */
-
 function Delta({
   kpi,
   goodWhenUp = true,
@@ -100,7 +97,7 @@ function Delta({
     <span
       className={cn(
         "flex items-center gap-0.5 text-[11px] font-medium tabular-nums",
-        good ? "text-emerald-400" : "text-red-400",
+        good ? "text-success" : "text-destructive",
       )}
     >
       <Icon className="h-3 w-3" />
@@ -131,7 +128,7 @@ function Kpi({
     <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-xs text-foreground/50">
-          <Icon className="h-3.5 w-3.5 text-orange-400" />
+          <Icon className="h-3.5 w-3.5 text-primary" />
           {label}
         </div>
         <Delta kpi={kpi} goodWhenUp={goodWhenUp} />
@@ -139,8 +136,8 @@ function Kpi({
       <p
         className={cn(
           "mt-1.5 text-xl font-semibold tabular-nums",
-          tone === "positive" && "text-emerald-400",
-          tone === "negative" && "text-red-400",
+          tone === "positive" && "text-success",
+          tone === "negative" && "text-destructive",
           (!tone || tone === "neutral") && "text-foreground",
         )}
       >
@@ -168,8 +165,6 @@ function BandHeader({
     </div>
   )
 }
-
-/* ── Owner performance band ──────────────────────────────────────── */
 
 export function PerformanceSection({
   data,
@@ -233,13 +228,12 @@ export function PerformanceSection({
         />
       </div>
 
-      {/* Custo & lucro */}
       <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-5">
         <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
-          <PiggyBank className="h-4 w-4 text-orange-400" />
+          <PiggyBank className="h-4 w-4 text-primary" />
           Custo &amp; lucro dos serviços
         </h3>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           <MiniStat
             label="Receita de serviços"
             value={formatBRL(m?.serviceRevenueCents ?? 0)}
@@ -269,7 +263,6 @@ export function PerformanceSection({
         </div>
       </div>
 
-      {/* Charts */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ChartCard
           title="Saldo no período"
@@ -331,14 +324,14 @@ function MiniStat({
   return (
     <div className="rounded-lg bg-foreground/[0.02] p-3">
       <div className="flex items-center gap-1.5 text-xs text-foreground/50">
-        <Icon className="h-3.5 w-3.5 text-orange-400" />
+        <Icon className="h-3.5 w-3.5 text-primary" />
         {label}
       </div>
       <p
         className={cn(
           "mt-1 text-lg font-semibold tabular-nums",
-          tone === "positive" && "text-emerald-400",
-          tone === "negative" && "text-red-400",
+          tone === "positive" && "text-success",
+          tone === "negative" && "text-destructive",
           !tone && "text-foreground",
         )}
       >
@@ -347,8 +340,6 @@ function MiniStat({
     </div>
   )
 }
-
-/* ── Employee personal band ──────────────────────────────────────── */
 
 export function EmployeePerformance({
   data,

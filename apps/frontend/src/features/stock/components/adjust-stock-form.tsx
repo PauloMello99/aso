@@ -38,7 +38,6 @@ import {
 } from "../schemas/stock.schemas";
 import type { Material } from "../types";
 
-/** Allow digits and a single decimal separator only. */
 function sanitizeQuantity(raw: string): string {
   const cleaned = raw.replace(/[^\d.]/g, "");
   const [int = "", ...rest] = cleaned.split(".");
@@ -128,7 +127,7 @@ export function AdjustStockForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Quantidade <span className="text-red-400">*</span>
+                        Quantidade <span className="text-destructive">*</span>
                       </FormLabel>
                       <FormControl>
                         <Input

@@ -13,7 +13,7 @@ import {
 export interface RestockMaterialInput {
   orgId: string;
   materialId: string;
-  quantity: string; // positive numeric string
+  quantity: string;
   note?: string | null;
   createdBy?: string | null;
 }
@@ -34,12 +34,11 @@ export class RestockMaterialUseCase {
     );
     if (!material) throw new MaterialNotFoundException(input.materialId);
 
-    // Insert movement first, then update cached stock_quantity atomically
     await this.movementRepo.create({
       orgId: input.orgId,
       materialId: input.materialId,
       type: "restock",
-      quantityDelta: input.quantity, // positive = stock in
+      quantityDelta: input.quantity,
       note: input.note ?? null,
       createdBy: input.createdBy ?? null,
     });

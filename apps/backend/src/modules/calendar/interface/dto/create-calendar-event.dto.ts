@@ -27,7 +27,6 @@ export class CreateCalendarEventDto {
   @IsOptional()
   customerId?: string | null;
 
-  /** users.id do membro dono do horário (só owner; funcionário força = self). */
   @IsUUID()
   @IsOptional()
   assignedTo?: string | null;
@@ -41,4 +40,8 @@ export class CreateCalendarEventDto {
   @IsBoolean()
   @IsOptional()
   allDay?: boolean;
+
+  @IsIn(["private", "shared"])
+  @IsOptional()
+  visibility?: "private" | "shared";
 }

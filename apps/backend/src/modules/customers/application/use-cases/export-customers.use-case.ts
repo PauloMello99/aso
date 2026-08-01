@@ -6,7 +6,9 @@ import {
   buildCsv,
   csvDate,
   type CsvColumn,
+  type ExportFormat,
 } from "../../../../common/csv/csv.util";
+import { buildXlsx } from "../../../../common/csv/xlsx.util";
 
 const GENDER_LABELS: Record<string, string> = {
   male: "Masculino",
@@ -14,7 +16,6 @@ const GENDER_LABELS: Record<string, string> = {
   other: "Outro",
 };
 
-/** Colunas exportáveis de clientes (chaves usadas no seletor `?fields=`). */
 export const CUSTOMER_CSV_COLUMNS: CsvColumn<CustomerEntity>[] = [
   { key: "name", header: "Nome", value: (c) => c.name },
   { key: "email", header: "E-mail", value: (c) => c.email ?? "" },
@@ -44,8 +45,12 @@ export class ExportCustomersUseCase {
     orgId: string,
     filter?: ListCustomersFilter,
     fields?: string[],
-  ): Promise<string> {
+    format?: ExportFormat,
+  ): Promise<string | Buffer> {
     const customers = await this.listCustomers.execute(orgId, filter);
+    if (format === "xlsx") {
+      return buildXlsx(customers, CUSTOMER_CSV_COLUMNS, fields);
+    }
     return buildCsv(customers, CUSTOMER_CSV_COLUMNS, fields);
   }
 }

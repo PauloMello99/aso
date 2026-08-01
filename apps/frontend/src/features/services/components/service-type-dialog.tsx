@@ -13,17 +13,19 @@ import {
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
+import { Switch } from "@/shared/components/ui/switch"
 import type { ServiceType } from "../types"
 
 interface ServiceTypeDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onCreate: (name: string) => Promise<ServiceType>
-  /** Chamado com o tipo recém-criado (ex.: para selecioná-lo no form). */
+  onCreate: (
+    name: string,
+    requiresAgeVerification: boolean,
+  ) => Promise<ServiceType>
   onCreated?: (type: ServiceType) => void
 }
 
-/** Modal simples para criar um tipo de serviço sem sair do form de serviço. */
 export function ServiceTypeDialog({
   open,
   onOpenChange,
@@ -31,12 +33,15 @@ export function ServiceTypeDialog({
   onCreated,
 }: ServiceTypeDialogProps) {
   const [name, setName] = useState("")
+  const [requiresAgeVerification, setRequiresAgeVerification] =
+    useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
       setName("")
+      setRequiresAgeVerification(false)
       setError(null)
     }
   }, [open])
@@ -47,7 +52,7 @@ export function ServiceTypeDialog({
     setSaving(true)
     setError(null)
     try {
-      const created = await onCreate(trimmed)
+      const created = await onCreate(trimmed, requiresAgeVerification)
       onCreated?.(created)
       onOpenChange(false)
     } catch (err) {
@@ -72,7 +77,7 @@ export function ServiceTypeDialog({
 
         <div className="space-y-1.5">
           <Label htmlFor="service-type-name">
-            Nome <span className="text-red-400">*</span>
+            Nome <span className="text-destructive">*</span>
           </Label>
           <Input
             id="service-type-name"
@@ -89,6 +94,23 @@ export function ServiceTypeDialog({
             }}
           />
           {error && <p className="text-xs text-destructive">{error}</p>}
+        </div>
+
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3">
+          <div className="space-y-0.5">
+            <Label htmlFor="service-type-age-verification">
+              Requer maior de 18 anos
+            </Label>
+            <p className="text-xs text-foreground/40">
+              Bloqueia lançar serviço deste tipo para clientes menores de 18
+              anos.
+            </p>
+          </div>
+          <Switch
+            id="service-type-age-verification"
+            checked={requiresAgeVerification}
+            onCheckedChange={setRequiresAgeVerification}
+          />
         </div>
 
         <DialogFooter showCloseButton>

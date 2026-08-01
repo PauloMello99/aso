@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/router"
 import { Users, UserCheck, Plus, RefreshCw, Search } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
@@ -16,12 +17,18 @@ import {
   FilterPopover,
   FilterField,
 } from "@/shared/components/ui/filter-popover"
-import { ExportMenu } from "@/shared/components/ui/export-menu"
-import { downloadCsv } from "@/shared/lib/download-csv"
+import {
+  ExportMenu,
+  type ExportFormat,
+} from "@/shared/components/ui/export-menu"
+import { downloadExport } from "@/shared/lib/download-export"
+import { KpiCard } from "@/shared/components/kpi-card"
+import { useCurrentOrg } from "@/features/dashboard"
 import { useCustomers } from "../hooks/use-customers"
 import { useCustomerOrigins } from "../hooks/use-customer-origins"
 import { CustomerList } from "./customer-list"
 import { CustomerForm } from "./customer-form"
+import { MONTH_OPTIONS } from "../lib/birth-month"
 import type { Customer, CustomersFilter, Gender } from "../types"
 import type { CustomerFormValues } from "../schemas/client.schemas"
 
@@ -29,7 +36,6 @@ interface ClientsPageProps {
   orgId: string
 }
 
-/** Colunas exportáveis (chaves espelham o backend). */
 const EXPORT_COLUMNS = [
   { key: "name", label: "Nome" },
   { key: "email", label: "E-mail" },
@@ -44,10 +50,11 @@ const EXPORT_COLUMNS = [
 ]
 
 export function ClientsPage({ orgId }: ClientsPageProps) {
+  const router = useRouter()
+  const { org } = useCurrentOrg()
   const [searchInput, setSearchInput] = useState("")
   const [search, setSearch] = useState("")
 
-  // Debounce the search input → query filter
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput.trim()), 300)
     return () => clearTimeout(t)
@@ -59,17 +66,42 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
     gender?: Gender
     from?: string
     to?: string
+    birthMonth?: number
+    city?: string
+    state?: string
   }>({})
+
+  const [cityInput, setCityInput] = useState("")
+  const [stateInput, setStateInput] = useState("")
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setAdvanced((a) => ({ ...a, city: cityInput.trim() || undefined }))
+    }, 300)
+    return () => clearTimeout(t)
+  }, [cityInput])
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setAdvanced((a) => ({ ...a, state: stateInput.trim() || undefined }))
+    }, 300)
+    return () => clearTimeout(t)
+  }, [stateInput])
 
   const advancedCount =
     (advanced.status ? 1 : 0) +
     (advanced.originId ? 1 : 0) +
     (advanced.gender ? 1 : 0) +
     (advanced.from ? 1 : 0) +
-    (advanced.to ? 1 : 0)
+    (advanced.to ? 1 : 0) +
+    (advanced.birthMonth ? 1 : 0) +
+    (advanced.city ? 1 : 0) +
+    (advanced.state ? 1 : 0)
 
   function clearAdvanced() {
     setAdvanced({})
+    setCityInput("")
+    setStateInput("")
   }
 
   const filter = useMemo<CustomersFilter | undefined>(() => {
@@ -107,6 +139,10 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
     setFormOpen(true)
   }
 
+  function openDetail(customer: Customer) {
+    void router.push(`/dashboard/org/${org.slug}/clients/${customer.id}`)
+  }
+
   async function handleSubmit(values: CustomerFormValues) {
     const body = {
       name: values.name,
@@ -116,6 +152,7 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
       birthDate: values.birthDate || null,
       address: values.address || null,
       addressLine2: values.addressLine2 || null,
+      number: values.number,
       city: values.city || null,
       state: values.state || null,
       postalCode: values.postalCode || null,
@@ -140,10 +177,11 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
     await deleteCustomer(customer.id)
   }
 
-  async function handleExport(fields: string[]) {
-    await downloadCsv(
+  async function handleExport(fields: string[], format: ExportFormat) {
+    await downloadExport(
       `/orgs/${orgId}/customers/export`,
-      `clientes-${new Date().toISOString().slice(0, 10)}.csv`,
+      `clientes-${new Date().toISOString().slice(0, 10)}`,
+      format,
       {
         search,
         status: advanced.status,
@@ -151,6 +189,9 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
         gender: advanced.gender,
         from: advanced.from,
         to: advanced.to,
+        birthMonth: advanced.birthMonth,
+        city: advanced.city,
+        state: advanced.state,
         fields: fields.join(","),
       },
     )
@@ -158,7 +199,6 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Clientes</h1>
@@ -185,23 +225,23 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
         </div>
       </div>
 
-      {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <SummaryCard
-          icon={<Users className="h-4 w-4 text-foreground/40" />}
+        <KpiCard
+          icon={Users}
+          iconClassName="text-text-muted"
           label="Total de clientes"
           value={String(customers.length)}
           loading={loading}
         />
-        <SummaryCard
-          icon={<UserCheck className="h-4 w-4 text-emerald-400" />}
+        <KpiCard
+          icon={UserCheck}
+          iconClassName="text-success"
           label="Ativos"
           value={String(activeCount)}
           loading={loading}
         />
       </div>
 
-      {/* Search + filters */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/30" />
@@ -299,17 +339,56 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
               />
             </FilterField>
           </div>
+          <FilterField label="Aniversariantes do mês">
+            <Select
+              value={advanced.birthMonth ? String(advanced.birthMonth) : "all"}
+              onValueChange={(v) =>
+                setAdvanced((a) => ({
+                  ...a,
+                  birthMonth: v === "all" ? undefined : Number(v),
+                }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Todos os meses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os meses</SelectItem>
+                {MONTH_OPTIONS.map((m) => (
+                  <SelectItem key={m.value} value={String(m.value)}>
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterField>
+          <div className="grid grid-cols-2 gap-2">
+            <FilterField label="Cidade">
+              <Input
+                value={cityInput}
+                onChange={(e) => setCityInput(e.target.value)}
+                placeholder="Busca exata"
+                autoComplete="off"
+              />
+            </FilterField>
+            <FilterField label="Estado">
+              <Input
+                value={stateInput}
+                onChange={(e) => setStateInput(e.target.value)}
+                placeholder="Busca exata"
+                autoComplete="off"
+              />
+            </FilterField>
+          </div>
         </FilterPopover>
       </div>
 
-      {/* Error */}
       {error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      {/* List */}
       {loading && customers.length === 0 ? (
         <div className="flex items-center justify-center py-16 text-foreground/30">
           <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
@@ -321,10 +400,10 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
           onEdit={openEdit}
           onToggleStatus={handleToggleStatus}
           onDelete={handleDelete}
+          onViewDetail={openDetail}
         />
       )}
 
-      {/* Dialog */}
       <CustomerForm
         open={formOpen}
         onOpenChange={setFormOpen}
@@ -333,35 +412,6 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
         origins={origins}
         onSubmit={handleSubmit}
       />
-    </div>
-  )
-}
-
-/* ─── Summary card sub-component ────────────────────────────── */
-function SummaryCard({
-  icon,
-  label,
-  value,
-  loading,
-}: {
-  icon: React.ReactNode
-  label: string
-  value: string
-  loading?: boolean
-}) {
-  return (
-    <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4">
-      <div className="flex items-center gap-2">
-        {icon}
-        <span className="text-xs text-foreground/40">{label}</span>
-      </div>
-      {loading ? (
-        <div className="mt-2 h-7 w-12 animate-pulse rounded bg-foreground/[0.06]" />
-      ) : (
-        <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">
-          {value}
-        </p>
-      )}
     </div>
   )
 }

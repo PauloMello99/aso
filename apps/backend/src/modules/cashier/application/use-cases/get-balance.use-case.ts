@@ -25,7 +25,6 @@ export class GetBalanceUseCase {
       orgId,
       authId,
     );
-    // Funcionário vê o saldo dos próprios lançamentos; owner vê o total da org.
     return this.transactionRepo.balance(orgId, isOwner ? undefined : userId);
   }
 }

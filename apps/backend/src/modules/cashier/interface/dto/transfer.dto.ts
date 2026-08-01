@@ -5,14 +5,19 @@ import {
   IsString,
   Min,
 } from "class-validator";
-import { PAYMENT_METHODS } from "./create-transaction.dto";
+import {
+  TRANSFER_METHODS,
+  TransferMethod,
+} from "../../domain/transaction.entity";
+
+export { TRANSFER_METHODS };
 
 export class TransferDto {
-  @IsIn(PAYMENT_METHODS)
-  fromMethod!: (typeof PAYMENT_METHODS)[number];
+  @IsIn(TRANSFER_METHODS)
+  fromMethod!: TransferMethod;
 
-  @IsIn(PAYMENT_METHODS)
-  toMethod!: (typeof PAYMENT_METHODS)[number];
+  @IsIn(TRANSFER_METHODS)
+  toMethod!: TransferMethod;
 
   @IsInt()
   @Min(1)

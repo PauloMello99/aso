@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -38,6 +38,7 @@ import {
   customerSchema,
   type CustomerFormValues,
 } from "../schemas/client.schemas";
+import { fetchAddressByCep } from "../lib/viacep";
 import type { Customer } from "../types";
 import { AttachmentsSection } from "./attachments-section";
 
@@ -61,6 +62,7 @@ const EMPTY: CustomerFormValues = {
   birthDate: "",
   address: "",
   addressLine2: "",
+  number: "",
   city: "",
   state: "",
   postalCode: "",
@@ -78,6 +80,8 @@ export function CustomerForm({
   onSubmit,
 }: CustomerFormProps) {
   const isEditing = !!customer;
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const lastAppliedCepRef = useRef<string | null>(null);
 
   const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
@@ -86,6 +90,10 @@ export function CustomerForm({
 
   useEffect(() => {
     if (open) {
+      setSubmitError(null);
+      lastAppliedCepRef.current = customer?.postalCode
+        ? customer.postalCode.replace(/\D/g, "")
+        : null;
       form.reset(
         customer
           ? {
@@ -96,6 +104,7 @@ export function CustomerForm({
               birthDate: customer.birthDate ?? "",
               address: customer.address ?? "",
               addressLine2: customer.addressLine2 ?? "",
+              number: customer.number ?? "",
               city: customer.city ?? "",
               state: customer.state ?? "",
               postalCode: customer.postalCode ?? "",
@@ -109,9 +118,33 @@ export function CustomerForm({
   }, [open, customer, form]);
 
   const handleSubmit = form.handleSubmit(async (values) => {
-    await onSubmit(values);
-    onOpenChange(false);
+    setSubmitError(null);
+    try {
+      await onSubmit(values);
+      onOpenChange(false);
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : "Falha ao salvar o cliente.",
+      );
+    }
   });
+
+  const handlePostalCodeChange = async (value: string) => {
+    const cepDigits = value.replace(/\D/g, "");
+    if (cepDigits.length !== 8 || lastAppliedCepRef.current === cepDigits) {
+      return;
+    }
+    lastAppliedCepRef.current = cepDigits;
+    const result = await fetchAddressByCep(value);
+    if (result) {
+      if (result.address)
+        form.setValue("address", result.address, { shouldValidate: true });
+      if (result.city)
+        form.setValue("city", result.city, { shouldValidate: true });
+      if (result.state)
+        form.setValue("state", result.state, { shouldValidate: true });
+    }
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -137,7 +170,7 @@ export function CustomerForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Nome <span className="text-red-400">*</span>
+                        Nome <span className="text-destructive">*</span>
                       </FormLabel>
                       <FormControl>
                         <Input
@@ -158,7 +191,9 @@ export function CustomerForm({
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>E-mail</FormLabel>
+                      <FormLabel>
+                        E-mail <span className="text-destructive">*</span>
+                      </FormLabel>
                       <FormControl>
                         <Input
                           type="email"
@@ -171,6 +206,9 @@ export function CustomerForm({
                     </FormItem>
                   )}
                 />
+                {submitError && (
+                  <p className="mt-1 text-sm text-destructive">{submitError}</p>
+                )}
               </div>
 
               <div>
@@ -231,7 +269,9 @@ export function CustomerForm({
                     name="birthDate"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel>Nascimento</FormLabel>
+                        <FormLabel>
+                          Nascimento <span className="text-destructive">*</span>
+                        </FormLabel>
                         <FormControl>
                           <DatePicker
                             value={field.value}
@@ -249,20 +289,24 @@ export function CustomerForm({
 
               <Separator className="bg-foreground/[0.06]" />
               <p className="-mb-1 text-xs font-medium uppercase tracking-wider text-foreground/30">
-                Endereço <span className="lowercase">(opcional)</span>
+                Endereço
               </p>
 
               <FormField
                 control={form.control}
-                name="address"
+                name="postalCode"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Logradouro</FormLabel>
+                    <FormLabel>CEP / Código postal</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Rua, avenida, número"
+                        placeholder="Ex: 01310-100"
                         autoComplete="off"
                         {...field}
+                        onBlur={(e) => {
+                          field.onBlur();
+                          void handlePostalCodeChange(e.target.value);
+                        }}
                       />
                     </FormControl>
                     <FormMessage />
@@ -272,13 +316,15 @@ export function CustomerForm({
 
               <FormField
                 control={form.control}
-                name="addressLine2"
+                name="address"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Complemento</FormLabel>
+                    <FormLabel>
+                      Logradouro <span className="text-destructive">*</span>
+                    </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Apto, bloco, referência"
+                        placeholder="Rua, avenida"
                         autoComplete="off"
                         {...field}
                       />
@@ -291,10 +337,51 @@ export function CustomerForm({
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <FormField
                   control={form.control}
+                  name="number"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Número <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Ex: 123"
+                          autoComplete="off"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="addressLine2"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Complemento</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Apto, bloco, referência"
+                          autoComplete="off"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
                   name="city"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Cidade</FormLabel>
+                      <FormLabel>
+                        Cidade <span className="text-destructive">*</span>
+                      </FormLabel>
                       <FormControl>
                         <Input
                           placeholder="Ex: São Paulo"
@@ -311,7 +398,10 @@ export function CustomerForm({
                   name="state"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Estado / Província</FormLabel>
+                      <FormLabel>
+                        Estado / Província{" "}
+                        <span className="text-destructive">*</span>
+                      </FormLabel>
                       <FormControl>
                         <Input
                           placeholder="Ex: SP"
@@ -325,47 +415,28 @@ export function CustomerForm({
                 />
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="postalCode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>CEP / Código postal</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Ex: 01310-100"
-                          autoComplete="off"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="country"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>País (ISO)</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="BR"
-                          autoComplete="off"
-                          maxLength={2}
-                          className="uppercase"
-                          {...field}
-                          onChange={(e) =>
-                            field.onChange(e.target.value.toUpperCase())
-                          }
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name="country"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>País (ISO)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="BR"
+                        autoComplete="off"
+                        maxLength={2}
+                        className="uppercase"
+                        {...field}
+                        onChange={(e) =>
+                          field.onChange(e.target.value.toUpperCase())
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <Separator className="bg-foreground/[0.06]" />
 

@@ -4,11 +4,16 @@ import {
   SERVICE_REPOSITORY,
   type CreateServiceMaterialData,
 } from "../../domain/service.repository.interface";
+import {
+  IServiceTypeRepository,
+  SERVICE_TYPE_REPOSITORY,
+} from "../../domain/service-type.repository.interface";
 import { ServiceEntity, type PaymentMethod } from "../../domain/service.entity";
 import {
   ICustomerRepository,
   CUSTOMER_REPOSITORY,
 } from "../../../customers/domain/customer.repository.interface";
+import type { CustomerEntity } from "../../../customers/domain/customer.entity";
 import {
   IMemberRepository,
   MEMBER_REPOSITORY,
@@ -33,30 +38,33 @@ import { computeNet } from "../../../cashier/domain/fee-calculator";
 import { CustomerDisabledException } from "../../domain/exceptions/customer-disabled.exception";
 import { MaterialNotFoundException } from "../../../materials/domain/exceptions/material-not-found.exception";
 import { InsufficientStockException } from "../../../materials/domain/exceptions/insufficient-stock.exception";
+import { ServiceMaterialRequiredException } from "../../domain/exceptions/service-material-required.exception";
+import {
+  IAnamnesisResponseRepository,
+  ANAMNESIS_RESPONSE_REPOSITORY,
+} from "../../../anamnesis/domain/anamnesis-response.repository.interface";
 import { resolvePerformer } from "./resolve-performer";
 import { resolveMembership } from "./resolve-membership";
+import { assertPerformedAtNotFuture } from "./assert-performed-at-not-future";
+import { assertAgeVerification } from "./assert-age-verification";
+import { assertAnamnesisResponseLinkable } from "./assert-anamnesis-response-linkable";
 
-/** Linha de material no lançamento. */
 export interface ServiceMaterialInput {
   materialId: string;
-  /** Quantidade consumida (material não-compartilhável). */
   quantity?: number;
-  /** "Acabou?" — material compartilhável: marca consumo de 1 embalagem. */
   finished?: boolean;
 }
 
 export interface CreateServiceInput {
   orgId: string;
-  /** Auth id (Supabase) de quem está lançando. */
   authId: string;
   customerId?: string | null;
   serviceTypeId?: string | null;
-  /** App users.id do profissional (só owner escolhe; funcionário força = self). */
   performedBy?: string | null;
   description?: string | null;
+  anamnesisResponseId?: string | null;
   amountCents: number;
   paymentMethod: PaymentMethod;
-  /** "paid" gera transação líquida no caixa; "pending" não. */
   paymentStatus: "paid" | "pending";
   performedAt?: Date;
   materials: ServiceMaterialInput[];
@@ -67,6 +75,8 @@ export class CreateServiceUseCase {
   constructor(
     @Inject(SERVICE_REPOSITORY)
     private readonly serviceRepo: IServiceRepository,
+    @Inject(SERVICE_TYPE_REPOSITORY)
+    private readonly serviceTypeRepo: IServiceTypeRepository,
     @Inject(CUSTOMER_REPOSITORY)
     private readonly customerRepo: ICustomerRepository,
     @Inject(MEMBER_REPOSITORY)
@@ -79,18 +89,22 @@ export class CreateServiceUseCase {
     private readonly transactionRepo: ITransactionRepository,
     @Inject(PAYMENT_FEE_REPOSITORY)
     private readonly feeRepo: IPaymentFeeRepository,
+    @Inject(ANAMNESIS_RESPONSE_REPOSITORY)
+    private readonly anamnesisResponseRepo: IAnamnesisResponseRepository,
   ) {}
 
   async execute(input: CreateServiceInput): Promise<ServiceEntity> {
+    assertPerformedAtNotFuture(input.performedAt);
+
     const { userId: currentUserId, isOwner } = await resolveMembership(
       this.memberRepo,
       input.orgId,
       input.authId,
     );
 
-    // 1. Cliente da org e ativo.
+    let customer: CustomerEntity | null = null;
     if (input.customerId) {
-      const customer = await this.customerRepo.findById(
+      customer = await this.customerRepo.findById(
         input.customerId,
         input.orgId,
       );
@@ -100,7 +114,25 @@ export class CreateServiceUseCase {
       }
     }
 
-    // 2. Profissional: funcionário força self; owner escolhe (membro ativo).
+    const serviceType = input.serviceTypeId
+      ? await this.serviceTypeRepo.findById(input.serviceTypeId, input.orgId)
+      : null;
+    assertAgeVerification(
+      serviceType,
+      customer,
+      input.performedAt ?? new Date(),
+    );
+
+    if (input.anamnesisResponseId) {
+      await assertAnamnesisResponseLinkable(
+        this.anamnesisResponseRepo,
+        input.orgId,
+        input.anamnesisResponseId,
+        input.customerId ?? null,
+        input.serviceTypeId ?? null,
+      );
+    }
+
     const performedBy = await resolvePerformer(
       this.memberRepo,
       input.orgId,
@@ -109,7 +141,6 @@ export class CreateServiceUseCase {
       input.performedBy,
     );
 
-    // 3. Resolver consumo de materiais (valida estoque antes de gravar).
     const debits: { materialId: string; delta: string }[] = [];
     const toRecord: CreateServiceMaterialData[] = [];
 
@@ -122,7 +153,6 @@ export class CreateServiceUseCase {
 
       let qty: number;
       if (material.shareable) {
-        // Compartilhável: só consome se "acabou?" marcado (1 embalagem).
         if (!line.finished) continue;
         qty = 1;
       } else {
@@ -142,7 +172,10 @@ export class CreateServiceUseCase {
       debits.push({ materialId: material.id, delta: String(-qty) });
     }
 
-    // 4. Criar serviço + service_materials.
+    if (toRecord.length === 0) {
+      throw new ServiceMaterialRequiredException();
+    }
+
     const service = await this.serviceRepo.create(
       {
         orgId: input.orgId,
@@ -151,6 +184,7 @@ export class CreateServiceUseCase {
         performedBy,
         createdBy: currentUserId,
         description: input.description ?? null,
+        anamnesisResponseId: input.anamnesisResponseId ?? null,
         amountCents: input.amountCents,
         paymentMethod: input.paymentMethod,
         performedAt: input.performedAt,
@@ -158,7 +192,6 @@ export class CreateServiceUseCase {
       toRecord,
     );
 
-    // 5. Baixar estoque (movimento + saldo + lastUsed).
     for (const debit of debits) {
       await this.materialRepo.updateStockQuantity(debit.materialId, debit.delta);
       await this.movementRepo.create({
@@ -172,7 +205,6 @@ export class CreateServiceUseCase {
       await this.materialRepo.touchLastUsed(debit.materialId);
     }
 
-    // 6. Pagamento à vista: transação líquida no caixa.
     if (input.paymentStatus === "paid") {
       const fee = await this.feeRepo.findByOrgAndMethod(
         input.orgId,
@@ -197,7 +229,6 @@ export class CreateServiceUseCase {
       await this.serviceRepo.setPaymentTransaction(service.id, tx.id);
     }
 
-    // Re-ler para refletir materiais/nomes/transação anotados.
     const fresh = await this.serviceRepo.findById(service.id, input.orgId);
     return fresh ?? service;
   }

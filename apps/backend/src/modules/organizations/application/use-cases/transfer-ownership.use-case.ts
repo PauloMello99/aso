@@ -7,6 +7,7 @@ import {
   IMemberRepository,
   MEMBER_REPOSITORY,
 } from "../../domain/member.repository.interface";
+import { AuditService } from "../../../audit/audit.service";
 import { MODULE_KEYS } from "../../domain/member-permissions";
 import { OrgForbiddenException } from "../../domain/exceptions/org-forbidden.exception";
 import { MemberNotFoundException } from "../../domain/exceptions/member-not-found.exception";
@@ -19,6 +20,7 @@ export class TransferOwnershipUseCase {
     private readonly orgRepo: IOrganizationRepository,
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepo: IMemberRepository,
+    private readonly auditService: AuditService,
   ) {}
 
   async execute(
@@ -32,8 +34,14 @@ export class TransferOwnershipUseCase {
     const currentOwner = await this.memberRepo.findByAuthId(orgId, authId);
     if (!currentOwner) throw new OrgForbiddenException();
 
-    // Transferir para si mesmo é no-op.
-    if (currentOwner.memberId === newOwnerMemberId) return;
+    let currentOwnerMemberId = currentOwner.memberId;
+    if (currentOwnerMemberId === "") {
+      const members = await this.memberRepo.findAllByOrg(orgId);
+      currentOwnerMemberId =
+        members.find((m) => m.role === "owner" && m.enabled)?.memberId ?? "";
+    }
+
+    if (currentOwnerMemberId === newOwnerMemberId) return;
 
     const newOwner = await this.memberRepo.findByMemberId(
       newOwnerMemberId,
@@ -42,12 +50,23 @@ export class TransferOwnershipUseCase {
     if (!newOwner) throw new MemberNotFoundException(newOwnerMemberId);
     if (!newOwner.enabled) throw new MemberInactiveException();
 
-    // O antigo dono vira funcionário com acesso total (não perde os módulos).
     await this.memberRepo.transferOwnership(
       orgId,
       newOwnerMemberId,
-      currentOwner.memberId,
+      currentOwnerMemberId,
       [...MODULE_KEYS],
     );
+
+    await this.auditService.logByAuthId(authId, {
+      orgId,
+      action: "update",
+      entityType: "organization",
+      entityId: orgId,
+      metadata: {
+        from: currentOwnerMemberId,
+        to: newOwnerMemberId,
+        operation: "transfer_ownership",
+      },
+    });
   }
 }

@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { UserModule } from "../user/user.module";
 import { OrgsInfrastructureModule } from "../organizations/infrastructure/orgs-infrastructure.module";
+import { MailModule } from "../mail/mail.module";
 import { AuthController } from "./auth.controller";
 import { AUTH_PROVIDER } from "./application/ports/auth-provider.interface";
 import { STORAGE_PROVIDER } from "./application/ports/storage-provider.interface";
@@ -21,7 +22,7 @@ import { UploadAvatarUseCase } from "./use-cases/upload-avatar.use-case";
 import { DeleteAccountUseCase } from "./use-cases/delete-account.use-case";
 
 @Module({
-  imports: [UserModule, OrgsInfrastructureModule],
+  imports: [UserModule, OrgsInfrastructureModule, MailModule],
   controllers: [AuthController],
   providers: [
     { provide: AUTH_PROVIDER, useClass: SupabaseAuthProvider },

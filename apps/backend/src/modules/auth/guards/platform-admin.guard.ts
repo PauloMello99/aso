@@ -11,11 +11,6 @@ import { DRIZZLE_ADMIN, type DrizzleDB } from "../../../database/database.module
 import * as schema from "../../../database/schema";
 import { AuthUser } from "../application/ports/auth-provider.interface";
 
-/**
- * Autoriza apenas usuários com `platform_role = 'super_admin'` (PLAT-1). Usar
- * após {@link AuthGuard}, em rotas de plataforma (`/admin/**`) que NÃO são
- * org-scoped. Roda antes do RlsInterceptor → usa a conexão privilegiada.
- */
 @Injectable()
 export class PlatformAdminGuard implements CanActivate {
   constructor(@Inject(DRIZZLE_ADMIN) private readonly db: DrizzleDB) {}

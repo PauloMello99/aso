@@ -23,7 +23,6 @@ export interface Service {
   performedBy: string | null
   createdBy: string | null
   description: string | null
-  /** Valor bruto em centavos. */
   amountCents: number
   paymentMethod: ServicePaymentMethod
   performedAt: string
@@ -41,6 +40,7 @@ export interface ServiceType {
   orgId: string
   name: string
   description: string | null
+  requiresAgeVerification: boolean
 }
 
 export interface ServicesFilter {
@@ -71,7 +71,6 @@ export const SERVICE_PAYMENT_METHOD_LABELS: Record<ServicePaymentMethod, string>
     debit_card: "Cartão de débito",
   }
 
-/** Métodos de cartão sofrem taxa configurável (espelha o caixa). */
 export const FEE_ELIGIBLE_METHODS: ServicePaymentMethod[] = [
   "credit_card",
   "debit_card",
@@ -83,7 +82,6 @@ export const SERVICE_STATUS_LABELS: Record<ServiceStatus, string> = {
   canceled: "Cancelado",
 }
 
-/** Estado derivado (os getters do entity não serializam). */
 export function serviceStatus(s: Service): ServiceStatus {
   if (s.canceledAt) return "canceled"
   return s.paymentTransactionId ? "paid" : "pending"

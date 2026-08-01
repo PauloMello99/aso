@@ -18,6 +18,7 @@ import type { AuthUser } from "../../auth/application/ports/auth-provider.interf
 import { GetMeUseCase } from "../../user/application/use-cases/get-me.use-case";
 import { ListUserOrgsUseCase } from "../application/use-cases/list-user-orgs.use-case";
 import { GetOrgUseCase } from "../application/use-cases/get-org.use-case";
+import { ResolveOrgBySlugUseCase } from "../application/use-cases/resolve-org-by-slug.use-case";
 import { CreateOrgUseCase } from "../application/use-cases/create-org.use-case";
 import { UpdateOrgUseCase } from "../application/use-cases/update-org.use-case";
 import { DeleteOrgUseCase } from "../application/use-cases/delete-org.use-case";
@@ -45,6 +46,7 @@ export class OrgsController {
     private readonly getMe: GetMeUseCase,
     private readonly listUserOrgs: ListUserOrgsUseCase,
     private readonly getOrg: GetOrgUseCase,
+    private readonly resolveOrgBySlug: ResolveOrgBySlugUseCase,
     private readonly createOrg: CreateOrgUseCase,
     private readonly updateOrg: UpdateOrgUseCase,
     private readonly deleteOrg: DeleteOrgUseCase,
@@ -59,8 +61,6 @@ export class OrgsController {
     private readonly cancelInvitation: CancelInvitationUseCase,
   ) {}
 
-  /* ─── Org CRUD ──────────────────────────────────────────────── */
-
   @Get()
   list(@CurrentUser() user: AuthUser) {
     return this.listUserOrgs.execute(user.id);
@@ -69,6 +69,11 @@ export class OrgsController {
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateOrgDto) {
     return this.createOrg.execute(dto.name, user.id);
+  }
+
+  @Get("by-slug/:slug")
+  bySlug(@Param("slug") slug: string, @CurrentUser() user: AuthUser) {
+    return this.resolveOrgBySlug.execute(slug, user.id);
   }
 
   @Get(":orgId")
@@ -106,8 +111,6 @@ export class OrgsController {
   ) {
     await this.transferOwnership.execute(orgId, dto.memberId, user.id);
   }
-
-  /* ─── Members ───────────────────────────────────────────────── */
 
   @Get(":orgId/members")
   @UseGuards(OrgMembershipGuard)
@@ -175,8 +178,6 @@ export class OrgsController {
   ) {
     await this.removeMember.execute(orgId, memberId, user.id);
   }
-
-  /* ─── Invitations ───────────────────────────────────────────── */
 
   @Get(":orgId/invitations")
   getInvitations(

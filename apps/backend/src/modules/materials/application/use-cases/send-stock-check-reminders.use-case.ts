@@ -5,10 +5,6 @@ import {
   STOCK_VERIFICATION_REPOSITORY,
 } from "../../domain/stock-verification.repository.interface";
 
-/**
- * Cron: para cada org com intervalo configurado cujo prazo expirou desde a
- * última conferência, notifica os owners para conferir o estoque.
- */
 @Injectable()
 export class SendStockCheckRemindersUseCase {
   constructor(

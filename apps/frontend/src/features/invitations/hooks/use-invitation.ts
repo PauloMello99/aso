@@ -5,7 +5,6 @@ import { apiRequest } from "@/infrastructure/api/client"
 import { queryKeys } from "@/infrastructure/query/query-keys"
 import type { AcceptInvitationResult, InvitationLookup } from "../types"
 
-/** Consulta pública do convite pelo token (sem auth). */
 export function useInvitationLookup(token: string | undefined) {
   return useQuery({
     queryKey: ["invitation", "lookup", token],
@@ -19,7 +18,6 @@ export function useInvitationLookup(token: string | undefined) {
   })
 }
 
-/** Aceite do convite (requer estar logado). */
 export function useAcceptInvitation() {
   const queryClient = useQueryClient()
   const mutation = useMutation({
@@ -38,7 +36,6 @@ export function useAcceptInvitation() {
   }
 }
 
-/** Recusa do convite (requer estar logado) — remove o convite no backend. */
 export function useDeclineInvitation() {
   const mutation = useMutation({
     mutationFn: (token: string) =>

@@ -1,6 +1,5 @@
 import { IsOptional, IsString, IsUUID } from "class-validator";
 
-/** Apenas campos não-financeiros. Valor/método/estoque exigem cancelar + recriar. */
 export class UpdateServiceDto {
   @IsUUID()
   @IsOptional()
@@ -17,6 +16,10 @@ export class UpdateServiceDto {
   @IsString()
   @IsOptional()
   description?: string | null;
+
+  @IsUUID()
+  @IsOptional()
+  anamnesisResponseId?: string | null;
 
   @IsString()
   @IsOptional()

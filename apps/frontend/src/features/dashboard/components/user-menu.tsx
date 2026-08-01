@@ -33,9 +33,10 @@ export function UserMenu() {
         <Button
           variant="ghost"
           size="sm"
+          data-tour="user-menu"
           className="h-auto gap-2 px-2 py-1.5 text-foreground/60 hover:text-foreground"
         >
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-500/20 text-xs font-medium text-orange-400">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 text-xs font-medium text-primary">
             {initials}
           </span>
           <ChevronDown className="h-3.5 w-3.5" />

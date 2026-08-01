@@ -72,15 +72,20 @@ export class SupabaseAuthProvider implements IAuthProvider {
     return this.mapSession(data.session, data.user!);
   }
 
-  async forgotPassword(email: string): Promise<void> {
+  async generatePasswordResetLink(email: string): Promise<string | null> {
     const frontendUrl = this.config.get<string>(
       "FRONTEND_URL",
       "http://localhost:3000",
     );
-    const { error } = await this.anon.auth.resetPasswordForEmail(email, {
-      redirectTo: `${frontendUrl}/auth/reset-password`,
+    const { data, error } = await this.admin.auth.admin.generateLink({
+      type: "recovery",
+      email,
+      options: { redirectTo: `${frontendUrl}/auth/reset-password` },
     });
-    if (error) throw new InvalidCredentialsException(error.message);
+    if (error) {
+      return null;
+    }
+    return data.properties?.action_link ?? null;
   }
 
   async resetPassword(
@@ -103,8 +108,6 @@ export class SupabaseAuthProvider implements IAuthProvider {
   }
 
   async updateEmail(authId: string, email: string): Promise<void> {
-    // email_confirm: true → aplica o e-mail imediatamente (sem fluxo de
-    // reconfirmação), coerente com o createUser do sign-up.
     const { error } = await this.admin.auth.admin.updateUserById(authId, {
       email,
       email_confirm: true,

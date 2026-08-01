@@ -23,10 +23,7 @@ export const stockMovements = pgTable(
       .notNull()
       .references(() => materials.id, { onDelete: "cascade" }),
     type: stockMovementTypeEnum("type").notNull(),
-    // Positive = stock in (restock, positive manual adjustment)
-    // Negative = stock out (service consumption, waste, negative adjustment)
     quantityDelta: numeric("quantity_delta", { precision: 10, scale: 2 }).notNull(),
-    // Populated when type = 'service_consumption'
     serviceId: uuid("service_id").references(() => services.id, {
       onDelete: "set null",
     }),

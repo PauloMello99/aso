@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { format, parseISO } from "date-fns"
+import { addYears, format, parseISO } from "date-fns"
 import {
   Sheet,
   SheetBody,
@@ -40,6 +40,7 @@ import type { CalendarEvent } from "../types"
 import type { CalendarEventBody } from "../hooks/use-calendar-events"
 import { DatePicker } from "@/shared/components/ui/date-picker"
 import type { Member } from "@/features/organizations/types"
+import { EventAttendees } from "./event-attendees"
 
 const NO_CUSTOMER = "none"
 const ASSIGNEE_SELF = "self"
@@ -48,17 +49,13 @@ interface EventFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   orgId: string
-  /** Evento em edição, ou null para criação. */
   event: CalendarEvent | null
-  /** Slot inicial ao criar (clicar num horário do grid). */
   defaultSlot?: { date: string; startTime: string; endTime: string } | null
-  /** Somente leitura (ex.: admin vendo evento de outro membro). */
   readOnly?: boolean
-  /** Nome do membro dono do evento (exibido em modo leitura). */
   ownerName?: string | null
-  /** Owner pode criar em nome de um membro; funcionário não vê o seletor. */
   isOwner?: boolean
   members?: Member[]
+  currentUserId?: string
   onSubmit: (body: CalendarEventBody, id?: string) => Promise<void>
   onDelete?: (id: string) => Promise<void>
   onSetStatus?: (id: string, status: "scheduled" | "canceled") => Promise<void>
@@ -75,6 +72,7 @@ function emptyValues(slot?: EventFormProps["defaultSlot"]): EventFormValues {
     allDay: false,
     description: "",
     assignedTo: "",
+    visibility: "private",
   }
 }
 
@@ -88,6 +86,7 @@ export function EventForm({
   ownerName,
   isOwner = false,
   members = [],
+  currentUserId,
   onSubmit,
   onDelete,
   onSetStatus,
@@ -120,6 +119,7 @@ export function EventForm({
         allDay: event.allDay,
         description: event.description ?? "",
         assignedTo: event.assignedTo ?? "",
+        visibility: event.visibility,
       })
     } else {
       form.reset(emptyValues(defaultSlot))
@@ -145,8 +145,8 @@ export function EventForm({
       startsAt: startsAt.toISOString(),
       endsAt: endsAt.toISOString(),
       allDay: v.allDay ?? false,
-      // Só relevante na criação; o owner pode atribuir a outro membro.
       assignedTo: v.assignedTo || null,
+      visibility: v.visibility,
     }
     await onSubmit(body, event?.id)
     onOpenChange(false)
@@ -199,7 +199,6 @@ export function EventForm({
                 )}
               />
 
-              {/* Owner: criar evento em nome de um membro (só na criação). */}
               {isOwner && !isEditing && (
                 <FormField
                   control={form.control}
@@ -242,7 +241,7 @@ export function EventForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Título <span className="text-red-400">*</span>
+                      Título <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input
@@ -304,6 +303,7 @@ export function EventForm({
                         value={field.value}
                         onChange={field.onChange}
                         placeholder="Hoje"
+                        endMonth={addYears(new Date(), 2)}
                       />
                     </FormControl>
                     <FormMessage />
@@ -374,7 +374,38 @@ export function EventForm({
                   </FormItem>
                 )}
               />
+
+              <FormField
+                control={form.control}
+                name="visibility"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between gap-4 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3">
+                    <div>
+                      <FormLabel>Compartilhar com a equipe</FormLabel>
+                      <p className="text-xs text-foreground/40">
+                        Membros da organização podem ver e confirmar presença.
+                      </p>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value === "shared"}
+                        onCheckedChange={(checked) =>
+                          field.onChange(checked ? "shared" : "private")
+                        }
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
               </fieldset>
+
+              {event && event.visibility === "shared" && (
+                <EventAttendees
+                  orgId={orgId}
+                  eventId={event.id}
+                  currentUserId={currentUserId}
+                />
+              )}
             </SheetBody>
 
             {readOnly ? (
@@ -410,7 +441,7 @@ export function EventForm({
                     <Button
                       type="button"
                       variant="ghost"
-                      className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive/80"
                       onClick={async () => {
                         if (!event) return
                         await onDelete(event.id)

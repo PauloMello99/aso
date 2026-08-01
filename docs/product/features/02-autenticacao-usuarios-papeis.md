@@ -10,6 +10,14 @@ me) + `AuthGuard` + `features/auth` (login, signup, recover, reset). `users` com
 (liga ao Supabase). `org_memberships` define `org_role`. `platform_role` em `users`.
 **Membros/convites** existem em `modules/organizations`.
 
+**E-mails de auth fora do GoTrue (ADR-0012, 2026-06-28):** o reset de senha não usa mais o
+e-mail do Supabase — `IAuthProvider.generatePasswordResetLink` gera o `action_link` de recovery
+(`admin.generateLink`, sem enviar) e nós enviamos via **Resend + React Email** (`MailService`).
+Retorna `null` p/ usuário inexistente (sem enumeração). O link redireciona p/
+`FRONTEND_URL/auth/reset-password` com os tokens no fragment — **frontend inalterado**. Sign-up
+dispara **welcome** (best-effort). Convite usa template React Email com **entrega garantida**
+(falha de envio reverte o convite). Ver `docs/product/features/14-notificacoes.md`.
+
 ## Legado a portar
 `users(isAdmin, isEmployee, name, email, birth_date, gender, address, contact_phone, avatar,
 enabled)` — **um único estúdio**, papéis via flags booleanas. Cadastro de funcionários

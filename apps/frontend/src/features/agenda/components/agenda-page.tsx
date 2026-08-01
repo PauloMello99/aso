@@ -33,7 +33,6 @@ function AgendaInner() {
 
   const { view, current, range, setView, setCurrent } = useCalendar()
 
-  // Admin (owner) pode filtrar por membro; employee vê só os seus.
   const [filterUserId, setFilterUserId] = React.useState<string | undefined>(undefined)
 
   const { events, loading, error, refetch, createEvent, updateEvent, deleteEvent } =
@@ -69,7 +68,6 @@ function AgendaInner() {
   }
 
   function openEvent(ev: CalendarEvent) {
-    // Mesmo admin não edita evento de outro membro: abre em modo leitura.
     const ro = !!myUserId && ev.assignedTo !== myUserId
     setReadOnly(ro)
     setOwnerName(
@@ -86,7 +84,7 @@ function AgendaInner() {
       else await createEvent(body)
     } catch (e) {
       alert(e instanceof Error ? e.message : "Não foi possível salvar o evento.")
-      throw e // mantém o formulário aberto
+      throw e
     }
   }
 
@@ -109,8 +107,8 @@ function AgendaInner() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Agenda</h1>
           <p className="mt-0.5 text-sm text-foreground/40">
@@ -155,7 +153,7 @@ function AgendaInner() {
       />
 
       {error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
         </div>
       )}
@@ -198,6 +196,7 @@ function AgendaInner() {
         ownerName={ownerName}
         isOwner={isOwner}
         members={members}
+        currentUserId={myUserId}
         onSubmit={handleSubmit}
         onDelete={handleDelete}
         onSetStatus={handleSetStatus}

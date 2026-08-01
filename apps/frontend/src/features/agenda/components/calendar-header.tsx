@@ -23,13 +23,11 @@ const VIEW_LABEL: Record<CalendarView, string> = {
 function periodLabel(view: CalendarView, start: Date, end: Date, current: Date) {
   if (view === "day") return format(current, "EEEE, d 'de' MMMM", { locale: ptBR })
   if (view === "month") return format(current, "MMMM 'de' yyyy", { locale: ptBR })
-  // week
   return `${format(start, "d MMM", { locale: ptBR })} – ${format(end, "d MMM yyyy", { locale: ptBR })}`
 }
 
 interface CalendarHeaderProps {
   onNew: () => void
-  /** Slot extra para o filtro de membro (apenas admin). */
   filterSlot?: React.ReactNode
 }
 

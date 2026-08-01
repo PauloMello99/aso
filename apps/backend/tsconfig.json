@@ -6,6 +6,7 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "moduleDetection": "force",
+    "jsx": "react-jsx",
     "declaration": true,
     "declarationMap": true,
     "outDir": "./dist",

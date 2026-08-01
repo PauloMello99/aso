@@ -1,5 +1,26 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -Command \"docker compose -f docker-compose.rag.yml up -d 2>$null; Start-Process wsl -ArgumentList 'bash','bin/scripts/rag/reindex.sh' -WindowStyle Hidden\"",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -Command \"Start-Process wsl -ArgumentList 'bash','bin/scripts/rag/reindex.sh' -WindowStyle Hidden\""
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
@@ -23,6 +44,19 @@
     ]
   },
   "enabledPlugins": {
-    "ui-ux-pro-max@ui-ux-pro-max-skill": true
-  }
+    "ui-ux-pro-max@ui-ux-pro-max-skill": true,
+    "caveman": true
+  },
+  "enabledMcpjsonServers": [
+    "shadcn",
+    "supabase-local",
+    "postgres-local",
+    "supabase-staging",
+    "postgres-staging",
+    "ink-memory",
+    "github",
+    "railway",
+    "resend",
+    "better-stack"
+  ]
 }

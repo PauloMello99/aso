@@ -1,6 +1,9 @@
-import type { NextPage } from "next"
-import { SignupForm } from "@/features/auth"
+import type { ReactElement } from "react"
+import type { NextPageWithLayout } from "@/pages/_app"
+import { SignupForm, GuestGuard } from "@/features/auth"
 
-const Signup: NextPage = () => <SignupForm />
+const Signup: NextPageWithLayout = () => <SignupForm />
+
+Signup.getLayout = (page: ReactElement) => <GuestGuard>{page}</GuestGuard>
 
 export default Signup

@@ -1,15 +1,12 @@
 import type { PaymentMethod } from "./transaction.entity";
 
-/** Apenas métodos de cartão sofrem taxa por padrão (reunião 11/06). */
 const FEE_ELIGIBLE_METHODS: ReadonlySet<PaymentMethod> = new Set([
   "credit_card",
   "debit_card",
 ]);
 
 export interface FeeConfig {
-  /** Percentual como string numérica (ex.: "10.00"). */
   percent: string;
-  /** Parcela fixa em centavos. */
   fixedCents: number;
 }
 
@@ -18,15 +15,6 @@ export interface FeeResult {
   netCents: number;
 }
 
-/**
- * Calcula taxa e líquido a partir do valor bruto.
- *
- * líquido = bruto - arredondar(bruto * percent/100 + fixedCents)
- *
- * Taxa só se aplica a métodos elegíveis (cartão). Para os demais, fee=0 e
- * net=gross. A taxa nunca excede o bruto (clamp em [0, gross]). Função pura —
- * reutilizável pelo módulo de Serviços para income automático.
- */
 export function computeNet(
   grossCents: number,
   method: PaymentMethod,

@@ -4,7 +4,6 @@ export interface AuthUser {
   emailVerified: boolean
 }
 
-/** Perfil completo do usuário (GET /auth/me). */
 export interface Me {
   id: string
   authId: string
@@ -15,6 +14,9 @@ export interface Me {
   avatarUrl: string | null
   birthDate: string | null
   gender: "male" | "female" | "other" | null
+  onboardingCompletedAt: string | null
+  termsAcceptedAt: string | null
+  termsVersion: string | null
   createdAt: string
   updatedAt: string
 }
@@ -36,7 +38,12 @@ export interface StoredSession {
 export interface AuthContextValue {
   user: AuthUser | null
   loading: boolean
-  signUp: (name: string, email: string, password: string) => Promise<void>
+  signUp: (
+    name: string,
+    email: string,
+    password: string,
+    acceptedTermsVersion: string,
+  ) => Promise<void>
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   forgotPassword: (email: string) => Promise<void>

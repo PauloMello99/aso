@@ -4,9 +4,7 @@ export interface PaymentFeeEntityProps {
   id: string;
   orgId: string;
   paymentMethod: PaymentMethod;
-  /** Percentual (ex.: "10.00" = 10%). String numérica do DB. */
   percent: string;
-  /** Parcela fixa em centavos. */
   fixedCents: number;
   createdAt: Date;
   updatedAt: Date;

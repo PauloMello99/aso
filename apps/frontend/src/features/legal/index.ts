@@ -1,0 +1,6 @@
+export { LegalLayout, LegalSection } from "./components/legal-layout"
+export { TermsContent } from "./components/terms-content"
+export { PrivacyContent } from "./components/privacy-content"
+export { CookiesContent } from "./components/cookies-content"
+export { DpaContent } from "./components/dpa-content"
+export { LEGAL_ENTITY, LEGAL_VERSIONS, LEGAL_ROUTES } from "./constants/entity"

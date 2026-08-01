@@ -1,5 +1,15 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, desc, eq, gte, ilike, isNotNull, lte, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  isNotNull,
+  lte,
+  sql,
+} from "drizzle-orm";
 import { DRIZZLE, DrizzleDB } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
 import {
@@ -17,7 +27,6 @@ import {
 import { PaymentMethod } from "../../domain/transaction.entity";
 import { TransactionMapper } from "./transaction.mapper";
 
-// Buckets de saldo: dinheiro vs digital (banco/cartão). `credits` fica fora do caixa.
 const DIGITAL_METHODS = ["bank_transfer", "credit_card", "debit_card"] as const;
 
 @Injectable()
@@ -96,6 +105,23 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
     if (filter?.createdBy) {
       conditions.push(eq(schema.transactions.createdBy, filter.createdBy));
     }
+    if (filter?.customerId) {
+      conditions.push(
+        inArray(
+          schema.transactions.id,
+          this.db
+            .select({ id: schema.services.paymentTransactionId })
+            .from(schema.services)
+            .where(
+              and(
+                eq(schema.services.orgId, orgId),
+                eq(schema.services.customerId, filter.customerId),
+                isNotNull(schema.services.paymentTransactionId),
+              ),
+            ),
+        ),
+      );
+    }
 
     const rows = await this.db
       .select()
@@ -172,8 +198,6 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
     const createdByFilter = createdBy
       ? sql` AND created_by = ${createdBy}`
       : sql``;
-    // Running sum sobre TODO o histórico (não só o intervalo), depois recorta
-    // [from, to] — assim cada ponto reflete o saldo acumulado real do dia.
     const { rows } = await this.db.execute<{
       day: string;
       cash_cents: string;

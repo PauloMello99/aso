@@ -1,51 +1,79 @@
 import {
   Body,
   Controller,
+  Delete,
+  FileTypeValidator,
   Get,
+  HttpCode,
+  HttpStatus,
+  MaxFileSizeValidator,
   Param,
+  ParseFilePipe,
   ParseUUIDPipe,
   Patch,
   Post,
   Query,
   Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import type { Response } from "express";
 import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
+import { OrgOwnerGuard } from "../../auth/guards/org-owner.guard";
 import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
+import { ActiveSubscriptionGuard } from "../../subscriptions/interface/guards/active-subscription.guard";
 import { RequireModule } from "../../auth/decorators/require-module.decorator";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { ListServicesUseCase } from "../application/use-cases/list-services.use-case";
 import { ExportServicesUseCase } from "../application/use-cases/export-services.use-case";
 import { GetServiceUseCase } from "../application/use-cases/get-service.use-case";
-import { parseFields } from "../../../common/csv/csv.util";
+import {
+  parseFields,
+  resolveExportFormat,
+} from "../../../common/csv/csv.util";
 import { CreateServiceUseCase } from "../application/use-cases/create-service.use-case";
 import { UpdateServiceUseCase } from "../application/use-cases/update-service.use-case";
 import { CancelServiceUseCase } from "../application/use-cases/cancel-service.use-case";
 import { RegisterPaymentUseCase } from "../application/use-cases/register-payment.use-case";
+import { CorrectServicePaymentUseCase } from "../application/use-cases/correct-service-payment.use-case";
 import { ListServiceTypesUseCase } from "../application/use-cases/list-service-types.use-case";
 import { CreateServiceTypeUseCase } from "../application/use-cases/create-service-type.use-case";
+import { UpdateServiceTypeUseCase } from "../application/use-cases/update-service-type.use-case";
+import {
+  UploadServiceMediaUseCase,
+  ListServiceMediaUseCase,
+  DeleteServiceMediaUseCase,
+} from "../application/use-cases/service-media.use-cases";
 import {
   CreateServiceDto,
   SERVICE_PAYMENT_METHODS,
 } from "./dto/create-service.dto";
 import { UpdateServiceDto } from "./dto/update-service.dto";
+import { CorrectServicePaymentDto } from "./dto/correct-service-payment.dto";
 import { CreateServiceTypeDto } from "./dto/create-service-type.dto";
+import { UpdateServiceTypeDto } from "./dto/update-service-type.dto";
 import type { ServiceStatusFilter } from "../domain/service.repository.interface";
 import type { PaymentMethod } from "../domain/service.entity";
 
+interface UploadedImage {
+  buffer: Buffer;
+  mimetype: string;
+  originalname: string;
+  size: number;
+}
+
 const STATUS_VALUES: ServiceStatusFilter[] = ["pending", "paid", "canceled"];
 
-/** Converte um query param numérico (centavos) em inteiro, ou undefined. */
 function parseCents(value?: string): number | undefined {
   if (value === undefined || value === "") return undefined;
   const n = Number(value);
   return Number.isFinite(n) ? Math.round(n) : undefined;
 }
 
-/** Primeiro dia do mês vigente (filtro default da listagem). */
 function startOfCurrentMonth(): Date {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -63,11 +91,14 @@ export class ServicesController {
     private readonly updateService: UpdateServiceUseCase,
     private readonly cancelService: CancelServiceUseCase,
     private readonly registerPayment: RegisterPaymentUseCase,
+    private readonly correctServicePayment: CorrectServicePaymentUseCase,
     private readonly listTypes: ListServiceTypesUseCase,
     private readonly createType: CreateServiceTypeUseCase,
+    private readonly updateType: UpdateServiceTypeUseCase,
+    private readonly uploadMedia: UploadServiceMediaUseCase,
+    private readonly listMedia: ListServiceMediaUseCase,
+    private readonly deleteMedia: DeleteServiceMediaUseCase,
   ) {}
-
-  /* ─── Tipos de serviço (criáveis inline) ─────────────────────── */
 
   @Get("types")
   async types(@Param("orgId", ParseUUIDPipe) orgId: string) {
@@ -75,14 +106,32 @@ export class ServicesController {
   }
 
   @Post("types")
+  @UseGuards(ActiveSubscriptionGuard)
   async addType(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Body() dto: CreateServiceTypeDto,
   ) {
-    return this.createType.execute(orgId, dto.name, dto.description ?? null);
+    return this.createType.execute(
+      orgId,
+      dto.name,
+      dto.description ?? null,
+      dto.requiresAgeVerification,
+    );
   }
 
-  /* ─── Serviços ───────────────────────────────────────────────── */
+  @Patch("types/:typeId")
+  @UseGuards(OrgOwnerGuard, ActiveSubscriptionGuard)
+  async updateTypeById(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("typeId", ParseUUIDPipe) typeId: string,
+    @Body() dto: UpdateServiceTypeDto,
+  ) {
+    return this.updateType.execute(orgId, typeId, {
+      name: dto.name,
+      description: dto.description,
+      requiresAgeVerification: dto.requiresAgeVerification,
+    });
+  }
 
   @Get()
   async list(
@@ -99,7 +148,6 @@ export class ServicesController {
     @Query("maxCents") maxCents?: string,
     @Query("q") q?: string,
   ) {
-    // Default = mês vigente (1º do mês → agora), não "hoje − 30 dias".
     const fromDate = from ? new Date(from) : startOfCurrentMonth();
     const toDate = to ? new Date(to) : undefined;
 
@@ -143,8 +191,10 @@ export class ServicesController {
     @Query("maxCents") maxCents?: string,
     @Query("q") q?: string,
     @Query("fields") fields?: string,
+    @Query("format") format?: string,
   ) {
-    const csv = await this.exportServices.execute(
+    const exportFormat = resolveExportFormat(format);
+    const file = await this.exportServices.execute(
       orgId,
       user.id,
       {
@@ -166,14 +216,26 @@ export class ServicesController {
         q: q || undefined,
       },
       parseFields(fields),
+      exportFormat,
     );
     const date = new Date().toISOString().slice(0, 10);
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="servicos-${date}.csv"`,
-    );
-    res.send(csv);
+    if (exportFormat === "xlsx") {
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="servicos-${date}.xlsx"`,
+      );
+    } else {
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="servicos-${date}.csv"`,
+      );
+    }
+    res.send(file);
   }
 
   @Get(":id")
@@ -186,6 +248,7 @@ export class ServicesController {
   }
 
   @Post()
+  @UseGuards(ActiveSubscriptionGuard)
   async create(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @CurrentUser() user: AuthUser,
@@ -198,6 +261,7 @@ export class ServicesController {
       serviceTypeId: dto.serviceTypeId ?? null,
       performedBy: dto.performedBy ?? null,
       description: dto.description ?? null,
+      anamnesisResponseId: dto.anamnesisResponseId ?? null,
       amountCents: dto.amountCents,
       paymentMethod: dto.paymentMethod,
       paymentStatus: dto.paymentStatus,
@@ -207,6 +271,7 @@ export class ServicesController {
   }
 
   @Patch(":id")
+  @UseGuards(ActiveSubscriptionGuard)
   async update(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -221,11 +286,13 @@ export class ServicesController {
       serviceTypeId: dto.serviceTypeId,
       performedBy: dto.performedBy,
       description: dto.description,
+      anamnesisResponseId: dto.anamnesisResponseId,
       performedAt: dto.performedAt ? new Date(dto.performedAt) : undefined,
     });
   }
 
   @Post(":id/cancel")
+  @UseGuards(ActiveSubscriptionGuard)
   async cancel(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -239,6 +306,7 @@ export class ServicesController {
   }
 
   @Post(":id/pay")
+  @UseGuards(ActiveSubscriptionGuard)
   async pay(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
@@ -249,5 +317,69 @@ export class ServicesController {
       serviceId: id,
       authId: user.id,
     });
+  }
+
+  @Patch(":id/payment")
+  @UseGuards(OrgOwnerGuard, ActiveSubscriptionGuard)
+  async correctPayment(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: CorrectServicePaymentDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.correctServicePayment.execute({
+      orgId,
+      serviceId: id,
+      authId: user.id,
+      grossCents: dto.grossCents,
+      paymentMethod: dto.paymentMethod,
+      description: dto.description,
+      transactedAt: dto.transactedAt ? new Date(dto.transactedAt) : undefined,
+    });
+  }
+
+  @Get(":id/media")
+  async media(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.listMedia.execute(id, orgId);
+  }
+
+  @Post(":id/media")
+  @UseGuards(ActiveSubscriptionGuard)
+  @UseInterceptors(FileInterceptor("file"))
+  async addMedia(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 307200 }),
+          new FileTypeValidator({ fileType: /^image\/(png|jpeg|webp)$/ }),
+        ],
+      }),
+    )
+    file: UploadedImage,
+  ) {
+    return this.uploadMedia.execute({
+      orgId,
+      serviceId: id,
+      fileName: file.originalname,
+      contentType: file.mimetype,
+      file: file.buffer,
+      uploadedBy: user.id,
+    });
+  }
+
+  @Delete(":id/media/:mediaId")
+  @UseGuards(ActiveSubscriptionGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async removeMedia(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("mediaId", ParseUUIDPipe) mediaId: string,
+  ) {
+    await this.deleteMedia.execute(mediaId, orgId);
   }
 }

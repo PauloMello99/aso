@@ -1,4 +1,8 @@
 export { AdminLayout } from "./components/admin-layout"
 export { AdminOverview } from "./components/admin-overview"
 export { AdminOrgs } from "./components/admin-orgs"
+export { AdminOrgDetail } from "./components/admin-org-detail"
 export { AdminUsers } from "./components/admin-users"
+export { AdminUserDetail } from "./components/admin-user-detail"
+export { AdminBilling } from "./components/admin-billing"
+export { AdminAuditLogs } from "./components/admin-audit-logs"

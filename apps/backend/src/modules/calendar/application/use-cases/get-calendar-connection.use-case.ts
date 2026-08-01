@@ -7,16 +7,10 @@ import {
 } from "../../domain/calendar-connection.repository.interface";
 
 export interface CalendarConnectionResult {
-  /** Flag global (EXTERNAL_CALENDARS_ENABLED) — a integração viva está atrás dela. */
   enabled: boolean;
-  /** Conexão atual da org (ou null). */
   connection: CalendarConnectionData | null;
 }
 
-/**
- * Estado da conexão de calendário externo da org (BL-1). Enquanto a flag estiver
- * desligada, a UI mostra "em breve"; a leitura do estado já é real.
- */
 @Injectable()
 export class GetCalendarConnectionUseCase {
   constructor(

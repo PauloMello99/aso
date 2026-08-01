@@ -17,11 +17,6 @@ import { GetOverviewUseCase } from "./application/get-overview.use-case";
 import { GetOverviewAnalyticsUseCase } from "./application/get-overview-analytics.use-case";
 import { OverviewController } from "./interface/overview.controller";
 
-/**
- * Módulo de agregação do Overview (PERF-2). Reusa os list use-cases dos demais
- * módulos (declarados aqui como providers — as deps vêm dos infrastructure
- * modules importados), preservando o scoping por funcionário de cada um.
- */
 @Module({
   imports: [
     AuthModule,

@@ -1,0 +1,40 @@
+import { Module } from "@nestjs/common";
+import { DatabaseModule } from "../../../database/database.module";
+import { PAYMENT_GATEWAY } from "../domain/ports/payment-gateway.port";
+import { SUBSCRIPTION_REPOSITORY } from "../domain/subscription.repository.interface";
+import { BILLING_PLAN_REPOSITORY } from "../domain/billing-plan.repository.interface";
+import { STRIPE_WEBHOOK_EVENT_REPOSITORY } from "../domain/stripe-webhook-event.repository.interface";
+import { BILLING_INVOICE_EVENT_REPOSITORY } from "../domain/billing-invoice-event.repository.interface";
+import { StripePaymentGateway } from "./stripe-payment-gateway";
+import { DrizzleSubscriptionRepository } from "./persistence/drizzle-subscription.repository";
+import { DrizzleBillingPlanRepository } from "./persistence/drizzle-billing-plan.repository";
+import { DrizzleStripeWebhookEventRepository } from "./persistence/drizzle-stripe-webhook-event.repository";
+import { DrizzleBillingInvoiceEventRepository } from "./persistence/drizzle-billing-invoice-event.repository";
+import { PlanCatalogService } from "../application/plan-catalog.service";
+
+@Module({
+  imports: [DatabaseModule],
+  providers: [
+    { provide: PAYMENT_GATEWAY, useClass: StripePaymentGateway },
+    { provide: SUBSCRIPTION_REPOSITORY, useClass: DrizzleSubscriptionRepository },
+    { provide: BILLING_PLAN_REPOSITORY, useClass: DrizzleBillingPlanRepository },
+    {
+      provide: STRIPE_WEBHOOK_EVENT_REPOSITORY,
+      useClass: DrizzleStripeWebhookEventRepository,
+    },
+    {
+      provide: BILLING_INVOICE_EVENT_REPOSITORY,
+      useClass: DrizzleBillingInvoiceEventRepository,
+    },
+    PlanCatalogService,
+  ],
+  exports: [
+    PAYMENT_GATEWAY,
+    SUBSCRIPTION_REPOSITORY,
+    BILLING_PLAN_REPOSITORY,
+    STRIPE_WEBHOOK_EVENT_REPOSITORY,
+    BILLING_INVOICE_EVENT_REPOSITORY,
+    PlanCatalogService,
+  ],
+})
+export class SubscriptionsInfrastructureModule {}

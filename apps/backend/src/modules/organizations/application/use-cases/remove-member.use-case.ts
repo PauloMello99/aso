@@ -7,6 +7,7 @@ import {
   IMemberRepository,
   MEMBER_REPOSITORY,
 } from "../../domain/member.repository.interface";
+import { AuditService } from "../../../audit/audit.service";
 import { OrgForbiddenException } from "../../domain/exceptions/org-forbidden.exception";
 import { MemberNotFoundException } from "../../domain/exceptions/member-not-found.exception";
 
@@ -17,6 +18,7 @@ export class RemoveMemberUseCase {
     private readonly orgRepo: IOrganizationRepository,
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepo: IMemberRepository,
+    private readonly auditService: AuditService,
   ) {}
 
   async execute(
@@ -31,5 +33,13 @@ export class RemoveMemberUseCase {
     if (!member) throw new MemberNotFoundException(memberId);
 
     await this.memberRepo.remove(memberId);
+
+    await this.auditService.logByAuthId(authId, {
+      orgId,
+      action: "delete",
+      entityType: "org_membership",
+      entityId: memberId,
+      metadata: { memberId },
+    });
   }
 }

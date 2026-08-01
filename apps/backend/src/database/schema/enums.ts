@@ -44,7 +44,6 @@ export const paymentMethodEnum = pgEnum("payment_method", [
   "bank_transfer",
   "credit_card",
   "debit_card",
-  "credits",
 ]);
 
 export const genderEnum = pgEnum("gender", ["male", "female", "other"]);
@@ -63,6 +62,16 @@ export const calendarProviderEnum = pgEnum("calendar_provider", [
   "google",
   "outlook",
   "apple",
+]);
+
+export const calendarEventVisibilityEnum = pgEnum(
+  "calendar_event_visibility",
+  ["private", "shared"],
+);
+
+export const calendarAttendeeStatusEnum = pgEnum("calendar_attendee_status", [
+  "going",
+  "not_going",
 ]);
 
 export const notificationTypeEnum = pgEnum("notification_type", [
@@ -84,4 +93,15 @@ export const auditActionEnum = pgEnum("audit_action", [
   "invite_sent",
   "invite_accepted",
   "subscription_changed",
+  "anamnesis_invite_sent",
 ]);
+
+export const anamnesisResponseStatusEnum = pgEnum(
+  "anamnesis_response_status",
+  ["pending", "submitted"],
+);
+
+export const billingInvoiceEventTypeEnum = pgEnum(
+  "billing_invoice_event_type",
+  ["paid", "payment_failed"],
+);

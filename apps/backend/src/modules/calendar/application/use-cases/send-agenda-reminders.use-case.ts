@@ -19,7 +19,6 @@ export class SendAgendaRemindersUseCase {
     private readonly notifications: NotificationService,
   ) {}
 
-  /** Lembra agendamentos que começam nas próximas `windowHours`. Idempotente. */
   async execute(windowHours = DEFAULT_WINDOW_HOURS): Promise<{ sent: number }> {
     const now = new Date();
     const until = new Date(now.getTime() + windowHours * 3_600_000);

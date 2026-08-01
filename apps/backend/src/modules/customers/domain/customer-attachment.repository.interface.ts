@@ -34,4 +34,10 @@ export interface ICustomerAttachmentRepository {
     data: CreateCustomerAttachmentData,
   ): Promise<CustomerAttachmentRecord>;
   delete(id: string, orgId: string): Promise<void>;
+  updateFileName(
+    id: string,
+    customerId: string,
+    orgId: string,
+    fileName: string,
+  ): Promise<CustomerAttachmentRecord | null>;
 }

@@ -11,6 +11,9 @@ export interface UserEntityProps {
   avatarUrl: string | null;
   birthDate: string | null;
   gender: Gender | null;
+  onboardingCompletedAt: Date | null;
+  termsAcceptedAt: Date | null;
+  termsVersion: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,12 +22,15 @@ export interface CreateUserData {
   authId: string;
   name: string;
   email: string;
+  termsAcceptedAt?: Date;
+  termsVersion?: string;
 }
 
 export interface UpdateUserData {
   name?: string;
   email?: string;
   avatarUrl?: string | null;
+  onboardingCompletedAt?: Date | null;
 }
 
 export class UserEntity {
@@ -37,6 +43,9 @@ export class UserEntity {
   readonly avatarUrl: string | null;
   readonly birthDate: string | null;
   readonly gender: Gender | null;
+  readonly onboardingCompletedAt: Date | null;
+  readonly termsAcceptedAt: Date | null;
+  readonly termsVersion: string | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 
@@ -50,6 +59,9 @@ export class UserEntity {
     this.avatarUrl = props.avatarUrl;
     this.birthDate = props.birthDate;
     this.gender = props.gender;
+    this.onboardingCompletedAt = props.onboardingCompletedAt;
+    this.termsAcceptedAt = props.termsAcceptedAt;
+    this.termsVersion = props.termsVersion;
     this.createdAt = props.createdAt;
     this.updatedAt = props.updatedAt;
   }

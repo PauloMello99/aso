@@ -9,6 +9,7 @@
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
+    "test": "turbo run test",
     "clean": "turbo run clean && pnpm -r exec rm -rf .turbo",
     "clean:reset": "pnpm clean && pnpm -r exec rm -rf node_modules",
     "db:start": "npx supabase start",

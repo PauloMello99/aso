@@ -5,10 +5,8 @@ const PAYMENT_METHODS = [
   "bank_transfer",
   "credit_card",
   "debit_card",
-  "credits",
 ] as const
 
-// Valor monetário em reais: "1234.56" ou "1.234,56".
 const moneyString = z
   .string()
   .min(1, "Informe um valor")
@@ -23,19 +21,16 @@ export const transactionSchema = z.object({
   amount: moneyString,
   paymentMethod: z.enum(PAYMENT_METHODS),
   categoryId: z.string().optional().or(z.literal("")),
-  /** users.id do membro (owner lança em nome de). Vazio = self. */
   createdBy: z.string().optional().or(z.literal("")),
   transactedAt: z.string().optional().or(z.literal("")),
 })
 
 export type TransactionFormValues = z.infer<typeof transactionSchema>
 
-// Errata: mesmos campos do lançamento corrigido.
 export const correctionSchema = transactionSchema
 
 export type CorrectionFormValues = z.infer<typeof correctionSchema>
 
-// Configuração de taxa por método (percentual + fixo em reais).
 const percentString = z
   .string()
   .regex(/^\d+([.,]\d{1,2})?$/, "Percentual inválido")
@@ -57,3 +52,15 @@ export const feesSchema = z.object({
 })
 
 export type FeesFormValues = z.infer<typeof feesSchema>
+
+export const transactionCategorySchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Nome é obrigatório")
+    .max(60, "Máximo de 60 caracteres"),
+})
+
+export type TransactionCategoryFormValues = z.infer<
+  typeof transactionCategorySchema
+>

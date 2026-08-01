@@ -17,7 +17,6 @@ export interface CreateStockVerificationInput {
   orgId: string;
   performedBy?: string | null;
   note?: string | null;
-  /** Se true, gera ajustes de estoque para reconciliar discrepâncias. */
   reconcile?: boolean;
   items: { materialId: string; physicalQuantity: string }[];
 }
@@ -71,7 +70,6 @@ export class CreateStockVerificationUseCase {
         discrepancy,
       });
 
-      // Reconciliar: ajuste de estoque para casar o físico.
       if (input.reconcile && Number.parseFloat(discrepancy) !== 0) {
         await this.movementRepo.create({
           orgId: input.orgId,

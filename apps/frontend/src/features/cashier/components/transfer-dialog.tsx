@@ -20,10 +20,10 @@ import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { parseReaisToCents } from "../lib/money"
-import { PAYMENT_METHOD_LABELS, type PaymentMethod } from "../types"
+import { TRANSFER_METHOD_LABELS, type TransferMethod } from "../types"
 import type { TransferBody } from "../hooks/use-transactions"
 
-const METHODS: PaymentMethod[] = ["cash", "bank_transfer", "credit_card", "debit_card"]
+const METHODS: TransferMethod[] = ["cash", "bank_transfer"]
 
 interface TransferDialogProps {
   open: boolean
@@ -32,8 +32,8 @@ interface TransferDialogProps {
 }
 
 export function TransferDialog({ open, onOpenChange, onSubmit }: TransferDialogProps) {
-  const [from, setFrom] = useState<PaymentMethod>("cash")
-  const [to, setTo] = useState<PaymentMethod>("bank_transfer")
+  const [from, setFrom] = useState<TransferMethod>("cash")
+  const [to, setTo] = useState<TransferMethod>("bank_transfer")
   const [amount, setAmount] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -75,14 +75,14 @@ export function TransferDialog({ open, onOpenChange, onSubmit }: TransferDialogP
         <div className="grid gap-3">
           <div className="grid gap-1.5">
             <Label>De</Label>
-            <Select value={from} onValueChange={(v) => setFrom(v as PaymentMethod)}>
+            <Select value={from} onValueChange={(v) => setFrom(v as TransferMethod)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {METHODS.map((m) => (
                   <SelectItem key={m} value={m}>
-                    {PAYMENT_METHOD_LABELS[m]}
+                    {TRANSFER_METHOD_LABELS[m]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -90,14 +90,14 @@ export function TransferDialog({ open, onOpenChange, onSubmit }: TransferDialogP
           </div>
           <div className="grid gap-1.5">
             <Label>Para</Label>
-            <Select value={to} onValueChange={(v) => setTo(v as PaymentMethod)}>
+            <Select value={to} onValueChange={(v) => setTo(v as TransferMethod)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {METHODS.map((m) => (
                   <SelectItem key={m} value={m}>
-                    {PAYMENT_METHOD_LABELS[m]}
+                    {TRANSFER_METHOD_LABELS[m]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -118,7 +118,7 @@ export function TransferDialog({ open, onOpenChange, onSubmit }: TransferDialogP
               />
             </div>
           </div>
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
 
         <DialogFooter>

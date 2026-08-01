@@ -34,7 +34,6 @@ export class DrizzleMaterialRepository implements IMaterialRepository {
   ): Promise<MaterialEntity[]> {
     const conditions = [eq(schema.materials.orgId, orgId)];
 
-    // Por padrão lista só ativos; archived=true → só arquivados.
     conditions.push(
       filter?.archived
         ? isNotNull(schema.materials.archivedAt)
@@ -50,7 +49,6 @@ export class DrizzleMaterialRepository implements IMaterialRepository {
     }
 
     if (filter?.lowStockOnly) {
-      // stock_quantity <= minimum_quantity AND minimum_quantity > 0
       conditions.push(
         lte(schema.materials.stockQuantity, schema.materials.minimumQuantity),
         lte(sql`'0'::numeric`, schema.materials.minimumQuantity),
@@ -75,8 +73,7 @@ export class DrizzleMaterialRepository implements IMaterialRepository {
     const orderBy =
       filter?.sortBy === "name"
         ? [asc(schema.materials.name)]
-        : // Padrão: último usado primeiro (nulls por último), depois nome.
-          [
+        : [
             sql`${schema.materials.lastUsedAt} DESC NULLS LAST`,
             asc(schema.materials.name),
           ];

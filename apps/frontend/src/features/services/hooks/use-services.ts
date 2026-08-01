@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { apiRequest } from "@/infrastructure/api/client"
 import { queryKeys } from "@/infrastructure/query/query-keys"
 import type { Service, ServicePaymentMethod, ServicesFilter } from "../types"
+import { useCorrectServicePayment } from "./use-correct-service-payment"
 
 export interface ServiceMaterialBody {
   materialId: string
@@ -97,6 +98,8 @@ export function useServices(orgId: string, filter?: ServicesFilter) {
     onSuccess: invalidate,
   })
 
+  const { correctPayment } = useCorrectServicePayment(orgId)
+
   return {
     services: data,
     loading: isLoading,
@@ -107,5 +110,6 @@ export function useServices(orgId: string, filter?: ServicesFilter) {
       updateMutation.mutateAsync({ id, body }),
     cancelService: (id: string) => cancelMutation.mutateAsync(id),
     payService: (id: string) => payMutation.mutateAsync(id),
+    correctPayment,
   }
 }

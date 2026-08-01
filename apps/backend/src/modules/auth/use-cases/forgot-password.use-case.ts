@@ -1,16 +1,42 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { MailService } from "../../mail/application/mail.service";
+import {
+  IUserRepository,
+  USER_REPOSITORY,
+} from "../../user/domain/user.repository.interface";
 import {
   AUTH_PROVIDER,
   IAuthProvider,
 } from "../application/ports/auth-provider.interface";
+import { AuditService } from "../../audit/audit.service";
 
 @Injectable()
 export class ForgotPasswordUseCase {
   constructor(
     @Inject(AUTH_PROVIDER) private readonly auth: IAuthProvider,
+    @Inject(USER_REPOSITORY) private readonly userRepo: IUserRepository,
+    private readonly mail: MailService,
+    private readonly auditService: AuditService,
   ) {}
 
-  execute(email: string): Promise<void> {
-    return this.auth.forgotPassword(email);
+  async execute(email: string): Promise<void> {
+    const resetUrl = await this.auth.generatePasswordResetLink(email);
+    if (!resetUrl) return;
+
+    const user = await this.userRepo.findByEmail(email);
+
+    await this.auditService.log({
+      actorId: user?.id ?? null,
+      action: "create",
+      entityType: "password_reset",
+      entityId: user?.id ?? null,
+      metadata: { email },
+    });
+
+    await this.mail.sendPasswordReset({
+      to: email,
+      name: user?.name,
+      resetUrl,
+    });
   }
 }

@@ -3,8 +3,10 @@ export type PaymentMethod =
   | "cash"
   | "bank_transfer"
   | "credit_card"
-  | "debit_card"
-  | "credits";
+  | "debit_card";
+
+export const TRANSFER_METHODS = ["cash", "bank_transfer"] as const;
+export type TransferMethod = (typeof TRANSFER_METHODS)[number];
 
 export interface TransactionEntityProps {
   id: string;
@@ -12,13 +14,11 @@ export interface TransactionEntityProps {
   createdBy: string | null;
   description: string;
   type: TransactionType;
-  /** Líquido (gross - fee) — o valor que o caixa reflete. */
   netCents: number;
   grossCents: number;
   feeCents: number;
   paymentMethod: PaymentMethod;
   categoryId: string | null;
-  /** Quando preenchido, esta linha é o estorno da transação referenciada. */
   reversesTransactionId: string | null;
   transactedAt: Date;
   createdAt: Date;
@@ -38,7 +38,6 @@ export interface CreateTransactionData {
   transactedAt?: Date;
 }
 
-/** Métodos cujo saldo cai no bucket "digital" (banco/cartão/pix). */
 const DIGITAL_METHODS: ReadonlySet<PaymentMethod> = new Set([
   "bank_transfer",
   "credit_card",
@@ -80,12 +79,10 @@ export class TransactionEntity {
     return new TransactionEntity(props);
   }
 
-  /** Esta linha é, ela própria, um estorno de outra transação. */
   get isReversal(): boolean {
     return this.reversesTransactionId !== null;
   }
 
-  /** Líquido com sinal: income soma, outcome subtrai. */
   get signedNetCents(): number {
     return this.type === "income" ? this.netCents : -this.netCents;
   }

@@ -4,6 +4,7 @@ import {
   IInvitationRepository,
   INVITATION_REPOSITORY,
 } from "../../domain/invitation.repository.interface";
+import { AuditService } from "../../../audit/audit.service";
 import { InvitationNotFoundException } from "../../domain/exceptions/invitation-not-found.exception";
 import { InvitationNotPendingException } from "../../domain/exceptions/invitation-not-pending.exception";
 import { InvitationEmailMismatchException } from "../../domain/exceptions/invitation-email-mismatch.exception";
@@ -13,16 +14,12 @@ export interface DeclineInvitationInput {
   token: string;
 }
 
-/**
- * Recusa de convite pelo convidado: **remove** o convite (não só cancela), para
- * que o owner possa reenviar o fluxo depois. Só o próprio convidado (e-mail bate)
- * pode recusar um convite ainda pendente.
- */
 @Injectable()
 export class DeclineInvitationUseCase {
   constructor(
     @Inject(INVITATION_REPOSITORY)
     private readonly invitationRepo: IInvitationRepository,
+    private readonly auditService: AuditService,
   ) {}
 
   async execute(input: DeclineInvitationInput): Promise<void> {
@@ -40,5 +37,13 @@ export class DeclineInvitationUseCase {
     }
 
     await this.invitationRepo.delete(invitation.id);
+
+    await this.auditService.logByAuthId(input.authUser.id, {
+      orgId: invitation.orgId,
+      action: "delete",
+      entityType: "org_invitation",
+      entityId: invitation.id,
+      metadata: { email: invitation.email, reason: "declined" },
+    });
   }
 }

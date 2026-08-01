@@ -1,10 +1,10 @@
 import { Type } from "class-transformer";
 import {
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsIn,
   IsInt,
-  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
@@ -12,7 +12,6 @@ import {
   ValidateNested,
 } from "class-validator";
 
-// Créditos ficam fora da V1 (cashback adiado) — só métodos do caixa.
 export const SERVICE_PAYMENT_METHODS = [
   "cash",
   "bank_transfer",
@@ -26,13 +25,11 @@ export class ServiceMaterialLineDto {
   @IsUUID()
   materialId!: string;
 
-  /** Quantidade (material não-compartilhável). */
-  @IsNumber()
+  @IsInt()
   @Min(0)
   @IsOptional()
   quantity?: number;
 
-  /** "Acabou?" para material compartilhável. */
   @IsBoolean()
   @IsOptional()
   finished?: boolean;
@@ -44,10 +41,8 @@ export class CreateServiceDto {
   customerId?: string | null;
 
   @IsUUID()
-  @IsOptional()
-  serviceTypeId?: string | null;
+  serviceTypeId!: string;
 
-  /** App users.id do profissional (só owner; funcionário força = self). */
   @IsUUID()
   @IsOptional()
   performedBy?: string | null;
@@ -56,7 +51,10 @@ export class CreateServiceDto {
   @IsOptional()
   description?: string | null;
 
-  /** Valor bruto em centavos. */
+  @IsUUID()
+  @IsOptional()
+  anamnesisResponseId?: string | null;
+
   @IsInt()
   @Min(0)
   amountCents!: number;
@@ -67,7 +65,6 @@ export class CreateServiceDto {
   @IsIn(SERVICE_PAYMENT_STATUSES)
   paymentStatus!: (typeof SERVICE_PAYMENT_STATUSES)[number];
 
-  /** ISO datetime opcional; default = agora. */
   @IsString()
   @IsOptional()
   performedAt?: string;
@@ -75,6 +72,6 @@ export class CreateServiceDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ServiceMaterialLineDto)
-  @IsOptional()
-  materials?: ServiceMaterialLineDto[];
+  @ArrayMinSize(1, { message: "Selecione ao menos um material consumido" })
+  materials!: ServiceMaterialLineDto[];
 }

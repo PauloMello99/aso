@@ -12,6 +12,7 @@ import {
   IUserRepository,
   USER_REPOSITORY,
 } from "../../../user/domain/user.repository.interface";
+import { AuditService } from "../../../audit/audit.service";
 import { InvitationNotFoundException } from "../../domain/exceptions/invitation-not-found.exception";
 import { InvitationNotPendingException } from "../../domain/exceptions/invitation-not-pending.exception";
 import { InvitationExpiredException } from "../../domain/exceptions/invitation-expired.exception";
@@ -38,6 +39,7 @@ export class AcceptInvitationUseCase {
     private readonly memberRepo: IMemberRepository,
     @Inject(USER_REPOSITORY)
     private readonly userRepo: IUserRepository,
+    private readonly auditService: AuditService,
   ) {}
 
   async execute(input: AcceptInvitationInput): Promise<AcceptInvitationResult> {
@@ -64,11 +66,19 @@ export class AcceptInvitationUseCase {
       orgId: invitation.orgId,
       userId: user.id,
       role: invitation.role,
-      // Funcionário começa restrito (só o essencial); owner libera o resto.
       permissions:
         invitation.role === "employee" ? DEFAULT_EMPLOYEE_PERMISSIONS : [],
     });
     await this.invitationRepo.markAccepted(invitation.id);
+
+    await this.auditService.log({
+      actorId: user.id,
+      orgId: invitation.orgId,
+      action: "invite_accepted",
+      entityType: "org_invitation",
+      entityId: invitation.id,
+      metadata: { email: invitation.email, orgId: invitation.orgId },
+    });
 
     return { orgId: invitation.orgId, orgSlug };
   }
