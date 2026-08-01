@@ -1,12 +1,12 @@
-import { describe, expect, it } from "vitest"
+﻿import { describe, expect, it } from "vitest"
 import { getTourSteps } from "./onboarding-tour"
 import type { OrgSummary } from "../hooks/use-orgs"
 
 function makeOrg(overrides: Partial<OrgSummary> = {}): OrgSummary {
   return {
     id: "org-1",
-    name: "Ink House",
-    slug: "ink-house",
+    name: "Studio Exemplo",
+    slug: "studio-exemplo",
     logoUrl: null,
     role: "owner",
     permissions: [],

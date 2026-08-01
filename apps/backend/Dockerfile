@@ -5,7 +5,7 @@
 # instalado do zero (mais confiável que copiar a store do pnpm entre stages).
 #
 # Build a partir da RAIZ do repo:
-#   docker build -f apps/backend/Dockerfile -t ink-ops-backend .
+#   docker build -f apps/backend/Dockerfile -t aso-backend .
 
 FROM node:24-alpine AS base
 ENV PNPM_HOME="/pnpm"

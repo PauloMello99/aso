@@ -41,7 +41,7 @@ export default function AnamnesisSignedCopyEmailPreview() {
   return (
     <AnamnesisSignedCopyEmail
       customerName="Maria"
-      pdfUrl="https://app.inkops.app/storage/anamnesis-documents/preview.pdf"
+      pdfUrl="https://assessorink-so.com/storage/anamnesis-documents/preview.pdf"
     />
   );
 }

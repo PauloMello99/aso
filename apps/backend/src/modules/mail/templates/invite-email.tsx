@@ -42,7 +42,7 @@ export default function InviteEmailPreview() {
   return (
     <InviteEmail
       orgName="Helena's Ink"
-      acceptUrl="https://app.inkops.app/invite/accept?token=preview-token"
+      acceptUrl="https://assessorink-so.com/invite/accept?token=preview-token"
     />
   );
 }

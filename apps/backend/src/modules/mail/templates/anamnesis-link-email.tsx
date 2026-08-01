@@ -41,7 +41,7 @@ export default function AnamnesisLinkEmailPreview() {
   return (
     <AnamnesisLinkEmail
       customerName="Maria"
-      fillUrl="https://app.inkops.app/anamnesis/preview-token"
+      fillUrl="https://assessorink-so.com/anamnesis/preview-token"
     />
   );
 }

@@ -17,7 +17,7 @@ interface BaseLayoutProps {
   supportEmail?: string;
 }
 
-const DEFAULT_SUPPORT_EMAIL = "suporte@inkops.app";
+const DEFAULT_SUPPORT_EMAIL = "suporte@assessorink-so.com";
 
 export function BaseLayout({
   preview,

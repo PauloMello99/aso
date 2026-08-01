@@ -42,7 +42,7 @@ export default function PasswordResetEmailPreview() {
   return (
     <PasswordResetEmail
       name="Paulo"
-      resetUrl="https://app.inkops.app/auth/reset-password#access_token=preview"
+      resetUrl="https://assessorink-so.com/auth/reset-password#access_token=preview"
     />
   );
 }
