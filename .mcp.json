@@ -19,7 +19,7 @@
     },
     "supabase-staging": {
       "type": "http",
-      "url": "https://mcp.supabase.com/mcp?project_ref=qcnrfuqqvcsyhfzvlrch"
+      "url": "https://mcp.supabase.com/mcp?project_ref=qcnrfuqqvcsyhfzvlrch&features=docs%2Caccount%2Cdatabase%2Cdebugging%2Cdevelopment%2Cfunctions%2Cbranching%2Cstorage"
     },
     "postgres-staging": {
       "type": "stdio",
@@ -27,7 +27,20 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-postgres",
-        "postgresql://postgres.qcnrfuqqvcsyhfzvlrch:XoBbgbxJFlZSd1B9@aws-1-sa-east-1.pooler.supabase.com:5432/postgres"
+        "postgresql://postgres.qcnrfuqqvcsyhfzvlrch:${SUPABASE_STAGING_DATABASE_PASSWORD}@aws-1-sa-east-1.pooler.supabase.com:5432/postgres"
+      ]
+    },
+    "supabase-production": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=xixfyjltofeaxobscqxi&features=docs%2Caccount%2Cdatabase%2Cdebugging%2Cdevelopment%2Cfunctions%2Cbranching%2Cstorage"
+    },
+    "postgres-production": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://postgres.xixfyjltofeaxobscqxi:${SUPABASE_PRODUCTION_DATABASE_PASSWORD}@aws-0-sa-east-1.pooler.supabase.com:5432/postgres"
       ]
     },
     "ink-memory": {
