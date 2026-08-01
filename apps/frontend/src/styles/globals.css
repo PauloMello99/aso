@@ -67,7 +67,7 @@
 }
 
 @layer base {
-  /* Tema claro (default :root). Primary = teal (ASO rebrand). */
+  /* Tema claro (default :root). Primary = steel/azul-aço dessaturado (ASO rebrand v2). */
   :root {
     color-scheme: light;
     --background: oklch(1 0 0);
@@ -76,13 +76,13 @@
     --card-foreground: oklch(0.18 0.004 285.8);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.18 0.004 285.8);
-    /* Primary = teal-700 (ASO rebrand) */
-    --primary: oklch(0.511 0.096 186.391);
+    /* Primary = steel-700 (ASO rebrand v2 — ADR-0019) */
+    --primary: oklch(0.48 0.09 250);
     --primary-foreground: oklch(0.985 0 0);
-    --primary-hover: oklch(0.437 0.078 188.216);
-    --primary-text: oklch(0.511 0.096 186.391);
-    --primary-subtle: oklch(0.511 0.096 186.391 / 10%);
-    --primary-border: oklch(0.511 0.096 186.391 / 30%);
+    --primary-hover: oklch(0.42 0.075 250);
+    --primary-text: oklch(0.48 0.09 250);
+    --primary-subtle: oklch(0.48 0.09 250 / 10%);
+    --primary-border: oklch(0.48 0.09 250 / 30%);
     --secondary: oklch(0.967 0.001 286.375);
     --secondary-foreground: oklch(0.21 0.006 285.885);
     --muted: oklch(0.967 0.001 286.375);
@@ -105,7 +105,7 @@
     --border-subtle: oklch(0 0 0 / 6%);
     --border-faint: oklch(0 0 0 / 4%);
     --input: oklch(0 0 0 / 12%);
-    --ring: oklch(0.511 0.096 186.391);
+    --ring: oklch(0.48 0.09 250);
     --surface-1: oklch(0 0 0 / 2%);
     --surface-2: oklch(0 0 0 / 4%);
     --surface-hover: oklch(0 0 0 / 6%);
@@ -118,20 +118,20 @@
     --sidebar-width: 14rem;
     --sidebar-width-collapsed: 3.5rem;
     --content-max-width: 80rem;
-    /* Chart palette — teal/emerald/amber/violet/sky */
-    --chart-1: oklch(0.511 0.096 186.391);
+    /* Chart palette — steel/emerald/amber/violet/teal (ASO rebrand v2) */
+    --chart-1: oklch(0.48 0.09 250);
     --chart-2: oklch(0.596 0.145 163.225);
     --chart-3: oklch(0.666 0.179 58.318);
     --chart-4: oklch(0.541 0.281 293.009);
-    --chart-5: oklch(0.588 0.158 241.966);
+    --chart-5: oklch(0.511 0.096 186.391);
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.18 0.004 285.8);
-    --sidebar-primary: oklch(0.511 0.096 186.391);
+    --sidebar-primary: oklch(0.48 0.09 250);
     --sidebar-primary-foreground: oklch(0.985 0 0);
     --sidebar-accent: oklch(0.967 0.001 286.375);
     --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
     --sidebar-border: oklch(0 0 0 / 10%);
-    --sidebar-ring: oklch(0.511 0.096 186.391);
+    --sidebar-ring: oklch(0.48 0.09 250);
   }
 
   /* Tema escuro — aparência atual do app. */
@@ -143,12 +143,12 @@
     --card-foreground: oklch(0.985 0 0);
     --popover: oklch(0.21 0.006 285.885);
     --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.704 0.14 182.503);
-    --primary-foreground: oklch(0.277 0.046 192.524);
-    --primary-hover: oklch(0.777 0.152 181.912);
-    --primary-text: oklch(0.777 0.152 181.912);
-    --primary-subtle: oklch(0.704 0.14 182.503 / 15%);
-    --primary-border: oklch(0.704 0.14 182.503 / 30%);
+    --primary: oklch(0.68 0.105 245);
+    --primary-foreground: oklch(0.27 0.045 250);
+    --primary-hover: oklch(0.75 0.09 245);
+    --primary-text: oklch(0.75 0.09 245);
+    --primary-subtle: oklch(0.68 0.105 245 / 15%);
+    --primary-border: oklch(0.68 0.105 245 / 30%);
     --secondary: oklch(0.274 0.006 286.033);
     --secondary-foreground: oklch(0.985 0 0);
     --muted: oklch(0.274 0.006 286.033);
@@ -171,7 +171,7 @@
     --border-subtle: oklch(1 0 0 / 6%);
     --border-faint: oklch(1 0 0 / 4%);
     --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.704 0.14 182.503);
+    --ring: oklch(0.68 0.105 245);
     --surface-1: oklch(1 0 0 / 2%);
     --surface-2: oklch(1 0 0 / 4%);
     --surface-hover: oklch(1 0 0 / 6%);
@@ -179,20 +179,20 @@
     --text-secondary: oklch(1 0 0 / 60%);
     --text-muted: oklch(1 0 0 / 40%);
     --text-faint: oklch(1 0 0 / 30%);
-    /* Chart palette — teal/emerald/amber/violet/sky (dark) */
-    --chart-1: oklch(0.704 0.14 182.503);
+    /* Chart palette — steel/emerald/amber/violet/teal (dark, ASO rebrand v2) */
+    --chart-1: oklch(0.68 0.105 245);
     --chart-2: oklch(0.696 0.17 162.48);
     --chart-3: oklch(0.769 0.188 70.08);
     --chart-4: oklch(0.606 0.25 292.717);
-    --chart-5: oklch(0.685 0.169 237.323);
+    --chart-5: oklch(0.704 0.14 182.503);
     --sidebar: oklch(0.21 0.006 285.885);
     --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.704 0.14 182.503);
-    --sidebar-primary-foreground: oklch(0.277 0.046 192.524);
+    --sidebar-primary: oklch(0.68 0.105 245);
+    --sidebar-primary-foreground: oklch(0.27 0.045 250);
     --sidebar-accent: oklch(0.274 0.006 286.033);
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.552 0.016 285.938);
+    --sidebar-ring: oklch(0.68 0.105 245);
   }
 
   * {

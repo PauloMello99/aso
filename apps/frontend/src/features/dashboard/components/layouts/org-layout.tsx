@@ -26,6 +26,7 @@ import {
 } from "@/features/billing"
 import type { OrgSummary } from "@/features/dashboard/hooks/use-orgs"
 import type { BreadcrumbItem } from "@/features/dashboard/components/top-header"
+import { Seo } from "@/shared/components/seo"
 
 interface OrgLayoutProps {
   children: React.ReactNode
@@ -137,6 +138,7 @@ export function OrgLayout({ children }: OrgLayoutProps) {
       subscriptionPastDue={pastDue}
     >
       <div className="flex h-screen overflow-hidden bg-background">
+        <Seo title={org.name} noindex />
         <OrgSidebar
           org={org}
           mobileOpen={mobileOpen}

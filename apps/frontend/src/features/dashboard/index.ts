@@ -10,7 +10,6 @@ export { UserMenu } from "./components/user-menu"
 export { OrgProvider, useCurrentOrg } from "./components/org-context"
 
 export { OrganizationsContent } from "./components/pages/organizations-content"
-export { OrgPagePlaceholder } from "./components/pages/org-page-placeholder"
 
 export { useOrgs, useOrg } from "./hooks/use-orgs"
 export type { OrgSummary } from "./hooks/use-orgs"

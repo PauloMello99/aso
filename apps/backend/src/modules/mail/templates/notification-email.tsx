@@ -36,7 +36,7 @@ export default function NotificationEmailPreview() {
     <NotificationEmail
       title="Hora de conferir o estoque"
       body="Já se passaram 30 dias desde a última conferência de estoque."
-      actionUrl="https://app.inkops.app/dashboard"
+      actionUrl="https://assessorink-so.com/dashboard"
       actionLabel="Conferir estoque"
     />
   );

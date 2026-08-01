@@ -11,7 +11,7 @@ export const LEGAL_ENTITY = {
   nomeFantasia: "ASO",
   cnpj: "42.879.564/0001-96",
   endereco: "Rua Silva Jardim 1278, Bairro Alto, Piracicaba/SP, 13.419-140",
-  emailContato: "jpperim06@gmail.com",
+  emailContato: "contato@assessorink-so.com",
   encarregado: {
     nome: "João Pedro Siqueira Perim",
     email: "jpperim06@gmail.com",

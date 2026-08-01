@@ -1,4 +1,4 @@
-import { ConfigService } from "@nestjs/config";
+﻿import { ConfigService } from "@nestjs/config";
 import { CreatePortalSessionUseCase } from "./create-portal-session.use-case";
 import { ISubscriptionRepository } from "../../domain/subscription.repository.interface";
 import { IPaymentGateway } from "../../domain/ports/payment-gateway.port";
@@ -43,8 +43,8 @@ function buildOrg(
 ): OrgEntity {
   return OrgEntity.create({
     id: "org-1",
-    name: "Ink House",
-    slug: "ink-house",
+    name: "Studio Exemplo",
+    slug: "studio-exemplo",
     logoUrl: null,
     role: "owner",
     permissions: [],
@@ -106,7 +106,7 @@ function buildFakeOrgRepo(
 
 function buildConfig(): jest.Mocked<ConfigService> {
   return {
-    getOrThrow: jest.fn().mockReturnValue("https://app.ink-ops.test"),
+    getOrThrow: jest.fn().mockReturnValue("https://app.assessorink-so.test"),
   } as unknown as jest.Mocked<ConfigService>;
 }
 
@@ -142,7 +142,7 @@ describe("CreatePortalSessionUseCase", () => {
     expect(paymentGateway.createPortalSession).toHaveBeenCalledWith({
       customerId: "cus_1",
       returnUrl:
-        "https://app.ink-ops.test/dashboard/org/ink-house/settings/subscription",
+        "https://app.assessorink-so.test/dashboard/org/studio-exemplo/settings/subscription",
     });
   });
 

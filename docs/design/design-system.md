@@ -11,7 +11,7 @@ guidelines conferidos contra `apps/frontend/src/styles/globals.css` e
 - **Nome**: ASO. Tom sério e profissional, "sem ser corporativo-frio". Áudiências: dono do
   negócio (org-admin/owner), funcionário e super-admin de plataforma.
 - **Wordmark**: texto puro — `"aso"` minúsculo, Inter 700, `tracking-tight`. O trecho `"so"`
-  (ou a palavra inteira) é renderizado em teal (`--primary-text`). **Nunca** desenhar logo,
+  (ou a palavra inteira) é renderizado na cor de marca (`--primary-text`). **Nunca** desenhar logo,
   ícone de marca ou mascote — não existe arquivo de logo nas fontes; o header sempre
   renderiza o wordmark como texto (padrão herdado do antigo `ink/ops` bicolor).
 - Componente único: `shared/components/brand-wordmark.tsx` (ADR-0017) — qualquer nova tela
@@ -20,7 +20,8 @@ guidelines conferidos contra `apps/frontend/src/styles/globals.css` e
 ## 2. Cor
 
 Tokens definidos em `oklch`, tema `light` (`:root`) e `dark` (`.dark`). App roda **dark por
-padrão**; marketing é **dark-only**. Fonte: `apps/frontend/src/styles/globals.css` (ADR-0017).
+padrão**; marketing é **dark-only**. Fonte: `apps/frontend/src/styles/globals.css` (ADR-0019
+supersede a cor do ADR-0017 — teal → steel).
 
 ### Base
 
@@ -31,19 +32,24 @@ padrão**; marketing é **dark-only**. Fonte: `apps/frontend/src/styles/globals.
 | `--card` / `--popover` | `oklch(1 0 0)` | `oklch(0.21 0.006 285.885)` |
 | `--secondary` / `--muted` / `--accent` | `oklch(0.967 0.001 286.375)` | `oklch(0.274 0.006 286.033)` |
 
-### Marca (brand — teal)
+### Marca (brand — steel / azul-aço dessaturado)
 
 | Token | Light | Dark | Uso |
 |---|---|---|---|
-| `--primary` | `oklch(0.511 0.096 186.391)` (teal-700) | `oklch(0.704 0.14 182.503)` (teal-500) | Fundo de botão primário, AA com texto contrastante |
-| `--primary-hover` | `oklch(0.437 0.078 188.216)` (teal-800) | `oklch(0.777 0.152 181.912)` (teal-400) | Hover do botão primário |
-| `--primary-text` | `oklch(0.511 0.096 186.391)` | `oklch(0.777 0.152 181.912)` | Texto/ícone de marca sobre `--background` |
-| `--primary-subtle` | teal 10% | teal 15% | Fundo de pill/nav ativa |
-| `--primary-border` | teal 30% | teal 30% | Borda de destaque de marca |
+| `--primary` | `oklch(0.48 0.09 250)` (steel-700) | `oklch(0.68 0.105 245)` (steel-500) | Fundo de botão primário, AA com texto contrastante |
+| `--primary-hover` | `oklch(0.42 0.075 250)` (steel-800) | `oklch(0.75 0.09 245)` (steel-400) | Hover do botão primário |
+| `--primary-text` | `oklch(0.48 0.09 250)` | `oklch(0.75 0.09 245)` | Texto/ícone de marca sobre `--background` |
+| `--primary-subtle` | steel 10% | steel 15% | Fundo de pill/nav ativa |
+| `--primary-border` | steel 30% | steel 30% | Borda de destaque de marca |
 
-**Regra de ouro**: teal = **marca e ação** — botão primário, item de nav ativo, evento de
-agenda, dia selecionado no calendário. **Nunca** usar teal para status financeiro (isso é
-papel das cores semânticas abaixo).
+**Regra de ouro**: steel = **marca e ação** — botão primário, item de nav ativo, evento de
+agenda, dia selecionado no calendário. **Nunca** usar a cor de marca para status financeiro
+(isso é papel das cores semânticas abaixo).
+
+> `--info` (sky, matiz ~243) fica a só 7° de matiz de `--primary` (steel, matiz 250) — a
+> separação depende do croma (0.134 vs 0.09). Ao criar UI nova, comparar lado a lado uma
+> pill `info` com um botão primário nos dois temas; se a pill ler como afordância de
+> marca/ação, é sinal de deslocar `--info` para mais perto do ciano.
 
 ### Semânticas (status/financeiro)
 
@@ -85,13 +91,14 @@ papel das cores semânticas abaixo).
 
 ### Charts (1–5)
 
-Rampa multi-hue teal/emerald/amber/violet/sky — `--chart-1` (teal, = `--primary`),
-`--chart-2` (emerald), `--chart-3` (amber), `--chart-4` (violet), `--chart-5` (sky).
+Rampa multi-hue steel/emerald/amber/violet/teal — `--chart-1` (steel, = `--primary`),
+`--chart-2` (emerald), `--chart-3` (amber), `--chart-4` (violet), `--chart-5` (teal — antiga
+cor de marca, reaproveitada para preencher o slot 5 sem colidir com `--info`).
 Definida por tema (light e dark têm valores próprios), nunca hex fixo em componente.
 
 ### Sidebar
 
-Tokens dedicados `--sidebar`, `--sidebar-foreground`, `--sidebar-primary` (=teal),
+Tokens dedicados `--sidebar`, `--sidebar-foreground`, `--sidebar-primary` (=steel),
 `--sidebar-accent`, `--sidebar-border`, `--sidebar-ring` — permitem a sidebar ter uma
 superfície ligeiramente distinta do conteúdo sem duplicar a paleta base.
 
@@ -152,8 +159,8 @@ pesado, sem skeuomorfismo.
 Contratos visuais resumidos (implementação real em
 `apps/frontend/src/shared/components/ui/`):
 
-- **Button**: alturas 40/36/44/40×40 (default/sm/lg/icon). Variantes `default` (teal
-  sólido), `outline`, `ghost`, `destructive`. Regra: **um único botão primário sólido por
+- **Button**: alturas 40/36/44/40×40 (default/sm/lg/icon). Variantes `default` (cor de marca
+  sólida), `outline`, `ghost`, `destructive`. Regra: **um único botão primário sólido por
   tela/view** — ações secundárias usam `outline` ou `ghost`.
 - **Badge**: variantes sólidas (marketing/plano) e variantes **subtle** — `success`,
   `warning`, `info`, `destructive-subtle`, `brand`. Pills de status financeiro: Pago
@@ -161,13 +168,14 @@ Contratos visuais resumidos (implementação real em
 - **Card / SectionCard / KpiCard**:
   - `Card` (+`CardHeader/Title/Description/Content/Footer`) — componente compartilhado em
     `shared/components/ui/card.tsx`, superfície `--card` sólida, usado em settings/forms/auth.
-  - `SectionCard` — card de módulo do dashboard: tinta `--surface-1`, ícone teal + título
-    sm/semibold, link "Ver todos"; conteúdo é lista dividida, não tabela. **Hoje é um
+  - `SectionCard` — card de módulo do dashboard: tinta `--surface-1`, ícone na cor de marca +
+    título sm/semibold, link "Ver todos"; conteúdo é lista dividida, não tabela. **Hoje é um
     padrão local** (função `SectionCard` dentro de
     `features/overview/components/overview-page.tsx`), não um componente compartilhado —
     candidato a extração para `shared/components/ui/` se reaproveitado por outro módulo.
-  - `KpiCard` — label xs muted + valor 24px/600 `tabular-nums`; `emphasis` = tingido de teal
-    (ex.: card "Total"); `iconColor` segue semântica (Dinheiro=`--success`, Banco=`--info`).
+  - `KpiCard` — label xs muted + valor 24px/600 `tabular-nums`; `emphasis` = tingido com a
+    cor de marca (ex.: card "Total"); `iconColor` segue semântica (Dinheiro=`--success`,
+    Banco=`--info`).
     Mesmo status de `SectionCard`: padrão local em `overview-page.tsx`, ainda não extraído.
 - **Table**: headers 12px uppercase `tracking-wider` em `--text-faint`, altura 40px; células
   `padding: 12px`; hover de linha = `--surface-1`/`--surface-hover`; valores monetários
@@ -175,8 +183,8 @@ Contratos visuais resumidos (implementação real em
   `ExportMenu`.
 - **Inputs** (Input/Select/Switch/PhoneInput/Calendar/DatePicker): `fieldBase` = fundo
   `fg/4%` (`--surface-2`) + borda `fg/8%` (`--input`). **Foco é neutro** —
-  ring `fg/20%`, **não teal**. Teal só aparece em estado *selecionado* (check do Select, dia
-  selecionado do Calendar, Switch ligado).
+  ring `fg/20%`, **não a cor de marca**. Ela só aparece em estado *selecionado* (check do
+  Select, dia selecionado do Calendar, Switch ligado).
 - **Dialog / Sheet**: painel `--popover` + borda hairline + `--shadow-2xl`, sobre scrim.
   Footer padrão: `Cancelar` (`outline`) + ação primária (`default`).
 - **DropdownMenu / Popover / Tooltip**: painel `--popover` + borda hairline + `--shadow-lg`
@@ -199,8 +207,8 @@ Toda tela de listagem (Clientes, Serviços, Estoque, Caixa) segue a mesma receit
   micro-rótulos de seção/tabela (10–12px, `tracking-widest`/`tracking-wider`).
 - **CTAs**: imperativos curtos — "Salvar", "Exportar", "Começar grátis", "Falar com
   vendas".
-- **Estados vazios**: fato + ação — "Nenhum serviço ainda" + link teal "Registrar
-  atendimento".
+- **Estados vazios**: fato + ação — "Nenhum serviço ainda" + link na cor de marca
+  "Registrar atendimento".
 - **Confirmações**: frases mínimas — "Taxas salvas."; erros diretos — "E-mail ou senha
   inválidos".
 - **Voz**: confiante e transparente ("Sem taxas escondidas. Cancele quando quiser."),
@@ -236,10 +244,10 @@ Toda tela de listagem (Clientes, Serviços, Estoque, Caixa) segue a mesma receit
 
 ## 10. Agenda
 
-- **Evento**: pill `--primary-subtle` com borda esquerda teal de 2px.
+- **Evento**: pill `--primary-subtle` com borda esquerda de 2px na cor de marca.
 - **Indisponibilidade**: hachura diagonal em cinza (`repeating-linear-gradient`).
 - **Cancelado**: `line-through` + opacidade 40%.
-- **Hoje**: círculo teal sólido (`--primary`) no indicador de dia.
+- **Hoje**: círculo sólido (`--primary`) no indicador de dia.
 
 ## 11. Modos
 
@@ -251,7 +259,9 @@ Toda tela de listagem (Clientes, Serviços, Estoque, Caixa) segue a mesma receit
 ## Referências
 
 - `.memory/adr/0017-rebrand-aso-identidade-visual-teal.md` — decisão original do rebrand
-  (paleta, fonte, wordmark, migração de cores).
+  (paleta teal, fonte, wordmark, migração de cores).
+- `.memory/adr/0019-*.md` — supersede a paleta do ADR-0017: teal → steel/azul-aço
+  dessaturado, domínio `assessorink-so.com`, rename de repositório.
 - `.claude/skills/aso-design/SKILL.md` — resumo operacional para geração de UI por agentes.
 - `apps/frontend/src/styles/globals.css` — implementação real dos tokens.
 - `apps/frontend/src/shared/components/ui/` — implementação real dos componentes.

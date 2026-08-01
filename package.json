@@ -1,5 +1,5 @@
 {
-  "name": "ink-ops",
+  "name": "assessorink-so",
   "private": true,
   "scripts": {
     "build": "turbo run build",

@@ -1,4 +1,4 @@
-import { ConfigService } from "@nestjs/config";
+﻿import { ConfigService } from "@nestjs/config";
 import { CreateCheckoutSessionUseCase } from "./create-checkout-session.use-case";
 import { ISubscriptionRepository } from "../../domain/subscription.repository.interface";
 import {
@@ -49,8 +49,8 @@ function buildOrg(
 ): OrgEntity {
   return OrgEntity.create({
     id: "org-1",
-    name: "Ink House",
-    slug: "ink-house",
+    name: "Studio Exemplo",
+    slug: "studio-exemplo",
     logoUrl: null,
     role: "owner",
     permissions: [],
@@ -85,7 +85,7 @@ function buildPlan(
     key: "standard",
     stripeProductId: "prod_1",
     stripePriceId: "price_1",
-    name: "Padrão",
+    name: "PadrÃ£o",
     amountCents: 4990,
     currency: "brl",
     interval: "monthly",
@@ -178,7 +178,7 @@ function buildFakeMemberRepo(
 
 function buildConfig(): jest.Mocked<ConfigService> {
   return {
-    getOrThrow: jest.fn().mockReturnValue("https://app.ink-ops.test"),
+    getOrThrow: jest.fn().mockReturnValue("https://app.assessorink-so.test"),
   } as unknown as jest.Mocked<ConfigService>;
 }
 
@@ -266,7 +266,7 @@ describe("CreateCheckoutSessionUseCase", () => {
     expect(paymentGateway.createCustomer).toHaveBeenCalledWith({
       orgId: "org-1",
       email: "owner@example.com",
-      name: "Ink House",
+      name: "Studio Exemplo",
     });
     expect(subscriptionRepo.update).toHaveBeenCalledWith("org-1", {
       stripeCustomerId: "cus_new",

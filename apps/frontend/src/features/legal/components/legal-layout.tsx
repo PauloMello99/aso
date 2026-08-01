@@ -2,16 +2,23 @@ import * as React from "react"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { BrandWordmark } from "@/shared/components/brand-wordmark"
+import { Seo } from "@/shared/components/seo"
 
 interface LegalLayoutProps {
   title: string
   version: string
+  path: string
   children: React.ReactNode
 }
 
-export function LegalLayout({ title, version, children }: LegalLayoutProps) {
+export function LegalLayout({ title, version, path, children }: LegalLayoutProps) {
   return (
     <div className="min-h-screen bg-background">
+      <Seo
+        title={title}
+        description={`${title} do ASO — atualizado em ${version}.`}
+        path={path}
+      />
       <header className="border-b border-foreground/5">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4 sm:px-6">
           <Link href="/">
@@ -35,12 +42,12 @@ export function LegalLayout({ title, version, children }: LegalLayoutProps) {
           Última atualização: {version}
         </p>
 
-        <div className="mt-6 rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-xs leading-relaxed text-amber-600 dark:text-amber-400">
+        <div className="mt-6 rounded-lg border border-warning/20 bg-warning-subtle px-4 py-3 text-xs leading-relaxed text-warning">
           Minuta em revisão. Este documento é uma versão preliminar e está sujeito a
           revisão jurídica formal antes da vigência definitiva.
         </div>
 
-        <div className="prose-legal mt-8 space-y-6 text-sm leading-relaxed text-foreground/70 sm:text-base">
+        <div className="mt-8 space-y-6 text-sm leading-relaxed text-foreground/70 sm:text-base">
           {children}
         </div>
       </main>
