@@ -1,7 +1,6 @@
 import * as React from "react"
 import Link from "next/link"
 import { Button } from "@/shared/components/ui/button"
-import { Badge } from "@/shared/components/ui/badge"
 import { cn } from "@/shared/lib/utils"
 import { BackgroundGrid } from "./background-grid"
 
