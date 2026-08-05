@@ -40,6 +40,10 @@ import {
 } from "@/shared/components/ui/alert"
 import { centsToReaisInput } from "@/features/cashier/lib/money"
 import { ApiError } from "@/infrastructure/api/client"
+import {
+  SendAnamnesisInviteDialog,
+  useAnamnesisPromptState,
+} from "@/features/anamnesis"
 import type { Customer } from "@/features/clients/types"
 import type { Member } from "@/features/organizations/types"
 import type { Material } from "@/features/stock/types"
@@ -124,6 +128,7 @@ export function ServiceForm({
   })
 
   const [typeDialogOpen, setTypeDialogOpen] = useState(false)
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
   const [submitError, setSubmitError] = useState<ServiceErrorMessage | null>(
     null,
   )
@@ -142,6 +147,7 @@ export function ServiceForm({
         paymentStatus: service.paymentTransactionId ? "paid" : "pending",
         performedAt: service.performedAt ? service.performedAt.slice(0, 10) : "",
         materials: [],
+        anamnesisResponseId: service.anamnesisResponseId ?? undefined,
       })
     } else {
       form.reset(emptyValues())
@@ -195,6 +201,28 @@ export function ServiceForm({
     (t) => t.id === watchedServiceTypeId,
   )
   const selectedCustomer = customers.find((c) => c.id === watchedCustomerId)
+
+  const {
+    prompt: anamnesisPrompt,
+    loading: anamnesisPromptLoading,
+    linkableResponseId,
+  } = useAnamnesisPromptState(orgId, watchedCustomerId, watchedServiceTypeId)
+
+  // Anexa automaticamente a ficha vinculavel (versao vigente, ainda nao
+  // vinculada a nenhum servico) assim que ela existir para o par
+  // cliente/tipo selecionado. Quando nao ha nenhuma vinculavel, volta para a
+  // "baseline": o vinculo que o proprio serviço ja tinha (edicao) ou nenhum
+  // (criacao) — nunca deixa uma ficha de um cliente/tipo anterior presa no
+  // campo depois que o usuario troca a selecao. So ajusta depois que as
+  // queries do prompt resolverem, para nao piscar durante o carregamento.
+  useEffect(() => {
+    if (anamnesisPromptLoading) return
+    const baseline = service?.anamnesisResponseId ?? undefined
+    const next = linkableResponseId ?? baseline
+    if (form.getValues("anamnesisResponseId") !== next) {
+      form.setValue("anamnesisResponseId", next)
+    }
+  }, [linkableResponseId, anamnesisPromptLoading, service, form])
 
   let ageWarning: ServiceErrorMessage | null = null
   if (selectedServiceType?.requiresAgeVerification && selectedCustomer) {
@@ -337,6 +365,33 @@ export function ServiceForm({
                   <Alert variant={ageWarning.variant}>
                     <AlertTitle>{ageWarning.title}</AlertTitle>
                     <AlertDescription>{ageWarning.description}</AlertDescription>
+                  </Alert>
+                )}
+
+                {!anamnesisPromptLoading && anamnesisPrompt !== "hidden" && (
+                  <Alert variant="warning">
+                    <AlertTitle>
+                      {anamnesisPrompt === "resend"
+                        ? "Ficha de anamnese desatualizada"
+                        : "Ficha de anamnese pendente"}
+                    </AlertTitle>
+                    <AlertDescription>
+                      {anamnesisPrompt === "resend"
+                        ? "A ficha respondida por este cliente é de uma versão anterior do formulário."
+                        : "Este cliente ainda não respondeu a ficha de anamnese deste tipo de serviço."}
+                    </AlertDescription>
+                    <div className="col-start-2 mt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setInviteDialogOpen(true)}
+                      >
+                        {anamnesisPrompt === "resend"
+                          ? "Reenviar ficha"
+                          : "Enviar ficha"}
+                      </Button>
+                    </div>
                   </Alert>
                 )}
 
@@ -543,6 +598,17 @@ export function ServiceForm({
           setTimeout(() => form.setValue("serviceTypeId", type.id), 0)
         }
       />
+
+      {selectedCustomer && (
+        <SendAnamnesisInviteDialog
+          open={inviteDialogOpen}
+          onOpenChange={setInviteDialogOpen}
+          orgId={orgId}
+          customerId={selectedCustomer.id}
+          customerName={selectedCustomer.name}
+          serviceTypeId={watchedServiceTypeId}
+        />
+      )}
     </>
   )
 }

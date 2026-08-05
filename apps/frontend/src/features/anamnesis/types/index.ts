@@ -1,3 +1,5 @@
+import type { AnamnesisResponseStatus } from "../schemas/anamnesis-responses.schemas"
+
 export type AnamnesisQuestionType = "text" | "yes_no"
 
 export interface AnamnesisQuestion {
@@ -48,4 +50,25 @@ export interface AnamnesisPublicLookup {
 export interface AnamnesisAnswerInput {
   questionId: string
   value: string | boolean
+}
+
+export type {
+  AnamnesisResponseStatus,
+  AnamnesisResponseListItem,
+  AnamnesisResponseDetail,
+} from "../schemas/anamnesis-responses.schemas"
+
+export interface AnamnesisResponsesFilter {
+  customerId?: string
+  serviceTypeId?: string
+  status?: AnamnesisResponseStatus
+}
+
+export const ANAMNESIS_RESPONSE_STATUS_LABELS: Record<
+  AnamnesisResponseStatus,
+  string
+> = {
+  pending: "Pendente",
+  submitted: "Respondida",
+  expired: "Expirada",
 }

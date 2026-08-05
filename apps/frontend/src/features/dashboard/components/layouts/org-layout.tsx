@@ -14,8 +14,8 @@ import { useMe } from "@/features/auth/hooks/use-me"
 import {
   PAGE_LABELS,
   isOwnerOnlyPath,
-  isModuleKey,
   canAccessModule,
+  getModuleForPath,
 } from "@/features/dashboard/lib/nav"
 import { useSubscription } from "@/features/billing/hooks/use-subscription"
 import {
@@ -111,9 +111,10 @@ export function OrgLayout({ children }: OrgLayoutProps) {
   const currentSubpath = router.pathname.split("/[orgSlug]/")[1] ?? ""
   React.useEffect(() => {
     if (!org || org.role === "owner") return
-    const seg = currentSubpath.split("/")[0] ?? ""
+    const requiredModule = getModuleForPath(currentSubpath)
     const lacksModule =
-      isModuleKey(seg) && !canAccessModule(org.role, org.permissions, seg)
+      !!requiredModule &&
+      !canAccessModule(org.role, org.permissions, requiredModule)
     if (isOwnerOnlyPath(currentSubpath) || lacksModule) {
       void router.replace(`/dashboard/org/${org.slug}/overview`)
     }

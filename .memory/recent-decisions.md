@@ -22,6 +22,7 @@
 | ADR-0017 | Rebrand ASO: identidade visual teal (paleta larmony), Inter, tokens semânticos success/warning/info, telas padronizadas | 2026-07-19 | Aceito |
 | ADR-0018 | Conformidade legal Tier 1: divisão controlador (ASO)/operador (estúdio), sem banner de cookies, consentimento versionado e snapshotado (signup + anamnese), identificação do fornecedor no footer | 2026-07-27 | Aceito |
 | ADR-0019 | Rebrand v2: paleta steel/azul-aço (supersede a cor do ADR-0017), domínio assessorink-so.com, SEO/assets de marca (public/, robots, sitemap, noindex), rename do repositório | 2026-08-01 | Aceito |
+| ADR-0020 | Anamnese: sidebar de topo (module `services`, `MODULE_KEYS` intacto), gate de versão vigente em runtime sem migration, auto-vínculo via `findLinkable` (sem seletor manual), DTOs explícitos nunca a entidade crua | 2026-08-04 | Aceito |
 
 ## Decisões/registros recentes (sem ADR)
 

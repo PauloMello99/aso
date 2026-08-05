@@ -25,6 +25,10 @@ import {
   IAnamnesisResponseRepository,
   ANAMNESIS_RESPONSE_REPOSITORY,
 } from "../../../anamnesis/domain/anamnesis-response.repository.interface";
+import {
+  IAnamnesisFormRepository,
+  ANAMNESIS_FORM_REPOSITORY,
+} from "../../../anamnesis/domain/anamnesis-form.repository.interface";
 import { resolvePerformer } from "./resolve-performer";
 import { resolveMembership } from "./resolve-membership";
 import { assertPerformedAtNotFuture } from "./assert-performed-at-not-future";
@@ -56,6 +60,8 @@ export class UpdateServiceUseCase {
     private readonly memberRepo: IMemberRepository,
     @Inject(ANAMNESIS_RESPONSE_REPOSITORY)
     private readonly anamnesisResponseRepo: IAnamnesisResponseRepository,
+    @Inject(ANAMNESIS_FORM_REPOSITORY)
+    private readonly anamnesisFormRepo: IAnamnesisFormRepository,
   ) {}
 
   async execute(input: UpdateServiceInput): Promise<ServiceEntity> {
@@ -116,13 +122,22 @@ export class UpdateServiceUseCase {
       effectivePerformedAt,
     );
 
-    if (input.anamnesisResponseId) {
+    const effectiveAnamnesisResponseId =
+      input.anamnesisResponseId !== undefined
+        ? input.anamnesisResponseId
+        : service.anamnesisResponseId;
+
+    if (effectiveAnamnesisResponseId) {
+      const skipVersionCheck =
+        effectiveAnamnesisResponseId === service.anamnesisResponseId;
       await assertAnamnesisResponseLinkable(
         this.anamnesisResponseRepo,
         input.orgId,
-        input.anamnesisResponseId,
+        effectiveAnamnesisResponseId,
         effectiveCustomerId,
         effectiveServiceTypeId,
+        this.anamnesisFormRepo,
+        skipVersionCheck,
       );
     }
 

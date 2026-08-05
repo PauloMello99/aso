@@ -13,9 +13,12 @@ import { ServiceForbiddenException } from "../../domain/exceptions/service-forbi
 import { ServicePerformedAtFutureException } from "../../domain/exceptions/service-performed-at-future.exception";
 import { ServiceAgeVerificationRequiredException } from "../../domain/exceptions/service-age-verification-required.exception";
 import { IAnamnesisResponseRepository } from "../../../anamnesis/domain/anamnesis-response.repository.interface";
+import { IAnamnesisFormRepository } from "../../../anamnesis/domain/anamnesis-form.repository.interface";
 import { AnamnesisResponseEntity } from "../../../anamnesis/domain/anamnesis-response.entity";
+import { AnamnesisFormVersionEntity } from "../../../anamnesis/domain/anamnesis-form-version.entity";
 import { AnamnesisResponseNotFoundException } from "../../../anamnesis/domain/exceptions/anamnesis-response-not-found.exception";
 import { AnamnesisResponseNotLinkableException } from "../../../anamnesis/domain/exceptions/anamnesis-response-not-linkable.exception";
+import { AnamnesisResponseOutdatedException } from "../../../anamnesis/domain/exceptions/anamnesis-response-outdated.exception";
 
 function buildService(
   overrides: Partial<Parameters<typeof ServiceEntity.create>[0]> = {},
@@ -135,6 +138,34 @@ function buildFakeAnamnesisResponseRepo(
   } as unknown as jest.Mocked<IAnamnesisResponseRepository>;
 }
 
+function buildAnamnesisFormVersion(
+  overrides: Partial<
+    Parameters<typeof AnamnesisFormVersionEntity.create>[0]
+  > = {},
+): AnamnesisFormVersionEntity {
+  return AnamnesisFormVersionEntity.create({
+    id: "form-version-1",
+    formId: "form-1",
+    orgId: "org-1",
+    versionNumber: 1,
+    questions: [],
+    createdBy: "user-1",
+    createdAt: new Date("2026-06-01T00:00:00Z"),
+    ...overrides,
+  });
+}
+
+function buildFakeAnamnesisFormRepo(
+  overrides: Partial<jest.Mocked<IAnamnesisFormRepository>> = {},
+): jest.Mocked<IAnamnesisFormRepository> {
+  return {
+    getCurrentVersion: jest.fn(),
+    listVersions: jest.fn(),
+    createVersion: jest.fn(),
+    ...overrides,
+  } as unknown as jest.Mocked<IAnamnesisFormRepository>;
+}
+
 function buildFakeServiceTypeRepo(
   overrides: Partial<jest.Mocked<IServiceTypeRepository>> = {},
 ): jest.Mocked<IServiceTypeRepository> {
@@ -202,6 +233,7 @@ interface Fakes {
   customerRepo: jest.Mocked<ICustomerRepository>;
   memberRepo: jest.Mocked<IMemberRepository>;
   anamnesisResponseRepo: jest.Mocked<IAnamnesisResponseRepository>;
+  anamnesisFormRepo: jest.Mocked<IAnamnesisFormRepository>;
 }
 
 function buildUseCase(overrides: Partial<Fakes> = {}) {
@@ -211,6 +243,7 @@ function buildUseCase(overrides: Partial<Fakes> = {}) {
     customerRepo: buildFakeCustomerRepo(),
     memberRepo: buildFakeMemberRepo(),
     anamnesisResponseRepo: buildFakeAnamnesisResponseRepo(),
+    anamnesisFormRepo: buildFakeAnamnesisFormRepo(),
     ...overrides,
   };
   const useCase = new UpdateServiceUseCase(
@@ -219,6 +252,7 @@ function buildUseCase(overrides: Partial<Fakes> = {}) {
     fakes.customerRepo,
     fakes.memberRepo,
     fakes.anamnesisResponseRepo,
+    fakes.anamnesisFormRepo,
   );
   return { useCase, ...fakes };
 }
@@ -489,6 +523,139 @@ describe("UpdateServiceUseCase", () => {
           anamnesisResponseId: response.id,
         }),
       ).rejects.toBeInstanceOf(AnamnesisResponseNotLinkableException);
+      expect(serviceRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("lança AnamnesisResponseOutdatedException ao trocar para uma resposta de versão antiga do formulário vigente", async () => {
+      const customer = buildCustomer();
+      const serviceType = buildServiceType();
+      const existing = buildService({
+        customerId: customer.id,
+        serviceTypeId: serviceType.id,
+        anamnesisResponseId: "previous-response",
+      });
+      const response = buildAnamnesisResponse({
+        customerId: customer.id,
+        serviceTypeId: serviceType.id,
+        formVersionId: "form-version-old",
+      });
+      const currentVersion = buildAnamnesisFormVersion({
+        id: "form-version-new",
+      });
+      const { useCase, serviceRepo } = buildUseCase({
+        serviceRepo: buildFakeServiceRepo({
+          findById: jest.fn().mockResolvedValue(existing),
+        }),
+        serviceTypeRepo: buildFakeServiceTypeRepo({
+          findById: jest.fn().mockResolvedValue(serviceType),
+        }),
+        customerRepo: buildFakeCustomerRepo({
+          findById: jest.fn().mockResolvedValue(customer),
+        }),
+        anamnesisResponseRepo: buildFakeAnamnesisResponseRepo({
+          findById: jest.fn().mockResolvedValue(response),
+        }),
+        anamnesisFormRepo: buildFakeAnamnesisFormRepo({
+          getCurrentVersion: jest.fn().mockResolvedValue(currentVersion),
+        }),
+      });
+
+      await expect(
+        useCase.execute({
+          ...baseInput,
+          anamnesisResponseId: response.id,
+        }),
+      ).rejects.toBeInstanceOf(AnamnesisResponseOutdatedException);
+      expect(serviceRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("não lança ao manter a mesma resposta já vinculada, mesmo com o formulário já em nova versão (V2)", async () => {
+      const customer = buildCustomer();
+      const serviceType = buildServiceType();
+      const response = buildAnamnesisResponse({
+        customerId: customer.id,
+        serviceTypeId: serviceType.id,
+        formVersionId: "form-version-v1",
+      });
+      const existing = buildService({
+        customerId: customer.id,
+        serviceTypeId: serviceType.id,
+        anamnesisResponseId: response.id,
+      });
+      const updated = buildService({
+        customerId: customer.id,
+        serviceTypeId: serviceType.id,
+        anamnesisResponseId: response.id,
+        description: "Atualizado",
+      });
+      const { useCase, serviceRepo, anamnesisFormRepo } = buildUseCase({
+        serviceRepo: buildFakeServiceRepo({
+          findById: jest
+            .fn()
+            .mockResolvedValueOnce(existing)
+            .mockResolvedValueOnce(updated),
+          update: jest.fn().mockResolvedValue(updated),
+        }),
+        serviceTypeRepo: buildFakeServiceTypeRepo({
+          findById: jest.fn().mockResolvedValue(serviceType),
+        }),
+        customerRepo: buildFakeCustomerRepo({
+          findById: jest.fn().mockResolvedValue(customer),
+        }),
+        anamnesisResponseRepo: buildFakeAnamnesisResponseRepo({
+          findById: jest.fn().mockResolvedValue(response),
+        }),
+      });
+
+      const result = await useCase.execute({
+        ...baseInput,
+        anamnesisResponseId: response.id,
+        description: "Atualizado",
+      });
+
+      expect(anamnesisFormRepo.getCurrentVersion).not.toHaveBeenCalled();
+      expect(serviceRepo.update).toHaveBeenCalledWith(
+        existing.id,
+        expect.objectContaining({ anamnesisResponseId: response.id }),
+      );
+      expect(result).toBe(updated);
+    });
+
+    it("lança AnamnesisResponseNotLinkableException ao trocar de cliente sem reenviar anamnesisResponseId, deixando a ficha vinculada apontar para outro cliente", async () => {
+      const serviceType = buildServiceType();
+      const originalCustomer = buildCustomer({ id: "customer-1" });
+      const newCustomer = buildCustomer({ id: "customer-2" });
+      const response = buildAnamnesisResponse({
+        customerId: originalCustomer.id,
+        serviceTypeId: serviceType.id,
+      });
+      const existing = buildService({
+        customerId: originalCustomer.id,
+        serviceTypeId: serviceType.id,
+        anamnesisResponseId: response.id,
+      });
+      const { useCase, serviceRepo, anamnesisResponseRepo } = buildUseCase({
+        serviceRepo: buildFakeServiceRepo({
+          findById: jest.fn().mockResolvedValue(existing),
+        }),
+        serviceTypeRepo: buildFakeServiceTypeRepo({
+          findById: jest.fn().mockResolvedValue(serviceType),
+        }),
+        customerRepo: buildFakeCustomerRepo({
+          findById: jest.fn().mockResolvedValue(newCustomer),
+        }),
+        anamnesisResponseRepo: buildFakeAnamnesisResponseRepo({
+          findById: jest.fn().mockResolvedValue(response),
+        }),
+      });
+
+      await expect(
+        useCase.execute({ ...baseInput, customerId: newCustomer.id }),
+      ).rejects.toBeInstanceOf(AnamnesisResponseNotLinkableException);
+      expect(anamnesisResponseRepo.findById).toHaveBeenCalledWith(
+        response.id,
+        "org-1",
+      );
       expect(serviceRepo.update).not.toHaveBeenCalled();
     });
   });

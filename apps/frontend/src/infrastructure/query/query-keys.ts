@@ -2,6 +2,7 @@ import type { MaterialsFilter } from "@/features/stock/types"
 import type { CustomersFilter } from "@/features/clients/types"
 import type { TransactionsFilter } from "@/features/cashier/types"
 import type { ServicesFilter } from "@/features/services/types"
+import type { AnamnesisResponsesFilter } from "@/features/anamnesis/types"
 
 export const queryKeys = {
   me: ["me"] as const,
@@ -85,6 +86,12 @@ export const queryKeys = {
     versions: (orgId: string, serviceTypeId: string) =>
       ["anamnesis", orgId, serviceTypeId, "versions"] as const,
     publicResponse: (token: string) => ["anamnesis", "public", token] as const,
+    responses: (orgId: string, filters?: AnamnesisResponsesFilter) =>
+      ["anamnesis", orgId, "responses", filters ?? {}] as const,
+    response: (orgId: string, id: string) =>
+      ["anamnesis", orgId, "responses", id] as const,
+    linkable: (orgId: string, customerId: string, serviceTypeId: string) =>
+      ["anamnesis", orgId, "linkable", customerId, serviceTypeId] as const,
   },
 
   billing: {

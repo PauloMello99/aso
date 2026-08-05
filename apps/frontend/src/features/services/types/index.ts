@@ -33,6 +33,7 @@ export interface Service {
   customerName: string | null
   employeeName: string | null
   typeName: string | null
+  anamnesisResponseId: string | null
 }
 
 export interface ServiceType {
