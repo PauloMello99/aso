@@ -1,6 +1,7 @@
 "use client"
 
-import { Loader2 } from "lucide-react"
+import { useState } from "react"
+import { FileHeart, Loader2 } from "lucide-react"
 import {
   Sheet,
   SheetBody,
@@ -13,6 +14,7 @@ import {
 } from "@/shared/components/ui/sheet"
 import { Button } from "@/shared/components/ui/button"
 import { formatBRL } from "@/features/cashier/lib/money"
+import { AnamnesisResponseViewer } from "@/features/anamnesis"
 import { useService } from "../hooks/use-service"
 import { formatDate, StatusBadge } from "./service-list"
 import { ServiceMediaSection } from "./service-media-section"
@@ -41,9 +43,11 @@ function Field({ label, value }: { label: string; value: string }) {
 function ServiceDetailContent({
   orgId,
   service,
+  onViewAnamnesis,
 }: {
   orgId: string
   service: Service
+  onViewAnamnesis: () => void
 }) {
   return (
     <div className="flex flex-col gap-6">
@@ -111,6 +115,27 @@ function ServiceDetailContent({
         </h3>
         <ServiceMediaSection orgId={orgId} serviceId={service.id} readOnly />
       </section>
+
+      <section className="flex flex-col gap-4">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/40">
+          Ficha de anamnese
+        </h3>
+        {service.anamnesisResponseId ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={onViewAnamnesis}
+          >
+            <FileHeart className="h-4 w-4" />
+            Ver ficha de anamnese
+          </Button>
+        ) : (
+          <p className="text-xs text-foreground/30">
+            Nenhuma ficha de anamnese vinculada a este serviço.
+          </p>
+        )}
+      </section>
     </div>
   )
 }
@@ -122,8 +147,10 @@ export function ServiceDetailSheet({
   serviceId,
 }: ServiceDetailSheetProps) {
   const { service, loading, error } = useService(orgId, serviceId)
+  const [anamnesisViewerOpen, setAnamnesisViewerOpen] = useState(false)
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="gap-0 sm:max-w-2xl">
         <SheetHeader>
@@ -146,7 +173,11 @@ export function ServiceDetailSheet({
               Não foi possível carregar os detalhes do serviço.
             </div>
           ) : (
-            <ServiceDetailContent orgId={orgId} service={service} />
+            <ServiceDetailContent
+              orgId={orgId}
+              service={service}
+              onViewAnamnesis={() => setAnamnesisViewerOpen(true)}
+            />
           )}
         </SheetBody>
 
@@ -163,5 +194,13 @@ export function ServiceDetailSheet({
         </SheetFooter>
       </SheetContent>
     </Sheet>
+
+      <AnamnesisResponseViewer
+        open={anamnesisViewerOpen}
+        onOpenChange={setAnamnesisViewerOpen}
+        orgId={orgId}
+        responseId={service?.anamnesisResponseId ?? undefined}
+      />
+    </>
   )
 }

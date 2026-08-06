@@ -43,6 +43,10 @@ import {
   IAnamnesisResponseRepository,
   ANAMNESIS_RESPONSE_REPOSITORY,
 } from "../../../anamnesis/domain/anamnesis-response.repository.interface";
+import {
+  IAnamnesisFormRepository,
+  ANAMNESIS_FORM_REPOSITORY,
+} from "../../../anamnesis/domain/anamnesis-form.repository.interface";
 import { resolvePerformer } from "./resolve-performer";
 import { resolveMembership } from "./resolve-membership";
 import { assertPerformedAtNotFuture } from "./assert-performed-at-not-future";
@@ -91,6 +95,8 @@ export class CreateServiceUseCase {
     private readonly feeRepo: IPaymentFeeRepository,
     @Inject(ANAMNESIS_RESPONSE_REPOSITORY)
     private readonly anamnesisResponseRepo: IAnamnesisResponseRepository,
+    @Inject(ANAMNESIS_FORM_REPOSITORY)
+    private readonly anamnesisFormRepo: IAnamnesisFormRepository,
   ) {}
 
   async execute(input: CreateServiceInput): Promise<ServiceEntity> {
@@ -130,6 +136,8 @@ export class CreateServiceUseCase {
         input.anamnesisResponseId,
         input.customerId ?? null,
         input.serviceTypeId ?? null,
+        this.anamnesisFormRepo,
+        false,
       );
     }
 

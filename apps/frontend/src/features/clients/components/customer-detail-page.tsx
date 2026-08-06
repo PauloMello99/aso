@@ -7,7 +7,11 @@ import { Button } from "@/shared/components/ui/button"
 import { Separator } from "@/shared/components/ui/separator"
 import { useCurrentOrg } from "@/features/dashboard"
 import { canAccessModule } from "@/features/dashboard/lib/nav"
-import { SendAnamnesisInviteDialog } from "@/features/anamnesis"
+import {
+  AnamnesisResponseViewer,
+  SendAnamnesisInviteDialog,
+  useAnamnesisResponses,
+} from "@/features/anamnesis"
 import { useCustomerDetail } from "../hooks/use-customer-detail"
 import { useCustomers } from "../hooks/use-customers"
 import { useCustomerOrigins } from "../hooks/use-customer-origins"
@@ -15,6 +19,7 @@ import { useServices } from "@/features/services/hooks/use-services"
 import { ServiceDetailSheet } from "@/features/services/components/service-detail-sheet"
 import { useTransactions } from "@/features/cashier/hooks/use-transactions"
 import { AttachmentsSection } from "./attachments-section"
+import { CustomerAnamnesisList } from "./customer-anamnesis-list"
 import { CustomerForm } from "./customer-form"
 import { StatusBadge } from "./customer-list"
 import { CustomerServiceHistoryList } from "./customer-service-history-list"
@@ -82,12 +87,22 @@ export function CustomerDetailPage({
     org.permissions,
     "services",
   )
+  const {
+    responses: anamnesisResponses,
+    loading: anamnesisResponsesLoading,
+    error: anamnesisResponsesError,
+  } = useAnamnesisResponses(
+    customerId && canSendAnamnesisInvite ? orgId : "",
+    customerId ? { customerId } : undefined,
+  )
 
   const [formOpen, setFormOpen] = useState(false)
   const [anamnesisDialogOpen, setAnamnesisDialogOpen] = useState(false)
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(
     null,
   )
+  const [selectedAnamnesisResponseId, setSelectedAnamnesisResponseId] =
+    useState<string | null>(null)
 
   const originName = useMemo(() => {
     if (!customer?.originId) return "Não informado"
@@ -248,6 +263,28 @@ export function CustomerDetailPage({
         <AttachmentsSection orgId={orgId} customerId={customer.id} />
       </section>
 
+      {canSendAnamnesisInvite && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium text-foreground">
+            Fichas de anamnese
+          </h2>
+          {anamnesisResponsesError ? (
+            <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+              {anamnesisResponsesError}
+            </div>
+          ) : anamnesisResponsesLoading ? (
+            <SectionSkeleton />
+          ) : (
+            <CustomerAnamnesisList
+              responses={anamnesisResponses}
+              onSelect={(response) =>
+                setSelectedAnamnesisResponseId(response.id)
+              }
+            />
+          )}
+        </section>
+      )}
+
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-foreground">Serviços</h2>
         {servicesError ? (
@@ -295,6 +332,15 @@ export function CustomerDetailPage({
           customerName={customer.name}
         />
       )}
+
+      <AnamnesisResponseViewer
+        open={!!selectedAnamnesisResponseId}
+        onOpenChange={(next) => {
+          if (!next) setSelectedAnamnesisResponseId(null)
+        }}
+        orgId={orgId}
+        responseId={selectedAnamnesisResponseId ?? undefined}
+      />
 
       <ServiceDetailSheet
         open={!!selectedServiceId}

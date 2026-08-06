@@ -17,6 +17,7 @@ export interface CreateServiceBody {
   serviceTypeId?: string | null
   performedBy?: string | null
   description?: string | null
+  anamnesisResponseId?: string | null
   amountCents: number
   paymentMethod: ServicePaymentMethod
   paymentStatus: "paid" | "pending"
@@ -29,6 +30,7 @@ export interface UpdateServiceBody {
   serviceTypeId?: string | null
   performedBy?: string | null
   description?: string | null
+  anamnesisResponseId?: string | null
   performedAt?: string
 }
 

@@ -72,6 +72,7 @@ function toCreateBody(values: ServiceFormValues) {
     serviceTypeId: values.serviceTypeId || null,
     performedBy: values.performedBy || null,
     description: values.description || null,
+    anamnesisResponseId: values.anamnesisResponseId,
     amountCents: parseReaisToCents(values.amount),
     paymentMethod: values.paymentMethod,
     paymentStatus: values.paymentStatus,
@@ -97,6 +98,7 @@ function toUpdateBody(values: ServiceFormValues) {
     serviceTypeId: values.serviceTypeId || null,
     performedBy: values.performedBy || null,
     description: values.description || null,
+    anamnesisResponseId: values.anamnesisResponseId,
     performedAt: values.performedAt
       ? new Date(values.performedAt).toISOString()
       : undefined,
