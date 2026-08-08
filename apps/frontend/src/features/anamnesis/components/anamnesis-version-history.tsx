@@ -1,9 +1,18 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { ChevronDown, ChevronUp, Loader2 } from "lucide-react"
+import { Eye, Loader2 } from "lucide-react"
 import { Badge } from "@/shared/components/ui/badge"
-import { cn } from "@/shared/lib/utils"
+import { Button } from "@/shared/components/ui/button"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/shared/components/ui/table"
+import { AnamnesisVersionDetailSheet } from "./anamnesis-version-detail-sheet"
 import type { AnamnesisFormVersion } from "../types"
 
 interface AnamnesisVersionHistoryProps {
@@ -23,7 +32,9 @@ export function AnamnesisVersionHistory({
   versions,
   versionsLoading,
 }: AnamnesisVersionHistoryProps) {
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [detailVersion, setDetailVersion] = useState<AnamnesisFormVersion | null>(
+    null,
+  )
 
   const sorted = useMemo(
     () => [...versions].sort((a, b) => b.versionNumber - a.versionNumber),
@@ -49,67 +60,94 @@ export function AnamnesisVersionHistory({
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <ul className="flex flex-col gap-2">
-        {sorted.map((version) => {
-          const expanded = expandedId === version.id
-          return (
-            <li
-              key={version.id}
-              className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02]"
-            >
-              <button
-                type="button"
-                onClick={() => setExpandedId(expanded ? null : version.id)}
-                className="flex w-full items-center justify-between gap-3 p-3 text-left sm:p-4"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-medium text-foreground">
-                    Versão {version.versionNumber}
-                  </span>
-                  {version.id === currentId && (
-                    <Badge variant="success">Vigente</Badge>
-                  )}
-                  <span className="text-xs text-foreground/40">
-                    criada em {fmtDate(version.createdAt)}
-                  </span>
-                </div>
-                <span
-                  aria-hidden="true"
-                  className="flex h-7 w-7 shrink-0 items-center justify-center text-foreground/40"
-                >
-                  {expanded ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
+    <>
+      <div className="grid gap-2 sm:hidden">
+        {sorted.map((version) => (
+          <button
+            key={version.id}
+            type="button"
+            onClick={() => setDetailVersion(version)}
+            className="flex items-center justify-between gap-3 rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4 text-left"
+          >
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium text-foreground">
+                  Versão {version.versionNumber}
                 </span>
-              </button>
+                {version.id === currentId && (
+                  <Badge variant="success">Vigente</Badge>
+                )}
+              </div>
+              <span className="text-xs text-foreground/40">
+                criada em {fmtDate(version.createdAt)}
+              </span>
+            </div>
+            <Eye className="h-4 w-4 shrink-0 text-foreground/30" />
+          </button>
+        ))}
+      </div>
 
-              {expanded && (
-                <ul
-                  className={cn(
-                    "flex flex-col gap-2 border-t border-foreground/[0.06] p-3 sm:p-4",
+      <div className="hidden rounded-xl border border-foreground/[0.06] sm:block">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="pl-4">Versão</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Criada em</TableHead>
+              <TableHead className="pr-4" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sorted.map((version) => (
+              <TableRow
+                key={version.id}
+                onClick={() => setDetailVersion(version)}
+                className="cursor-pointer"
+              >
+                <TableCell className="pl-4 font-medium text-foreground">
+                  Versão {version.versionNumber}
+                </TableCell>
+                <TableCell>
+                  {version.id === currentId ? (
+                    <Badge variant="success">Vigente</Badge>
+                  ) : (
+                    <span className="text-foreground/30">—</span>
                   )}
-                >
-                  {version.questions.map((question) => (
-                    <li
-                      key={question.id}
-                      className="rounded-md border border-foreground/[0.06] bg-foreground/[0.02] px-3 py-2 text-sm"
+                </TableCell>
+                <TableCell className="text-foreground/40">
+                  {fmtDate(version.createdAt)}
+                </TableCell>
+                <TableCell className="pr-4">
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setDetailVersion(version)
+                      }}
                     >
-                      <span className="text-foreground">{question.label}</span>
-                      <span className="ml-2 text-xs text-foreground/30">
-                        {question.type === "text" ? "Texto livre" : "Sim / Não"}
-                        {question.required ? " · obrigatória" : ""}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </li>
-          )
-        })}
-      </ul>
-    </div>
+                      <Eye className="h-4 w-4" />
+                      <span className="sr-only">Ver perguntas</span>
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <AnamnesisVersionDetailSheet
+        version={detailVersion}
+        open={!!detailVersion}
+        onOpenChange={(open) => {
+          if (!open) setDetailVersion(null)
+        }}
+        isCurrent={detailVersion?.id === currentId}
+      />
+    </>
   )
 }
