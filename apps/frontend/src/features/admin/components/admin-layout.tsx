@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/router"
-import { LayoutDashboard, Building2, Users, Shield, ArrowLeft, Loader2, ShieldCheck } from "lucide-react"
+import { LayoutDashboard, Building2, Users, Shield, ArrowLeft, Loader2, ShieldCheck, LifeBuoy } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { BrandWordmark } from "@/shared/components/brand-wordmark"
 import { ThemeToggle } from "@/shared/components/theme-toggle"
@@ -15,6 +15,7 @@ const NAV = [
   { href: "/admin", label: "Visão geral", icon: LayoutDashboard },
   { href: "/admin/orgs", label: "Organizações", icon: Building2 },
   { href: "/admin/users", label: "Usuários", icon: Users },
+  { href: "/admin/support", label: "Suporte", icon: LifeBuoy },
   { href: "/admin/audit-logs", label: "Auditoria", icon: Shield },
 ]
 

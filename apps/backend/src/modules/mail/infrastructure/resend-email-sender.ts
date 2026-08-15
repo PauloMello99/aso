@@ -37,6 +37,7 @@ export class ResendEmailSender implements IEmailSender {
       subject: input.subject,
       html: input.html,
       ...(input.text ? { text: input.text } : {}),
+      ...(input.replyTo ? { replyTo: input.replyTo } : {}),
     });
 
     if (error) {
