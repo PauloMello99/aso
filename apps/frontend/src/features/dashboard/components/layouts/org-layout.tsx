@@ -14,8 +14,8 @@ import { useMe } from "@/features/auth/hooks/use-me"
 import {
   PAGE_LABELS,
   isOwnerOnlyPath,
-  isModuleKey,
   canAccessModule,
+  getModuleForPath,
 } from "@/features/dashboard/lib/nav"
 import { useSubscription } from "@/features/billing/hooks/use-subscription"
 import {
@@ -26,6 +26,7 @@ import {
 } from "@/features/billing"
 import type { OrgSummary } from "@/features/dashboard/hooks/use-orgs"
 import type { BreadcrumbItem } from "@/features/dashboard/components/top-header"
+import { Seo } from "@/shared/components/seo"
 
 interface OrgLayoutProps {
   children: React.ReactNode
@@ -110,9 +111,10 @@ export function OrgLayout({ children }: OrgLayoutProps) {
   const currentSubpath = router.pathname.split("/[orgSlug]/")[1] ?? ""
   React.useEffect(() => {
     if (!org || org.role === "owner") return
-    const seg = currentSubpath.split("/")[0] ?? ""
+    const requiredModule = getModuleForPath(currentSubpath)
     const lacksModule =
-      isModuleKey(seg) && !canAccessModule(org.role, org.permissions, seg)
+      !!requiredModule &&
+      !canAccessModule(org.role, org.permissions, requiredModule)
     if (isOwnerOnlyPath(currentSubpath) || lacksModule) {
       void router.replace(`/dashboard/org/${org.slug}/overview`)
     }
@@ -137,6 +139,7 @@ export function OrgLayout({ children }: OrgLayoutProps) {
       subscriptionPastDue={pastDue}
     >
       <div className="flex h-screen overflow-hidden bg-background">
+        <Seo title={org.name} noindex />
         <OrgSidebar
           org={org}
           mobileOpen={mobileOpen}

@@ -20,6 +20,7 @@ import { AdminModule } from "./modules/admin/admin.module";
 import { AuditModule } from "./modules/audit/audit.module";
 import { InternalCronModule } from "./modules/internal-cron/internal-cron.module";
 import { SubscriptionsModule } from "./modules/subscriptions/subscriptions.module";
+import { SupportModule } from "./modules/support/support.module";
 import { TelemetryModule } from "./common/telemetry/telemetry.module";
 
 @Module({
@@ -44,6 +45,7 @@ import { TelemetryModule } from "./common/telemetry/telemetry.module";
     AuditModule,
     InternalCronModule,
     SubscriptionsModule,
+    SupportModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: RlsInterceptor },

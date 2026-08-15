@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, eq, notExists } from "drizzle-orm";
+import { and, desc, eq, notExists } from "drizzle-orm";
 import {
   DRIZZLE,
   DRIZZLE_ADMIN,
@@ -12,6 +12,9 @@ import type {
   IAnamnesisResponseRepository,
   AnamnesisResponseWithCustomerName,
   MarkSubmittedData,
+  AnamnesisResponseListItem,
+  AnamnesisResponseDetail,
+  ListAnamnesisResponsesFilters,
 } from "../../domain/anamnesis-response.repository.interface";
 import { AnamnesisResponseMapper } from "./anamnesis-response.mapper";
 
@@ -177,5 +180,105 @@ export class DrizzleAnamnesisResponseRepository
       );
 
     return rows.map(AnamnesisResponseMapper.toDomain);
+  }
+
+  async listByOrg(
+    orgId: string,
+    filters: ListAnamnesisResponsesFilters,
+  ): Promise<AnamnesisResponseListItem[]> {
+    const conditions = [eq(schema.anamnesisResponses.orgId, orgId)];
+    if (filters.customerId) {
+      conditions.push(
+        eq(schema.anamnesisResponses.customerId, filters.customerId),
+      );
+    }
+    if (filters.serviceTypeId) {
+      conditions.push(
+        eq(schema.anamnesisResponses.serviceTypeId, filters.serviceTypeId),
+      );
+    }
+    if (filters.status) {
+      conditions.push(eq(schema.anamnesisResponses.status, filters.status));
+    }
+
+    const rows = await this.db
+      .select({
+        response: schema.anamnesisResponses,
+        customerName: schema.customers.name,
+        serviceTypeName: schema.serviceTypes.name,
+        versionNumber: schema.anamnesisFormVersions.versionNumber,
+      })
+      .from(schema.anamnesisResponses)
+      .leftJoin(
+        schema.customers,
+        eq(schema.customers.id, schema.anamnesisResponses.customerId),
+      )
+      .leftJoin(
+        schema.serviceTypes,
+        eq(schema.serviceTypes.id, schema.anamnesisResponses.serviceTypeId),
+      )
+      .leftJoin(
+        schema.anamnesisFormVersions,
+        eq(
+          schema.anamnesisFormVersions.id,
+          schema.anamnesisResponses.formVersionId,
+        ),
+      )
+      .where(and(...conditions))
+      .orderBy(desc(schema.anamnesisResponses.createdAt));
+
+    return rows.map((row) =>
+      AnamnesisResponseMapper.toListItem({
+        response: row.response,
+        customerName: row.customerName ?? null,
+        serviceTypeName: row.serviceTypeName ?? null,
+        versionNumber: row.versionNumber ?? null,
+      }),
+    );
+  }
+
+  async findDetailById(
+    id: string,
+    orgId: string,
+  ): Promise<AnamnesisResponseDetail | null> {
+    const [row] = await this.db
+      .select({
+        response: schema.anamnesisResponses,
+        customerName: schema.customers.name,
+        serviceTypeName: schema.serviceTypes.name,
+        versionNumber: schema.anamnesisFormVersions.versionNumber,
+      })
+      .from(schema.anamnesisResponses)
+      .leftJoin(
+        schema.customers,
+        eq(schema.customers.id, schema.anamnesisResponses.customerId),
+      )
+      .leftJoin(
+        schema.serviceTypes,
+        eq(schema.serviceTypes.id, schema.anamnesisResponses.serviceTypeId),
+      )
+      .leftJoin(
+        schema.anamnesisFormVersions,
+        eq(
+          schema.anamnesisFormVersions.id,
+          schema.anamnesisResponses.formVersionId,
+        ),
+      )
+      .where(
+        and(
+          eq(schema.anamnesisResponses.id, id),
+          eq(schema.anamnesisResponses.orgId, orgId),
+        ),
+      )
+      .limit(1);
+
+    if (!row) return null;
+
+    return AnamnesisResponseMapper.toDetail({
+      response: row.response,
+      customerName: row.customerName ?? null,
+      serviceTypeName: row.serviceTypeName ?? null,
+      versionNumber: row.versionNumber ?? null,
+    });
   }
 }

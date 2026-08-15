@@ -1,6 +1,6 @@
 import * as React from "react"
 import Link from "next/link"
-import { PlusCircle, Building2, ChevronRight } from "lucide-react"
+import { PlusCircle, Building2, ChevronRight, Loader2 } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Badge } from "@/shared/components/ui/badge"
 import { useOrgs } from "@/features/dashboard/hooks/use-orgs"
@@ -14,7 +14,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export function OrganizationsContent() {
   const [createOpen, setCreateOpen] = React.useState(false)
-  const { orgs } = useOrgs()
+  const { orgs, loading } = useOrgs()
   const { createOrg } = useOrgMutations()
 
   async function handleCreate(values: CreateOrgFormValues) {
@@ -42,7 +42,11 @@ export function OrganizationsContent() {
         </Button>
       </div>
 
-      {orgs.length === 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center py-16 text-foreground/30 sm:py-20">
+          <Loader2 className="h-5 w-5 animate-spin" />
+        </div>
+      ) : orgs.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-foreground/10 py-16 text-center sm:py-20">
           <Building2 className="mb-4 h-10 w-10 text-foreground/20" />
           <p className="text-sm text-foreground/40">Nenhuma organização ainda.</p>

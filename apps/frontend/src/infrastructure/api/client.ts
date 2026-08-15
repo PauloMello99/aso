@@ -114,6 +114,16 @@ export async function apiRequest<T>(
       body.details,
     )
 
+    if (res.status === 401 && !skipAuth) {
+      clearSession()
+      if (
+        typeof window !== "undefined" &&
+        !window.location.pathname.startsWith("/auth/")
+      ) {
+        window.location.href = "/auth/login"
+      }
+    }
+
     if (res.status >= 500) {
       captureError(apiError, {
         source: "api",

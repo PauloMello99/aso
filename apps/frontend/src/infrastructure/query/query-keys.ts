@@ -2,6 +2,11 @@ import type { MaterialsFilter } from "@/features/stock/types"
 import type { CustomersFilter } from "@/features/clients/types"
 import type { TransactionsFilter } from "@/features/cashier/types"
 import type { ServicesFilter } from "@/features/services/types"
+import type { AnamnesisResponsesFilter } from "@/features/anamnesis/types"
+import type {
+  AdminTicketQueueFilter,
+  TicketsFilter,
+} from "@/features/support/types"
 
 export const queryKeys = {
   me: ["me"] as const,
@@ -85,14 +90,41 @@ export const queryKeys = {
     versions: (orgId: string, serviceTypeId: string) =>
       ["anamnesis", orgId, serviceTypeId, "versions"] as const,
     publicResponse: (token: string) => ["anamnesis", "public", token] as const,
+    responses: (orgId: string, filters?: AnamnesisResponsesFilter) =>
+      ["anamnesis", orgId, "responses", filters ?? {}] as const,
+    response: (orgId: string, id: string) =>
+      ["anamnesis", orgId, "responses", id] as const,
+    linkable: (orgId: string, customerId: string, serviceTypeId: string) =>
+      ["anamnesis", orgId, "linkable", customerId, serviceTypeId] as const,
   },
 
   billing: {
     subscription: (orgId: string) => ["billing", orgId, "subscription"] as const,
   },
 
+  support: {
+    all: (orgId: string) => ["support", orgId] as const,
+    list: (orgId: string, filters?: TicketsFilter) =>
+      ["support", orgId, "list", filters ?? {}] as const,
+    detail: (orgId: string, id: string) =>
+      ["support", orgId, "detail", id] as const,
+    categories: (orgId: string) => ["support", orgId, "categories"] as const,
+  },
+
   adminSubscription: {
     detail: (orgId: string) => ["admin", orgId, "subscription"] as const,
     invoices: (orgId: string) => ["admin", orgId, "subscription", "invoices"] as const,
+  },
+
+  adminSupport: {
+    all: ["admin", "support"] as const,
+    queue: (filters?: AdminTicketQueueFilter) =>
+      ["admin", "support", "queue", filters ?? {}] as const,
+    detail: (ticketId: string) =>
+      ["admin", "support", "detail", ticketId] as const,
+  },
+
+  publicSupport: {
+    categories: () => ["public-support", "categories"] as const,
   },
 } as const

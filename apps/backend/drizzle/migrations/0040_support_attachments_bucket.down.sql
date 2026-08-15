@@ -1,0 +1,8 @@
+-- Reverse 0040: nothing to do here on purpose.
+-- Bucket 'support-attachments' is left intact: Supabase Storage blocks direct DELETE on
+-- storage.buckets/storage.objects via raw SQL ("Direct deletion from storage tables is
+-- not allowed" — confirmado em .memory/domain-rules.md, mesmo comportamento documentado
+-- para 0010/0012). Re-applying the up-migration is idempotent (ON CONFLICT DO UPDATE), so
+-- there's no side effect in leaving the bucket orphaned after a local rollback. Real
+-- removal (if ever needed) must go through the Supabase Storage API/dashboard, never a
+-- raw DELETE.

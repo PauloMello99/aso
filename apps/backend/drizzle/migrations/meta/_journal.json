@@ -260,6 +260,69 @@
       "when": 1782002600000,
       "tag": "0036_customer_attachments_update_policy",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1782002700000,
+      "tag": "0037_ticket_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1782002800000,
+      "tag": "0038_support_tickets",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1782002900000,
+      "tag": "0039_support_tickets_policy_fixes",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1782003000000,
+      "tag": "0040_support_attachments_bucket",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1782003100000,
+      "tag": "0041_support_tickets_policy_fixes_v2",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1782003200000,
+      "tag": "0042_tickets_sla_insert_and_attachment_path_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1782003300000,
+      "tag": "0043_tickets_simplify_privileged_writes",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1782003400000,
+      "tag": "0044_tickets_nullable_org",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1782003500000,
+      "tag": "0045_support_inbound_emails",
+      "breakpoints": true
     }
   ]
 }

@@ -35,5 +35,5 @@ export function WelcomeEmail({
 }
 
 export default function WelcomeEmailPreview() {
-  return <WelcomeEmail name="Paulo" appUrl="https://app.inkops.app" />;
+  return <WelcomeEmail name="Paulo" appUrl="https://assessorink-so.com" />;
 }

@@ -51,6 +51,12 @@ export const ORG_NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Overview", href: "overview", icon: LayoutGrid },
       { label: "Serviços", href: "services", icon: Package, module: "services" },
+      {
+        label: "Anamnese",
+        href: "anamnesis",
+        icon: ClipboardList,
+        module: "services",
+      },
       { label: "Clientes", href: "clients", icon: Users, module: "clients" },
       { label: "Agenda", href: "schedule", icon: CalendarDays, module: "schedule" },
       { label: "Estoque", href: "stock", icon: Archive, module: "stock" },
@@ -68,12 +74,6 @@ export const SETTINGS_NAV: NavItem[] = [
   { label: "Agenda", href: "settings/agenda", icon: CalendarDays },
   { label: "Estoque", href: "settings/stock", icon: Archive, roles: ["owner"] },
   { label: "Caixa", href: "settings/cashier", icon: Wallet, roles: ["owner"] },
-  {
-    label: "Anamnese",
-    href: "settings/anamnesis",
-    icon: ClipboardList,
-    roles: ["owner"],
-  },
   { label: "Assinatura", href: "settings/subscription", icon: CreditCard, roles: ["owner"] },
 ]
 
@@ -83,6 +83,14 @@ const OWNER_ONLY_PATHS: readonly string[] = [
 ]
   .filter((item) => item.roles && !item.roles.includes("employee"))
   .map((item) => item.href)
+
+export function getModuleForPath(subpath: string): ModuleKey | undefined {
+  const seg = subpath.split("/")[0] ?? ""
+  const item = ORG_NAV_SECTIONS.flatMap((s) => s.items).find(
+    (i) => i.href === seg,
+  )
+  return item?.module
+}
 
 export function isOwnerOnlyPath(subpath: string): boolean {
   return OWNER_ONLY_PATHS.some(

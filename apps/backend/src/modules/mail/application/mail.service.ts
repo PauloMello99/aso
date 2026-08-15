@@ -12,6 +12,13 @@ import { InviteEmail } from "../templates/invite-email";
 import { NotificationEmail } from "../templates/notification-email";
 import { PasswordResetEmail } from "../templates/password-reset-email";
 import { WelcomeEmail } from "../templates/welcome-email";
+import { TicketCreatedEmail } from "../templates/ticket-created";
+import { TicketResponseAddedEmail } from "../templates/ticket-response-added";
+import { TicketStatusChangedEmail } from "../templates/ticket-status-changed";
+import {
+  TicketSlaAlertEmail,
+  TicketSlaAlertType,
+} from "../templates/ticket-sla-alert";
 
 export interface SendOrgInviteInput {
   to: string;
@@ -49,6 +56,42 @@ export interface SendNotificationInput {
   body?: string | null;
   actionUrl?: string;
   actionLabel?: string;
+}
+
+export interface SendTicketCreatedInput {
+  to: string;
+  requesterName: string;
+  ticketSubject: string;
+  ticketId: string;
+  portalUrl?: string;
+  replyTo?: string;
+}
+
+export interface SendTicketResponseAddedInput {
+  to: string;
+  requesterName: string;
+  ticketSubject: string;
+  responseBody: string;
+  portalUrl: string;
+  replyTo?: string;
+}
+
+export interface SendTicketStatusChangedInput {
+  to: string;
+  requesterName: string;
+  ticketSubject: string;
+  newStatus: string;
+  portalUrl?: string;
+  replyTo?: string;
+}
+
+export interface SendTicketSlaAlertInput {
+  to: string;
+  ticketId: string;
+  ticketSubject: string;
+  orgName: string;
+  alertType: TicketSlaAlertType;
+  queueUrl?: string;
 }
 
 @Injectable()
@@ -138,15 +181,86 @@ export class MailService {
     );
   }
 
+  async sendTicketCreated(input: SendTicketCreatedInput): Promise<boolean> {
+    return this.dispatch(
+      input.to,
+      `Recebemos seu chamado: ${input.ticketSubject}`,
+      TicketCreatedEmail({
+        requesterName: input.requesterName,
+        ticketSubject: input.ticketSubject,
+        ticketId: input.ticketId,
+        portalUrl: input.portalUrl,
+        supportEmail: this.supportEmail,
+      }),
+      input.replyTo,
+    );
+  }
+
+  async sendTicketResponseAdded(
+    input: SendTicketResponseAddedInput,
+  ): Promise<boolean> {
+    return this.dispatch(
+      input.to,
+      `Nova resposta no seu chamado: ${input.ticketSubject}`,
+      TicketResponseAddedEmail({
+        requesterName: input.requesterName,
+        ticketSubject: input.ticketSubject,
+        responseBody: input.responseBody,
+        portalUrl: input.portalUrl,
+        supportEmail: this.supportEmail,
+      }),
+      input.replyTo,
+    );
+  }
+
+  async sendTicketStatusChanged(
+    input: SendTicketStatusChangedInput,
+  ): Promise<boolean> {
+    return this.dispatch(
+      input.to,
+      `Seu chamado agora está: ${input.newStatus}`,
+      TicketStatusChangedEmail({
+        requesterName: input.requesterName,
+        ticketSubject: input.ticketSubject,
+        newStatus: input.newStatus,
+        portalUrl: input.portalUrl,
+        supportEmail: this.supportEmail,
+      }),
+      input.replyTo,
+    );
+  }
+
+  async sendTicketSlaAlert(input: SendTicketSlaAlertInput): Promise<boolean> {
+    return this.dispatch(
+      input.to,
+      `Alerta de SLA: ${input.ticketSubject}`,
+      TicketSlaAlertEmail({
+        ticketId: input.ticketId,
+        ticketSubject: input.ticketSubject,
+        orgName: input.orgName,
+        alertType: input.alertType,
+        queueUrl: input.queueUrl,
+        supportEmail: this.supportEmail,
+      }),
+    );
+  }
+
   private async dispatch(
     to: string,
     subject: string,
     element: ReactElement,
+    replyTo?: string,
   ): Promise<boolean> {
     const [html, text] = await Promise.all([
       render(element),
       render(element, { plainText: true }),
     ]);
-    return this.sender.send({ to, subject, html, text });
+    return this.sender.send({
+      to,
+      subject,
+      html,
+      text,
+      ...(replyTo ? { replyTo } : {}),
+    });
   }
 }

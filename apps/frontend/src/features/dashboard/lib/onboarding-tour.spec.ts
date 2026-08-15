@@ -1,12 +1,12 @@
-import { describe, expect, it } from "vitest"
+﻿import { describe, expect, it } from "vitest"
 import { getTourSteps } from "./onboarding-tour"
 import type { OrgSummary } from "../hooks/use-orgs"
 
 function makeOrg(overrides: Partial<OrgSummary> = {}): OrgSummary {
   return {
     id: "org-1",
-    name: "Ink House",
-    slug: "ink-house",
+    name: "Studio Exemplo",
+    slug: "studio-exemplo",
     logoUrl: null,
     role: "owner",
     permissions: [],
@@ -19,11 +19,12 @@ describe("getTourSteps", () => {
     const org = makeOrg({ role: "owner", permissions: [] })
     const steps = getTourSteps(org)
 
-    expect(steps).toHaveLength(9)
+    expect(steps).toHaveLength(10)
     expect(steps.map((s) => s.selector)).toEqual([
       null,
       '[data-tour="nav-overview"]',
       '[data-tour="nav-services"]',
+      '[data-tour="nav-anamnesis"]',
       '[data-tour="nav-clients"]',
       '[data-tour="nav-schedule"]',
       '[data-tour="nav-stock"]',
@@ -37,11 +38,12 @@ describe("getTourSteps", () => {
     const org = makeOrg({ role: "employee", permissions: ["services"] })
     const steps = getTourSteps(org)
 
-    expect(steps).toHaveLength(5)
+    expect(steps).toHaveLength(6)
     expect(steps.map((s) => s.selector)).toEqual([
       null,
       '[data-tour="nav-overview"]',
       '[data-tour="nav-services"]',
+      '[data-tour="nav-anamnesis"]',
       '[data-tour="nav-settings"]',
       '[data-tour="user-menu"]',
     ])

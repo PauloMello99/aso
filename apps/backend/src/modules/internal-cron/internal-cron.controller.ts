@@ -4,6 +4,7 @@ import { SendAgendaRemindersUseCase } from "../calendar/application/use-cases/se
 import { SendStockCheckRemindersUseCase } from "../materials/application/use-cases/send-stock-check-reminders.use-case";
 import { ReconcileSubscriptionsUseCase } from "../subscriptions/application/use-cases/reconcile-subscriptions.use-case";
 import { ExpireSubscriptionsUseCase } from "../subscriptions/application/use-cases/expire-subscriptions.use-case";
+import { SweepTicketSlaUseCase } from "../support/application/use-cases/sweep-ticket-sla.use-case";
 
 interface JobResult {
   name: string;
@@ -20,6 +21,7 @@ export class InternalCronController {
     private readonly sendStockCheckReminders: SendStockCheckRemindersUseCase,
     private readonly reconcileSubscriptions: ReconcileSubscriptionsUseCase,
     private readonly expireSubscriptions: ExpireSubscriptionsUseCase,
+    private readonly sweepTicketSla: SweepTicketSlaUseCase,
   ) {}
 
   @Post("tick")
@@ -30,6 +32,7 @@ export class InternalCronController {
       { name: "stock-check-reminders", run: () => this.sendStockCheckReminders.execute() },
       { name: "billing-reconciliation", run: () => this.reconcileSubscriptions.execute() },
       { name: "billing-expiry-sweep", run: () => this.expireSubscriptions.execute() },
+      { name: "ticket-sla-sweep", run: () => this.sweepTicketSla.execute() },
     ];
 
     const jobResults = await Promise.all(

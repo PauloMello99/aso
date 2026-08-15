@@ -292,7 +292,7 @@ export function AccessSection() {
         title="Acesso"
         description="Gerencie sua senha e segurança de acesso."
       />
-      <section className="max-w-lg rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-5">
+      <section className="max-w-lg rounded-xl border border-border bg-foreground/[0.02] p-5">
         <div className="flex items-center gap-2">
           <KeyRound className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-medium">Alterar senha</h3>
@@ -423,7 +423,7 @@ export function DangerSection() {
         title="Zona de perigo"
         description="Ações irreversíveis na sua conta."
       />
-      <section className="rounded-lg border border-destructive/20 p-4 sm:p-6">
+      <section className="max-w-lg rounded-xl border border-destructive/20 bg-destructive/[0.02] p-5">
         <div className="mb-4">
           <h3 className="font-semibold text-destructive">Apagar conta</h3>
           <p className="mt-1 text-sm text-foreground/50">
@@ -432,7 +432,7 @@ export function DangerSection() {
           </p>
         </div>
         {!orgsLoading && shouldShowDeleteAccount(orgs) && (
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3">
             <div>
               <p className="text-sm font-medium">Excluir minha conta</p>
               <p className="text-xs text-foreground/40">

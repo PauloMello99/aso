@@ -5,7 +5,7 @@
 #
 # Build a partir da RAIZ do repo:
 #   docker build -f apps/frontend/Dockerfile \
-#     --build-arg NEXT_PUBLIC_API_URL=https://api.exemplo.com -t ink-ops-frontend .
+#     --build-arg NEXT_PUBLIC_API_URL=https://api.exemplo.com -t aso-frontend .
 #
 # IMPORTANTE: NEXT_PUBLIC_API_URL é inlinado no bundle em BUILD TIME — precisa
 # estar presente no build (no Railway, é passado como variável do serviço).
@@ -55,9 +55,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=pruner /app/out/json/ ./
 RUN pnpm install --prod --frozen-lockfile
-# artefato buildado + config (sem pasta public/ — o app não usa)
+# artefato buildado + config + public/ (favicons, manifest, OG image — ASO brand assets)
 COPY --from=builder /app/apps/frontend/.next ./apps/frontend/.next
 COPY --from=builder /app/apps/frontend/next.config.js ./apps/frontend/next.config.js
+COPY --from=builder /app/apps/frontend/public ./apps/frontend/public
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs \
   && chown -R nextjs:nodejs /app

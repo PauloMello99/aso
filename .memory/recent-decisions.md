@@ -17,10 +17,15 @@
 | ADR-0011 | Topologia de deploy (staging/prod) + caching in-memory sem Redis | 2026-06-27 | Aceito |
 | ADR-0012 | E-mail transacional: React Email + módulo `mail` dedicado (auth fora do GoTrue) | 2026-06-28 | Aceito |
 | ADR-0013 | super_admin age como owner de qualquer org (bypass no miss-path; banner; audit→PLAT-3) | 2026-06-29 | Aceito |
+| ADR-0014 | Rastreamento de erros: Better Stack (front + back) | 2026-06-30 | Aceito |
 | ADR-0015 | RAG: bge-m3 híbrido (dense+BM25+RRF), parent-document, código TS, Qdrant compartilhado com larmony | 2026-07-15 | Aceito |
 | ADR-0016 | Billing Stripe (M11): trial via Checkout com cartão, comp local, desconto via Coupon API, tier único `standard` paid-only, `ActiveSubscriptionGuard` por-controller | 2026-07-18 | Aceito |
 | ADR-0017 | Rebrand ASO: identidade visual teal (paleta larmony), Inter, tokens semânticos success/warning/info, telas padronizadas | 2026-07-19 | Aceito |
 | ADR-0018 | Conformidade legal Tier 1: divisão controlador (ASO)/operador (estúdio), sem banner de cookies, consentimento versionado e snapshotado (signup + anamnese), identificação do fornecedor no footer | 2026-07-27 | Aceito |
+| ADR-0019 | Rebrand v2: paleta steel/azul-aço (supersede a cor do ADR-0017), domínio assessorink-so.com, SEO/assets de marca (public/, robots, sitemap, noindex), rename do repositório | 2026-08-01 | Aceito |
+| ADR-0020 | Anamnese: sidebar de topo (module `services`, `MODULE_KEYS` intacto), gate de versão vigente em runtime sem migration, auto-vínculo via `findLinkable` (sem seletor manual), DTOs explícitos nunca a entidade crua | 2026-08-04 | Aceito |
+| ADR-0021 | Support (Fatia A): escritas privilegiadas do portal (create/responder/reabrir/anexo) via `DRIZZLE_ADMIN` escopado (org_id do path autorizado por `OrgMembershipGuard`) em vez de RLS/trigger por coluna — exceção deliberada à regra geral, após 3 rodadas de correção incremental via RLS/trigger (migrations 0039→0041→0042), revertidas na 0043 | 2026-08-10 | Aceito |
+| ADR-0022 | Support (Fatia C): tickets órfãos (`org_id` nullable, RLS ramificada explicitamente, INSERT exclusivo de `DRIZZLE_ADMIN`) + e-mail-to-ticket via Resend Inbound (dedupe por `email_id` UNIQUE claim+escrita na mesma transação, threading por plus-address sempre confirmado contra `requesterEmail`, vínculo a org sempre manual pelo super_admin) — Turnstile fail-closed no formulário público, Svix sem bypass no webhook | 2026-08-15 | Aceito |
 
 ## Decisões/registros recentes (sem ADR)
 

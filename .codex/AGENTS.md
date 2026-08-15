@@ -7,8 +7,9 @@ tenant, RLS por organização). Monorepo Turborepo: `apps/backend` (NestJS 11, C
 Architecture), `apps/frontend` (Next.js pages router, feature-based), `packages/` com
 libs compartilhadas. Domínio coberto pelos módulos de backend: caixa (`cashier`),
 clientes (`customers`), materiais/estoque (`materials`), serviços (`services`),
-`calendar`, `overview`, `notifications`, além de `auth`, `organizations`, `admin`,
-`audit`, `mail`, `internal-cron`, `health`, `user`.
+`calendar`, `overview`, `notifications`, `support` (canal de suporte B2B, ADR-0021),
+além de `auth`, `organizations`, `admin`, `audit`, `mail`, `internal-cron`, `health`,
+`user`.
 
 Arquitetura e decisões: `.memory/architecture.md`, `.memory/domain-rules.md` e os ADRs
 em `.memory/adr/` (fonte de verdade). Roadmap: `.memory/roadmap.md`.
@@ -67,8 +68,9 @@ Supabase local: `pnpm db:start` (`npx supabase start`); tipos: `pnpm db:gen-type
   negócio = `DomainException` + código em `DomainExceptionFilter.CODE_TO_STATUS`
   (regras completas em `.memory/domain-rules.md`)
 - Multi-tenancy: single DB + RLS por organização (ADR-0005); `organization_id` derivado da
-  sessão, nunca do cliente; `DRIZZLE_ADMIN` só em bootstrap/cron/guards; `super_admin` age
-  como owner (ADR-0013)
+  sessão, nunca do cliente; `DRIZZLE_ADMIN` só em bootstrap/cron/guards/cross-org, e em
+  escritas privilegiadas escopadas quando múltiplas classes de ator escrevem a mesma
+  tabela (exceção deliberada, ver ADR-0021); `super_admin` age como owner (ADR-0013)
 - Frontend: mobile-first; regras de UI obrigatórias em `.memory/domain-rules.md`
 
 ## Workflow de agentes

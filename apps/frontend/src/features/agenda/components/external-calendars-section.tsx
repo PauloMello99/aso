@@ -3,6 +3,7 @@
 import * as React from "react"
 import { CalendarClock, Loader2, Link2Off, CheckCircle2 } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
+import { ConfirmDialog } from "@/shared/components/ui/confirm-dialog"
 import {
   useCalendarConnection,
   type CalendarProvider,
@@ -29,21 +30,25 @@ export function ExternalCalendarsSection({ orgId, isOwner }: Props) {
   const { enabled, connection, loading, disconnect } =
     useCalendarConnection(orgId)
   const [busy, setBusy] = React.useState(false)
+  const [disconnectOpen, setDisconnectOpen] = React.useState(false)
+  const [disconnectError, setDisconnectError] = React.useState<string | null>(null)
+  const [connectNotice, setConnectNotice] = React.useState<string | null>(null)
 
   async function handleDisconnect() {
-    if (!confirm("Desconectar o calendário externo desta organização?")) return
     setBusy(true)
+    setDisconnectError(null)
     try {
       await disconnect()
+      setDisconnectOpen(false)
     } catch {
-      alert("Não foi possível desconectar.")
+      setDisconnectError("Não foi possível desconectar.")
     } finally {
       setBusy(false)
     }
   }
 
   function handleConnect(name: string) {
-    alert(`A conexão com ${name} ainda está em desenvolvimento.`)
+    setConnectNotice(`A conexão com ${name} ainda está em desenvolvimento.`)
   }
 
   return (
@@ -86,7 +91,7 @@ export function ExternalCalendarsSection({ orgId, isOwner }: Props) {
               variant="ghost"
               size="sm"
               disabled={busy}
-              onClick={() => void handleDisconnect()}
+              onClick={() => setDisconnectOpen(true)}
               className="text-destructive hover:text-destructive/80"
             >
               <Link2Off className="h-4 w-4" />
@@ -118,6 +123,25 @@ export function ExternalCalendarsSection({ orgId, isOwner }: Props) {
           Apenas o dono da organização gerencia o calendário externo.
         </p>
       )}
+
+      {connectNotice && (
+        <p className="mt-3 text-xs text-foreground/40">{connectNotice}</p>
+      )}
+
+      <ConfirmDialog
+        open={disconnectOpen}
+        onOpenChange={(open) => {
+          setDisconnectOpen(open)
+          if (!open) setDisconnectError(null)
+        }}
+        title="Desconectar calendário externo"
+        description="Desconectar o calendário externo desta organização?"
+        confirmLabel="Desconectar"
+        destructive
+        loading={busy}
+        error={disconnectError}
+        onConfirm={() => void handleDisconnect()}
+      />
     </section>
   )
 }

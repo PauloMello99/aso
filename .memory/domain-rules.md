@@ -137,8 +137,16 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
     global abre uma transação por request com `set_config('request.jwt.claims', {sub:authId}, true)`,
     e as policies de `0000` (baseadas em `auth.uid()`) fazem o isolamento no nível do banco.
   - **Use `DRIZZLE_ADMIN` (BYPASSRLS) apenas** em: guards que consultam o banco
-    (`OrgMembershipGuard` roda antes do interceptor), e bootstrap (`UserRepository.create` no
-    sign-up; `OrgRepository.create` insere o 1º owner membership). O resto = `DRIZZLE`.
+    (`OrgMembershipGuard` roda antes do interceptor), bootstrap (`UserRepository.create` no
+    sign-up; `OrgRepository.create` insere o 1º owner membership), cron/cross-org (sem
+    contexto de request/sessão, ou legitimamente multi-tenant — ex. fila admin de
+    `support`), e **escritas privilegiadas escopadas quando múltiplas classes de ator
+    escrevem a mesma tabela pelo mesmo pool `DRIZZLE`** (RLS autoriza por linha, não por
+    coluna — não dá para o banco distinguir "campo setado pelo backend" de "forjado pelo
+    cliente" na mesma conexão/policy; ver ADR-0021, módulo `support`: `create-ticket`/
+    `add-customer-response`/`reopen-ticket`/`upload-ticket-attachment` do portal usam
+    `DRIZZLE_ADMIN` com `org_id` vindo do path (já autorizado pelo `OrgMembershipGuard`
+    antes do use-case), nunca de um campo livre do body). Fora desses casos = `DRIZZLE`.
   - `DATABASE_URL` = conexão admin (postgres); `DATABASE_APP_URL` = conexão `app_user`.
   - O guard de aplicação (`OrgMembershipGuard`) **continua obrigatório** — RLS é camada extra,
     não substitui o 403 explícito por endpoint.
@@ -288,6 +296,16 @@ a UI deve refletir o papel da org *ativa*:
   `forgotPassword(user.email)`; o link do e-mail abre `/auth/reset-password`, que **recupera a sessão
   pelo token do link** e mostra a tela de nova senha (fluxo reusa o de recuperação existente).
 - **Org switcher** (breadcrumb) tem item final "Ver todas as organizações" → `/dashboard/organizations`.
+- **Link de reset de senha nunca usa o `action_link` do Supabase (2026-08-01, bug real)**:
+  esse link aponta pro `/auth/v1/verify` do próprio Supabase, que **consome o token via GET** —
+  scanners de e-mail (Outlook Safe Links, proxies corporativos) batem nesse GET antes do clique
+  real e invalidam o token; e o Supabase manda os tokens resultantes no **hash** (`#access_token=`),
+  que o form só lia via **query string** (bug duplo). Fix: `generatePasswordResetLink` monta o
+  próprio link (`${frontendUrl}/auth/reset-password?token_hash=...&type=recovery`) a partir de
+  `data.properties.hashed_token` do `generateLink`; `resetPassword` troca o token por sessão via
+  `client.auth.verifyOtp({ token_hash, type: 'recovery' })` — só no **submit** do form, nunca num
+  `useEffect` de mount (senão reintroduz o problema do scanner). Larmony tinha o mesmo bug (código
+  idêntico) — não copiar de lá sem aplicar o mesmo fix.
 
 ### Relação serviço ↔ transação financeira
 
@@ -833,6 +851,82 @@ passar (red → green → refactor).
 - **Backlog**: a adoção plena é um "ataque de testes" dedicado (ver `roadmap.md` → EPIC
   Qualidade & Testes). A regra entra em vigor já para **todo código novo**.
 - Código da v1 não é reaproveitado — apenas regras de negócio.
+
+### Support — canal de suporte B2B, Fatia A (2026-08-10, ADR-0021) + Fatia C (2026-08-15, ADR-0022)
+
+- **Escopo da Fatia A**: portal autenticado (organização abre/responde/reabre
+  ticket), fila de atendimento admin (super_admin), SLA (breach/near-breach via cron),
+  anexos, notificações por e-mail. Formulário público/anônimo e e-mail-to-ticket foram
+  **adiados de propósito** nesta fatia, gated por uma investigação de viabilidade
+  ainda não feita — **superado pela Fatia C** (abaixo): investigação concluída
+  (`docs/spikes/support-inbound-email.md`), ambas as superfícies entregues.
+  `tickets.org_id`/`ticket_responses.org_id`/`ticket_attachments.org_id` **eram
+  `NOT NULL`** na Fatia A (migration `0038`, sem ramificação de ticket órfão) —
+  **passaram a nullable na Fatia C** (migration `0044`, ver abaixo e ADR-0022).
+- **Autorização por coluna via `DRIZZLE_ADMIN` escopado, não RLS/trigger** (decisão
+  central da fatia, ver ADR-0021 para o histórico completo de tentativas
+  rejeitadas): `create-ticket`, `add-customer-response`, `reopen-ticket` e
+  `upload-ticket-attachment` (as 4 escritas que o portal do cliente aciona, via
+  `SupportController` — `orgs/:orgId/support`, `AuthGuard`+`OrgMembershipGuard`)
+  escrevem via `DRIZZLE_ADMIN` com `org_id` vindo do path (já autorizado pelo
+  `OrgMembershipGuard` antes do use-case), nunca de um campo livre do body — é o
+  use-case, não a RLS, que decide quais campos o tenant pode setar. Leituras do
+  portal continuam via `DRIZZLE` normal (RLS ativa) + filtro explícito de `org_id`
+  no repositório como defesa em profundidade. A fila admin e o cron de SLA também
+  usam `DRIZZLE_ADMIN`, mas por serem legitimamente cross-org — motivação diferente,
+  não confundir os dois casos.
+- **Nota interna (`is_internal_note`) nunca vaza pro portal do cliente — dupla
+  proteção**: a RLS de `ticket_responses_select` já exclui na origem
+  (`is_internal_note = false` na policy, migration `0039`), **e** a camada de
+  aplicação também filtra (`DrizzleTicketResponseRepository.listByTicketInOrg` só
+  inclui internas quando `includeInternal=true`, usado só pelos métodos `*AsAdmin`).
+  Anexos vinculados a uma resposta interna são filtrados do mesmo jeito nas queries do
+  portal (`DrizzleTicketAttachmentRepository.listByTicketInOrg`/`findByIdInOrg` fazem
+  `LEFT JOIN ticket_responses` + `is_internal_note = false OR response_id IS NULL`) —
+  mesma garantia, dois níveis independentes.
+- **SLA é 24/7 wall-clock** (sem calendário de horário comercial) — `computeSlaDueDates`
+  materializa `slaFirstResponseDueAt`/`slaResolutionDueAt` na criação do ticket a
+  partir de `ticket_categories.sla_first_response_minutes`/`sla_resolution_minutes`,
+  nunca recalculado a partir da categoria depois. Exceção: na **reabertura**
+  (`ReopenTicketUseCase`), o SLA de **resolução** é recalculado explicitamente
+  (`resetResolutionSla`); o SLA de **primeira resposta** fica congelado (não é tocado
+  por `resetResolutionSla`, que só mexe em `slaResolutionDueAt`/
+  `slaResolutionBreachedAt`/`slaWarningNotifiedAt`).
+- **E-mails de notificação são best-effort** (mesmo padrão de ADR-0012): todo método de
+  `SupportNotificationService` captura a própria exceção e só loga (nunca PII do
+  cliente em log, só `ticket.id`) — o caller (use-case) nunca precisa de try/catch.
+- **Débito técnico conhecido e aceito para depois** (não bloqueante para a Fatia A;
+  os itens "e-mail-to-ticket" e "formulário público/anônimo" que constavam aqui foram
+  **entregues na Fatia C**, ver ADR-0022 — removidos desta lista):
+  cleanup de anexos órfãos no Storage; horário comercial no cálculo de SLA;
+  `tickets.slaWarningNotifiedAt` é um único campo compartilhado entre o alerta de
+  primeira resposta e o de resolução (`SweepTicketSlaUseCase.sweepOne`) — dentro do
+  MESMO tick os dois alertas disparam normalmente (ambas as condições são calculadas
+  antes de marcar o campo); o risco é **entre ticks**: qual prazo ficar "near breach"
+  primeiro marca `slaWarningNotifiedAt`, e um near-breach posterior do OUTRO prazo (em
+  tick futuro) é silenciosamente ignorado, porque as duas condições checam o mesmo
+  campo (pode perder um aviso em casos raros); e a RLS de
+  `tickets_update` permanece na forma permissiva original (sem `WITH CHECK`/trigger de
+  coluna) — inofensivo hoje porque o único caminho de código que faz UPDATE é
+  `updateAsAdmin`, mas é uma regressão de defesa-em-profundidade aceita
+  conscientemente (ver ADR-0021 → Consequências).
+- **Tickets órfãos + e-mail-to-ticket, Fatia C (2026-08-15, ADR-0022)**: `org_id` de
+  `tickets`/`ticket_responses`/`ticket_attachments` passou a **nullable** (migration
+  `0044`) — formulário público (`create-public-ticket`, Cloudflare Turnstile + rate
+  limit) e webhook de e-mail (`handle-inbound-email`, Resend Inbound + verificação
+  Svix) criam ticket **sem organização**, visível só a `super_admin` na fila de
+  triagem. TODAS as policies de SELECT/UPDATE ramificam explicitamente
+  `(org_id IS NULL AND is_super_admin()) OR (org_id IS NOT NULL AND (is_super_admin()
+  OR is_org_member(org_id)))`; as de INSERT exigem `org_id IS NOT NULL AND (...)` sem
+  ramo órfão — nenhum caminho via RLS comum (`app_user`) cria linha órfã, só
+  `DRIZZLE_ADMIN`. **Vínculo a uma organização é sempre manual** (ação explícita de
+  `super_admin` na fila admin via `LinkTicketToOrganizationUseCase`, nunca heurística
+  automática por remetente/domínio) e propaga `org_id` para ticket + respostas +
+  anexos numa única transação com assert pós-update. **Threading de e-mail por
+  plus-address (`suporte+{ticketId}@assessorink-so.com`) sempre exige confirmar que o
+  remetente do e-mail bate com `requesterEmail` do ticket** — nunca confia no
+  plus-address sozinho (é público/forjável). Detalhe completo, incluindo o bug real de
+  try/catch-dentro-de-transação corrigido na idempotência do webhook, em ADR-0022.
 
 ### Pendências não bloqueantes para V1
 

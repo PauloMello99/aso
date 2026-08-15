@@ -6,10 +6,48 @@ import { Integrations } from "./integrations"
 import { About } from "./about"
 import { Pricing } from "./pricing"
 import { Footer } from "./footer"
+import { Seo } from "@/shared/components/seo"
+import { SITE_DEFAULT_DESCRIPTION, SITE_NAME, SITE_URL } from "@/shared/config/site"
+import { LEGAL_ENTITY } from "@/features/legal"
+
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      name: SITE_NAME,
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      url: SITE_URL,
+      description: SITE_DEFAULT_DESCRIPTION,
+      offers: {
+        "@type": "Offer",
+        category: "SaaS",
+      },
+    },
+    {
+      "@type": "Organization",
+      name: LEGAL_ENTITY.razaoSocial,
+      alternateName: SITE_NAME,
+      url: SITE_URL,
+      email: LEGAL_ENTITY.emailContato,
+      address: {
+        "@type": "PostalAddress",
+        streetAddress: LEGAL_ENTITY.endereco,
+      },
+    },
+  ],
+}
 
 export function LandingPage() {
   return (
     <div className="dark min-h-screen bg-background text-foreground antialiased">
+      <Seo
+        title="Gestão completa para estúdios criativos"
+        description={SITE_DEFAULT_DESCRIPTION}
+        path="/"
+        jsonLd={JSON_LD}
+      />
       <Nav />
       <main>
         <Hero />

@@ -1,5 +1,4 @@
 export { ServicesPage } from "./components/services-page"
-export { ServiceTypesSettingsPage } from "./components/service-types-settings-page"
 export { ServicePaymentCorrectionSheet } from "./components/service-payment-correction-sheet"
 export type { ServicePaymentCorrectionTarget } from "./components/service-payment-correction-sheet"
 export { useCorrectServicePayment } from "./hooks/use-correct-service-payment"

@@ -40,17 +40,16 @@ export function ResetPasswordForm() {
     defaultValues: { password: "", confirmPassword: "" },
   })
 
-  const access_token = searchParams.get("access_token") || searchParams.get("token")
-  const refresh_token = searchParams.get("refresh_token") || undefined
+  const token_hash = searchParams.get("token_hash")
   const type = searchParams.get("type")
 
   React.useEffect(() => {
-    if (!access_token || type !== "recovery") setTokenError(true)
+    if (!token_hash || type !== "recovery") setTokenError(true)
     else setTokenError(false)
-  }, [access_token, refresh_token, searchParams, type])
+  }, [token_hash, searchParams, type])
 
   const onSubmit = async (data: ResetPasswordFormValues) => {
-    if (!access_token) {
+    if (!token_hash) {
       setError("root", {
         message: "Não foi possível redefinir a senha. Falha ao encontrar token de acesso.",
       })
@@ -58,7 +57,7 @@ export function ResetPasswordForm() {
     }
 
     try {
-      await resetPassword(access_token, data.password, refresh_token)
+      await resetPassword(token_hash, data.password)
       setSuccess(true)
     } catch {
       setError("root", {
@@ -146,7 +145,7 @@ export function ResetPasswordForm() {
             <CardFooter className="flex flex-col gap-3">
               <Button
                 type="submit"
-                disabled={isSubmitting || !access_token}
+                disabled={isSubmitting || !token_hash}
                 className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

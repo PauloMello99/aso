@@ -12,6 +12,9 @@ import { GetCurrentAnamnesisFormVersionUseCase } from "./application/use-cases/g
 import { SendAnamnesisInviteUseCase } from "./application/use-cases/send-anamnesis-invite.use-case";
 import { GetAnamnesisResponseByTokenUseCase } from "./application/use-cases/get-anamnesis-response-by-token.use-case";
 import { SubmitAnamnesisResponseUseCase } from "./application/use-cases/submit-anamnesis-response.use-case";
+import { ListLinkableAnamnesisResponsesUseCase } from "./application/use-cases/list-linkable-anamnesis-responses.use-case";
+import { ListAnamnesisResponsesUseCase } from "./application/use-cases/list-anamnesis-responses.use-case";
+import { GetAnamnesisResponseDetailUseCase } from "./application/use-cases/get-anamnesis-response-detail.use-case";
 import { AnamnesisController } from "./interface/anamnesis.controller";
 import { AnamnesisResponsesController } from "./interface/anamnesis-responses.controller";
 import { PublicAnamnesisController } from "./interface/public-anamnesis.controller";
@@ -38,6 +41,9 @@ import { PublicAnamnesisController } from "./interface/public-anamnesis.controll
     SendAnamnesisInviteUseCase,
     GetAnamnesisResponseByTokenUseCase,
     SubmitAnamnesisResponseUseCase,
+    ListLinkableAnamnesisResponsesUseCase,
+    ListAnamnesisResponsesUseCase,
+    GetAnamnesisResponseDetailUseCase,
   ],
 })
 export class AnamnesisModule {}

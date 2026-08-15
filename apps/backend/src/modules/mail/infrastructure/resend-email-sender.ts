@@ -18,7 +18,7 @@ export class ResendEmailSender implements IEmailSender {
     const apiKey = config.get<string>("RESEND_API_KEY") ?? "";
     this.from =
       config.get<string>("NOTIFICATIONS_FROM_EMAIL") ??
-      "ASO <no-reply@inkops.local>";
+      "ASO <no-reply@assessorink-so.com>";
     this.enabled = flag && apiKey.length > 0;
     this.client = this.enabled ? new Resend(apiKey) : null;
   }
@@ -37,6 +37,7 @@ export class ResendEmailSender implements IEmailSender {
       subject: input.subject,
       html: input.html,
       ...(input.text ? { text: input.text } : {}),
+      ...(input.replyTo ? { replyTo: input.replyTo } : {}),
     });
 
     if (error) {

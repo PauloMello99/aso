@@ -31,6 +31,7 @@ interface SendAnamnesisInviteDialogProps {
   orgId: string
   customerId: string
   customerName: string
+  serviceTypeId?: string
 }
 
 export function SendAnamnesisInviteDialog({
@@ -39,6 +40,7 @@ export function SendAnamnesisInviteDialog({
   orgId,
   customerId,
   customerName,
+  serviceTypeId: fixedServiceTypeId,
 }: SendAnamnesisInviteDialogProps) {
   const { serviceTypes, loading: typesLoading } = useServiceTypes(orgId)
   const { mutateAsync: sendInvite, isPending: sending } =
@@ -50,10 +52,11 @@ export function SendAnamnesisInviteDialog({
 
   useEffect(() => {
     if (open) {
-      setServiceTypeId("")
+      setServiceTypeId(fixedServiceTypeId ?? "")
       setError(null)
       setSent(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   async function handleSubmit() {
@@ -114,7 +117,7 @@ export function SendAnamnesisInviteDialog({
                 <Select
                   value={serviceTypeId}
                   onValueChange={setServiceTypeId}
-                  disabled={typesLoading}
+                  disabled={typesLoading || !!fixedServiceTypeId}
                 >
                   <SelectTrigger>
                     <SelectValue

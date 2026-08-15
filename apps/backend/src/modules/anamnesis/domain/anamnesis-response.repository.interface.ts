@@ -2,6 +2,7 @@ import type { AnamnesisQuestion } from "./anamnesis-question";
 import type {
   AnamnesisAnswer,
   AnamnesisResponseEntity,
+  AnamnesisResponseStatus,
 } from "./anamnesis-response.entity";
 
 export const ANAMNESIS_RESPONSE_REPOSITORY = Symbol(
@@ -22,6 +23,37 @@ export type AnamnesisResponseWithCustomerName = AnamnesisResponseEntity & {
   customerEmail: string;
   organizationName: string;
 };
+
+export interface AnamnesisResponseListItem {
+  id: string;
+  customerId: string | null;
+  customerName: string | null;
+  serviceTypeId: string | null;
+  serviceTypeName: string | null;
+  status: AnamnesisResponseStatus | "expired";
+  submittedAt: Date | null;
+  createdAt: Date;
+  formVersionId: string | null;
+  versionNumber: number | null;
+}
+
+export type AnamnesisResponseDetail = AnamnesisResponseEntity & {
+  customerName: string | null;
+  serviceTypeName: string | null;
+  versionNumber: number | null;
+  signerFullName: string | null;
+  signerCpf: string | null;
+  signatureStoragePath: string | null;
+  pdfStoragePath: string | null;
+  consentTextSnapshot: string | null;
+  consentAcceptedAt: Date | null;
+};
+
+export interface ListAnamnesisResponsesFilters {
+  customerId?: string;
+  serviceTypeId?: string;
+  status?: AnamnesisResponseStatus;
+}
 
 export interface MarkSubmittedData {
   answers: AnamnesisAnswer[];
@@ -63,4 +95,14 @@ export interface IAnamnesisResponseRepository {
     serviceTypeId: string,
     orgId: string,
   ): Promise<AnamnesisResponseEntity[]>;
+
+  listByOrg(
+    orgId: string,
+    filters: ListAnamnesisResponsesFilters,
+  ): Promise<AnamnesisResponseListItem[]>;
+
+  findDetailById(
+    id: string,
+    orgId: string,
+  ): Promise<AnamnesisResponseDetail | null>;
 }

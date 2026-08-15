@@ -39,6 +39,7 @@ export const serviceSchema = z.object({
   paymentStatus: z.enum(["paid", "pending"]),
   performedAt: z.string().optional().or(z.literal("")),
   materials: z.array(serviceMaterialLineSchema),
+  anamnesisResponseId: z.string().nullable().optional(),
 })
 
 function hasRealConsumption(line: ServiceMaterialLineValues): boolean {

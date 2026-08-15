@@ -1,7 +1,6 @@
 import * as React from "react"
 import Link from "next/link"
 import { Button } from "@/shared/components/ui/button"
-import { Badge } from "@/shared/components/ui/badge"
 import { cn } from "@/shared/lib/utils"
 import { BackgroundGrid } from "./background-grid"
 
@@ -11,15 +10,6 @@ export function Hero() {
       <BackgroundGrid variant="dots" glows={true} />
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 text-center sm:px-6">
-        <div className="mb-5 flex justify-center sm:mb-6">
-          <Badge
-            variant="outline"
-            className="border-primary/30 bg-primary/10 text-primary"
-          >
-            ✦ Novo — Agendamentos automáticos com IA
-          </Badge>
-        </div>
-
         <h1 className="mx-auto max-w-4xl text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl md:text-7xl">
           Gestão completa para
           <br />

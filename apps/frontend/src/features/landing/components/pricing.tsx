@@ -67,7 +67,7 @@ const PLANS: Plan[] = [
     period: "",
     description: "Para redes de estúdios com necessidades específicas.",
     cta: "Falar com vendas",
-    href: "mailto:contato@inkops.com.br",
+    href: "mailto:contato@assessorink-so.com",
     features: [
       { label: "Agendamentos ilimitados", included: true },
       { label: "Profissionais ilimitados", included: true },

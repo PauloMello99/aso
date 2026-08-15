@@ -9,11 +9,11 @@ export interface RequestContext {
 }
 
 export function extractRequestContext(req: Request): RequestContext {
-  const forwardedFor = req.headers["x-forwarded-for"];
-  const forwardedIp = Array.isArray(forwardedFor)
-    ? forwardedFor[0]
-    : forwardedFor?.split(",")[0];
-  const rawIp = forwardedIp?.trim() || req.socket.remoteAddress || null;
+  // `req.ip` já resolve o IP real do cliente a partir do X-Forwarded-For de
+  // forma validada pelo Express quando `trust proxy` está configurado
+  // (ver main.ts) — ler o header manualmente aceitaria um valor
+  // controlável pelo cliente sem essa validação.
+  const rawIp = req.ip?.trim() || req.socket.remoteAddress || null;
 
   const rawUserAgent = req.headers["user-agent"] ?? null;
 

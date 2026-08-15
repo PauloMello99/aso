@@ -47,9 +47,5 @@ export interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   forgotPassword: (email: string) => Promise<void>
-  resetPassword: (
-    accessToken: string,
-    newPassword: string,
-    refreshToken?: string,
-  ) => Promise<void>
+  resetPassword: (tokenHash: string, newPassword: string) => Promise<void>
 }

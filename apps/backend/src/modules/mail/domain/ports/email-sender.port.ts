@@ -5,6 +5,7 @@ export interface SendEmailInput {
   subject: string;
   html: string;
   text?: string;
+  replyTo?: string;
 }
 
 export interface IEmailSender {

@@ -84,7 +84,7 @@ export function PaymentFeesForm({ orgId }: PaymentFeesFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={handleSubmit} className="grid max-w-lg gap-6">
+      <form onSubmit={handleSubmit} className="grid gap-6">
         <p className="text-sm text-foreground/50">
           Ao lançar uma <strong>entrada em cartão</strong>, o sistema desconta a
           taxa e registra o valor líquido no caixa. Líquido = bruto −
