@@ -20,3 +20,6 @@ export * from "./studio/calendar-connections";
 export * from "./studio/notifications";
 export * from "./studio/audit";
 export * from "./studio/anamnesis";
+export * from "./support/ticket-categories";
+export * from "./support/tickets";
+export * from "./support/inbound-emails";

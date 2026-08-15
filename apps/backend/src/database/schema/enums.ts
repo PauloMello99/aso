@@ -105,3 +105,24 @@ export const billingInvoiceEventTypeEnum = pgEnum(
   "billing_invoice_event_type",
   ["paid", "payment_failed"],
 );
+
+export const ticketStatusEnum = pgEnum("ticket_status", [
+  "open",
+  "in_progress",
+  "waiting_customer",
+  "resolved",
+  "closed",
+]);
+
+export const ticketPriorityEnum = pgEnum("ticket_priority", [
+  "low",
+  "normal",
+  "high",
+  "urgent",
+]);
+
+export const ticketAuthorTypeEnum = pgEnum("ticket_author_type", [
+  "customer",
+  "agent",
+  "system",
+]);

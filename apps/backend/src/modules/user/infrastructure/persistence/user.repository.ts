@@ -11,7 +11,10 @@ import {
   UpdateUserData,
   UserEntity,
 } from "../../domain/user.entity";
-import { IUserRepository } from "../../domain/user.repository.interface";
+import {
+  IUserRepository,
+  PlatformAdminContact,
+} from "../../domain/user.repository.interface";
 import { UserMapper } from "./user.mapper";
 
 @Injectable()
@@ -61,6 +64,18 @@ export class DrizzleUserRepository implements IUserRepository {
       .onConflictDoNothing()
       .returning();
     return UserMapper.toDomain(row!);
+  }
+
+  async findPlatformAdminEmails(): Promise<PlatformAdminContact[]> {
+    const rows = await this.admin
+      .select({
+        id: schema.users.id,
+        name: schema.users.name,
+        email: schema.users.email,
+      })
+      .from(schema.users)
+      .where(eq(schema.users.platformRole, "super_admin"));
+    return rows;
   }
 
   async delete(authId: string): Promise<void> {
