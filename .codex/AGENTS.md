@@ -87,8 +87,9 @@ estilo — MUST/SHOULD/MAY/MUST NOT). Siga essas regras mesmo sem subagentes:
   de implementar.
 - **Elevação por risco**: banco, RLS/tenancy, auth, caixa/dinheiro, cron, contratos
   públicos ou integrações externas ⇒ tratar como complexa mesmo se pequena.
-- **Validação atual**: o repo ainda não tem suíte automatizada — validar por
-  `pnpm check-types`, `pnpm lint`, `pnpm build`.
+- **Validação atual**: há suíte automatizada em ambas as apps (backend Jest, frontend
+  Vitest, `.spec.ts` por use-case/lib) — validar por `pnpm check-types`, `pnpm lint`,
+  `pnpm test`, `pnpm build`.
 - **Proibido**: push, deploy, migrations remotas, reset/clean destrutivos, commits sem
   solicitação.
 

@@ -321,16 +321,28 @@ transactions (agnóstica, append-only)
 - Transações nunca são deletadas ou atualizadas (append-only por design)
 - Um serviço pode não ter transação ainda (pagamento pendente → `payment_transaction_id = null`)
 
-### Billing / assinatura (Stripe)
+### Billing / assinatura (Stripe) — implementado (ADR-0016 M11, ADR-0023)
 
 Produto: "assessoria". Quatro configurações possíveis (gerenciadas pelo super_admin):
 1. **Gratuita** — para a própria Ink House
-2. **Trial** — 1 mês de teste
-3. **Preço cheio** — mensal R$400 / semestral R$2.000 / anual R$4.200
-4. **Valor alterado** — acordado por cliente
+2. **Trial** — via Checkout com cartão obrigatório (`trial_period_days` nativo do Stripe)
+3. **Preço cheio** — configurado em `billing_plans` (banco), não hardcoded
+4. **Valor alterado** — comp/desconto local via `EntitlementsService` (ver ADR-0016)
+
+> ⚠️ Os valores R$400/R$2.000/R$4.200 mencionados aqui em versões anteriores desta nota eram
+> a estimativa **pré-implementação**; hoje **`billing_plans` (banco) é a fonte de verdade** do
+> preço vigente de cada plano — não hardcoded em `PLAN_CATALOG` (que virou seed inicial). Ver
+> ADR-0023 para o catálogo administrado por super_admin (planos + cupons).
 
 - Grace period configurável após inadimplência
 - Estrutura de produtos Stripe desacoplada por produto
+- **Nenhum use-case deve tentar `PATCH` de valor num objeto Stripe imutável** (ADR-0023):
+  `unit_amount` de um `Price` existente, ou `percent_off`/`amount_off`/`duration` de um
+  `Coupon` existente. "Editar preço" de um plano é sempre: criar novo `Price` com
+  `transfer_lookup_key: true` + arquivar o antigo numa chamada separada
+  (`RotateBillingPlanPriceUseCase`). "Editar cupom" só é possível via **Promotion Code**
+  (`active`/`metadata`), nunca no `Coupon` em si — Coupon e Promotion Code são sempre criados
+  juntos, 1:1 (`billing_coupons.stripe_coupon_id`/`stripe_promotion_code_id` `UNIQUE`).
 
 ### Gaps de reunião aplicados (2026-06-20) — migrations 0011–0013
 
