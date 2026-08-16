@@ -44,3 +44,80 @@ export interface NormalizedInvoice {
   currency: string
   occurredAt: string
 }
+
+export interface BillingPlan {
+  id: string
+  key: string
+  name: string
+  description: string | null
+  amountCents: number
+  currency: string
+  interval: BillingInterval
+  active: boolean
+  stripeProductId: string | null
+  stripePriceId: string | null
+  lookupKey: string | null
+  productKey: string | null
+  metadata: Record<string, string>
+  lastSyncedAt: string | null
+}
+
+export type PlanSyncStatus = "created" | "unchanged" | "drift" | "failed"
+
+export interface PlanSyncResult {
+  key: string
+  status: PlanSyncStatus
+  stripeProductId?: string
+  stripePriceId?: string
+  error?: string
+}
+
+export interface SyncPlanCatalogReport {
+  results: PlanSyncResult[]
+}
+
+export type CouponDuration = "once" | "repeating" | "forever"
+
+export interface BillingCoupon {
+  id: string
+  stripeCouponId: string
+  stripePromotionCodeId: string | null
+  code: string | null
+  name: string
+  percentOff: number | null
+  amountOffCents: number | null
+  currency: string | null
+  duration: CouponDuration
+  durationInMonths: number | null
+  maxRedemptions: number | null
+  timesRedeemed: number
+  expiresAt: string | null
+  active: boolean
+  createdBy: string | null
+  lastSyncedAt: string | null
+}
+
+export interface UpdateBillingPlanProductInput {
+  name?: string
+  description?: string
+  active?: boolean
+  metadata?: Record<string, string>
+}
+
+export interface RotateBillingPlanPriceInput {
+  amountCents: number
+  currency?: string
+  interval?: BillingInterval
+}
+
+export interface CreateBillingCouponInput {
+  name: string
+  percentOff?: number
+  amountOffCents?: number
+  currency?: string
+  duration: CouponDuration
+  durationInMonths?: number
+  code?: string
+  maxRedemptions?: number
+  expiresAt?: string
+}
