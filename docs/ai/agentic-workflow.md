@@ -174,18 +174,22 @@ documenter   → status / docs_written[] / discrepancies_found[] / verification_
 
 ## Validação (comandos reais do projeto)
 
-O projeto ainda **não tem suíte de testes automatizada** (`test`/`test:e2e`) configurada.
-A validação padrão do tester — parar no menor conjunto que prova a mudança:
+O projeto tem suíte de testes automatizada em ambas as apps — backend (Jest, `.spec.ts`
+por use-case) e frontend (Vitest, `.spec.ts` junto de `lib/`/`schemas/`). A validação
+padrão do tester — parar no menor conjunto que prova a mudança:
 
-1. Typecheck direcionado: `pnpm --filter <app> check-types`
-2. Lint direcionado: `pnpm --filter <app> lint` (`--max-warnings 0` — warnings quebram)
-3. Typecheck amplo: `pnpm check-types` (cache Turborepo)
-4. Build: `pnpm --filter <app> build` (ou `pnpm build`) — quando config/build foi afetado
-5. Migrations locais: `pnpm --filter backend db:status` (+ `npx supabase status`) quando tocou schema
+1. Suíte direcionada: `pnpm --filter <app> test -- <pattern>` (ou `-- --run <pattern>` no
+   frontend/Vitest) quando a mudança tocou use-case/lib/schema com cobertura existente
+2. Typecheck direcionado: `pnpm --filter <app> check-types`
+3. Lint direcionado: `pnpm --filter <app> lint` (`--max-warnings 0` — warnings quebram)
+4. Typecheck amplo: `pnpm check-types` (cache Turborepo)
+5. Suíte completa: `pnpm test` (turbo, roda backend + frontend) quando a mudança é
+   transversal ou antes de considerar a tarefa concluída
+6. Build: `pnpm --filter <app> build` (ou `pnpm build`) — quando config/build foi afetado
+7. Migrations locais: `pnpm --filter backend db:status` (+ `npx supabase status`) quando tocou schema
 
-Quando o projeto ganhar testes (TDD por módulo é uma regra prevista no roadmap), a suíte
-direcionada (`pnpm --filter backend test -- <pattern>`) vira o passo 0. Enquanto não
-existe, não invente comandos de teste.
+Ainda não existe e2e (TDD por módulo cobre unit/integração via Jest/Vitest; e2e contra
+Supabase local é roadmap). Não invente comandos de e2e inexistentes.
 
 ## Regras anti-desperdício
 

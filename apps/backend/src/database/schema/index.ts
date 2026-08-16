@@ -4,6 +4,7 @@ export * from "./organizations";
 export * from "./subscriptions";
 export * from "./stripe-webhook-events";
 export * from "./billing-plans";
+export * from "./billing-coupons";
 export * from "./billing-invoice-events";
 export * from "./studio/lookup";
 export * from "./studio/customers";

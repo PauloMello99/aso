@@ -14,10 +14,17 @@ import { RevokeCompUseCase } from "./application/use-cases/revoke-comp.use-case"
 import { ApplyDiscountUseCase } from "./application/use-cases/apply-discount.use-case";
 import { RemoveDiscountUseCase } from "./application/use-cases/remove-discount.use-case";
 import { ListSubscriptionInvoicesUseCase } from "./application/use-cases/list-subscription-invoices.use-case";
+import { ListBillingPlansUseCase } from "./application/use-cases/list-billing-plans.use-case";
+import { UpdateBillingPlanProductUseCase } from "./application/use-cases/update-billing-plan-product.use-case";
+import { RotateBillingPlanPriceUseCase } from "./application/use-cases/rotate-billing-plan-price.use-case";
+import { CreateBillingCouponUseCase } from "./application/use-cases/create-billing-coupon.use-case";
+import { ListBillingCouponsUseCase } from "./application/use-cases/list-billing-coupons.use-case";
+import { UpdateBillingCouponUseCase } from "./application/use-cases/update-billing-coupon.use-case";
 import { EntitlementsService } from "./application/entitlements.service";
 import { SubscriptionsController } from "./interface/subscriptions.controller";
 import { StripeWebhookController } from "./interface/stripe-webhook.controller";
 import { AdminSubscriptionController } from "./interface/admin-subscription.controller";
+import { AdminBillingController } from "./interface/admin-billing.controller";
 import { ActiveSubscriptionGuard } from "./interface/guards/active-subscription.guard";
 
 @Module({
@@ -31,6 +38,7 @@ import { ActiveSubscriptionGuard } from "./interface/guards/active-subscription.
     SubscriptionsController,
     StripeWebhookController,
     AdminSubscriptionController,
+    AdminBillingController,
   ],
   providers: [
     CreateCheckoutSessionUseCase,
@@ -44,6 +52,12 @@ import { ActiveSubscriptionGuard } from "./interface/guards/active-subscription.
     ApplyDiscountUseCase,
     RemoveDiscountUseCase,
     ListSubscriptionInvoicesUseCase,
+    ListBillingPlansUseCase,
+    UpdateBillingPlanProductUseCase,
+    RotateBillingPlanPriceUseCase,
+    CreateBillingCouponUseCase,
+    ListBillingCouponsUseCase,
+    UpdateBillingCouponUseCase,
     EntitlementsService,
     ActiveSubscriptionGuard,
   ],

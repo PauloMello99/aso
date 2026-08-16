@@ -8,8 +8,11 @@ import { StripePaymentGateway } from "../infrastructure/stripe-payment-gateway";
 import { ISubscriptionRepository } from "../domain/subscription.repository.interface";
 import { IStripeWebhookEventRepository } from "../domain/stripe-webhook-event.repository.interface";
 import { IBillingInvoiceEventRepository } from "../domain/billing-invoice-event.repository.interface";
+import { IBillingPlanRepository } from "../domain/billing-plan.repository.interface";
+import { IBillingCouponRepository } from "../domain/billing-coupon.repository.interface";
 import { SubscriptionEntity } from "../domain/subscription.entity";
 import { WebhookSignatureInvalidException } from "../domain/exceptions/webhook-signature-invalid.exception";
+import { TelemetryService } from "../../../common/telemetry/telemetry.service";
 
 /**
  * Exercises the full webhooks/stripe path (controller -> use-case ->
@@ -112,6 +115,38 @@ function buildFakeInvoiceEventRepo(): jest.Mocked<IBillingInvoiceEventRepository
   } as unknown as jest.Mocked<IBillingInvoiceEventRepository>;
 }
 
+function buildFakeBillingPlanRepo(): jest.Mocked<IBillingPlanRepository> {
+  return {
+    findByKey: jest.fn(),
+    findAll: jest.fn(),
+    upsert: jest.fn(),
+    findByStripeProductId: jest.fn().mockResolvedValue(null),
+    findByStripePriceId: jest.fn().mockResolvedValue(null),
+    updateByKey: jest.fn(),
+  } as unknown as jest.Mocked<IBillingPlanRepository>;
+}
+
+function buildFakeBillingCouponRepo(): jest.Mocked<IBillingCouponRepository> {
+  return {
+    create: jest.fn(),
+    findById: jest.fn(),
+    findByStripeCouponId: jest.fn().mockResolvedValue(null),
+    findByStripePromotionCodeId: jest.fn(),
+    findByCode: jest.fn(),
+    findAll: jest.fn(),
+    update: jest.fn(),
+    upsertFromStripe: jest.fn(),
+  } as unknown as jest.Mocked<IBillingCouponRepository>;
+}
+
+function buildFakeTelemetry(): jest.Mocked<TelemetryService> {
+  return {
+    captureException: jest.fn(),
+    captureMessage: jest.fn(),
+    flush: jest.fn(),
+  } as unknown as jest.Mocked<TelemetryService>;
+}
+
 describe("StripeWebhookController (webhooks/stripe, offline)", () => {
   it("rejects a payload signed with the wrong secret with WebhookSignatureInvalidException", async () => {
     const paymentGateway = new StripePaymentGateway(buildConfig());
@@ -121,6 +156,9 @@ describe("StripeWebhookController (webhooks/stripe, offline)", () => {
       buildFakeSubscriptionRepo(),
       webhookEventRepo,
       buildFakeInvoiceEventRepo(),
+      buildFakeBillingPlanRepo(),
+      buildFakeBillingCouponRepo(),
+      buildFakeTelemetry(),
     );
     const controller = new StripeWebhookController(useCase);
 
@@ -170,6 +208,9 @@ describe("StripeWebhookController (webhooks/stripe, offline)", () => {
       subscriptionRepo,
       webhookEventRepo,
       buildFakeInvoiceEventRepo(),
+      buildFakeBillingPlanRepo(),
+      buildFakeBillingCouponRepo(),
+      buildFakeTelemetry(),
     );
     const controller = new StripeWebhookController(useCase);
 
@@ -206,6 +247,9 @@ describe("StripeWebhookController (webhooks/stripe, offline)", () => {
       subscriptionRepo,
       webhookEventRepo,
       buildFakeInvoiceEventRepo(),
+      buildFakeBillingPlanRepo(),
+      buildFakeBillingCouponRepo(),
+      buildFakeTelemetry(),
     );
     const controller = new StripeWebhookController(useCase);
 
