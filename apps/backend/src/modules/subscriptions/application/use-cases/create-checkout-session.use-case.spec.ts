@@ -487,10 +487,14 @@ describe("CreateCheckoutSessionUseCase", () => {
     );
   });
 
-  it("grants a trial and marks it consumed on the first checkout", async () => {
+  it("grants a trial WITHOUT marking it consumed (trialConsumed is only ever written by the Stripe sync)", async () => {
     const subscriptionRepo = buildFakeSubscriptionRepo({
       findByOrgId: jest.fn().mockResolvedValue(
-        buildSubscription({ stripeCustomerId: "cus_1", trialConsumed: false }),
+        buildSubscription({
+          stripeCustomerId: "cus_1",
+          trialConsumed: false,
+          trialEndsAt: null,
+        }),
       ),
     });
     const billingPlanRepo = buildFakeBillingPlanRepo({
@@ -521,15 +525,109 @@ describe("CreateCheckoutSessionUseCase", () => {
 
     await useCase.execute("org-1", "auth-1");
 
-    expect(subscriptionRepo.update).toHaveBeenCalledWith("org-1", {
-      trialConsumed: true,
-    });
+    // An abandoned checkout must not burn the trial: nothing here writes
+    // trialConsumed anymore, only HandleStripeWebhookUseCase/
+    // ReconcileSubscriptionsUseCase do, once Stripe confirms the trial.
+    expect(subscriptionRepo.update).not.toHaveBeenCalled();
     expect(paymentGateway.createCheckoutSession).toHaveBeenCalledWith(
       expect.objectContaining({
         trialPeriodDays: 60,
         paymentMethodCollection: "always",
       }),
     );
+  });
+
+  it("does not grant a trial when trialConsumed is false but trialEndsAt is already set (a trial already happened, per local Stripe sync)", async () => {
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findByOrgId: jest.fn().mockResolvedValue(
+        buildSubscription({
+          stripeCustomerId: "cus_1",
+          trialConsumed: false,
+          trialEndsAt: new Date("2026-01-15T00:00:00Z"),
+        }),
+      ),
+    });
+    const billingPlanRepo = buildFakeBillingPlanRepo({
+      findByKey: jest.fn().mockResolvedValue(buildPlan()),
+    });
+    const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo();
+    const paymentGateway = buildFakePaymentGateway({
+      createCheckoutSession: jest
+        .fn()
+        .mockResolvedValue({ url: "https://checkout.stripe.com/5", sessionId: "cs_5" }),
+    });
+    const orgRepo = buildFakeOrgRepo({
+      findByIdAndAuthId: jest.fn().mockResolvedValue(buildOrg()),
+    });
+    const memberRepo = buildFakeMemberRepo({
+      findByAuthId: jest.fn().mockResolvedValue(buildMember()),
+    });
+
+    const useCase = new CreateCheckoutSessionUseCase(
+      subscriptionRepo,
+      billingPlanRepo,
+      billingPlanPriceRepo,
+      paymentGateway,
+      orgRepo,
+      memberRepo,
+      buildConfig(),
+    );
+
+    await useCase.execute("org-1", "auth-1");
+
+    expect(subscriptionRepo.update).not.toHaveBeenCalled();
+    const callArgs = paymentGateway.createCheckoutSession.mock.calls[0][0];
+    expect(callArgs.trialPeriodDays).toBeUndefined();
+    expect(callArgs.paymentMethodCollection).toBeUndefined();
+  });
+
+  it("writes only stripeCustomerId (never trialConsumed) when creating a new customer with trialConsumed still false", async () => {
+    const subscription = buildSubscription({
+      stripeCustomerId: null,
+      trialConsumed: false,
+      trialEndsAt: null,
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findByOrgId: jest.fn().mockResolvedValue(subscription),
+      update: jest
+        .fn()
+        .mockResolvedValue(
+          buildSubscription({ stripeCustomerId: "cus_new" }),
+        ),
+    });
+    const billingPlanRepo = buildFakeBillingPlanRepo({
+      findByKey: jest.fn().mockResolvedValue(buildPlan()),
+    });
+    const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo();
+    const paymentGateway = buildFakePaymentGateway({
+      createCustomer: jest.fn().mockResolvedValue({ customerId: "cus_new" }),
+      createCheckoutSession: jest
+        .fn()
+        .mockResolvedValue({ url: "https://checkout.stripe.com/6", sessionId: "cs_6" }),
+    });
+    const orgRepo = buildFakeOrgRepo({
+      findByIdAndAuthId: jest.fn().mockResolvedValue(buildOrg()),
+    });
+    const memberRepo = buildFakeMemberRepo({
+      findByAuthId: jest.fn().mockResolvedValue(buildMember()),
+    });
+
+    const useCase = new CreateCheckoutSessionUseCase(
+      subscriptionRepo,
+      billingPlanRepo,
+      billingPlanPriceRepo,
+      paymentGateway,
+      orgRepo,
+      memberRepo,
+      buildConfig(),
+    );
+
+    await useCase.execute("org-1", "auth-1");
+
+    expect(subscriptionRepo.update).toHaveBeenCalledTimes(1);
+    expect(subscriptionRepo.update).toHaveBeenCalledWith("org-1", {
+      stripeCustomerId: "cus_new",
+    });
   });
 
   it("does not grant a trial nor mark it consumed again once already consumed", async () => {

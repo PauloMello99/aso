@@ -8,7 +8,10 @@ import {
   PAYMENT_GATEWAY,
 } from "../../domain/ports/payment-gateway.port";
 import type { SubscriptionEntity } from "../../domain/subscription.entity";
-import { shouldApplyStripeSync } from "../../domain/subscription-sync";
+import {
+  shouldApplyStripeSync,
+  shouldMarkTrialConsumed,
+} from "../../domain/subscription-sync";
 
 export interface ReconcileSubscriptionsResult {
   checked: number;
@@ -104,6 +107,10 @@ export class ReconcileSubscriptionsUseCase {
       return false;
     }
 
+    // Same safety net as HandleStripeWebhookUseCase: a missed/delayed webhook
+    // must not leave trialConsumed stuck at false forever.
+    const markTrialConsumed = shouldMarkTrialConsumed(subscription, normalized);
+
     const hasDrift =
       subscription.status !== normalized.status ||
       subscription.billingInterval !== normalized.billingInterval ||
@@ -117,7 +124,8 @@ export class ReconcileSubscriptionsUseCase {
         normalized.currentPeriodStart?.getTime() ||
       subscription.currentPeriodEnd?.getTime() !==
         normalized.currentPeriodEnd?.getTime() ||
-      subscription.canceledAt?.getTime() !== normalized.canceledAt?.getTime();
+      subscription.canceledAt?.getTime() !== normalized.canceledAt?.getTime() ||
+      markTrialConsumed;
 
     if (!hasDrift) return false;
 
@@ -135,6 +143,7 @@ export class ReconcileSubscriptionsUseCase {
       currentPeriodStart: normalized.currentPeriodStart,
       currentPeriodEnd: normalized.currentPeriodEnd,
       canceledAt: normalized.canceledAt,
+      ...(markTrialConsumed ? { trialConsumed: true } : {}),
     });
     return true;
   }

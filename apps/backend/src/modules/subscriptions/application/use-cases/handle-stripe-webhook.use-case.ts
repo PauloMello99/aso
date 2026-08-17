@@ -34,7 +34,10 @@ import type {
   NormalizedSubscription,
   SubscriptionEntity,
 } from "../../domain/subscription.entity";
-import { shouldApplyStripeSync } from "../../domain/subscription-sync";
+import {
+  shouldApplyStripeSync,
+  shouldMarkTrialConsumed,
+} from "../../domain/subscription-sync";
 import { WebhookSignatureInvalidException } from "../../domain/exceptions/webhook-signature-invalid.exception";
 import { TelemetryService } from "../../../../common/telemetry/telemetry.service";
 import { FrontendRevalidationClient } from "../../infrastructure/frontend-revalidation.client";
@@ -46,6 +49,17 @@ function extractId(value: string | { id: string } | null | undefined): string | 
 
 function fromUnixSeconds(seconds: number | null | undefined): Date {
   return seconds ? new Date(seconds * 1000) : new Date();
+}
+
+// Unlike `fromUnixSeconds` above (which coerces a missing value to
+// `new Date()` — fine for `invoice.created`, which Stripe always sends),
+// `trial_end` legitimately means "no trial" when null/undefined. Coercing it
+// to `new Date()` here would make `shouldMarkTrialConsumed` treat every
+// subscription as having just had a trial, the opposite of the intent.
+function trialEndsAtFromUnixSeconds(
+  seconds: number | null | undefined,
+): Date | null {
+  return seconds ? new Date(seconds * 1000) : null;
 }
 
 @Injectable()
@@ -189,10 +203,23 @@ export class HandleStripeWebhookUseCase {
 
     if (!shouldApplyStripeSync(current, {})) return;
 
+    // A subscription can be deleted before its created/updated events ever
+    // arrive locally (e.g. a lost webhook delivery), leaving
+    // stripeSubscriptionId null on the local row. In that case
+    // ReconcileSubscriptionsUseCase's cron can never reach it either —
+    // findAllStripeLinked() requires stripeSubscriptionId to be non-null —
+    // so this event is the ONLY remaining chance to derive trialEndsAt from
+    // Stripe and keep trialConsumed accurate.
+    const trialEndsAt = trialEndsAtFromUnixSeconds(subscription.trial_end);
+    const markTrialConsumed = shouldMarkTrialConsumed(current, {
+      trialEndsAt,
+    });
+
     await this.subscriptionRepo.update(current.orgId, {
       status: "canceled",
       type: "free",
       canceledAt: new Date(),
+      ...(markTrialConsumed ? { trialConsumed: true, trialEndsAt } : {}),
     });
   }
 
@@ -565,6 +592,10 @@ export class HandleStripeWebhookUseCase {
 
     if (!shouldApplyStripeSync(current, {})) return;
 
+    // This is now the only runtime path (alongside ReconcileSubscriptionsUseCase's
+    // cron) that writes trialConsumed=true — checkout-session creation no longer does.
+    const markTrialConsumed = shouldMarkTrialConsumed(current, normalized);
+
     await this.subscriptionRepo.update(current.orgId, {
       stripeCustomerId: normalized.stripeCustomerId,
       stripeSubscriptionId: normalized.stripeSubscriptionId,
@@ -579,6 +610,7 @@ export class HandleStripeWebhookUseCase {
       currentPeriodStart: normalized.currentPeriodStart,
       currentPeriodEnd: normalized.currentPeriodEnd,
       canceledAt: normalized.canceledAt,
+      ...(markTrialConsumed ? { trialConsumed: true } : {}),
     });
   }
 

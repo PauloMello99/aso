@@ -403,6 +403,148 @@ describe("HandleStripeWebhookUseCase", () => {
     expect(webhookEventRepo.markProcessed).toHaveBeenCalledWith("evt_1");
   });
 
+  it("marks trialConsumed on checkout.session.completed when Stripe confirms a trial happened", async () => {
+    const event = buildEvent({
+      type: "checkout.session.completed",
+      data: { object: { id: "cs_1", subscription: "sub_stripe_1" } },
+    });
+    const current = buildSubscription({ trialConsumed: false });
+    const normalized = {
+      stripeSubscriptionId: "sub_stripe_1",
+      stripeCustomerId: "cus_1",
+      status: "trialing" as const,
+      billingInterval: "monthly" as const,
+      priceCents: 4990,
+      stripePriceId: "price_1",
+      stripeCouponId: null,
+      discountPercent: null,
+      trialEndsAt: new Date("2026-03-01T00:00:00Z"),
+      currentPeriodStart: new Date("2026-02-01T00:00:00Z"),
+      currentPeriodEnd: new Date("2026-03-01T00:00:00Z"),
+      canceledAt: null,
+    };
+    const paymentGateway = buildFakePaymentGateway({
+      constructWebhookEvent: jest.fn().mockReturnValue(event),
+      getSubscription: jest.fn().mockResolvedValue(normalized),
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findByStripeSubscriptionId: jest.fn().mockResolvedValue(current),
+    });
+    const webhookEventRepo = buildFakeWebhookEventRepo();
+
+    const useCase = new HandleStripeWebhookUseCase(
+      paymentGateway,
+      subscriptionRepo,
+      webhookEventRepo,
+      buildFakeInvoiceEventRepo(),
+      buildFakeBillingPlanRepo(),
+      buildFakeBillingCouponRepo(),
+      buildFakeBillingPlanPriceRepo(),
+      buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
+    );
+
+    await useCase.execute("raw", "sig");
+
+    expect(subscriptionRepo.update).toHaveBeenCalledWith(
+      "org-1",
+      expect.objectContaining({ trialConsumed: true }),
+    );
+  });
+
+  it("still marks trialConsumed on a delayed webhook whose trial already converted", async () => {
+    const event = buildEvent({ type: "customer.subscription.updated" });
+    const current = buildSubscription({ trialConsumed: false });
+    const normalized = {
+      stripeSubscriptionId: "sub_stripe_1",
+      stripeCustomerId: "cus_1",
+      status: "active" as const,
+      billingInterval: "monthly" as const,
+      priceCents: 4990,
+      stripePriceId: "price_1",
+      stripeCouponId: null,
+      discountPercent: null,
+      // trial already converted to a paid period, but trial_end stays populated
+      trialEndsAt: new Date("2026-01-15T00:00:00Z"),
+      currentPeriodStart: new Date("2026-02-01T00:00:00Z"),
+      currentPeriodEnd: new Date("2026-03-01T00:00:00Z"),
+      canceledAt: null,
+    };
+    const paymentGateway = buildFakePaymentGateway({
+      constructWebhookEvent: jest.fn().mockReturnValue(event),
+      getSubscription: jest.fn().mockResolvedValue(normalized),
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findByStripeSubscriptionId: jest.fn().mockResolvedValue(current),
+    });
+    const webhookEventRepo = buildFakeWebhookEventRepo();
+
+    const useCase = new HandleStripeWebhookUseCase(
+      paymentGateway,
+      subscriptionRepo,
+      webhookEventRepo,
+      buildFakeInvoiceEventRepo(),
+      buildFakeBillingPlanRepo(),
+      buildFakeBillingCouponRepo(),
+      buildFakeBillingPlanPriceRepo(),
+      buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
+    );
+
+    await useCase.execute("raw", "sig");
+
+    expect(subscriptionRepo.update).toHaveBeenCalledWith(
+      "org-1",
+      expect.objectContaining({ trialConsumed: true }),
+    );
+  });
+
+  it("does not include trialConsumed in the update payload when normalized trialEndsAt is null", async () => {
+    const event = buildEvent({ type: "customer.subscription.updated" });
+    const current = buildSubscription({ trialConsumed: false });
+    const normalized = {
+      stripeSubscriptionId: "sub_stripe_1",
+      stripeCustomerId: "cus_1",
+      status: "active" as const,
+      billingInterval: "monthly" as const,
+      priceCents: 4990,
+      stripePriceId: "price_1",
+      stripeCouponId: null,
+      discountPercent: null,
+      trialEndsAt: null,
+      currentPeriodStart: new Date("2026-02-01T00:00:00Z"),
+      currentPeriodEnd: new Date("2026-03-01T00:00:00Z"),
+      canceledAt: null,
+    };
+    const paymentGateway = buildFakePaymentGateway({
+      constructWebhookEvent: jest.fn().mockReturnValue(event),
+      getSubscription: jest.fn().mockResolvedValue(normalized),
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findByStripeSubscriptionId: jest.fn().mockResolvedValue(current),
+    });
+    const webhookEventRepo = buildFakeWebhookEventRepo();
+
+    const useCase = new HandleStripeWebhookUseCase(
+      paymentGateway,
+      subscriptionRepo,
+      webhookEventRepo,
+      buildFakeInvoiceEventRepo(),
+      buildFakeBillingPlanRepo(),
+      buildFakeBillingCouponRepo(),
+      buildFakeBillingPlanPriceRepo(),
+      buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
+    );
+
+    await useCase.execute("raw", "sig");
+
+    expect(subscriptionRepo.update).toHaveBeenCalledTimes(1);
+    expect(subscriptionRepo.update.mock.calls[0][1]).not.toHaveProperty(
+      "trialConsumed",
+    );
+  });
+
   it("propagates a mid-processing failure instead of swallowing it (so Stripe's retry is not defeated)", async () => {
     // Regression test for the claim-then-crash scenario: the event was
     // claimed (claim() resolves true — either a first delivery, or a retry
@@ -440,6 +582,94 @@ describe("HandleStripeWebhookUseCase", () => {
 
     expect(subscriptionRepo.update).not.toHaveBeenCalled();
     expect(webhookEventRepo.markProcessed).not.toHaveBeenCalled();
+  });
+
+  describe("customer.subscription.deleted", () => {
+    it("marks trialConsumed when the deleted subscription's trial_end is populated", async () => {
+      const event = buildEvent({
+        type: "customer.subscription.deleted",
+        data: {
+          object: {
+            id: "sub_stripe_1",
+            customer: "cus_1",
+            trial_end: 1772928000, // 2026-03-08T00:00:00.000Z
+          },
+        },
+      });
+      const current = buildSubscription({ trialConsumed: false });
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest.fn().mockReturnValue(event),
+      });
+      const subscriptionRepo = buildFakeSubscriptionRepo({
+        findByStripeSubscriptionId: jest.fn().mockResolvedValue(current),
+      });
+      const webhookEventRepo = buildFakeWebhookEventRepo();
+
+      const useCase = new HandleStripeWebhookUseCase(
+        paymentGateway,
+        subscriptionRepo,
+        webhookEventRepo,
+        buildFakeInvoiceEventRepo(),
+        buildFakeBillingPlanRepo(),
+        buildFakeBillingCouponRepo(),
+        buildFakeBillingPlanPriceRepo(),
+        buildFakeTelemetry(),
+        buildFakeRevalidationClient(),
+      );
+
+      await useCase.execute("raw", "sig");
+
+      expect(subscriptionRepo.update).toHaveBeenCalledWith(
+        "org-1",
+        expect.objectContaining({
+          status: "canceled",
+          type: "free",
+          trialConsumed: true,
+          trialEndsAt: new Date(1772928000 * 1000),
+        }),
+      );
+    });
+
+    it("does not include trialConsumed in the update payload when the deleted subscription's trial_end is null", async () => {
+      const event = buildEvent({
+        type: "customer.subscription.deleted",
+        data: {
+          object: {
+            id: "sub_stripe_1",
+            customer: "cus_1",
+            trial_end: null,
+          },
+        },
+      });
+      const current = buildSubscription({ trialConsumed: false });
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest.fn().mockReturnValue(event),
+      });
+      const subscriptionRepo = buildFakeSubscriptionRepo({
+        findByStripeSubscriptionId: jest.fn().mockResolvedValue(current),
+      });
+      const webhookEventRepo = buildFakeWebhookEventRepo();
+
+      const useCase = new HandleStripeWebhookUseCase(
+        paymentGateway,
+        subscriptionRepo,
+        webhookEventRepo,
+        buildFakeInvoiceEventRepo(),
+        buildFakeBillingPlanRepo(),
+        buildFakeBillingCouponRepo(),
+        buildFakeBillingPlanPriceRepo(),
+        buildFakeTelemetry(),
+        buildFakeRevalidationClient(),
+      );
+
+      await useCase.execute("raw", "sig");
+
+      expect(subscriptionRepo.update).toHaveBeenCalledTimes(1);
+      const payload = subscriptionRepo.update.mock.calls[0][1];
+      expect(payload).not.toHaveProperty("trialConsumed");
+      expect(payload).not.toHaveProperty("trialEndsAt");
+      expect(payload).toMatchObject({ status: "canceled", type: "free" });
+    });
   });
 
   describe("product.updated", () => {

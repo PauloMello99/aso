@@ -97,14 +97,12 @@ export class CreateCheckoutSessionUseCase {
     const successUrl = `${frontendUrl}/dashboard/org/${org.slug}/settings/subscription?checkout=success`;
     const cancelUrl = `${frontendUrl}/dashboard/org/${org.slug}/settings/subscription?checkout=cancel`;
 
-    // Trial is granted at most once per org. Marking it consumed before
-    // calling Stripe (rather than after a successful checkout) is
-    // intentional: an abandoned checkout must not leave the org free to
-    // retry for a second trial.
-    const grantTrial = !subscription.trialConsumed;
-    if (grantTrial) {
-      await this.subscriptionRepo.update(orgId, { trialConsumed: true });
-    }
+    // trialConsumed agora só é marcado pelo sync do Stripe (HandleStripeWebhookUseCase /
+    // ReconcileSubscriptionsUseCase), nunca aqui: checkout abandonado não pode queimar o trial.
+    // trialEndsAt === null é a segunda testemunha local de que nenhum trial existiu, fechando
+    // a janela de latência do webhook. O resíduo (dois checkouts completados em paralelo)
+    // falha a favor do cliente e é aceito deliberadamente.
+    const grantTrial = !subscription.trialConsumed && subscription.trialEndsAt === null;
 
     const { url } = await this.paymentGateway.createCheckoutSession({
       customerId,

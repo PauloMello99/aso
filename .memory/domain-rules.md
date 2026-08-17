@@ -75,6 +75,7 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
 21. **Conteúdo centralizado**: o padding e a centralização vivem nos **layouts** (`OrgLayout`/`DashboardLayout` envolvem `children` em `<div className="mx-auto w-full max-w-7xl p-4 sm:p-6">`). Páginas **não** repetem `p-4 sm:p-6` no root (evita padding duplo) — usam só `space-y-*`.
 22. **Scroll de container alto (gotcha CSS)**: `overflow-x-auto` força `overflow-y:auto` no mesmo elemento (spec) → criava um scroll interno no calendário (week-view). Para a página inteira rolar, adicionar **`overflow-y-hidden`** ao container com `overflow-x-auto` quando a altura é o próprio conteúdo. (Corrigido 2026-06-20.)
 23. **DatePicker — dropdown de mês/ano (2026-06-20)**: o `<select>` nativo do `react-day-picker` v10 (`captionLayout="dropdown"`) abre um popup do SO (branco/azul) **não tematizável por CSS**. Override em `calendar.tsx` via **`components.Dropdown` = `CalendarDropdown`** que usa o nosso `Select` (Radix). O RDP v10 lê **`Number(e.target.value)`** no `onChange`, então o adapter sintetiza `onChange({ target: { value } })` a partir do `onValueChange` do Select (padrão shadcn). Não voltar ao select nativo.
+24. **Superfícies públicas só afirmam o que o produto faz (2026-08-16)**: landing, SEO, e-mails de marketing e páginas legais **não podem** conter métrica inventada, logo de integração inexistente ou recurso não implementado sem rótulo explícito de "em breve". Auditoria de 2026-08-16 encontrou na landing 4 métricas fabricadas (`about.tsx`), 5 integrações que existiam **apenas** naquele arquivo (WhatsApp/Instagram/Notion/Zapier/Pix), "lembretes por WhatsApp" (notificação real é in-app + e-mail) e "Começar grátis" para um trial que **exige cartão** (`paymentMethodCollection: "always"`, 60 dias). Ao escrever copy nova: rastrear cada afirmação até um módulo, ADR ou linha de código; número agregado vive em **uma** constante (`features/landing/constants/`), nunca inline. Posicionamento é **vertical de tatuagem explícito**, não "estúdios criativos" — anamnese, consumo de material por sessão e taxa de cartão são o que diferencia de CRM horizontal. Spec completa em `docs/product/landing-page-spec.md`.
 
 ---
 
@@ -350,6 +351,20 @@ Produto: "assessoria". Quatro configurações possíveis (gerenciadas pelo super
   assinantes elegíveis para o novo Price). "Editar cupom" só é possível via **Promotion Code**
   (`active`/`metadata`), nunca no `Coupon` em si — Coupon e Promotion Code são sempre criados
   juntos, 1:1 (`billing_coupons.stripe_coupon_id`/`stripe_promotion_code_id` `UNIQUE`).
+- **`trial_consumed` só transita `false→true` a partir do sync do Stripe, nunca no fluxo de
+  criação de checkout (2026-08-17, ADR-0016 addendum).** `CreateCheckoutSessionUseCase` não
+  escreve essa coluna — a decisão é do predicado `shouldMarkTrialConsumed`
+  (`modules/subscriptions/domain/subscription-sync.ts`), chamado só em dois lugares:
+  `HandleStripeWebhookUseCase::syncNormalizedSubscription` (webhook `checkout.session.completed`/
+  `customer.subscription.updated`) e `ReconcileSubscriptionsUseCase` (cron, rede de segurança
+  para webhook perdido, mas só alcança orgs já com `stripe_customer_id` **e**
+  `stripe_subscription_id` preenchidos). Condição: `trial_end` do Stripe vem preenchido —
+  nunca marcado por criar a checkout session, e **nunca resetado em runtime** (a migration
+  `0050_subscriptions_restore_unstarted_trials`, que reverteu `trial_consumed` para orgs
+  atingidas pelo bug histórico, é reparo de dado one-off, não um caminho de código; não
+  reintroduzir lógica de "desmarcar" trial fora de migration explícita). Bug histórico:
+  marcar na criação da checkout session queimava o trial de 60 dias em qualquer checkout
+  abandonado — corrigido nesta data.
 
 ### Gaps de reunião aplicados (2026-06-20) — migrations 0011–0013
 
