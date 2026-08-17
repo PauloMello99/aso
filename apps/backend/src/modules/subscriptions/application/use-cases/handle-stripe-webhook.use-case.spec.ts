@@ -12,9 +12,14 @@ import {
   BillingCouponEntity,
   IBillingCouponRepository,
 } from "../../domain/billing-coupon.repository.interface";
+import {
+  BillingPlanPriceEntity,
+  IBillingPlanPriceRepository,
+} from "../../domain/billing-plan-price.repository.interface";
 import { SubscriptionEntity } from "../../domain/subscription.entity";
 import { WebhookSignatureInvalidException } from "../../domain/exceptions/webhook-signature-invalid.exception";
 import { TelemetryService } from "../../../../common/telemetry/telemetry.service";
+import { FrontendRevalidationClient } from "../../infrastructure/frontend-revalidation.client";
 
 function buildSubscription(
   overrides: Partial<Parameters<typeof SubscriptionEntity.create>[0]> = {},
@@ -63,6 +68,7 @@ function buildFakePaymentGateway(
     constructWebhookEvent: jest.fn(),
     getSubscription: jest.fn(),
     cancelSubscription: jest.fn(),
+    updateSubscriptionPrice: jest.fn(),
     createCoupon: jest.fn(),
     applyCouponToSubscription: jest.fn(),
     removeSubscriptionDiscount: jest.fn(),
@@ -123,6 +129,41 @@ function buildFakeBillingPlanRepo(
   } as unknown as jest.Mocked<IBillingPlanRepository>;
 }
 
+function buildFakeBillingPlanPriceRepo(
+  overrides: Partial<jest.Mocked<IBillingPlanPriceRepository>> = {},
+): jest.Mocked<IBillingPlanPriceRepository> {
+  return {
+    findActiveByPlanId: jest.fn(),
+    findAllByPlanId: jest.fn().mockResolvedValue([]),
+    findActiveByPlanIdAndInterval: jest.fn().mockResolvedValue(null),
+    findByPlanIdAndInterval: jest.fn(),
+    findByStripePriceId: jest.fn().mockResolvedValue(null),
+    create: jest.fn(),
+    updateById: jest.fn(),
+    deactivateById: jest.fn(),
+    ...overrides,
+  } as unknown as jest.Mocked<IBillingPlanPriceRepository>;
+}
+
+function buildBillingPlanPrice(
+  overrides: Partial<BillingPlanPriceEntity> = {},
+): BillingPlanPriceEntity {
+  return {
+    id: "plan-price-1",
+    planId: "plan-1",
+    interval: "monthly",
+    amountCents: 4990,
+    currency: "brl",
+    stripePriceId: "price_current",
+    lookupKey: "standard_monthly_lookup",
+    active: true,
+    lastSyncedAt: null,
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    updatedAt: new Date("2026-01-01T00:00:00Z"),
+    ...overrides,
+  };
+}
+
 function buildFakeBillingCouponRepo(
   overrides: Partial<jest.Mocked<IBillingCouponRepository>> = {},
 ): jest.Mocked<IBillingCouponRepository> {
@@ -176,6 +217,15 @@ function buildFakeTelemetry(
   } as unknown as jest.Mocked<TelemetryService>;
 }
 
+function buildFakeRevalidationClient(
+  overrides: Partial<jest.Mocked<FrontendRevalidationClient>> = {},
+): jest.Mocked<FrontendRevalidationClient> {
+  return {
+    revalidate: jest.fn().mockResolvedValue(undefined),
+    ...overrides,
+  } as unknown as jest.Mocked<FrontendRevalidationClient>;
+}
+
 function buildBillingPlan(
   overrides: Partial<BillingPlanEntity> = {},
 ): BillingPlanEntity {
@@ -223,7 +273,9 @@ describe("HandleStripeWebhookUseCase", () => {
       buildFakeInvoiceEventRepo(),
       buildFakeBillingPlanRepo(),
       buildFakeBillingCouponRepo(),
+      buildFakeBillingPlanPriceRepo(),
       buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
     );
 
     await expect(useCase.execute("raw", "sig")).rejects.toThrow(
@@ -249,7 +301,9 @@ describe("HandleStripeWebhookUseCase", () => {
       buildFakeInvoiceEventRepo(),
       buildFakeBillingPlanRepo(),
       buildFakeBillingCouponRepo(),
+      buildFakeBillingPlanPriceRepo(),
       buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
     );
 
     await useCase.execute("raw", "sig");
@@ -291,7 +345,9 @@ describe("HandleStripeWebhookUseCase", () => {
       buildFakeInvoiceEventRepo(),
       buildFakeBillingPlanRepo(),
       buildFakeBillingCouponRepo(),
+      buildFakeBillingPlanPriceRepo(),
       buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
     );
 
     await useCase.execute("raw", "sig");
@@ -336,7 +392,9 @@ describe("HandleStripeWebhookUseCase", () => {
       buildFakeInvoiceEventRepo(),
       buildFakeBillingPlanRepo(),
       buildFakeBillingCouponRepo(),
+      buildFakeBillingPlanPriceRepo(),
       buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
     );
 
     await useCase.execute("raw", "sig");
@@ -371,7 +429,9 @@ describe("HandleStripeWebhookUseCase", () => {
       buildFakeInvoiceEventRepo(),
       buildFakeBillingPlanRepo(),
       buildFakeBillingCouponRepo(),
+      buildFakeBillingPlanPriceRepo(),
       buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
     );
 
     await expect(useCase.execute("raw", "sig")).rejects.toThrow(
@@ -404,6 +464,7 @@ describe("HandleStripeWebhookUseCase", () => {
         findByStripeProductId: jest.fn().mockResolvedValue(plan),
       });
       const webhookEventRepo = buildFakeWebhookEventRepo();
+      const revalidationClient = buildFakeRevalidationClient();
 
       const useCase = new HandleStripeWebhookUseCase(
         paymentGateway,
@@ -412,7 +473,9 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeInvoiceEventRepo(),
         billingPlanRepo,
         buildFakeBillingCouponRepo(),
+        buildFakeBillingPlanPriceRepo(),
         buildFakeTelemetry(),
+        revalidationClient,
       );
 
       await useCase.execute("raw", "sig");
@@ -429,6 +492,7 @@ describe("HandleStripeWebhookUseCase", () => {
       expect(webhookEventRepo.markProcessed).toHaveBeenCalledWith(
         "evt_product_updated",
       );
+      expect(revalidationClient.revalidate).toHaveBeenCalledWith("/");
     });
 
     it("ignores a product that does not belong to our catalog", async () => {
@@ -449,6 +513,7 @@ describe("HandleStripeWebhookUseCase", () => {
       });
       const billingPlanRepo = buildFakeBillingPlanRepo();
       const webhookEventRepo = buildFakeWebhookEventRepo();
+      const revalidationClient = buildFakeRevalidationClient();
 
       const useCase = new HandleStripeWebhookUseCase(
         paymentGateway,
@@ -457,7 +522,9 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeInvoiceEventRepo(),
         billingPlanRepo,
         buildFakeBillingCouponRepo(),
+        buildFakeBillingPlanPriceRepo(),
         buildFakeTelemetry(),
+        revalidationClient,
       );
 
       await useCase.execute("raw", "sig");
@@ -466,17 +533,29 @@ describe("HandleStripeWebhookUseCase", () => {
       expect(webhookEventRepo.markProcessed).toHaveBeenCalledWith(
         "evt_product_updated_foreign",
       );
+      expect(revalidationClient.revalidate).not.toHaveBeenCalled();
     });
   });
 
   describe("price.created / price.updated", () => {
-    it("accepts a price that is active and whose lookup_key matches the plan's", async () => {
+    it("promotes a newly-created price to active when it matches the found row's lookup_key (rotation done outside the platform)", async () => {
       const event = buildEvent({
         id: "evt_price_created",
         type: "price.created",
         data: { object: { id: "price_new" } },
       });
-      const plan = buildBillingPlan({ stripePriceId: "price_old" });
+      const oldActiveRow = buildBillingPlanPrice({
+        id: "plan-price-old",
+        stripePriceId: "price_old",
+        lookupKey: "standard_monthly_lookup",
+        active: true,
+      });
+      const newRow = buildBillingPlanPrice({
+        id: "plan-price-new",
+        stripePriceId: null,
+        lookupKey: "standard_monthly_lookup",
+        active: false,
+      });
       const paymentGateway = buildFakePaymentGateway({
         constructWebhookEvent: jest.fn().mockReturnValue(event),
         retrievePrice: jest.fn().mockResolvedValue({
@@ -485,15 +564,29 @@ describe("HandleStripeWebhookUseCase", () => {
           unitAmount: 5990,
           currency: "brl",
           interval: "monthly",
-          lookupKey: plan.lookupKey,
+          lookupKey: "standard_monthly_lookup",
           active: true,
         }),
       });
-      const billingPlanRepo = buildFakeBillingPlanRepo({
+      const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo({
         findByStripePriceId: jest.fn().mockResolvedValue(null),
-        findByStripeProductId: jest.fn().mockResolvedValue(plan),
+        findAllByPlanId: jest
+          .fn()
+          .mockResolvedValue([oldActiveRow, newRow]),
+        findActiveByPlanIdAndInterval: jest
+          .fn()
+          .mockResolvedValue(oldActiveRow),
+        updateById: jest
+          .fn()
+          .mockResolvedValue({ ...newRow, active: true }),
+      });
+      const billingPlanRepo = buildFakeBillingPlanRepo({
+        findByStripeProductId: jest
+          .fn()
+          .mockResolvedValue(buildBillingPlan({ id: "plan-1" })),
       });
       const webhookEventRepo = buildFakeWebhookEventRepo();
+      const revalidationClient = buildFakeRevalidationClient();
 
       const useCase = new HandleStripeWebhookUseCase(
         paymentGateway,
@@ -502,34 +595,195 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeInvoiceEventRepo(),
         billingPlanRepo,
         buildFakeBillingCouponRepo(),
+        billingPlanPriceRepo,
         buildFakeTelemetry(),
+        revalidationClient,
       );
 
       await useCase.execute("raw", "sig");
 
-      expect(billingPlanRepo.updateByKey).toHaveBeenCalledWith(
-        plan.key,
+      expect(billingPlanPriceRepo.deactivateById).toHaveBeenCalledWith(
+        oldActiveRow.id,
+      );
+      expect(billingPlanPriceRepo.updateById).toHaveBeenCalledWith(
+        newRow.id,
         expect.objectContaining({
+          active: true,
           stripePriceId: "price_new",
           amountCents: 5990,
           currency: "brl",
-          interval: "monthly",
         }),
       );
+      expect(revalidationClient.revalidate).toHaveBeenCalledWith("/");
+    });
+
+    it("processes a price.created for a non-monthly interval (semiannual) correctly", async () => {
+      // Regression test for the HIGH finding: the old discriminator compared
+      // against `plan.lookupKey` (single value per plan), which only ever
+      // matched ONE interval — any other interval's price event was silently
+      // dropped. The fix resolves the row by (plan, interval) via
+      // `billing_plan_prices`, so a semiannual price event must be accepted
+      // just like monthly.
+      const event = buildEvent({
+        id: "evt_price_created_semiannual",
+        type: "price.created",
+        data: { object: { id: "price_semiannual_new" } },
+      });
+      const oldSemiannualRow = buildBillingPlanPrice({
+        id: "plan-price-semiannual-old",
+        interval: "semiannual",
+        stripePriceId: "price_semiannual_old",
+        lookupKey: "standard_semiannual_lookup",
+        active: true,
+      });
+      const newSemiannualRow = buildBillingPlanPrice({
+        id: "plan-price-semiannual-new",
+        interval: "semiannual",
+        stripePriceId: null,
+        lookupKey: "standard_semiannual_lookup",
+        active: false,
+      });
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest.fn().mockReturnValue(event),
+        retrievePrice: jest.fn().mockResolvedValue({
+          priceId: "price_semiannual_new",
+          productId: "prod_1",
+          unitAmount: 26940,
+          currency: "brl",
+          interval: "semiannual",
+          lookupKey: "standard_semiannual_lookup",
+          active: true,
+        }),
+      });
+      const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo({
+        findByStripePriceId: jest.fn().mockResolvedValue(null),
+        findAllByPlanId: jest
+          .fn()
+          .mockResolvedValue([oldSemiannualRow, newSemiannualRow]),
+        findActiveByPlanIdAndInterval: jest
+          .fn()
+          .mockResolvedValue(oldSemiannualRow),
+        updateById: jest
+          .fn()
+          .mockResolvedValue({ ...newSemiannualRow, active: true }),
+      });
+      const billingPlanRepo = buildFakeBillingPlanRepo({
+        findByStripeProductId: jest
+          .fn()
+          .mockResolvedValue(buildBillingPlan({ id: "plan-1" })),
+      });
+      const webhookEventRepo = buildFakeWebhookEventRepo();
+      const revalidationClient = buildFakeRevalidationClient();
+
+      const useCase = new HandleStripeWebhookUseCase(
+        paymentGateway,
+        buildFakeSubscriptionRepo(),
+        webhookEventRepo,
+        buildFakeInvoiceEventRepo(),
+        billingPlanRepo,
+        buildFakeBillingCouponRepo(),
+        billingPlanPriceRepo,
+        buildFakeTelemetry(),
+        revalidationClient,
+      );
+
+      await useCase.execute("raw", "sig");
+
+      expect(billingPlanPriceRepo.findActiveByPlanIdAndInterval).toHaveBeenCalledWith(
+        "plan-1",
+        "semiannual",
+      );
+      expect(billingPlanPriceRepo.deactivateById).toHaveBeenCalledWith(
+        oldSemiannualRow.id,
+      );
+      expect(billingPlanPriceRepo.updateById).toHaveBeenCalledWith(
+        newSemiannualRow.id,
+        expect.objectContaining({
+          active: true,
+          stripePriceId: "price_semiannual_new",
+          amountCents: 26940,
+        }),
+      );
+      expect(revalidationClient.revalidate).toHaveBeenCalledWith("/");
+    });
+
+    it("treats a metadata update on the already-active row as a plain drift correction, without touching active/lookupKey", async () => {
+      const event = buildEvent({
+        id: "evt_price_updated_metadata",
+        type: "price.updated",
+        data: { object: { id: "price_current" } },
+      });
+      const activeRow = buildBillingPlanPrice({
+        id: "plan-price-1",
+        stripePriceId: "price_current",
+        lookupKey: "standard_monthly_lookup",
+        active: true,
+        amountCents: 4990,
+        currency: "brl",
+      });
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest.fn().mockReturnValue(event),
+        retrievePrice: jest.fn().mockResolvedValue({
+          priceId: "price_current",
+          productId: "prod_1",
+          unitAmount: 5990,
+          currency: "brl",
+          interval: "monthly",
+          lookupKey: "standard_monthly_lookup",
+          active: true,
+        }),
+      });
+      const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo({
+        findByStripePriceId: jest.fn().mockResolvedValue(activeRow),
+        findActiveByPlanIdAndInterval: jest
+          .fn()
+          .mockResolvedValue(activeRow),
+      });
+      const webhookEventRepo = buildFakeWebhookEventRepo();
+      const revalidationClient = buildFakeRevalidationClient();
+
+      const useCase = new HandleStripeWebhookUseCase(
+        paymentGateway,
+        buildFakeSubscriptionRepo(),
+        webhookEventRepo,
+        buildFakeInvoiceEventRepo(),
+        buildFakeBillingPlanRepo(),
+        buildFakeBillingCouponRepo(),
+        billingPlanPriceRepo,
+        buildFakeTelemetry(),
+        revalidationClient,
+      );
+
+      await useCase.execute("raw", "sig");
+
+      expect(billingPlanPriceRepo.deactivateById).not.toHaveBeenCalled();
+      expect(billingPlanPriceRepo.updateById).toHaveBeenCalledWith(
+        activeRow.id,
+        expect.objectContaining({ amountCents: 5990 }),
+      );
+      expect(billingPlanPriceRepo.updateById).toHaveBeenCalledWith(
+        activeRow.id,
+        expect.not.objectContaining({ active: expect.anything() }),
+      );
+      expect(revalidationClient.revalidate).toHaveBeenCalledWith("/");
     });
 
     it("ignores the OLD/archived price during a rotation (active: false)", async () => {
       // Critical regression test: a platform-driven rotation archives the
       // old price (price.updated with active:false, lookup_key removed) at
       // roughly the same time it creates the new one. Accepting this event
-      // would overwrite billing_plans.stripe_price_id with the archived
-      // price, breaking checkout.
+      // would overwrite the plan_price row with the archived price, breaking
+      // checkout.
       const event = buildEvent({
         id: "evt_price_updated_old",
         type: "price.updated",
         data: { object: { id: "price_old" } },
       });
-      const plan = buildBillingPlan({ stripePriceId: "price_old" });
+      const row = buildBillingPlanPrice({
+        stripePriceId: "price_old",
+        lookupKey: null, // lookup_key was moved off this row by the rotation
+        active: false,
+      });
       const paymentGateway = buildFakePaymentGateway({
         constructWebhookEvent: jest.fn().mockReturnValue(event),
         retrievePrice: jest.fn().mockResolvedValue({
@@ -542,42 +796,46 @@ describe("HandleStripeWebhookUseCase", () => {
           active: false, // archived
         }),
       });
-      const billingPlanRepo = buildFakeBillingPlanRepo({
-        findByStripePriceId: jest.fn().mockResolvedValue(plan),
+      const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo({
+        findByStripePriceId: jest.fn().mockResolvedValue(row),
       });
       const webhookEventRepo = buildFakeWebhookEventRepo();
+      const revalidationClient = buildFakeRevalidationClient();
 
       const useCase = new HandleStripeWebhookUseCase(
         paymentGateway,
         buildFakeSubscriptionRepo(),
         webhookEventRepo,
         buildFakeInvoiceEventRepo(),
-        billingPlanRepo,
+        buildFakeBillingPlanRepo(),
         buildFakeBillingCouponRepo(),
+        billingPlanPriceRepo,
         buildFakeTelemetry(),
+        revalidationClient,
       );
 
       await useCase.execute("raw", "sig");
 
-      expect(billingPlanRepo.updateByKey).not.toHaveBeenCalled();
+      expect(billingPlanPriceRepo.updateById).not.toHaveBeenCalled();
+      expect(billingPlanPriceRepo.deactivateById).not.toHaveBeenCalled();
       expect(webhookEventRepo.markProcessed).toHaveBeenCalledWith(
         "evt_price_updated_old",
       );
+      expect(revalidationClient.revalidate).not.toHaveBeenCalled();
     });
 
-    it("does NOT match a price by a null lookup_key against a plan with a null lookup_key (null !== null for this purpose)", async () => {
-      // Regression test: BillingPlanEntity.lookupKey can legitimately be
-      // null (a plan row that hasn't been through catalog sync yet, per
-      // RotateBillingPlanPriceUseCase's own guard against null lookupKey).
-      // `remote.lookupKey === plan.lookupKey` must not treat two nulls as a
-      // match — otherwise ANY active price on the product would be accepted,
-      // defeating the whole rotation discriminator via a different path.
+    it("does NOT match a price by a null lookup_key against a row with a null lookup_key (null !== null for this purpose)", async () => {
+      // Regression test: BillingPlanPriceEntity.lookupKey can legitimately be
+      // null (a row deactivated by a rotation). `remote.lookupKey ===
+      // found.lookupKey` must not treat two nulls as a match — otherwise ANY
+      // active price on the product would be accepted, defeating the whole
+      // rotation discriminator via a different path.
       const event = buildEvent({
         id: "evt_price_null_lookup_key",
         type: "price.updated",
         data: { object: { id: "price_other" } },
       });
-      const plan = buildBillingPlan({
+      const row = buildBillingPlanPrice({
         stripePriceId: "price_current",
         lookupKey: null,
       });
@@ -593,9 +851,14 @@ describe("HandleStripeWebhookUseCase", () => {
           active: true,
         }),
       });
-      const billingPlanRepo = buildFakeBillingPlanRepo({
+      const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo({
         findByStripePriceId: jest.fn().mockResolvedValue(null),
-        findByStripeProductId: jest.fn().mockResolvedValue(plan),
+        findAllByPlanId: jest.fn().mockResolvedValue([row]),
+      });
+      const billingPlanRepo = buildFakeBillingPlanRepo({
+        findByStripeProductId: jest
+          .fn()
+          .mockResolvedValue(buildBillingPlan({ id: "plan-1" })),
       });
       const webhookEventRepo = buildFakeWebhookEventRepo();
 
@@ -606,12 +869,14 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeInvoiceEventRepo(),
         billingPlanRepo,
         buildFakeBillingCouponRepo(),
+        billingPlanPriceRepo,
         buildFakeTelemetry(),
+        buildFakeRevalidationClient(),
       );
 
       await useCase.execute("raw", "sig");
 
-      expect(billingPlanRepo.updateByKey).not.toHaveBeenCalled();
+      expect(billingPlanPriceRepo.updateById).not.toHaveBeenCalled();
     });
 
     it("ignores a price that does not belong to any local plan", async () => {
@@ -633,6 +898,7 @@ describe("HandleStripeWebhookUseCase", () => {
         }),
       });
       const billingPlanRepo = buildFakeBillingPlanRepo();
+      const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo();
       const webhookEventRepo = buildFakeWebhookEventRepo();
 
       const useCase = new HandleStripeWebhookUseCase(
@@ -642,12 +908,14 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeInvoiceEventRepo(),
         billingPlanRepo,
         buildFakeBillingCouponRepo(),
+        billingPlanPriceRepo,
         buildFakeTelemetry(),
+        buildFakeRevalidationClient(),
       );
 
       await useCase.execute("raw", "sig");
 
-      expect(billingPlanRepo.updateByKey).not.toHaveBeenCalled();
+      expect(billingPlanPriceRepo.updateById).not.toHaveBeenCalled();
     });
   });
 
@@ -667,6 +935,7 @@ describe("HandleStripeWebhookUseCase", () => {
       });
       const webhookEventRepo = buildFakeWebhookEventRepo();
       const telemetry = buildFakeTelemetry();
+      const revalidationClient = buildFakeRevalidationClient();
 
       const useCase = new HandleStripeWebhookUseCase(
         paymentGateway,
@@ -675,7 +944,9 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeInvoiceEventRepo(),
         billingPlanRepo,
         buildFakeBillingCouponRepo(),
+        buildFakeBillingPlanPriceRepo(),
         telemetry,
+        revalidationClient,
       );
 
       await useCase.execute("raw", "sig");
@@ -691,6 +962,11 @@ describe("HandleStripeWebhookUseCase", () => {
       expect(webhookEventRepo.markProcessed).toHaveBeenCalledWith(
         "evt_price_deleted",
       );
+      // Even though no row was persisted (deliberately, see doc-comment on
+      // handlePriceDeleted), the plan's active price disappearing upstream
+      // is user-visible on the pricing page — worth nudging the frontend
+      // cache regardless.
+      expect(revalidationClient.revalidate).toHaveBeenCalledWith("/");
     });
 
     it("ignores a deleted price that is not the plan's current price", async () => {
@@ -707,6 +983,7 @@ describe("HandleStripeWebhookUseCase", () => {
       });
       const webhookEventRepo = buildFakeWebhookEventRepo();
       const telemetry = buildFakeTelemetry();
+      const revalidationClient = buildFakeRevalidationClient();
 
       const useCase = new HandleStripeWebhookUseCase(
         paymentGateway,
@@ -715,7 +992,9 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeInvoiceEventRepo(),
         billingPlanRepo,
         buildFakeBillingCouponRepo(),
+        buildFakeBillingPlanPriceRepo(),
         telemetry,
+        revalidationClient,
       );
 
       await useCase.execute("raw", "sig");
@@ -724,6 +1003,7 @@ describe("HandleStripeWebhookUseCase", () => {
       expect(webhookEventRepo.markProcessed).toHaveBeenCalledWith(
         "evt_price_deleted_stale",
       );
+      expect(revalidationClient.revalidate).not.toHaveBeenCalled();
     });
   });
 
@@ -760,7 +1040,9 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeInvoiceEventRepo(),
         buildFakeBillingPlanRepo(),
         billingCouponRepo,
+        buildFakeBillingPlanPriceRepo(),
         buildFakeTelemetry(),
+        buildFakeRevalidationClient(),
       );
 
       await useCase.execute("raw", "sig");
@@ -811,7 +1093,9 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeInvoiceEventRepo(),
         buildFakeBillingPlanRepo(),
         billingCouponRepo,
+        buildFakeBillingPlanPriceRepo(),
         buildFakeTelemetry(),
+        buildFakeRevalidationClient(),
       );
 
       await useCase.execute("raw", "sig");
@@ -860,7 +1144,9 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeInvoiceEventRepo(),
         buildFakeBillingPlanRepo(),
         billingCouponRepo,
+        buildFakeBillingPlanPriceRepo(),
         telemetry,
+        buildFakeRevalidationClient(),
       );
 
       await useCase.execute("raw", "sig");
@@ -902,7 +1188,9 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeInvoiceEventRepo(),
         buildFakeBillingPlanRepo(),
         billingCouponRepo,
+        buildFakeBillingPlanPriceRepo(),
         buildFakeTelemetry(),
+        buildFakeRevalidationClient(),
       );
 
       await useCase.execute("raw", "sig");
@@ -936,7 +1224,9 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeInvoiceEventRepo(),
         buildFakeBillingPlanRepo(),
         billingCouponRepo,
+        buildFakeBillingPlanPriceRepo(),
         buildFakeTelemetry(),
+        buildFakeRevalidationClient(),
       );
 
       await useCase.execute("raw", "sig");
@@ -981,7 +1271,9 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeInvoiceEventRepo(),
         buildFakeBillingPlanRepo(),
         billingCouponRepo,
+        buildFakeBillingPlanPriceRepo(),
         buildFakeTelemetry(),
+        buildFakeRevalidationClient(),
       );
 
       await useCase.execute("raw", "sig");
@@ -1030,7 +1322,9 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeInvoiceEventRepo(),
         buildFakeBillingPlanRepo(),
         billingCouponRepo,
+        buildFakeBillingPlanPriceRepo(),
         buildFakeTelemetry(),
+        buildFakeRevalidationClient(),
       );
 
       await expect(useCase.execute("raw", "sig")).resolves.not.toThrow();

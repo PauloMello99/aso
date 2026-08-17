@@ -22,7 +22,7 @@ export class PlanCatalogService implements OnModuleInit {
     try {
       const report = await this.syncPlanCatalog.execute();
       const summary = report.results
-        .map((r) => `${r.key}=${r.status}`)
+        .map((r) => `${r.key}:${r.interval}=${r.status}`)
         .join(", ");
       this.logger.log(`Plan catalog sync complete: ${summary}`);
     } catch (error) {

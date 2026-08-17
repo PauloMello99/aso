@@ -91,6 +91,7 @@ function buildFakePaymentGateway(
     constructWebhookEvent: jest.fn(),
     getSubscription: jest.fn(),
     cancelSubscription: jest.fn(),
+    updateSubscriptionPrice: jest.fn(),
     createCoupon: jest.fn(),
     applyCouponToSubscription: jest.fn(),
     removeSubscriptionDiscount: jest.fn(),

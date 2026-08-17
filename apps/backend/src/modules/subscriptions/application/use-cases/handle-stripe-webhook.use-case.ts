@@ -15,12 +15,16 @@ import {
 import {
   IBillingPlanRepository,
   BILLING_PLAN_REPOSITORY,
-  BillingPlanEntity,
 } from "../../domain/billing-plan.repository.interface";
 import {
   IBillingCouponRepository,
   BILLING_COUPON_REPOSITORY,
 } from "../../domain/billing-coupon.repository.interface";
+import {
+  IBillingPlanPriceRepository,
+  BILLING_PLAN_PRICE_REPOSITORY,
+  BillingPlanPriceEntity,
+} from "../../domain/billing-plan-price.repository.interface";
 import {
   GatewayPrice,
   IPaymentGateway,
@@ -33,6 +37,7 @@ import type {
 import { shouldApplyStripeSync } from "../../domain/subscription-sync";
 import { WebhookSignatureInvalidException } from "../../domain/exceptions/webhook-signature-invalid.exception";
 import { TelemetryService } from "../../../../common/telemetry/telemetry.service";
+import { FrontendRevalidationClient } from "../../infrastructure/frontend-revalidation.client";
 
 function extractId(value: string | { id: string } | null | undefined): string | null {
   if (!value) return null;
@@ -60,7 +65,10 @@ export class HandleStripeWebhookUseCase {
     private readonly billingPlanRepo: IBillingPlanRepository,
     @Inject(BILLING_COUPON_REPOSITORY)
     private readonly billingCouponRepo: IBillingCouponRepository,
+    @Inject(BILLING_PLAN_PRICE_REPOSITORY)
+    private readonly billingPlanPriceRepo: IBillingPlanPriceRepository,
     private readonly telemetry: TelemetryService,
+    private readonly revalidationClient: FrontendRevalidationClient,
   ) {}
 
   async execute(rawBody: string | Buffer, signature: string): Promise<void> {
@@ -243,26 +251,32 @@ export class HandleStripeWebhookUseCase {
       active: remote.active,
       lastSyncedAt: new Date(),
     });
+
+    await this.revalidationClient.revalidate("/");
   }
 
   /**
    * Handles `price.created`/`price.updated`, mirroring the price back into
-   * `billing_plans` when it is the *currently active* price of a plan.
+   * the matching `billing_plan_prices` row — the per-(plan, interval) price
+   * table introduced by the billing_plans/billing_plan_prices split (each
+   * plan can have N active prices, one per billing interval).
    *
-   * CRITICAL: a price rotation performed by our own platform (see
-   * RotateBillingPlanPriceUseCase) creates a new Stripe price carrying the
-   * plan's `lookup_key` and archives the old one. Archiving an old price
-   * fires `price.updated` for it (now `active: false`, lookup_key removed),
-   * while creating the new one fires `price.created` for it. A naive handler
-   * that accepted any `price.created`/`price.updated` for a price belonging
-   * to the plan's product would race the two events and could end up
-   * persisting the OLD/ARCHIVED price id as `billing_plans.stripe_price_id`,
-   * silently breaking checkout (customers would be charged with an archived
-   * price). The discriminator below — `active === true` AND (the price's
-   * `lookup_key` matches the plan's `lookup_key` OR it is already the plan's
-   * current `stripePriceId`) — ensures only the price that is actually meant
-   * to be "the" price of the plan is accepted; the archived leftover from a
-   * rotation is ignored.
+   * CRITICAL: a price rotation (our own platform's
+   * `RotatePlanIntervalPriceUseCase`, or a manual rotation done directly in
+   * the Stripe Dashboard) creates a new Stripe price carrying the
+   * (plan, interval)'s `lookup_key` and archives the old one. Archiving the
+   * old price fires `price.updated` for it (now `active: false`, lookup_key
+   * removed), while creating the new one fires `price.created` for it. A
+   * naive handler that accepted any `price.created`/`price.updated` for a
+   * price belonging to the plan's product would race the two events and
+   * could end up persisting the OLD/ARCHIVED price as the active row for
+   * that interval, silently breaking checkout. The discriminator below —
+   * `active === true` AND (the price's `lookup_key` matches the FOUND ROW's
+   * `lookup_key`, not the plan's — a plan has one lookup_key per interval,
+   * never one overall — OR it is already that row's current
+   * `stripePriceId`) — ensures only the price that is actually meant to be
+   * "the" price of that (plan, interval) is accepted; the archived leftover
+   * from a rotation is ignored.
    */
   private async handlePriceUpserted(price: Stripe.Price): Promise<void> {
     const remote = await this.paymentGateway.retrievePrice(price.id);
@@ -273,34 +287,80 @@ export class HandleStripeWebhookUseCase {
       return;
     }
 
-    const plan = await this.findPlanForPrice(remote);
-    if (!plan) {
+    const found = await this.findBillingPlanPriceForRemotePrice(remote);
+    if (!found) {
       this.logger.debug(
         `price ${remote.priceId} does not belong to our catalog — ignoring`,
       );
       return;
     }
 
-    const isCurrentPlanPrice =
+    const isCurrentIntervalPrice =
       remote.active &&
-      ((plan.lookupKey !== null && remote.lookupKey === plan.lookupKey) ||
-        remote.priceId === plan.stripePriceId);
-    if (!isCurrentPlanPrice) {
+      ((found.lookupKey !== null && remote.lookupKey === found.lookupKey) ||
+        remote.priceId === found.stripePriceId);
+    if (!isCurrentIntervalPrice) {
       this.logger.debug(
-        `price ${remote.priceId} for plan "${plan.key}" is inactive or its lookup_key does not match the plan's — likely the archived price from a rotation, ignoring`,
+        `price ${remote.priceId} for plan_price ${found.id} (interval "${found.interval}") is inactive or its lookup_key does not match the row's — likely the archived price from a rotation, ignoring`,
       );
       return;
     }
 
-    await this.billingPlanRepo.updateByKey(plan.key, {
-      stripePriceId: remote.priceId,
-      amountCents: remote.unitAmount ?? plan.amountCents,
-      currency: remote.currency,
-      // Do not overwrite `interval` from a null remote value — keep the
-      // locally known interval in that case.
-      ...(remote.interval ? { interval: remote.interval } : {}),
-      lastSyncedAt: new Date(),
-    });
+    const activeRow = await this.billingPlanPriceRepo.findActiveByPlanIdAndInterval(
+      found.planId,
+      found.interval,
+    );
+
+    let wrote = false;
+
+    if (activeRow && activeRow.id === found.id) {
+      // The found row already IS the active row for this (plan, interval) —
+      // just a metadata update (e.g. amount/currency edited directly in the
+      // Stripe Dashboard). Never touch `active`/`lookupKey` here.
+      const patch: Partial<
+        Omit<BillingPlanPriceEntity, "id" | "planId" | "createdAt">
+      > = {};
+
+      if (remote.unitAmount !== null && remote.unitAmount !== found.amountCents) {
+        patch.amountCents = remote.unitAmount;
+      }
+      if (remote.currency !== found.currency) {
+        patch.currency = remote.currency;
+      }
+
+      if (Object.keys(patch).length > 0) {
+        await this.billingPlanPriceRepo.updateById(found.id, {
+          ...patch,
+          lastSyncedAt: new Date(),
+        });
+        wrote = true;
+      }
+    } else {
+      // The found row is a DIFFERENT price than the one currently active for
+      // this (plan, interval) — a price that was just created/promoted in
+      // Stripe outside our own rotation flow (e.g. rotated directly in the
+      // Dashboard). Deactivate the previous active row FIRST (same ordering
+      // rule as `RotatePlanIntervalPriceUseCase`/`ReconcilePlanCatalogUseCase`:
+      // the partial unique indexes on `billing_plan_prices` are scoped to
+      // active rows only), then promote the found row.
+      if (activeRow && activeRow.id !== found.id) {
+        await this.billingPlanPriceRepo.deactivateById(activeRow.id);
+      }
+
+      await this.billingPlanPriceRepo.updateById(found.id, {
+        active: true,
+        stripePriceId: remote.priceId,
+        lookupKey: remote.lookupKey ?? found.lookupKey,
+        amountCents: remote.unitAmount ?? found.amountCents,
+        currency: remote.currency,
+        lastSyncedAt: new Date(),
+      });
+      wrote = true;
+    }
+
+    if (wrote) {
+      await this.revalidationClient.revalidate("/");
+    }
   }
 
   /**
@@ -329,6 +389,13 @@ export class HandleStripeWebhookUseCase {
         stripePriceId: price.id,
       },
     );
+
+    // No local row was actually persisted here (deliberately — see the
+    // doc-comment above), but the catalog's Stripe-side state changed in a
+    // way that is user-visible on the pricing page (the plan's active price
+    // was archived/removed upstream), so the frontend cache is still worth
+    // nudging.
+    await this.revalidationClient.revalidate("/");
   }
 
   /**
@@ -446,21 +513,45 @@ export class HandleStripeWebhookUseCase {
   }
 
   /**
-   * Locates the local plan row for an incoming Stripe price event. Tries the
-   * price id first (the common case), then falls back to the price's
-   * product id — this covers a newly-created price during a rotation, which
-   * does not yet match `billing_plans.stripe_price_id` but does belong to a
-   * tracked product.
+   * Locates the local `billing_plan_prices` row for an incoming Stripe price
+   * event. Tries the price id first (the common case — the row already
+   * carries this exact `stripePriceId`, whether active or a previously
+   * adopted/archived one), then falls back to matching by `lookup_key`
+   * within the price's product's plan — this covers a newly-created price
+   * during a rotation, which does not yet match any row's
+   * `stripePriceId` but shares the (plan, interval)'s `lookup_key`.
    */
-  private async findPlanForPrice(
+  private async findBillingPlanPriceForRemotePrice(
     price: GatewayPrice,
-  ): Promise<BillingPlanEntity | null> {
-    const byPriceId = await this.billingPlanRepo.findByStripePriceId(
+  ): Promise<BillingPlanPriceEntity | null> {
+    const byPriceId = await this.billingPlanPriceRepo.findByStripePriceId(
       price.priceId,
     );
     if (byPriceId) return byPriceId;
 
-    return this.billingPlanRepo.findByStripeProductId(price.productId);
+    if (!price.lookupKey) return null;
+
+    const plan = await this.billingPlanRepo.findByStripeProductId(
+      price.productId,
+    );
+    if (!plan) return null;
+
+    const planPrices = await this.billingPlanPriceRepo.findAllByPlanId(
+      plan.id,
+    );
+    const matches = planPrices.filter(
+      (planPrice) =>
+        planPrice.lookupKey !== null && planPrice.lookupKey === price.lookupKey,
+    );
+    if (matches.length === 0) return null;
+    if (matches.length === 1) return matches[0]!;
+    // Ambiguous: more than one local row currently holds this lookup_key —
+    // can happen mid-rotation, between the row being promoted (still
+    // stripePriceId: null, not yet linked to a real Stripe price) and the
+    // still-active old row (deactivateById hasn't run yet). Prefer the
+    // not-yet-linked row as the target of this event; it's the one waiting
+    // to be filled in.
+    return matches.find((planPrice) => planPrice.stripePriceId === null) ?? matches[0]!;
   }
 
   private async syncNormalizedSubscription(

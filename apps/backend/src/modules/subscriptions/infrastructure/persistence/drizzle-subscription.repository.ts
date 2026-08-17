@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, eq, isNotNull, lt } from "drizzle-orm";
+import { and, eq, isNotNull, lt, ne, or } from "drizzle-orm";
 import {
   DRIZZLE_ADMIN,
   type DrizzleDB,
@@ -130,6 +130,26 @@ export class DrizzleSubscriptionRepository implements ISubscriptionRepository {
         );
         return deadline < now;
       });
+  }
+
+  async findMigratableByStripePriceId(
+    priceId: string,
+  ): Promise<SubscriptionEntity[]> {
+    const rows = await this.db
+      .select()
+      .from(schema.subscriptions)
+      .where(
+        and(
+          eq(schema.subscriptions.stripePriceId, priceId),
+          isNotNull(schema.subscriptions.stripeSubscriptionId),
+          ne(schema.subscriptions.type, "custom"),
+          or(
+            eq(schema.subscriptions.status, "active"),
+            eq(schema.subscriptions.status, "trialing"),
+          ),
+        ),
+      );
+    return rows.map(toDomain);
   }
 
   async create(data: CreateSubscriptionData): Promise<SubscriptionEntity> {

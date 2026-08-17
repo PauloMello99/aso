@@ -9,6 +9,7 @@ import { Footer } from "./footer"
 import { Seo } from "@/shared/components/seo"
 import { SITE_DEFAULT_DESCRIPTION, SITE_NAME, SITE_URL } from "@/shared/config/site"
 import { LEGAL_ENTITY } from "@/features/legal"
+import type { PublicBillingPlan } from "@/features/billing/types"
 
 const JSON_LD = {
   "@context": "https://schema.org",
@@ -39,7 +40,11 @@ const JSON_LD = {
   ],
 }
 
-export function LandingPage() {
+interface LandingPageProps {
+  plans: PublicBillingPlan[]
+}
+
+export function LandingPage({ plans }: LandingPageProps) {
   return (
     <div className="dark min-h-screen bg-background text-foreground antialiased">
       <Seo
@@ -54,7 +59,7 @@ export function LandingPage() {
         <FeaturesSection />
         <Integrations />
         <About />
-        <Pricing />
+        <Pricing plans={plans} />
       </main>
       <Footer />
     </div>

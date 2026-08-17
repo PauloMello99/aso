@@ -321,7 +321,7 @@ transactions (agnóstica, append-only)
 - Transações nunca são deletadas ou atualizadas (append-only por design)
 - Um serviço pode não ter transação ainda (pagamento pendente → `payment_transaction_id = null`)
 
-### Billing / assinatura (Stripe) — implementado (ADR-0016 M11, ADR-0023)
+### Billing / assinatura (Stripe) — implementado (ADR-0016 M11, ADR-0023, ADR-0024)
 
 Produto: "assessoria". Quatro configurações possíveis (gerenciadas pelo super_admin):
 1. **Gratuita** — para a própria Ink House
@@ -336,11 +336,18 @@ Produto: "assessoria". Quatro configurações possíveis (gerenciadas pelo super
 
 - Grace period configurável após inadimplência
 - Estrutura de produtos Stripe desacoplada por produto
+- **Modelo multi-preço (ADR-0024):** `billing_plans` guarda só dados de produto (nome,
+  descrição, `stripeProductId`); preço vive em `billing_plan_prices`, N linhas por plano — uma
+  por intervalo de cobrança (`monthly`/`semiannual`/`annual`), cada uma independentemente
+  editável/habilitável. Dois índices únicos **parciais** (`WHERE active`) — `(plan_id,
+  interval)` e `lookup_key` — garantem só uma linha vigente por par; preços antigos nunca são
+  apagados, só desativados (`deactivateById`, que limpa `active` e `lookup_key` juntos).
 - **Nenhum use-case deve tentar `PATCH` de valor num objeto Stripe imutável** (ADR-0023):
   `unit_amount` de um `Price` existente, ou `percent_off`/`amount_off`/`duration` de um
   `Coupon` existente. "Editar preço" de um plano é sempre: criar novo `Price` com
   `transfer_lookup_key: true` + arquivar o antigo numa chamada separada
-  (`RotateBillingPlanPriceUseCase`). "Editar cupom" só é possível via **Promotion Code**
+  (`RotatePlanIntervalPriceUseCase`, por (plano, intervalo) — migra automaticamente os
+  assinantes elegíveis para o novo Price). "Editar cupom" só é possível via **Promotion Code**
   (`active`/`metadata`), nunca no `Coupon` em si — Coupon e Promotion Code são sempre criados
   juntos, 1:1 (`billing_coupons.stripe_coupon_id`/`stripe_promotion_code_id` `UNIQUE`).
 

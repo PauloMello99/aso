@@ -190,6 +190,15 @@ export interface IPaymentGateway {
 
   cancelSubscription(stripeSubscriptionId: string): Promise<void>;
 
+  updateSubscriptionPrice(
+    stripeSubscriptionId: string,
+    newPriceId: string,
+    options: {
+      prorationBehavior: "create_prorations" | "none";
+      idempotencyKey: string;
+    },
+  ): Promise<NormalizedSubscription>;
+
   createCoupon(params: CreateCouponParams): Promise<{ couponId: string }>;
 
   applyCouponToSubscription(

@@ -92,6 +92,46 @@ function toGatewayPrice(price: Stripe.Price): GatewayPrice {
   };
 }
 
+function toNormalizedSubscription(
+  subscription: Stripe.Subscription,
+): NormalizedSubscription {
+  const item = subscription.items.data[0];
+  const price = item?.price;
+  const recurring = price?.recurring;
+
+  const billingInterval: BillingInterval | null = recurring
+    ? mapIntervalFromStripe(recurring.interval, recurring.interval_count)
+    : null;
+
+  const stripeCustomerId =
+    typeof subscription.customer === "string"
+      ? subscription.customer
+      : subscription.customer.id;
+
+  // `discounts` on the subscription/item are IDs unless `discounts` is
+  // expanded, which we deliberately don't do here: coupon application is
+  // tracked locally via applyCouponToSubscription/removeSubscriptionDiscount,
+  // so we don't need to resolve them from a fresh retrieve.
+  const status: SubscriptionStatus = mapStripeStatus(subscription.status);
+
+  return {
+    stripeSubscriptionId: subscription.id,
+    stripeCustomerId,
+    status,
+    billingInterval,
+    priceCents: price?.unit_amount ?? null,
+    stripePriceId: price?.id ?? null,
+    stripeCouponId: null,
+    discountPercent: null,
+    trialEndsAt: fromUnixSeconds(subscription.trial_end),
+    currentPeriodStart: item
+      ? fromUnixSeconds(item.current_period_start)
+      : null,
+    currentPeriodEnd: item ? fromUnixSeconds(item.current_period_end) : null,
+    canceledAt: fromUnixSeconds(subscription.canceled_at),
+  };
+}
+
 function isResourceMissing(error: unknown): boolean {
   return (
     typeof error === "object" &&
@@ -282,41 +322,7 @@ export class StripePaymentGateway implements IPaymentGateway {
       throw error;
     }
 
-    const item = subscription.items.data[0];
-    const price = item?.price;
-    const recurring = price?.recurring;
-
-    const billingInterval: BillingInterval | null = recurring
-      ? mapIntervalFromStripe(recurring.interval, recurring.interval_count)
-      : null;
-
-    const stripeCustomerId =
-      typeof subscription.customer === "string"
-        ? subscription.customer
-        : subscription.customer.id;
-
-    // `discounts` on the subscription/item are IDs unless `discounts` is
-    // expanded, which we deliberately don't do here: coupon application is
-    // tracked locally via applyCouponToSubscription/removeSubscriptionDiscount,
-    // so we don't need to resolve them from a fresh retrieve.
-    const status: SubscriptionStatus = mapStripeStatus(subscription.status);
-
-    return {
-      stripeSubscriptionId: subscription.id,
-      stripeCustomerId,
-      status,
-      billingInterval,
-      priceCents: price?.unit_amount ?? null,
-      stripePriceId: price?.id ?? null,
-      stripeCouponId: null,
-      discountPercent: null,
-      trialEndsAt: fromUnixSeconds(subscription.trial_end),
-      currentPeriodStart: item
-        ? fromUnixSeconds(item.current_period_start)
-        : null,
-      currentPeriodEnd: item ? fromUnixSeconds(item.current_period_end) : null,
-      canceledAt: fromUnixSeconds(subscription.canceled_at),
-    };
+    return toNormalizedSubscription(subscription);
   }
 
   async cancelSubscription(stripeSubscriptionId: string): Promise<void> {
@@ -327,6 +333,45 @@ export class StripePaymentGateway implements IPaymentGateway {
       if (isResourceMissing(error)) return;
       throw error;
     }
+  }
+
+  async updateSubscriptionPrice(
+    stripeSubscriptionId: string,
+    newPriceId: string,
+    options: {
+      prorationBehavior: "create_prorations" | "none";
+      idempotencyKey: string;
+    },
+  ): Promise<NormalizedSubscription> {
+    const subscription = await this.stripe.subscriptions.retrieve(
+      stripeSubscriptionId,
+      { expand: ["items.data.price"] },
+    );
+
+    if (subscription.items.data.length > 1) {
+      throw new Error(
+        `Subscription ${stripeSubscriptionId} has multiple items; price migration is only supported for single-item subscriptions`,
+      );
+    }
+
+    const item = subscription.items.data[0];
+    if (!item) {
+      throw new Error(
+        `Subscription ${stripeSubscriptionId} has no items; cannot migrate price`,
+      );
+    }
+
+    const updated = await this.stripe.subscriptions.update(
+      stripeSubscriptionId,
+      {
+        items: [{ id: item.id, price: newPriceId }],
+        proration_behavior: options.prorationBehavior,
+        expand: ["items.data.price"],
+      },
+      { idempotencyKey: options.idempotencyKey },
+    );
+
+    return toNormalizedSubscription(updated);
   }
 
   async createCoupon(
