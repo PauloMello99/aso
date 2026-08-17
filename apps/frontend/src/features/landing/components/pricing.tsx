@@ -24,12 +24,12 @@ export function Pricing({ plans }: PricingProps) {
           <div className="mb-4 flex justify-center">
             <Badge
               variant="outline"
-              className="border-foreground/10 text-foreground/60"
+              className="border-foreground/10 font-semibold text-foreground/60"
             >
               Preços
             </Badge>
           </div>
-          <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl">
+          <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             Simples e transparente
           </h2>
           <p className="mx-auto mt-4 max-w-lg text-foreground/50">

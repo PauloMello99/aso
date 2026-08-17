@@ -302,7 +302,7 @@ export function AccessSection() {
             <MailCheck className="mt-0.5 h-5 w-5 shrink-0 text-success" />
             <div className="text-sm text-foreground/70">
               Enviamos um link para <strong>{user?.email}</strong>. Abra-o para
-              definir uma nova senha — a sessão é recuperada com segurança pelo
+              definir uma nova senha, a sessão é recuperada com segurança pelo
               próprio link do e-mail.
             </div>
           </div>
