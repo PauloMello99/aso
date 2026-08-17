@@ -20,10 +20,14 @@ function toDomain(row: BillingPlanRow): BillingPlanEntity {
     stripeProductId: row.stripeProductId ?? null,
     stripePriceId: row.stripePriceId ?? null,
     name: row.name,
+    description: row.description ?? null,
     amountCents: row.amountCents,
     currency: row.currency,
     interval: row.interval,
     active: row.active,
+    metadata: row.metadata ?? {},
+    lookupKey: row.lookupKey ?? null,
+    productKey: row.productKey ?? null,
     lastSyncedAt: row.lastSyncedAt ?? null,
   };
 }
@@ -46,6 +50,28 @@ export class DrizzleBillingPlanRepository implements IBillingPlanRepository {
     return rows.map(toDomain);
   }
 
+  async findByStripeProductId(
+    productId: string,
+  ): Promise<BillingPlanEntity | null> {
+    const [row] = await this.db
+      .select()
+      .from(schema.billingPlans)
+      .where(eq(schema.billingPlans.stripeProductId, productId))
+      .limit(1);
+    return row ? toDomain(row) : null;
+  }
+
+  async findByStripePriceId(
+    priceId: string,
+  ): Promise<BillingPlanEntity | null> {
+    const [row] = await this.db
+      .select()
+      .from(schema.billingPlans)
+      .where(eq(schema.billingPlans.stripePriceId, priceId))
+      .limit(1);
+    return row ? toDomain(row) : null;
+  }
+
   async upsert(data: UpsertBillingPlanData): Promise<BillingPlanEntity> {
     const [row] = await this.db
       .insert(schema.billingPlans)
@@ -54,10 +80,14 @@ export class DrizzleBillingPlanRepository implements IBillingPlanRepository {
         stripeProductId: data.stripeProductId ?? null,
         stripePriceId: data.stripePriceId ?? null,
         name: data.name,
+        description: data.description ?? null,
         amountCents: data.amountCents,
         currency: data.currency,
         interval: data.interval,
         ...(data.active !== undefined && { active: data.active }),
+        ...(data.metadata !== undefined && { metadata: data.metadata }),
+        lookupKey: data.lookupKey ?? null,
+        productKey: data.productKey ?? null,
         lastSyncedAt: data.lastSyncedAt ?? null,
       })
       .onConflictDoUpdate({
@@ -70,10 +100,52 @@ export class DrizzleBillingPlanRepository implements IBillingPlanRepository {
           currency: data.currency,
           interval: data.interval,
           ...(data.active !== undefined && { active: data.active }),
+          ...(data.description !== undefined && {
+            description: data.description,
+          }),
+          ...(data.metadata !== undefined && { metadata: data.metadata }),
+          ...(data.lookupKey !== undefined && { lookupKey: data.lookupKey }),
+          ...(data.productKey !== undefined && { productKey: data.productKey }),
           lastSyncedAt: data.lastSyncedAt ?? null,
           updatedAt: new Date(),
         },
       })
+      .returning();
+    return toDomain(row!);
+  }
+
+  async updateByKey(
+    key: string,
+    data: Partial<UpsertBillingPlanData>,
+  ): Promise<BillingPlanEntity> {
+    const [row] = await this.db
+      .update(schema.billingPlans)
+      .set({
+        ...(data.stripeProductId !== undefined && {
+          stripeProductId: data.stripeProductId,
+        }),
+        ...(data.stripePriceId !== undefined && {
+          stripePriceId: data.stripePriceId,
+        }),
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.description !== undefined && {
+          description: data.description,
+        }),
+        ...(data.amountCents !== undefined && {
+          amountCents: data.amountCents,
+        }),
+        ...(data.currency !== undefined && { currency: data.currency }),
+        ...(data.interval !== undefined && { interval: data.interval }),
+        ...(data.active !== undefined && { active: data.active }),
+        ...(data.metadata !== undefined && { metadata: data.metadata }),
+        ...(data.lookupKey !== undefined && { lookupKey: data.lookupKey }),
+        ...(data.productKey !== undefined && { productKey: data.productKey }),
+        ...(data.lastSyncedAt !== undefined && {
+          lastSyncedAt: data.lastSyncedAt,
+        }),
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.billingPlans.key, key))
       .returning();
     return toDomain(row!);
   }

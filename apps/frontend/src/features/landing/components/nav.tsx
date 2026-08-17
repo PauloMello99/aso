@@ -9,21 +9,31 @@ import { cn } from "@/shared/lib/utils"
 
 const NAV_LINKS = [
   { label: "Recursos", href: "#recursos" },
-  { label: "Integrações", href: "#integracoes" },
+  { label: "Segurança", href: "#seguranca" },
   { label: "Preços", href: "#precos" },
-  { label: "Sobre", href: "#sobre" },
+  { label: "Perguntas", href: "#faq" },
 ]
 
 export function Nav() {
   const [mobileOpen, setMobileOpen] = React.useState(false)
+  const [scrolled, setScrolled] = React.useState(false)
 
   const closeMenu = () => setMobileOpen(false)
+
+  React.useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 80)
+    handleScroll()
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
 
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 border-b border-foreground/5 bg-background/90 backdrop-blur-md",
-        "transition-all",
+        "sticky top-0 z-50 transition-all duration-300",
+        scrolled
+          ? "border-b border-foreground/5 bg-background/90 backdrop-blur-md"
+          : "border-b border-transparent bg-transparent",
       )}
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
@@ -58,7 +68,7 @@ export function Nav() {
             asChild
             className="hidden bg-primary text-primary-foreground hover:bg-primary/90 sm:flex"
           >
-            <Link href="/auth/signup">Começar grátis</Link>
+            <Link href="/auth/signup">Testar 60 dias grátis</Link>
           </Button>
 
           <button
@@ -100,7 +110,7 @@ export function Nav() {
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={closeMenu}
             >
-              <Link href="/auth/signup">Começar grátis</Link>
+              <Link href="/auth/signup">Testar 60 dias grátis</Link>
             </Button>
           </div>
         </div>

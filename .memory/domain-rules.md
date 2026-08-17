@@ -75,6 +75,7 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
 21. **Conteúdo centralizado**: o padding e a centralização vivem nos **layouts** (`OrgLayout`/`DashboardLayout` envolvem `children` em `<div className="mx-auto w-full max-w-7xl p-4 sm:p-6">`). Páginas **não** repetem `p-4 sm:p-6` no root (evita padding duplo) — usam só `space-y-*`.
 22. **Scroll de container alto (gotcha CSS)**: `overflow-x-auto` força `overflow-y:auto` no mesmo elemento (spec) → criava um scroll interno no calendário (week-view). Para a página inteira rolar, adicionar **`overflow-y-hidden`** ao container com `overflow-x-auto` quando a altura é o próprio conteúdo. (Corrigido 2026-06-20.)
 23. **DatePicker — dropdown de mês/ano (2026-06-20)**: o `<select>` nativo do `react-day-picker` v10 (`captionLayout="dropdown"`) abre um popup do SO (branco/azul) **não tematizável por CSS**. Override em `calendar.tsx` via **`components.Dropdown` = `CalendarDropdown`** que usa o nosso `Select` (Radix). O RDP v10 lê **`Number(e.target.value)`** no `onChange`, então o adapter sintetiza `onChange({ target: { value } })` a partir do `onValueChange` do Select (padrão shadcn). Não voltar ao select nativo.
+24. **Superfícies públicas só afirmam o que o produto faz (2026-08-16)**: landing, SEO, e-mails de marketing e páginas legais **não podem** conter métrica inventada, logo de integração inexistente ou recurso não implementado sem rótulo explícito de "em breve". Auditoria de 2026-08-16 encontrou na landing 4 métricas fabricadas (`about.tsx`), 5 integrações que existiam **apenas** naquele arquivo (WhatsApp/Instagram/Notion/Zapier/Pix), "lembretes por WhatsApp" (notificação real é in-app + e-mail) e "Começar grátis" para um trial que **exige cartão** (`paymentMethodCollection: "always"`, 60 dias). Ao escrever copy nova: rastrear cada afirmação até um módulo, ADR ou linha de código; número agregado vive em **uma** constante (`features/landing/constants/`), nunca inline. Posicionamento é **vertical de tatuagem explícito**, não "estúdios criativos" — anamnese, consumo de material por sessão e taxa de cartão são o que diferencia de CRM horizontal. Spec completa em `docs/product/landing-page-spec.md`.
 
 ---
 
@@ -321,16 +322,49 @@ transactions (agnóstica, append-only)
 - Transações nunca são deletadas ou atualizadas (append-only por design)
 - Um serviço pode não ter transação ainda (pagamento pendente → `payment_transaction_id = null`)
 
-### Billing / assinatura (Stripe)
+### Billing / assinatura (Stripe) — implementado (ADR-0016 M11, ADR-0023, ADR-0024)
 
 Produto: "assessoria". Quatro configurações possíveis (gerenciadas pelo super_admin):
 1. **Gratuita** — para a própria Ink House
-2. **Trial** — 1 mês de teste
-3. **Preço cheio** — mensal R$400 / semestral R$2.000 / anual R$4.200
-4. **Valor alterado** — acordado por cliente
+2. **Trial** — via Checkout com cartão obrigatório (`trial_period_days` nativo do Stripe)
+3. **Preço cheio** — configurado em `billing_plans` (banco), não hardcoded
+4. **Valor alterado** — comp/desconto local via `EntitlementsService` (ver ADR-0016)
+
+> ⚠️ Os valores R$400/R$2.000/R$4.200 mencionados aqui em versões anteriores desta nota eram
+> a estimativa **pré-implementação**; hoje **`billing_plans` (banco) é a fonte de verdade** do
+> preço vigente de cada plano — não hardcoded em `PLAN_CATALOG` (que virou seed inicial). Ver
+> ADR-0023 para o catálogo administrado por super_admin (planos + cupons).
 
 - Grace period configurável após inadimplência
 - Estrutura de produtos Stripe desacoplada por produto
+- **Modelo multi-preço (ADR-0024):** `billing_plans` guarda só dados de produto (nome,
+  descrição, `stripeProductId`); preço vive em `billing_plan_prices`, N linhas por plano — uma
+  por intervalo de cobrança (`monthly`/`semiannual`/`annual`), cada uma independentemente
+  editável/habilitável. Dois índices únicos **parciais** (`WHERE active`) — `(plan_id,
+  interval)` e `lookup_key` — garantem só uma linha vigente por par; preços antigos nunca são
+  apagados, só desativados (`deactivateById`, que limpa `active` e `lookup_key` juntos).
+- **Nenhum use-case deve tentar `PATCH` de valor num objeto Stripe imutável** (ADR-0023):
+  `unit_amount` de um `Price` existente, ou `percent_off`/`amount_off`/`duration` de um
+  `Coupon` existente. "Editar preço" de um plano é sempre: criar novo `Price` com
+  `transfer_lookup_key: true` + arquivar o antigo numa chamada separada
+  (`RotatePlanIntervalPriceUseCase`, por (plano, intervalo) — migra automaticamente os
+  assinantes elegíveis para o novo Price). "Editar cupom" só é possível via **Promotion Code**
+  (`active`/`metadata`), nunca no `Coupon` em si — Coupon e Promotion Code são sempre criados
+  juntos, 1:1 (`billing_coupons.stripe_coupon_id`/`stripe_promotion_code_id` `UNIQUE`).
+- **`trial_consumed` só transita `false→true` a partir do sync do Stripe, nunca no fluxo de
+  criação de checkout (2026-08-17, ADR-0016 addendum).** `CreateCheckoutSessionUseCase` não
+  escreve essa coluna — a decisão é do predicado `shouldMarkTrialConsumed`
+  (`modules/subscriptions/domain/subscription-sync.ts`), chamado só em dois lugares:
+  `HandleStripeWebhookUseCase::syncNormalizedSubscription` (webhook `checkout.session.completed`/
+  `customer.subscription.updated`) e `ReconcileSubscriptionsUseCase` (cron, rede de segurança
+  para webhook perdido, mas só alcança orgs já com `stripe_customer_id` **e**
+  `stripe_subscription_id` preenchidos). Condição: `trial_end` do Stripe vem preenchido —
+  nunca marcado por criar a checkout session, e **nunca resetado em runtime** (a migration
+  `0050_subscriptions_restore_unstarted_trials`, que reverteu `trial_consumed` para orgs
+  atingidas pelo bug histórico, é reparo de dado one-off, não um caminho de código; não
+  reintroduzir lógica de "desmarcar" trial fora de migration explícita). Bug histórico:
+  marcar na criação da checkout session queimava o trial de 60 dias em qualquer checkout
+  abandonado — corrigido nesta data.
 
 ### Gaps de reunião aplicados (2026-06-20) — migrations 0011–0013
 

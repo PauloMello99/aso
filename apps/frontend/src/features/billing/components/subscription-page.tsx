@@ -1,6 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
+import { useState } from "react"
 import { useRouter } from "next/router"
 import {
   CreditCard,
@@ -12,9 +13,11 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
+import { cn } from "@/shared/lib/utils"
 import { useCurrentOrg } from "@/features/dashboard/components/org-context"
 import { formatBRL } from "@/features/cashier/lib/money"
 import { useSubscription } from "../hooks/use-subscription"
+import { usePublicBillingPlans } from "../hooks/use-public-billing-plans"
 import {
   useCreateCheckoutSession,
   useCreatePortalSession,
@@ -26,6 +29,19 @@ const BILLING_INTERVAL_LABELS: Record<BillingInterval, string> = {
   semiannual: "semestral",
   annual: "anual",
 }
+
+const INTERVAL_OPTIONS: { value: BillingInterval; label: string }[] = [
+  { value: "monthly", label: "Mensal" },
+  { value: "semiannual", label: "Semestral" },
+  { value: "annual", label: "Anual" },
+]
+
+// O checkout (POST /orgs/:orgId/subscription/checkout) sempre resolve o
+// plano fixo DEFAULT_PLAN_KEY = "standard" no backend (não recebe plano,
+// só intervalo) — então só os intervalos com preço ativo desse plano
+// específico são válidos para o seletor, não a união de todos os planos
+// públicos retornados.
+const CHECKOUT_PLAN_KEY = "standard"
 
 function formatDate(iso: string | null): string | null {
   if (!iso) return null
@@ -211,6 +227,55 @@ function PastDueSection({
   )
 }
 
+function IntervalSelector({
+  value,
+  onChange,
+  disabled,
+  availableIntervals,
+}: {
+  value: BillingInterval
+  onChange: (interval: BillingInterval) => void
+  disabled: boolean
+  availableIntervals: BillingInterval[]
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Intervalo de cobrança"
+      className="grid grid-cols-3 gap-2"
+    >
+      {INTERVAL_OPTIONS.map(({ value: optionValue, label }) => {
+        const available = availableIntervals.includes(optionValue)
+        const active = value === optionValue
+        return (
+          <button
+            key={optionValue}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            disabled={disabled || !available}
+            onClick={() => onChange(optionValue)}
+            className={cn(
+              "flex flex-col items-center gap-0.5 rounded-lg border p-2.5 text-xs transition-colors",
+              !available && "cursor-not-allowed opacity-50",
+              active && available
+                ? "border-primary/60 bg-primary/10 text-foreground"
+                : "border-border text-muted-foreground hover:enabled:bg-foreground/[0.03] hover:enabled:text-foreground",
+            )}
+          >
+            <span>{label}</span>
+            {!available && (
+              <span className="text-[10px] text-muted-foreground/70">
+                em breve
+              </span>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function LockedSection({
   isOwner,
   orgId,
@@ -218,8 +283,28 @@ function LockedSection({
   isOwner: boolean
   orgId: string
 }) {
+  const [selectedInterval, setSelectedInterval] =
+    useState<BillingInterval>("monthly")
   const { createCheckoutSession, isPending, error } =
     useCreateCheckoutSession(orgId)
+  const { plans } = usePublicBillingPlans()
+
+  // Sem plano público retornado (endpoint atrás de kill-switch
+  // PUBLIC_PRICING_ENABLED, geralmente desligado, ou plano "standard"
+  // ausente da lista), o único intervalo garantido é "monthly".
+  const checkoutPlan = plans.find((plan) => plan.key === CHECKOUT_PLAN_KEY)
+  const availableIntervals: BillingInterval[] = checkoutPlan
+    ? checkoutPlan.prices.map((p) => p.interval)
+    : ["monthly"]
+
+  // Deriva o intervalo efetivo em vez de confiar cegamente no estado local:
+  // se o intervalo selecionado deixar de estar disponível (ex.: dado
+  // assíncrono chegou depois da seleção inicial "monthly"), cai para o
+  // primeiro disponível — nunca envia ao checkout um intervalo sem preço.
+  const effectiveInterval: BillingInterval =
+    availableIntervals.find((interval) => interval === selectedInterval) ??
+    availableIntervals[0] ??
+    "monthly"
 
   return (
     <SectionShell icon={CreditCard} title="Assinatura">
@@ -227,12 +312,20 @@ function LockedSection({
         Esta organização ainda não tem uma assinatura ativa. Assine para
         continuar usando o sistema.
       </p>
+      {isOwner && (
+        <IntervalSelector
+          value={effectiveInterval}
+          onChange={setSelectedInterval}
+          disabled={isPending}
+          availableIntervals={availableIntervals}
+        />
+      )}
       {error && <p className="text-sm text-destructive">{error}</p>}
       {isOwner && (
         <Button
           type="button"
           disabled={isPending}
-          onClick={() => createCheckoutSession()}
+          onClick={() => createCheckoutSession(effectiveInterval)}
         >
           {isPending ? "Abrindo…" : "Assinar agora"}
         </Button>

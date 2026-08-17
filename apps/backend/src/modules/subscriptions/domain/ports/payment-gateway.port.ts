@@ -50,9 +50,90 @@ export interface CreatePriceParams {
 }
 
 export interface CreateCouponParams {
-  percentOff: number;
+  /**
+   * Required unless `amountOffCents` is passed — Stripe accepts exactly one
+   * of `percent_off` / `amount_off`, never both.
+   */
+  percentOff?: number;
   durationMonths?: number;
   name?: string;
+  /** Mutually exclusive with `percentOff`; requires `currency`. */
+  amountOffCents?: number;
+  currency?: string;
+  /**
+   * Explicit Stripe coupon duration. Takes priority over the
+   * `durationMonths`-based derivation (`durationMonths` set → "repeating",
+   * otherwise "once") used when this is omitted, preserving the existing
+   * `createCoupon`/`applyCouponToSubscription` behavior for current callers.
+   */
+  duration?: "once" | "repeating" | "forever";
+}
+
+export interface CreatePromotionCodeParams {
+  couponId: string;
+  code?: string;
+  maxRedemptions?: number;
+  expiresAt?: Date;
+}
+
+export interface UpdatePromotionCodeParams {
+  active?: boolean;
+  metadata?: Record<string, string>;
+}
+
+export interface GatewayCoupon {
+  couponId: string;
+  name: string;
+  percentOff: number | null;
+  amountOffCents: number | null;
+  currency: string | null;
+  duration: "once" | "repeating" | "forever";
+  durationInMonths: number | null;
+  valid: boolean;
+}
+
+export interface GatewayPromotionCode {
+  promotionCodeId: string;
+  couponId: string;
+  code: string;
+  active: boolean;
+  maxRedemptions: number | null;
+  timesRedeemed: number;
+  expiresAt: Date | null;
+}
+
+export interface UpdatedGatewayPromotionCode {
+  promotionCodeId: string;
+  active: boolean;
+  code: string;
+  maxRedemptions: number | null;
+  expiresAt: Date | null;
+  timesRedeemed: number;
+}
+
+export interface UpdateProductParams {
+  name?: string;
+  description?: string | null;
+  metadata?: Record<string, string>;
+  active?: boolean;
+}
+
+export interface GatewayProduct {
+  productId: string;
+  name: string;
+  description: string | null;
+  metadata: Record<string, string>;
+  active: boolean;
+}
+
+export interface GatewayPrice {
+  priceId: string;
+  productId: string;
+  unitAmount: number | null;
+  currency: string;
+  interval: BillingInterval | null;
+  lookupKey: string | null;
+  active: boolean;
 }
 
 /**
@@ -85,7 +166,18 @@ export interface IPaymentGateway {
 
   ensureProduct(params: EnsureProductParams): Promise<{ productId: string }>;
 
+  updateProduct(
+    productId: string,
+    params: UpdateProductParams,
+  ): Promise<GatewayProduct>;
+
+  retrieveProduct(productId: string): Promise<GatewayProduct | null>;
+
   createPrice(params: CreatePriceParams): Promise<{ priceId: string }>;
+
+  archivePrice(priceId: string): Promise<void>;
+
+  retrievePrice(priceId: string): Promise<GatewayPrice | null>;
 
   constructWebhookEvent(
     rawBody: string | Buffer,
@@ -98,6 +190,15 @@ export interface IPaymentGateway {
 
   cancelSubscription(stripeSubscriptionId: string): Promise<void>;
 
+  updateSubscriptionPrice(
+    stripeSubscriptionId: string,
+    newPriceId: string,
+    options: {
+      prorationBehavior: "create_prorations" | "none";
+      idempotencyKey: string;
+    },
+  ): Promise<NormalizedSubscription>;
+
   createCoupon(params: CreateCouponParams): Promise<{ couponId: string }>;
 
   applyCouponToSubscription(
@@ -106,6 +207,23 @@ export interface IPaymentGateway {
   ): Promise<void>;
 
   removeSubscriptionDiscount(stripeSubscriptionId: string): Promise<void>;
+
+  retrieveCoupon(couponId: string): Promise<GatewayCoupon | null>;
+
+  deleteCoupon(couponId: string): Promise<void>;
+
+  createPromotionCode(
+    params: CreatePromotionCodeParams,
+  ): Promise<{ promotionCodeId: string; code: string }>;
+
+  updatePromotionCode(
+    promotionCodeId: string,
+    params: UpdatePromotionCodeParams,
+  ): Promise<UpdatedGatewayPromotionCode>;
+
+  retrievePromotionCode(
+    promotionCodeId: string,
+  ): Promise<GatewayPromotionCode | null>;
 
   listInvoices(customerId: string): Promise<NormalizedInvoice[]>;
 }

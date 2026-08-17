@@ -11,5 +11,9 @@
       "mcp__788d392c-8484-40bc-82e2-a0bea16d7990__notion-update-page",
       "mcp__788d392c-8484-40bc-82e2-a0bea16d7990__notion-create-pages"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "supabase-production",
+    "postgres-production"
+  ]
 }

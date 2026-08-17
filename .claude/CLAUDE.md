@@ -73,8 +73,10 @@ Supabase local: `pnpm db:start` (`npx supabase start`); tipos: `pnpm db:gen-type
   escritas privilegiadas escopadas quando múltiplas classes de ator escrevem a mesma
   tabela (exceção deliberada, ver ADR-0021); `super_admin` age como owner (ADR-0013)
 - Frontend: mobile-first; regras de UI obrigatórias em `.memory/domain-rules.md`
-- O projeto ainda **não tem suíte de testes automatizada** — validar mudanças com
-  `pnpm check-types` + `pnpm lint` + `pnpm build`
+- Há suíte automatizada em ambas as apps: backend usa Jest (`apps/backend`, `ts-jest`,
+  jest 30; `.spec.ts` por use-case, `jest.Mocked<Interface>` + builders `buildFake*`);
+  frontend usa Vitest (`.spec.ts` junto de lib/schemas). `pnpm test` (turbo) roda as duas —
+  validar mudanças com `pnpm check-types` + `pnpm lint` + `pnpm test` + `pnpm build`
 
 ## Workflow de agentes
 

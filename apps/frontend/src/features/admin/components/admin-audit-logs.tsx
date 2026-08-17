@@ -109,7 +109,7 @@ export function AdminAuditLogs() {
       <div>
         <h1 className="text-lg font-semibold">Auditoria</h1>
         <p className="mt-0.5 text-sm text-foreground/50">
-          Log de ações críticas na plataforma — quem fez o quê e quando.
+          Log de ações críticas na plataforma: quem fez o quê e quando.
         </p>
       </div>
 

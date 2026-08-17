@@ -124,7 +124,21 @@ export const queryKeys = {
       ["admin", "support", "detail", ticketId] as const,
   },
 
+  // Prefixo "admin" é deliberado (mesmo padrão de adminSupport): faz
+  // queryKeys.admin.all (["admin"]) fazer prefix-match e invalidar billing
+  // também. Refetch extra é aceitável, não é bug.
+  adminBilling: {
+    all: ["admin", "billing"] as const,
+    plans: () => ["admin", "billing", "plans"] as const,
+    coupons: (active?: boolean) =>
+      ["admin", "billing", "coupons", active ?? "all"] as const,
+  },
+
   publicSupport: {
     categories: () => ["public-support", "categories"] as const,
+  },
+
+  publicBilling: {
+    plans: () => ["public-billing", "plans"] as const,
   },
 } as const

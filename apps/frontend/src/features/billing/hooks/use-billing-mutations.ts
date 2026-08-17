@@ -2,14 +2,18 @@
 
 import { useMutation } from "@tanstack/react-query"
 import { apiRequest } from "@/infrastructure/api/client"
-import type { CheckoutSessionResponse, PortalSessionResponse } from "../types"
+import type {
+  BillingInterval,
+  CheckoutSessionResponse,
+  PortalSessionResponse,
+} from "../types"
 
 export function useCreateCheckoutSession(orgId: string) {
   const mutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (interval?: BillingInterval) =>
       apiRequest<CheckoutSessionResponse>(
         `/orgs/${orgId}/subscription/checkout`,
-        { method: "POST" },
+        { method: "POST", body: JSON.stringify({ interval }) },
       ),
     onSuccess: (data) => {
       window.location.assign(data.url)

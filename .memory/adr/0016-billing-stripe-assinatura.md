@@ -123,6 +123,56 @@ decisão de produto própria dele; o ink-ops não tem esse requisito).
 - **Backfill uniforme (`locked` para todas as orgs, sem exceção)**: rejeitada pelo
   responsável para a organização do próprio owner — perderia acesso de escrita no merge.
 
+## Addendum (2026-08-17): `trial_consumed` marcado cedo demais — corrigido para write no sync do Stripe
+
+**Bug**: `CreateCheckoutSessionUseCase` marcava `trial_consumed = true` no momento de
+**criar** a checkout session do Stripe — antes de qualquer confirmação de pagamento. Um
+checkout abandonado (aba fechada, hesitação, erro de cartão) queimava o trial de 60 dias
+**permanentemente** para aquela organização, sem ela nunca ter sido cobrada ou ter
+efetivamente entrado em trial no Stripe. Encontrado em auditoria da landing page
+(`docs/product/landing-page-spec.md` §10.1, 2026-08-16) ao verificar se a promessa "60 dias
+grátis" do hero era honesta.
+
+**Correção**: `trial_consumed` deixou de ser escrito por `create-checkout-session.use-case.ts`
+— o use-case só cria a Checkout Session, sem tocar a coluna. A escrita migrou para o único
+lugar que sabe que o trial de fato aconteceu no Stripe: o **sync** de uma subscription
+normalizada vinda do Stripe, via o novo predicado `shouldMarkTrialConsumed` (`domain/
+subscription-sync.ts`) — `true` somente se `!current.trialConsumed && incoming.trialEndsAt
+!== null`. Dois call sites, ambos já existentes no fluxo de sync:
+
+- `HandleStripeWebhookUseCase::syncNormalizedSubscription` — caminho primário, dispara nos
+  eventos `checkout.session.completed`/`customer.subscription.updated` quando o Stripe
+  confirma `trial_end` preenchido.
+- `ReconcileSubscriptionsUseCase` (cron) — rede de segurança para webhook perdido/atrasado,
+  mas só alcança organizações já vinculadas ao Stripe: `findAllStripeLinked` exige
+  `stripe_customer_id` **e** `stripe_subscription_id` não nulos. Um checkout cujo primeiro
+  webhook nunca chegou (nenhum sync ocorreu, colunas locais todas `NULL`) fica fora do
+  alcance do cron — mesma limitação documentada no cabeçalho da migration 0050 abaixo. O
+  cron reconcilia **drift** de orgs já sincronizadas ao menos uma vez; não é uma garantia
+  universal de que todo trial real acaba marcado.
+
+O predicado nunca "desmarca": uma vez `true`, permanece `true` (write-once na prática, só
+que agora disparado pelo evento certo).
+
+**Migration de dados** (`0050_subscriptions_restore_unstarted_trials`, aplicada localmente):
+restaura `trial_consumed = false` para organizações afetadas pelo bug no passado, com
+predicado conservador (`trial_ends_at IS NULL AND stripe_subscription_id IS NULL AND type
+<> 'custom'`) — só reverte quem nunca teve trial confirmado nem subscription no Stripe.
+Limitação conhecida documentada no cabeçalho da própria migration: o predicado não
+distingue checkout abandonado (alvo legítimo da correção) de checkout **concluído** cujo
+webhook nunca chegou/foi processado (nesse caso o trial rodou de verdade no Stripe, mas as
+colunas locais ficam `NULL` do mesmo jeito) — resíduo aceito, risco de no máximo um trial
+extra por organização afetada, sem corrupção de dado nem vazamento entre orgs.
+
+**Decisão explícita: sem rate-limit, sem coluna nova.** A correção reabre uma janela de
+corrida teórica — dois checkouts completados em paralelo pela mesma organização podem, na
+pior hipótese, conceder um trial extra (a segunda conclusão também teria `trial_ends_at`
+preenchido e satisfaria `shouldMarkTrialConsumed` antes do primeiro sync gravar). Avaliada e
+**aceita deliberadamente** sem mitigação adicional (sem rate-limit por org no checkout, sem
+coluna de lock): o pior caso falha a favor do cliente (trial extra, nunca cobrança dupla ou
+perda de acesso), e é uma corrida de segundos entre dois checkouts simultâneos da mesma org
+— cenário raro o suficiente para não justificar a complexidade de um mecanismo novo.
+
 ## Relacionado
 
 - Larmony `.memory/adr/0026-billing-stripe-entitlements.md` — mecanismo original

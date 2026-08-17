@@ -1,4 +1,5 @@
 import type {
+  NormalizedSubscription,
   SubscriptionEntity,
   SubscriptionEntityProps,
   SubscriptionStatus,
@@ -43,4 +44,22 @@ export function shouldApplyStripeSync(
   void incoming;
   if (current.type === "custom") return false;
   return true;
+}
+
+/**
+ * Decides whether an incoming Stripe-derived update should mark the local
+ * subscription's trial as consumed. `trialConsumed` is write-once and must
+ * only flip to true when Stripe itself confirms a trial happened (i.e.
+ * `trial_end` came back populated on the subscription/checkout session) —
+ * never at checkout-session *creation* time, since an abandoned checkout
+ * would otherwise burn the trial for nothing. Because Stripe keeps
+ * `trial_end` populated even after the trial converts to a paid period, a
+ * delayed webhook still marks it correctly. This predicate never signals
+ * "un-consume" — once true, it stays true.
+ */
+export function shouldMarkTrialConsumed(
+  current: SubscriptionEntity,
+  incoming: Pick<NormalizedSubscription, "trialEndsAt">,
+): boolean {
+  return !current.trialConsumed && incoming.trialEndsAt !== null;
 }

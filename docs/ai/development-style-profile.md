@@ -103,13 +103,16 @@ especulativa. Arquivos pequenos, de responsabilidade única; entregas fatiadas p
 
 ## 7. Testes
 
-- **Estado atual**: o repositório ainda **não tem suíte automatizada** (sem `test`/`test:e2e`
-  configurado; zero `*.spec.ts`). A validação hoje é `check-types` + `lint` + `build`.
-- **Direção prevista** (roadmap): TDD por módulo — unit `*.spec.ts` colocado junto do código
-  para use-cases/domínio; e2e por feature contra Supabase local. Quando existir, preferir
-  **testar comportamento** (entrada→saída dos use-cases, respostas HTTP), não implementação;
-  mocks tipados (`jest.Mocked<IRepo>` + `as unknown as`).
-- Agentes não inventam comandos de teste inexistentes; registram a lacuna de cobertura.
+- **Estado atual**: há suíte automatizada em ambas as apps. Backend usa Jest (`test`
+  configurado, `ts-jest`, jest 30) — unit `*.spec.ts` colocado junto do código para
+  use-cases/domínio, mocks tipados (`jest.Mocked<IRepo>` + builders `buildFake*`). Frontend
+  usa Vitest — `*.spec.ts` junto de `lib/`/`schemas/` (ex.: `features/cashier/lib/money.spec.ts`).
+  `pnpm test` (turbo) roda as duas. A validação é `check-types` + `lint` + `test` + `build`.
+- **Direção prevista** (roadmap): e2e por feature contra Supabase local (ainda não existe).
+  Preferir **testar comportamento** (entrada→saída dos use-cases, respostas HTTP), não
+  implementação.
+- Agentes não inventam comandos de teste inexistentes; registram a lacuna de cobertura
+  (ex.: ausência de e2e).
 
 ## 8. Tratamento de erros
 
@@ -136,7 +139,7 @@ especulativa. Arquivos pequenos, de responsabilidade única; entregas fatiadas p
   `feat(cashier): ... (M<n> PR<x> <a>/<b>)`. Breaking changes com `!`.
 - Corpos longos explicando o **porquê** e decisões de escopo.
 - Entregas fatiadas em passos pequenos revisáveis ("PR X de N").
-- Critério implícito de conclusão: check-types + lint + build verdes antes do commit;
+- Critério implícito de conclusão: check-types + lint + test + build verdes antes do commit;
   `docs(memory)` fechando cada milestone (roadmap + recent-decisions + ADR quando aplicável).
 
 ## 11. Author Development Rules
@@ -158,7 +161,7 @@ especulativa. Arquivos pequenos, de responsabilidade única; entregas fatiadas p
 10. `organization_id` derivado da sessão — nunca aceito do cliente.
 11. Caixa é append-only (ADR-0010): correção vira errata, nunca UPDATE/DELETE de lançamento.
 12. Chamar `memory_search` (MCP `ink-memory`) antes de varrer código para perguntas de "onde/como funciona X".
-13. Validar com os scripts reais: `pnpm check-types`, `pnpm lint` (`--max-warnings 0`), `pnpm build`.
+13. Validar com os scripts reais: `pnpm check-types`, `pnpm lint` (`--max-warnings 0`), `pnpm test`, `pnpm build`.
 
 ### SHOULD
 1. Seguir a receita de `/new-module` (referência `modules/health/`) e `/new-migration` para migrations.
