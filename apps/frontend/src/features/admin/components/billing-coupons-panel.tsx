@@ -247,7 +247,7 @@ export function BillingCouponsPanel() {
         title="Desativar cupom"
         description={
           deactivating
-            ? `Desativar o cupom "${deactivating.code || deactivating.name}"? Ele deixará de poder ser resgatado por novos clientes — resgates já feitos não são afetados.`
+            ? `Desativar o cupom "${deactivating.code || deactivating.name}"? Ele deixará de poder ser resgatado por novos clientes; resgates já feitos não são afetados.`
             : undefined
         }
         confirmLabel="Desativar"

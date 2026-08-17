@@ -33,6 +33,19 @@ export interface CheckoutSessionResponse {
   url: string
 }
 
+export interface PublicBillingPlanPrice {
+  interval: BillingInterval
+  amountCents: number
+  currency: string
+}
+
+export interface PublicBillingPlan {
+  key: string
+  name: string
+  description: string | null
+  prices: PublicBillingPlanPrice[]
+}
+
 export interface PortalSessionResponse {
   url: string
 }
@@ -45,35 +58,42 @@ export interface NormalizedInvoice {
   occurredAt: string
 }
 
+export interface BillingPlanPrice {
+  id: string
+  planId: string
+  interval: BillingInterval
+  amountCents: number
+  currency: string
+  stripePriceId: string | null
+  lookupKey: string | null
+  active: boolean
+  lastSyncedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export interface BillingPlan {
   id: string
   key: string
   name: string
   description: string | null
+  /** @deprecated derivado do primeiro preço ativo monthly; use `prices` */
   amountCents: number
+  /** @deprecated derivado do primeiro preço ativo monthly; use `prices` */
   currency: string
+  /** @deprecated derivado do primeiro preço ativo monthly; use `prices` */
   interval: BillingInterval
   active: boolean
   stripeProductId: string | null
+  /** @deprecated derivado do primeiro preço ativo monthly; use `prices` */
   stripePriceId: string | null
+  /** @deprecated derivado do primeiro preço ativo monthly; use `prices` */
   lookupKey: string | null
   productKey: string | null
   metadata: Record<string, string>
+  /** @deprecated derivado do primeiro preço ativo monthly; use `prices` */
   lastSyncedAt: string | null
-}
-
-export type PlanSyncStatus = "created" | "unchanged" | "drift" | "failed"
-
-export interface PlanSyncResult {
-  key: string
-  status: PlanSyncStatus
-  stripeProductId?: string
-  stripePriceId?: string
-  error?: string
-}
-
-export interface SyncPlanCatalogReport {
-  results: PlanSyncResult[]
+  prices: BillingPlanPrice[]
 }
 
 export type CouponDuration = "once" | "repeating" | "forever"
@@ -104,10 +124,29 @@ export interface UpdateBillingPlanProductInput {
   metadata?: Record<string, string>
 }
 
-export interface RotateBillingPlanPriceInput {
+export interface MigrateSubscribersResult {
+  orgId: string
+  stripeSubscriptionId: string
+  status: "migrated" | "skipped_already_migrated" | "failed"
+  error?: string
+}
+
+export interface RotatePlanIntervalPriceResult {
+  price: BillingPlanPrice
+  migration: {
+    results: MigrateSubscribersResult[]
+  }
+}
+
+export interface UpsertPlanIntervalPriceInput {
+  interval: BillingInterval
+  amountCents: number
+  currency: string
+}
+
+export interface RotatePlanIntervalPriceInput {
   amountCents: number
   currency?: string
-  interval?: BillingInterval
 }
 
 export interface CreateBillingCouponInput {

@@ -67,6 +67,17 @@ export interface ISubscriptionRepository {
    * when currentPeriodEnd is null) as a proxy for that deadline.
    */
   findExpiredPastDue(): Promise<SubscriptionEntity[]>;
+  /**
+   * Subscriptions eligible for a Stripe price migration: `stripePriceId`
+   * matches `priceId`, `stripeSubscriptionId IS NOT NULL`, `type <> 'custom'`
+   * (comp subscriptions have no real Stripe billing to migrate, and are
+   * already protected from webhook overwrite by `shouldApplyStripeSync`),
+   * and `status IN ('active', 'trialing')` — deliberately EXCLUDING
+   * `'past_due'` (prorating an already-overdue invoice would generate a
+   * confusing charge; past_due subscribers are left for manual/future
+   * regularization, out of this scope).
+   */
+  findMigratableByStripePriceId(priceId: string): Promise<SubscriptionEntity[]>;
   create(data: CreateSubscriptionData): Promise<SubscriptionEntity>;
   update(
     orgId: string,

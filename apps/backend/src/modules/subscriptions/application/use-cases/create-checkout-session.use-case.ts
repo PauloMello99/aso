@@ -9,6 +9,10 @@ import {
   BILLING_PLAN_REPOSITORY,
 } from "../../domain/billing-plan.repository.interface";
 import {
+  IBillingPlanPriceRepository,
+  BILLING_PLAN_PRICE_REPOSITORY,
+} from "../../domain/billing-plan-price.repository.interface";
+import {
   IPaymentGateway,
   PAYMENT_GATEWAY,
 } from "../../domain/ports/payment-gateway.port";
@@ -21,8 +25,10 @@ import {
   MEMBER_REPOSITORY,
 } from "../../../organizations/domain/member.repository.interface";
 import { DEFAULT_PLAN_KEY } from "../../domain/plan-catalog";
+import type { BillingInterval } from "../../domain/subscription.entity";
 import { SubscriptionNotFoundException } from "../../domain/exceptions/subscription-not-found.exception";
 import { PlanNotAvailableException } from "../../domain/exceptions/plan-not-available.exception";
+import { PlanIntervalNotEnabledException } from "../../domain/exceptions/plan-interval-not-enabled.exception";
 
 @Injectable()
 export class CreateCheckoutSessionUseCase {
@@ -31,6 +37,8 @@ export class CreateCheckoutSessionUseCase {
     private readonly subscriptionRepo: ISubscriptionRepository,
     @Inject(BILLING_PLAN_REPOSITORY)
     private readonly billingPlanRepo: IBillingPlanRepository,
+    @Inject(BILLING_PLAN_PRICE_REPOSITORY)
+    private readonly billingPlanPriceRepo: IBillingPlanPriceRepository,
     @Inject(PAYMENT_GATEWAY)
     private readonly paymentGateway: IPaymentGateway,
     @Inject(ORGANIZATION_REPOSITORY)
@@ -43,6 +51,7 @@ export class CreateCheckoutSessionUseCase {
   async execute(
     orgId: string,
     actorUserId: string,
+    interval: BillingInterval = "monthly",
   ): Promise<{ url: string }> {
     const subscription = await this.subscriptionRepo.findByOrgId(orgId);
     if (!subscription) throw new SubscriptionNotFoundException(orgId);
@@ -62,8 +71,13 @@ export class CreateCheckoutSessionUseCase {
     if (!plan || !plan.active) {
       throw new PlanNotAvailableException();
     }
-    if (!plan.stripePriceId) {
-      throw new PlanNotAvailableException();
+
+    const price = await this.billingPlanPriceRepo.findActiveByPlanIdAndInterval(
+      plan.id,
+      interval,
+    );
+    if (!price || !price.stripePriceId) {
+      throw new PlanIntervalNotEnabledException(plan.key, interval);
     }
 
     let customerId = subscription.stripeCustomerId;
@@ -83,18 +97,16 @@ export class CreateCheckoutSessionUseCase {
     const successUrl = `${frontendUrl}/dashboard/org/${org.slug}/settings/subscription?checkout=success`;
     const cancelUrl = `${frontendUrl}/dashboard/org/${org.slug}/settings/subscription?checkout=cancel`;
 
-    // Trial is granted at most once per org. Marking it consumed before
-    // calling Stripe (rather than after a successful checkout) is
-    // intentional: an abandoned checkout must not leave the org free to
-    // retry for a second trial.
-    const grantTrial = !subscription.trialConsumed;
-    if (grantTrial) {
-      await this.subscriptionRepo.update(orgId, { trialConsumed: true });
-    }
+    // trialConsumed agora só é marcado pelo sync do Stripe (HandleStripeWebhookUseCase /
+    // ReconcileSubscriptionsUseCase), nunca aqui: checkout abandonado não pode queimar o trial.
+    // trialEndsAt === null é a segunda testemunha local de que nenhum trial existiu, fechando
+    // a janela de latência do webhook. O resíduo (dois checkouts completados em paralelo)
+    // falha a favor do cliente e é aceito deliberadamente.
+    const grantTrial = !subscription.trialConsumed && subscription.trialEndsAt === null;
 
     const { url } = await this.paymentGateway.createCheckoutSession({
       customerId,
-      priceId: plan.stripePriceId,
+      priceId: price.stripePriceId,
       successUrl,
       cancelUrl,
       ...(grantTrial

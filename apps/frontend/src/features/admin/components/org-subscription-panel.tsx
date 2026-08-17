@@ -336,7 +336,7 @@ function DiscountPanel({
         <form onSubmit={(e) => void handleApply(e)} className="mt-3 space-y-3">
           {!stripeLinked && (
             <p className="rounded-md border border-primary/20 bg-primary/10 px-3 py-2 text-xs text-primary/80">
-              Esta organização ainda não está vinculada ao Stripe — descontos
+              Esta organização ainda não está vinculada ao Stripe: descontos
               exigem uma assinatura ativa via Stripe.
             </p>
           )}

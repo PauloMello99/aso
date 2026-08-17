@@ -137,4 +137,8 @@ export const queryKeys = {
   publicSupport: {
     categories: () => ["public-support", "categories"] as const,
   },
+
+  publicBilling: {
+    plans: () => ["public-billing", "plans"] as const,
+  },
 } as const

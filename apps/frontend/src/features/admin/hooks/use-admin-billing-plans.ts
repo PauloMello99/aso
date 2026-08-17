@@ -6,9 +6,12 @@ import { queryKeys } from "@/infrastructure/query/query-keys"
 import { billingErrorMessage } from "@/features/admin/lib/billing-error-messages"
 import type {
   BillingPlan,
-  RotateBillingPlanPriceInput,
-  SyncPlanCatalogReport,
+  BillingInterval,
+  BillingPlanPrice,
+  RotatePlanIntervalPriceInput,
+  RotatePlanIntervalPriceResult,
   UpdateBillingPlanProductInput,
+  UpsertPlanIntervalPriceInput,
 } from "@/features/billing/types"
 
 export function useAdminBillingPlans() {
@@ -26,24 +29,6 @@ export function useAdminBillingPlans() {
 
 function invalidatePlanQueries(queryClient: ReturnType<typeof useQueryClient>) {
   void queryClient.invalidateQueries({ queryKey: queryKeys.adminBilling.plans() })
-}
-
-export function useSyncPlanCatalog() {
-  const queryClient = useQueryClient()
-  const mutation = useMutation({
-    mutationFn: () =>
-      apiRequest<SyncPlanCatalogReport>("/admin/billing/plans/sync", {
-        method: "POST",
-      }),
-    onSuccess: () => invalidatePlanQueries(queryClient),
-  })
-
-  return {
-    syncCatalog: mutation.mutateAsync,
-    report: mutation.data ?? null,
-    isPending: mutation.isPending,
-    error: mutation.error ? billingErrorMessage(mutation.error) : null,
-  }
 }
 
 export function useUpdateBillingPlanProduct() {
@@ -70,7 +55,37 @@ export function useUpdateBillingPlanProduct() {
   }
 }
 
-export function useRotateBillingPlanPrice() {
+export function useRotatePlanIntervalPrice() {
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: ({
+      key,
+      interval,
+      input,
+    }: {
+      key: string
+      interval: BillingInterval
+      input: RotatePlanIntervalPriceInput
+    }) =>
+      apiRequest<RotatePlanIntervalPriceResult>(
+        `/admin/billing/plans/${key}/prices/${interval}`,
+        {
+          method: "POST",
+          body: JSON.stringify(input),
+        },
+      ),
+    onSuccess: () =>
+      void queryClient.invalidateQueries({ queryKey: queryKeys.adminBilling.all }),
+  })
+
+  return {
+    rotatePrice: mutation.mutateAsync,
+    isPending: mutation.isPending,
+    error: mutation.error ? billingErrorMessage(mutation.error) : null,
+  }
+}
+
+export function useCreatePlanIntervalPrice() {
   const queryClient = useQueryClient()
   const mutation = useMutation({
     mutationFn: ({
@@ -78,9 +93,9 @@ export function useRotateBillingPlanPrice() {
       input,
     }: {
       key: string
-      input: RotateBillingPlanPriceInput
+      input: UpsertPlanIntervalPriceInput
     }) =>
-      apiRequest<BillingPlan>(`/admin/billing/plans/${key}/price`, {
+      apiRequest<BillingPlanPrice>(`/admin/billing/plans/${key}/prices`, {
         method: "POST",
         body: JSON.stringify(input),
       }),
@@ -89,7 +104,34 @@ export function useRotateBillingPlanPrice() {
   })
 
   return {
-    rotatePrice: mutation.mutateAsync,
+    createPrice: mutation.mutateAsync,
+    isPending: mutation.isPending,
+    error: mutation.error ? billingErrorMessage(mutation.error) : null,
+  }
+}
+
+export function useSetPlanIntervalActive() {
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: ({
+      key,
+      interval,
+      active,
+    }: {
+      key: string
+      interval: BillingInterval
+      active: boolean
+    }) =>
+      apiRequest<BillingPlanPrice>(`/admin/billing/plans/${key}/prices/${interval}`, {
+        method: "PATCH",
+        body: JSON.stringify({ active }),
+      }),
+    onSuccess: () =>
+      void queryClient.invalidateQueries({ queryKey: queryKeys.adminBilling.all }),
+  })
+
+  return {
+    setActive: mutation.mutateAsync,
     isPending: mutation.isPending,
     error: mutation.error ? billingErrorMessage(mutation.error) : null,
   }

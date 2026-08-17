@@ -1,7 +1,17 @@
 # ADR-0023 — Catálogo de billing: banco como fonte de verdade + imutabilidade de Price/Coupon no Stripe
 
-**Status:** Aceito
+**Status:** Aceito (parcialmente superseded — ver ADR-0024)
 **Data:** 2026-08-15
+
+> **Nota (2026-08-16):** ADR-0024 reestruturou a modelagem de preço (`billing_plans` passou a
+> guardar só dados de produto; preço por intervalo vive em `billing_plan_prices`, N por plano)
+> e removeu o endpoint de sync manual. Como consequência, as referências abaixo a
+> `RotateBillingPlanPriceUseCase` e a `POST /admin/billing/plans/sync` estão **desatualizadas**
+> — foram substituídas por `RotatePlanIntervalPriceUseCase` (por intervalo) e o endpoint de
+> sync manual foi deletado (`SyncPlanCatalogUseCase` só roda no boot). O conteúdo deste ADR
+> sobre **imutabilidade de Price/Coupon no Stripe** (itens 2-4) continua correto e vigente —
+> não foi alterado pelo ADR-0024. Ver ADR-0024 para a modelagem multi-preço, a reconciliação
+> periódica invertida via cron e o endpoint público de preços.
 
 ## Contexto
 

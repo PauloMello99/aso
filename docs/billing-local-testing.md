@@ -78,13 +78,21 @@ Cartão de teste padrão: `4242 4242 4242 4242`, qualquer data futura, qualquer 
 | Cenário | Como testar | Confirma |
 |---|---|---|
 | Checkout básico | `POST /orgs/:orgId/subscription/checkout` (owner) → abrir a `url` retornada → pagar com o cartão de teste | Webhook `checkout.session.completed` + `customer.subscription.created` sincronizam a subscription local pra `active`/`standard` |
-| Trial self-serve | Mesmo fluxo, org com `trialConsumed=false` → checkout deve pedir cartão (`payment_method_collection: always`) mas cobrar só após 60 dias | `trial_consumed` vira `true` antes mesmo do redirect ao Stripe (write-once); assinatura entra como `trialing` |
+| Trial self-serve | Mesmo fluxo, org com `trialConsumed=false` → checkout deve pedir cartão (`payment_method_collection: always`) mas cobrar só após 60 dias | `trial_consumed` continua `false` até o webhook `checkout.session.completed`/`customer.subscription.updated` confirmar `trial_end` — **`stripe listen` precisa estar rodando** (terminal 2) para a coluna virar `true`; sem o forwarder ativo, ela fica `false` mesmo com o checkout concluído. Assinatura entra como `trialing` |
 | Portal | `POST /orgs/:orgId/subscription/portal` (org já vinculada ao Stripe) → abrir a `url` | Portal do Stripe abre; ações lá (trocar cartão, cancelar) dependem de webhook pra refletir localmente |
 | Webhook idempotente | `stripe trigger customer.subscription.updated` duas vezes seguidas (ou reenviar o mesmo evento) | Segunda entrega não reprocessa (`stripe_webhook_events.processed_at` já preenchido) |
 | Comp/isenção (admin) | `POST /admin/orgs/:orgId/subscription/comp` (super_admin) | Cancela qualquer assinatura Stripe ativa da org primeiro; nunca cria cupom |
 | Desconto (admin) | `POST /admin/orgs/:orgId/subscription/discount` numa org já vinculada ao Stripe | Cupom real criado e aplicado (visível no dashboard Stripe, modo teste) |
 | Gating | Marcar uma org como `free`/`canceled` (via admin ou SQL local) → tentar uma escrita num módulo core (ex. `POST .../cashier/categories`) | 402 `SUBSCRIPTION_REQUIRED`; leitura continua liberada |
 | Cron | `POST /internal/cron/tick` (header `x-cron-secret`) | Jobs `billing-reconciliation` e `billing-expiry-sweep` aparecem no array `jobs` com `status: ok` |
+
+> **Cenário — checkout abandonado (2026-08-17):** abrir `POST .../subscription/checkout`,
+> pegar a `url`, e **fechar a aba sem pagar** (ou fechar antes do redirect de sucesso) **NÃO
+> queima o trial** — `trial_consumed` permanece `false`, e a organização pode tentar
+> novamente depois. A coluna só vira `true` quando o Stripe confirma via webhook que o trial
+> de fato começou (`trial_end` preenchido). Ver `.memory/adr/0016-billing-stripe-assinatura.md`
+> (Addendum 2026-08-17) para o bug histórico (trial era queimado na criação da checkout
+> session) e a correção.
 
 ## Bugs reais só encontrados testando com webhook ao vivo
 
@@ -99,3 +107,10 @@ Larmony, replicada aqui — ver `.memory/adr/0016-billing-stripe-assinatura.md`)
 - `current_period_start/end` e `price` do subscription do Stripe (API v22+) ficam em
   `subscription.items.data[0]`, não no nível raiz do objeto — exemplos desatualizados na
   documentação do Stripe ainda mostram o formato antigo.
+- **`trial_consumed` marcado cedo demais (2026-08-17):** o código original marcava
+  `trial_consumed = true` ao **criar** a checkout session, não ao confirmar o trial —
+  qualquer checkout abandonado queimava o trial de 60 dias permanentemente. Só ficou óbvio
+  testando o fluxo "abrir checkout e não terminar" de propósito; testes unitários com mocks
+  não exercitam esse caminho porque não há webhook nenhum envolvido no bug (o problema era
+  justamente escrever antes do Stripe confirmar). Corrigido: a escrita migrou para o sync do
+  Stripe (webhook + cron), condicionada a `trial_end` vir preenchido — ver ADR-0016 addendum.

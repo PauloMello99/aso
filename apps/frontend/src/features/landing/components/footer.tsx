@@ -7,10 +7,10 @@ import { LEGAL_ENTITY, LEGAL_ROUTES } from "@/features/legal"
 const FOOTER_LINKS = {
   Produto: [
     { label: "Recursos", href: "#recursos" },
-    { label: "Integrações", href: "#integracoes" },
+    { label: "Segurança", href: "#seguranca" },
     { label: "Preços", href: "#precos" },
+    { label: "Perguntas", href: "#faq" },
   ],
-  Empresa: [{ label: "Sobre", href: "#sobre" }],
   Legal: [
     { label: "Termos de uso", href: LEGAL_ROUTES.terms },
     { label: "Privacidade", href: LEGAL_ROUTES.privacy },
@@ -23,14 +23,14 @@ export function Footer() {
   return (
     <footer className="border-t border-foreground/5 bg-background">
       <div className="mx-auto max-w-7xl px-4 pb-6 pt-12 sm:px-6 sm:pb-8 sm:pt-16">
-        <div className="grid grid-cols-2 gap-8 sm:gap-12 md:grid-cols-5">
+        <div className="grid grid-cols-2 gap-8 sm:gap-12 md:grid-cols-4">
           <div className="col-span-2 md:col-span-2">
             <Link href="/">
               <BrandWordmark className="text-xl font-bold tracking-tight text-foreground" />
             </Link>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-foreground/40">
-              Gestão completa para estúdios criativos. Agendamentos, clientes e
-              financeiro em um só lugar.
+              Gestão completa para estúdios de tatuagem. Agendamentos,
+              anamnese e financeiro em um só lugar.
             </p>
           </div>
 
