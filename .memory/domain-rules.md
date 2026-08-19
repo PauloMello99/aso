@@ -476,6 +476,65 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   transação de substituição) — `CorrectTransactionUseCase` delega pra
   `ReverseTransactionUseCase` e herda de graça.
 
+### Comissão/repasse por profissional (2026-08-19, P-1)
+
+- **Config por `(org_id, user_id)`, não por org**: `org_member_commissions` guarda
+  percentual + modo (`gross`|`net`) POR PROFISSIONAL — diferente de `org_payment_fees`
+  (uma config por método, para toda a org). Cada profissional pode ter seu próprio modo.
+  Owner-write (`OrgOwnerGuard` no `PUT`), leitura escopada por ator: owner vê todos os
+  membros, employee vê só a própria linha (`GetMemberCommissionsUseCase` via
+  `resolveActor`, mesmo helper de `get-balance`/`list-transactions`).
+- **Histórico imutável via `active`+`superseded_at`** (índice único parcial
+  `(org_id, user_id) WHERE active`, mesmo padrão de `billing_plan_prices`/ADR-0024) —
+  nunca `UPDATE` de `percent`/`mode` numa linha existente, só "desativar + inserir nova"
+  (`supersede`, ordem obrigatória dentro de uma transação: desativar a linha antiga
+  ANTES de inserir a nova, senão colide com o índice parcial). Um trigger de banco
+  (`org_member_commissions_protect_immutable`) força essa imutabilidade
+  incondicionalmente — nem super_admin escapa, porque não existe caminho legítimo de
+  "corrigir" uma linha histórica.
+- **Snapshot DESNORMALIZADO em `services`** (`commission_config_id` FK nullable, só
+  auditoria, nunca lido para cálculo; `commission_percent`/`commission_mode`/
+  `commission_base_cents`/`commission_cents` = fonte de verdade), gravado na MESMA
+  escrita que `payment_transaction_id` (`RegisterPaymentUseCase`/`CreateServiceUseCase`
+  quando o serviço já nasce pago). Sem config ativa, zera explicitamente (nunca pula a
+  escrita) — é a única janela livre antes do primeiro pagamento; depois de pago, um
+  trigger de banco (`services_protect_commission_columns`) só libera alterar essas 5
+  colunas para o owner da org (o caminho de `CorrectServicePaymentUseCase`) ou role
+  privilegiada, e bloqueia INSERT com comissão não-nula/não-zero vindo de não-owner.
+- **Correção de pagamento preserva o snapshot ORIGINAL** (`percent`/`mode` do momento do
+  pagamento inicial) — recalcula só `baseCents`/`commissionCents` sobre o novo valor
+  corrigido. `CorrectServicePaymentUseCase` NÃO injeta `MEMBER_COMMISSION_REPOSITORY` de
+  propósito: reconsultar a config vigente precificaria retroativamente um evento
+  passado, o que a decisão de produto proíbe.
+- **`UpdateServiceUseCase` bloqueia reatribuir `performedBy` de serviço já pago**
+  (`ServicePerformerNotChangeableException`, 409) — comparando o valor RESOLVIDO (pós
+  `resolvePerformer`), não o bruto do input, porque `resolvePerformer` mapeia
+  `performedBy: null` enviado por um owner para `currentUserId`. Sem essa checagem, a
+  comissão congelada com o percentual do profissional A passaria a ser exibida como
+  comissão do profissional B nas agregações (que agrupam por `performed_by`).
+- **Cálculo é função pura separada** (`commission-calculator.ts`, `computeCommission`) —
+  NÃO reusa `computeNet`/`fee-calculator.ts`, que filtra por `FEE_ELIGIBLE_METHODS` (só
+  cartão) e zeraria comissão de dinheiro/pix silenciosamente. Modo `gross` = base é o
+  bruto (estúdio absorve 100% da taxa de cartão); modo `net` = base é o líquido pós-taxa
+  (`netCents` já calculado por `computeNet` em outro lugar).
+- **Agregação por período** (`commissionCentsByPeriod`) tem `performedBy: string | null`
+  **obrigatório** (não opcional) de propósito — força todo caller a declarar o escopo
+  explicitamente: `null` agrega a org inteira (só o ramo owner do overview usa), uma
+  string escopa a um profissional (ramo employee). Um parâmetro opcional permitiria
+  "esquecer" o escopo e vazar comissão de toda a org por omissão. Agregação ancorada em
+  `performed_at` (mesma âncora de todas as outras métricas de serviço no overview), não
+  na data do pagamento — um serviço executado num mês e pago no seguinte aparece na
+  comissão do mês de execução, por consistência com o resto do relatório.
+- **Débito conhecido, não bloqueante**: `resolveActor` (usado por `GetMemberCommissionsUseCase`
+  e outros use-cases do cashier) resolve `isOwner` via role da membership LOCAL, não via
+  `IOrganizationRepository.isOwner` — um super_admin agindo como owner de uma org da qual
+  NÃO é membro recebe 403 ao LER comissões (`GET`), mas CONSEGUE escrever (`PUT`, que usa
+  `orgRepo.isOwner` com fallback de `isSuperAdmin`). Falha fechada (sem vazamento), mas é
+  assimetria a corrigir num follow-up que alinhe `resolve-actor.ts` ao ADR-0013.
+- **Índice `services(org_id, performed_by, performed_at) WHERE canceled_at IS NULL`
+  ausente** — as 4 agregações do módulo fazem seq scan; aceito como débito dado o volume
+  baixo esperado (decisão de produto, não corrigir sem necessidade real).
+
 ### Serviços / Atendimentos (módulo `services`, 2026-06-21)
 - **Serviço = evento central** (cliente + profissional + materiais + pagamento). Backend
   `modules/services/` (Clean Arch, espelha cashier/materials). Rota
@@ -961,6 +1020,61 @@ passar (red → green → refactor).
   remetente do e-mail bate com `requesterEmail` do ticket** — nunca confia no
   plus-address sozinho (é público/forjável). Detalhe completo, incluindo o bug real de
   try/catch-dentro-de-transação corrigido na idempotência do webhook, em ADR-0022.
+
+### M-P2b — Auto-cadastro/atualização de cliente: backend (2026-08-19, P-2 fatia 2/4)
+
+- **Módulo `customer-self-service`, fronteira de import unidirecional**: importa
+  `customers`, `anamnesis`, `mail`, `auth`/`orgs`, `audit` — nenhum desses importa de
+  volta. 6 use-cases: 2 autenticados (gerar convite, cenários 1 e 3) + 4 públicos (GET+POST
+  por cenário). Continua M10b (link público sem login, `.memory/domain-rules.md` seção
+  M10b) para o mesmo padrão de token 256-bit/`DRIZZLE_ADMIN` restrito/throttle, mas em
+  tabelas próprias (`customer_self_registrations`, `customer_update_invitations`,
+  migration `0052`, commit `3725767`).
+- **Retry-safety do cenário 1 (submit combinado customer+anamnese) é por marcador
+  persistido, não por lookup de e-mail**: `customer_self_registrations.customer_id` é
+  gravado (via `linkCustomer`) IMEDIATAMENTE após criar/reutilizar o customer, ANTES de
+  delegar a `SubmitAnamnesisResponseUseCase` — é esse campo, não `findByEmailInOrg`, que
+  decide se uma retentativa deve `updateCoreFields` ou `createForOrg`
+  (`registration.customerId ?? (await findByEmailInOrg(...))?.id`). Buscar só por e-mail
+  quebra se o e-mail do customer mudar entre tentativas (ex. via cenário 3 no meio de um
+  retry do cenário 1) — acharia `null` e criaria um segundo customer. A ordem
+  `linkCustomer(registro) → linkCustomer(anamnese) → submit` é obrigatória: o repositório
+  de anamnese faz `LEFT JOIN customers`, então pular o vínculo antes do submit faz a cópia
+  assinada por e-mail ser silenciosamente pulada (mesmo mecanismo do M10b).
+- **Reuso de convite pendente exige `serviceTypeId` (cenário 1) igual ao pedido novo** —
+  senão o convite antigo (ligado à ficha errada) é reaproveitado silenciosamente. Quando
+  diverge (ou expirou), o registro `pending` é deletado (policy de DELETE só permite
+  `status='pending'`) e recriado; o `anamnesis_response` do convite descartado fica órfão
+  de propósito (sem policy DELETE ali, é histórico).
+- **`IPublicCustomerWriter`/`DrizzlePublicCustomerWriter`: novo precedente de
+  DRIZZLE_ADMIN em caminho público de ESCRITA em `customers`** (M10b já usava admin em
+  anamnesis, isso estende o padrão para o módulo `customers`). Como `customers` não tem FK
+  composta `(id, org_id)` sendo referenciada por essas escritas, toda query filtra
+  `org_id` explicitamente em código (defesa em profundidade, já que admin bypassa RLS
+  totalmente) — inclusive o `create`, que recebe `orgId` como parâmetro posicional
+  separado do resto dos dados (nunca dentro do blob de input, para não repetir o mesmo
+  buraco que a whitelist de campos já fecha). Unique violation (23505) é distinguida por
+  NOME da constraint (`customers_org_email_lower_uq`), não só pelo código — `customers`
+  tem outra constraint única (`customers_id_org_id_uq`, também da migration 0052) que não
+  deve virar `CustomerEmailAlreadyExistsException`. A função que caça o código 23505
+  percorre `error.cause` recursivamente (gotcha do `drizzle-orm@0.45.2` já documentado na
+  seção M10b acima) — qualquer novo repositório que capture unique violation deve seguir
+  esse padrão, não o antigo `error.code` direto.
+- **`IAnamnesisResponseRepository.linkCustomer(responseId, customerId, orgId)`** (3
+  parâmetros — o `orgId` foi adicionado depois de review, não estava no desenho
+  original): `anamnesis_responses.customer_id` só tem FK simples pra `customers.id`, sem
+  par composto com `org_id` como as tabelas novas de convite têm — o filtro de `orgId` no
+  `WHERE` do UPDATE é a única defesa contra vincular resposta de uma org a customer de
+  outra, já que o método roda via `DRIZZLE_ADMIN`.
+- **DTO público do cenário 3 inclui `email`** (decisão de produto explícita da reunião —
+  ver `docs/planning/2026-08-19-meeting-backlog.md`, "cenário 3" lista endereço/telefone/
+  e-mail como campos atualizáveis) — cuidado ao ler o código sem esse contexto: o
+  use-case já validava conflito de e-mail antes do DTO expor o campo (branch ficou
+  "morto" por um passo intermediário do desenvolvimento, corrigido antes do fim da fatia).
+- **Pendente para fatia 3/4 (frontend)**: páginas públicas `/customer-registration/:token`
+  e `/customer-update/:token`, telas autenticadas de disparo dos 2 convites no módulo
+  Clientes (hoje só "Novo cliente"), `design` das 3 telas novas antes do
+  `frontend-implementer` (regra já prevista no backlog).
 
 ### Pendências não bloqueantes para V1
 

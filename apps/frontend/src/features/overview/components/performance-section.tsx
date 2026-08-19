@@ -13,12 +13,16 @@ import {
   Percent,
   ArrowUp,
   ArrowDown,
+  HandCoins,
+  Users,
+  Loader2,
 } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { formatBRL } from "@/features/cashier/lib/money"
 import type {
   KpiWithDelta,
   OverviewAnalytics,
+  ServiceGroupRow,
 } from "../hooks/use-overview-analytics"
 import {
   BalanceAreaChart,
@@ -185,7 +189,7 @@ export function PerformanceSection({
     <section className="grid gap-4">
       <BandHeader periodKey={periodKey} onPeriodChange={onPeriodChange} />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
         <Kpi
           label="Resultado"
           value={formatBRL(resultado)}
@@ -225,6 +229,12 @@ export function PerformanceSection({
           value={String(data?.newCustomersCount?.current ?? 0)}
           icon={UserPlus}
           kpi={data?.newCustomersCount}
+        />
+        <Kpi
+          label="Comissão a repassar"
+          value={formatBRL(data?.commissionCents?.current ?? 0)}
+          icon={HandCoins}
+          kpi={data?.commissionCents}
         />
       </div>
 
@@ -306,7 +316,71 @@ export function PerformanceSection({
           <PaymentMethodsChart data={data?.paymentMethods ?? []} />
         </ChartCard>
       </div>
+
+      <CommissionByProfessional
+        rows={data?.revenueByProfessional ?? []}
+        loading={loading}
+      />
     </section>
+  )
+}
+
+function CommissionByProfessional({
+  rows,
+  loading,
+}: {
+  rows: ServiceGroupRow[]
+  loading: boolean
+}) {
+  return (
+    <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-5">
+      <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
+        <Users className="h-4 w-4 text-primary" />
+        Repasse por profissional
+      </h3>
+      {loading ? (
+        <div className="flex h-24 items-center justify-center text-foreground/30">
+          <Loader2 className="h-4 w-4 animate-spin" />
+        </div>
+      ) : rows.length === 0 ? (
+        <p className="flex h-24 items-center justify-center text-center text-sm text-foreground/30">
+          Sem dados no período.
+        </p>
+      ) : (
+        <ul className="divide-y divide-foreground/[0.05]">
+          {rows.map((row) => {
+            const percent =
+              row.revenueCents > 0
+                ? Math.round((row.commissionCents / row.revenueCents) * 100)
+                : null
+            return (
+              <li
+                key={row.name}
+                className="flex flex-col gap-1 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-foreground">{row.name}</p>
+                  <p className="mt-0.5 text-xs text-foreground/40">
+                    {row.count} {row.count === 1 ? "serviço" : "serviços"} ·
+                    Movimentou {formatBRL(row.revenueCents)}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">
+                  <span className="font-medium tabular-nums text-foreground">
+                    {formatBRL(row.commissionCents)}
+                  </span>
+                  {percent !== null && (
+                    <span className="text-xs tabular-nums text-foreground/40">
+                      {percent}%
+                    </span>
+                  )}
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
   )
 }
 
@@ -354,7 +428,7 @@ export function EmployeePerformance({
   return (
     <section className="grid gap-4">
       <BandHeader periodKey={periodKey} onPeriodChange={onPeriodChange} />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi
           label="Meus serviços"
           value={String(data?.servicesCount?.current ?? 0)}
@@ -367,6 +441,13 @@ export function EmployeePerformance({
           icon={ArrowUpRight}
           tone="positive"
           kpi={data?.serviceRevenueCents}
+        />
+        <Kpi
+          label="Minha comissão"
+          value={formatBRL(data?.commissionCents?.current ?? 0)}
+          icon={HandCoins}
+          tone="positive"
+          kpi={data?.commissionCents}
         />
         <Kpi
           label="Ticket médio"

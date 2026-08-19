@@ -8,6 +8,8 @@ import {
 } from "../domain/ports/email-sender.port";
 import { AnamnesisLinkEmail } from "../templates/anamnesis-link-email";
 import { AnamnesisSignedCopyEmail } from "../templates/anamnesis-signed-copy";
+import { CustomerSelfRegistrationLinkEmail } from "../templates/customer-self-registration-link-email";
+import { CustomerUpdateLinkEmail } from "../templates/customer-update-link-email";
 import { InviteEmail } from "../templates/invite-email";
 import { NotificationEmail } from "../templates/notification-email";
 import { PasswordResetEmail } from "../templates/password-reset-email";
@@ -36,6 +38,19 @@ export interface SendSignedAnamnesisResponseCopyInput {
   to: string;
   customerName: string;
   pdfUrl: string;
+}
+
+export interface SendCustomerSelfRegistrationLinkInput {
+  to: string;
+  orgName: string;
+  fillUrl: string;
+}
+
+export interface SendCustomerUpdateLinkInput {
+  to: string;
+  orgName: string;
+  customerName: string;
+  fillUrl: string;
 }
 
 export interface SendPasswordResetInput {
@@ -138,6 +153,35 @@ export class MailService {
       AnamnesisSignedCopyEmail({
         customerName: input.customerName,
         pdfUrl: input.pdfUrl,
+        supportEmail: this.supportEmail,
+      }),
+    );
+  }
+
+  async sendCustomerSelfRegistrationLink(
+    input: SendCustomerSelfRegistrationLinkInput,
+  ): Promise<boolean> {
+    return this.dispatch(
+      input.to,
+      "Complete seu cadastro e sua ficha de anamnese",
+      CustomerSelfRegistrationLinkEmail({
+        orgName: input.orgName,
+        fillUrl: input.fillUrl,
+        supportEmail: this.supportEmail,
+      }),
+    );
+  }
+
+  async sendCustomerUpdateLink(
+    input: SendCustomerUpdateLinkInput,
+  ): Promise<boolean> {
+    return this.dispatch(
+      input.to,
+      "Atualize seus dados cadastrais",
+      CustomerUpdateLinkEmail({
+        orgName: input.orgName,
+        customerName: input.customerName,
+        fillUrl: input.fillUrl,
         supportEmail: this.supportEmail,
       }),
     );

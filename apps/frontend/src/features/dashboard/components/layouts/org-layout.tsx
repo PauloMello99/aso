@@ -11,6 +11,7 @@ import { OrgProvider } from "@/features/dashboard/components/org-context"
 import { useOrgs, useResolveOrgBySlug } from "@/features/dashboard/hooks/use-orgs"
 import { useOnboardingTour } from "@/features/dashboard/hooks/use-onboarding-tour"
 import { useMe } from "@/features/auth/hooks/use-me"
+import { resolveOrgAccess } from "@/features/dashboard/lib/org-access"
 import {
   PAGE_LABELS,
   isOwnerOnlyPath,
@@ -74,17 +75,10 @@ export function OrgLayout({ children }: OrgLayoutProps) {
     notFound,
   } = useResolveOrgBySlug(orgSlug, tryResolve)
 
-  const org: OrgSummary | undefined = React.useMemo(() => {
-    const base = listOrg ?? resolvedOrg ?? undefined
-    if (base && isSuper && base.role !== "owner") {
-      return { ...base, role: "owner" as const }
-    }
-    return base
-  }, [listOrg, resolvedOrg, isSuper])
-
-  const isRealOwner = listOrg?.role === "owner"
-  const actingAsAdmin = isSuper && !isRealOwner
-  const superOwner = isSuper && isRealOwner
+  const { org, actingAsAdmin, superWithMembership } = React.useMemo(
+    () => resolveOrgAccess({ listOrg, resolvedOrg, isSuper: !!isSuper, loading }),
+    [listOrg, resolvedOrg, isSuper, loading],
+  )
 
   const {
     subscription,
@@ -161,7 +155,7 @@ export function OrgLayout({ children }: OrgLayoutProps) {
                 Voltar ao painel
               </Link>
             </div>
-          ) : superOwner ? (
+          ) : superWithMembership ? (
             <div className="flex shrink-0 items-center justify-center gap-1.5 bg-foreground/[0.04] px-4 py-1 text-center text-[11px] text-foreground/40">
               <ShieldAlert className="h-3 w-3 shrink-0" />
               <span>Acesso de super_admin</span>

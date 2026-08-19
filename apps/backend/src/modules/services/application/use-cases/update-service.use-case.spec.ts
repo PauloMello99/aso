@@ -10,6 +10,7 @@ import { MemberEntity } from "../../../organizations/domain/member.entity";
 import { ServiceNotFoundException } from "../../domain/exceptions/service-not-found.exception";
 import { ServiceAlreadyCanceledException } from "../../domain/exceptions/service-already-canceled.exception";
 import { ServiceForbiddenException } from "../../domain/exceptions/service-forbidden.exception";
+import { ServicePerformerNotChangeableException } from "../../domain/exceptions/service-performer-not-changeable.exception";
 import { ServicePerformedAtFutureException } from "../../domain/exceptions/service-performed-at-future.exception";
 import { ServiceAgeVerificationRequiredException } from "../../domain/exceptions/service-age-verification-required.exception";
 import { IAnamnesisResponseRepository } from "../../../anamnesis/domain/anamnesis-response.repository.interface";
@@ -35,6 +36,11 @@ function buildService(
     description: null,
     amountCents: 10000,
     paymentMethod: "cash",
+    commissionConfigId: null,
+    commissionPercent: null,
+    commissionMode: null,
+    commissionBaseCents: 0,
+    commissionCents: 0,
     performedAt: new Date("2026-07-01T10:00:00Z"),
     canceledAt: null,
     createdAt: new Date("2026-07-01T10:00:00Z"),
@@ -431,6 +437,176 @@ describe("UpdateServiceUseCase", () => {
 
     expect(serviceRepo.update).toHaveBeenCalled();
     expect(result).toBe(updated);
+  });
+
+  describe("reatribuição de performedBy em serviço pago (comissão congelada)", () => {
+    it("lança ServicePerformerNotChangeableException ao trocar performedBy de serviço já pago", async () => {
+      const existing = buildService({
+        performedBy: "user-1",
+        paymentTransactionId: "txn-1",
+      });
+      const { useCase, serviceRepo } = buildUseCase({
+        serviceRepo: buildFakeServiceRepo({
+          findById: jest.fn().mockResolvedValue(existing),
+        }),
+        memberRepo: buildFakeMemberRepo({
+          findByAuthId: jest
+            .fn()
+            .mockResolvedValue(buildMember({ role: "owner", userId: "owner-1" })),
+          findAllByOrg: jest
+            .fn()
+            .mockResolvedValue([
+              buildMember({ role: "owner", userId: "owner-1" }),
+              buildMember({ role: "employee", userId: "user-2" }),
+            ]),
+        }),
+      });
+
+      await expect(
+        useCase.execute({ ...baseInput, performedBy: "user-2" }),
+      ).rejects.toBeInstanceOf(ServicePerformerNotChangeableException);
+      expect(serviceRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("permite trocar performedBy de serviço PENDENTE (sem paymentTransactionId)", async () => {
+      const existing = buildService({
+        performedBy: "user-1",
+        paymentTransactionId: null,
+      });
+      const updated = buildService({ performedBy: "user-2" });
+      const { useCase, serviceRepo } = buildUseCase({
+        serviceRepo: buildFakeServiceRepo({
+          findById: jest
+            .fn()
+            .mockResolvedValueOnce(existing)
+            .mockResolvedValueOnce(updated),
+          update: jest.fn().mockResolvedValue(updated),
+        }),
+        memberRepo: buildFakeMemberRepo({
+          findByAuthId: jest
+            .fn()
+            .mockResolvedValue(buildMember({ role: "owner", userId: "owner-1" })),
+          findAllByOrg: jest
+            .fn()
+            .mockResolvedValue([
+              buildMember({ role: "owner", userId: "owner-1" }),
+              buildMember({ role: "employee", userId: "user-2" }),
+            ]),
+        }),
+      });
+
+      const result = await useCase.execute({
+        ...baseInput,
+        performedBy: "user-2",
+      });
+
+      expect(serviceRepo.update).toHaveBeenCalledWith(
+        existing.id,
+        expect.objectContaining({ performedBy: "user-2" }),
+      );
+      expect(result).toBe(updated);
+    });
+
+    it("não lança ao manter o mesmo performedBy num serviço pago (sem mudança real)", async () => {
+      const existing = buildService({
+        performedBy: "user-1",
+        paymentTransactionId: "txn-1",
+      });
+      const updated = buildService({
+        performedBy: "user-1",
+        paymentTransactionId: "txn-1",
+      });
+      const { useCase, serviceRepo } = buildUseCase({
+        serviceRepo: buildFakeServiceRepo({
+          findById: jest
+            .fn()
+            .mockResolvedValueOnce(existing)
+            .mockResolvedValueOnce(updated),
+          update: jest.fn().mockResolvedValue(updated),
+        }),
+        memberRepo: buildFakeMemberRepo({
+          findByAuthId: jest
+            .fn()
+            .mockResolvedValue(buildMember({ role: "owner", userId: "owner-1" })),
+          findAllByOrg: jest
+            .fn()
+            .mockResolvedValue([
+              buildMember({ role: "owner", userId: "owner-1" }),
+              buildMember({ role: "employee", userId: "user-1" }),
+            ]),
+        }),
+      });
+
+      const result = await useCase.execute({
+        ...baseInput,
+        performedBy: "user-1",
+      });
+
+      expect(serviceRepo.update).toHaveBeenCalled();
+      expect(result).toBe(updated);
+    });
+
+    it("permite editar outros campos de serviço pago quando performedBy está AUSENTE do input (caminho mais comum: editar descrição/data sem tocar o profissional)", async () => {
+      const existing = buildService({
+        performedBy: "user-1",
+        paymentTransactionId: "txn-1",
+      });
+      const updated = buildService({
+        performedBy: "user-1",
+        paymentTransactionId: "txn-1",
+        description: "Nova descrição",
+      });
+      const { useCase, serviceRepo } = buildUseCase({
+        serviceRepo: buildFakeServiceRepo({
+          findById: jest
+            .fn()
+            .mockResolvedValueOnce(existing)
+            .mockResolvedValueOnce(updated),
+          update: jest.fn().mockResolvedValue(updated),
+        }),
+        memberRepo: buildFakeMemberRepo({
+          findByAuthId: jest
+            .fn()
+            .mockResolvedValue(buildMember({ role: "owner", userId: "owner-1" })),
+          findAllByOrg: jest
+            .fn()
+            .mockResolvedValue([buildMember({ role: "owner", userId: "owner-1" })]),
+        }),
+      });
+
+      const result = await useCase.execute({
+        ...baseInput,
+        description: "Nova descrição",
+      });
+
+      expect(serviceRepo.update).toHaveBeenCalled();
+      expect(result).toBe(updated);
+    });
+
+    it("lança ServicePerformerNotChangeableException quando performedBy:null resolve para o owner atual num serviço pago sem profissional atribuído", async () => {
+      const existing = buildService({
+        performedBy: null,
+        paymentTransactionId: "txn-1",
+      });
+      const { useCase, serviceRepo } = buildUseCase({
+        serviceRepo: buildFakeServiceRepo({
+          findById: jest.fn().mockResolvedValue(existing),
+        }),
+        memberRepo: buildFakeMemberRepo({
+          findByAuthId: jest
+            .fn()
+            .mockResolvedValue(buildMember({ role: "owner", userId: "owner-1" })),
+          findAllByOrg: jest
+            .fn()
+            .mockResolvedValue([buildMember({ role: "owner", userId: "owner-1" })]),
+        }),
+      });
+
+      await expect(
+        useCase.execute({ ...baseInput, performedBy: null }),
+      ).rejects.toBeInstanceOf(ServicePerformerNotChangeableException);
+      expect(serviceRepo.update).not.toHaveBeenCalled();
+    });
   });
 
   describe("vínculo de resposta de anamnese (M10b)", () => {

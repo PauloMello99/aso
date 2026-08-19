@@ -3,7 +3,11 @@ import { Lock } from "lucide-react"
 import type { NextPageWithLayout } from "@/pages/_app"
 import { AuthGuard } from "@/features/auth/components/auth-guard"
 import { OrgLayout, OrgSettingsLayout, useCurrentOrg } from "@/features/dashboard"
-import { PaymentFeesForm, TransactionCategoriesSection } from "@/features/cashier"
+import {
+  PaymentFeesForm,
+  MemberCommissionsForm,
+  TransactionCategoriesSection,
+} from "@/features/cashier"
 
 const SettingsCashierPage: NextPageWithLayout = () => {
   const { org, orgId } = useCurrentOrg()
@@ -34,6 +38,19 @@ const SettingsCashierPage: NextPageWithLayout = () => {
             </p>
             <div className="mt-4">
               <PaymentFeesForm orgId={orgId} />
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-sm font-medium text-foreground">
+              Comissão por profissional
+            </h2>
+            <p className="mt-0.5 text-sm text-foreground/50">
+              Configure o percentual de repasse informativo de cada
+              profissional e a base de cálculo usada.
+            </p>
+            <div className="mt-4">
+              <MemberCommissionsForm orgId={orgId} />
             </div>
           </div>
 

@@ -45,3 +45,13 @@
   nada de novo foi decidido, apenas documentado (tokens, componentes, conteúdo, ícones).
   `SectionCard`/`KpiCard` seguem como padrões locais de `overview-page.tsx`, não extraídos
   para `shared/components/ui/` — ver adendo do ADR-0017.
+- **2026-08-19 — P-2 fatia 2/4, backend do módulo `customer-self-service`**: estende o
+  padrão de ADR-0021 (escrita privilegiada via `DRIZZLE_ADMIN` escopada por `org_id`
+  explícito) de `support` para `customers` — primeira vez que um caminho público
+  (SEM sessão nenhuma, diferente do ADR-0021 que é autenticado) escreve na tabela
+  `customers`. Ver seção "M-P2b" em `domain-rules.md` para o desenho completo (retry por
+  marcador `customer_self_registrations.customer_id`, `linkCustomer` com `orgId` em
+  `anamnesis_responses`, distinção de unique violation por nome de constraint). Revisado
+  por `database-guardian` (1 rodada, `changes_required` → corrigido) e `reviewer` (1
+  rodada, `changes_required` → corrigido). Não abriu ADR novo por ser extensão direta de
+  um padrão já registrado, não uma decisão arquitetural nova.

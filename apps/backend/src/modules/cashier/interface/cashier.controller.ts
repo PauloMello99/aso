@@ -33,6 +33,8 @@ import { GetBalanceUseCase } from "../application/use-cases/get-balance.use-case
 import { GetBalanceHistoryUseCase } from "../application/use-cases/get-balance-history.use-case";
 import { GetPaymentFeesUseCase } from "../application/use-cases/get-payment-fees.use-case";
 import { UpsertPaymentFeesUseCase } from "../application/use-cases/upsert-payment-fees.use-case";
+import { GetMemberCommissionsUseCase } from "../application/use-cases/get-member-commissions.use-case";
+import { UpsertMemberCommissionsUseCase } from "../application/use-cases/upsert-member-commissions.use-case";
 import { ListTransactionCategoriesUseCase } from "../application/use-cases/list-transaction-categories.use-case";
 import { CreateTransactionCategoryUseCase } from "../application/use-cases/create-transaction-category.use-case";
 import { UpdateTransactionCategoryUseCase } from "../application/use-cases/update-transaction-category.use-case";
@@ -45,6 +47,7 @@ import {
 } from "./dto/create-transaction.dto";
 import { CorrectTransactionDto } from "./dto/correct-transaction.dto";
 import { UpsertFeesDto } from "./dto/upsert-fees.dto";
+import { UpsertCommissionsDto } from "./dto/upsert-commissions.dto";
 import { CreateCategoryDto } from "./dto/create-category.dto";
 import { UpdateCategoryDto } from "./dto/update-category.dto";
 import { TransferDto } from "./dto/transfer.dto";
@@ -74,6 +77,8 @@ export class CashierController {
     private readonly getBalanceHistory: GetBalanceHistoryUseCase,
     private readonly getPaymentFees: GetPaymentFeesUseCase,
     private readonly upsertPaymentFees: UpsertPaymentFeesUseCase,
+    private readonly getMemberCommissions: GetMemberCommissionsUseCase,
+    private readonly upsertMemberCommissions: UpsertMemberCommissionsUseCase,
     private readonly listCategories: ListTransactionCategoriesUseCase,
     private readonly createCategory: CreateTransactionCategoryUseCase,
     private readonly updateCategory: UpdateTransactionCategoryUseCase,
@@ -269,6 +274,32 @@ export class CashierController {
       orgId,
       authId: user.id,
       fees: dto.fees,
+    });
+  }
+
+  @Get("commissions")
+  async commissions(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.getMemberCommissions.execute({ orgId, authId: user.id });
+  }
+
+  @Put("commissions")
+  @UseGuards(OrgOwnerGuard, ActiveSubscriptionGuard)
+  async setCommissions(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Body() dto: UpsertCommissionsDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.upsertMemberCommissions.execute({
+      orgId,
+      authId: user.id,
+      commissions: dto.commissions.map((item) => ({
+        userId: item.userId,
+        percent: item.percent,
+        mode: item.mode,
+      })),
     });
   }
 

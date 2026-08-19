@@ -35,6 +35,11 @@ import {
   PAYMENT_FEE_REPOSITORY,
 } from "../../../cashier/domain/payment-fee.repository.interface";
 import { computeNet } from "../../../cashier/domain/fee-calculator";
+import { computeCommission } from "../../../cashier/domain/commission-calculator";
+import {
+  IMemberCommissionRepository,
+  MEMBER_COMMISSION_REPOSITORY,
+} from "../../../cashier/domain/member-commission.repository.interface";
 import { CustomerDisabledException } from "../../domain/exceptions/customer-disabled.exception";
 import { MaterialNotFoundException } from "../../../materials/domain/exceptions/material-not-found.exception";
 import { InsufficientStockException } from "../../../materials/domain/exceptions/insufficient-stock.exception";
@@ -97,6 +102,8 @@ export class CreateServiceUseCase {
     private readonly anamnesisResponseRepo: IAnamnesisResponseRepository,
     @Inject(ANAMNESIS_FORM_REPOSITORY)
     private readonly anamnesisFormRepo: IAnamnesisFormRepository,
+    @Inject(MEMBER_COMMISSION_REPOSITORY)
+    private readonly commissionRepo: IMemberCommissionRepository,
   ) {}
 
   async execute(input: CreateServiceInput): Promise<ServiceEntity> {
@@ -234,7 +241,25 @@ export class CreateServiceUseCase {
         paymentMethod: input.paymentMethod,
         transactedAt: input.performedAt,
       });
-      await this.serviceRepo.setPaymentTransaction(service.id, tx.id);
+      const config = performedBy
+        ? await this.commissionRepo.findActiveByOrgAndUser(
+            input.orgId,
+            performedBy,
+          )
+        : null;
+      const { baseCents, commissionCents } = computeCommission(
+        input.amountCents,
+        netCents,
+        config,
+      );
+
+      await this.serviceRepo.setPaymentTransaction(service.id, tx.id, {
+        configId: config?.id ?? null,
+        percent: config?.percent ?? null,
+        mode: config?.mode ?? null,
+        baseCents,
+        commissionCents,
+      });
     }
 
     const fresh = await this.serviceRepo.findById(service.id, input.orgId);

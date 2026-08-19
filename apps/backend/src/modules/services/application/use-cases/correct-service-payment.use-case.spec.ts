@@ -29,6 +29,11 @@ function buildService(
     description: null,
     amountCents: 10000,
     paymentMethod: "cash",
+    commissionConfigId: null,
+    commissionPercent: null,
+    commissionMode: null,
+    commissionBaseCents: 0,
+    commissionCents: 0,
     performedAt: new Date("2026-07-01T10:00:00Z"),
     canceledAt: null,
     createdAt: new Date("2026-07-01T10:00:00Z"),
@@ -286,8 +291,134 @@ describe("CorrectServicePaymentUseCase", () => {
       service.id,
       { amountCents: 15000, paymentMethod: "credit_card" },
       replacement.id,
+      {
+        configId: null,
+        percent: null,
+        mode: null,
+        baseCents: 0,
+        commissionCents: 0,
+      },
     );
     expect(result).toBe(refreshed);
+  });
+
+  it("preserva percent/mode do snapshot original e só recalcula baseCents/commissionCents sobre o novo valor", async () => {
+    const service = buildService({
+      paymentTransactionId: "tx-1",
+      commissionConfigId: "commission-1",
+      commissionPercent: "30.00",
+      commissionMode: "gross",
+      commissionBaseCents: 10000,
+      commissionCents: 3000,
+      amountCents: 10000,
+    });
+    const refreshed = buildService({
+      paymentTransactionId: "tx-3",
+      amountCents: 20000,
+    });
+    const original = buildTransaction({ id: "tx-1" });
+    const reversal = buildTransaction({ id: "tx-2", type: "outcome" });
+    const replacement = buildTransaction({
+      id: "tx-3",
+      grossCents: 20000,
+      netCents: 20000,
+      feeCents: 0,
+    });
+
+    const { useCase, serviceRepo } = buildUseCase({
+      serviceRepo: buildFakeServiceRepo({
+        findById: jest
+          .fn()
+          .mockResolvedValueOnce(service)
+          .mockResolvedValueOnce(refreshed),
+      }),
+      transactionRepo: buildFakeTransactionRepo({
+        findById: jest.fn().mockResolvedValue(original),
+        findReversalOf: jest.fn().mockResolvedValue(null),
+        create: jest
+          .fn()
+          .mockResolvedValueOnce(reversal)
+          .mockResolvedValueOnce(replacement),
+      }),
+    });
+
+    await useCase.execute({
+      ...baseInput,
+      grossCents: 20000,
+      paymentMethod: "cash",
+    });
+
+    // base = bruto (20000, modo gross) * 30% = 6000, percent/mode preservados
+    expect(serviceRepo.correctPayment).toHaveBeenCalledWith(
+      service.id,
+      { amountCents: 20000, paymentMethod: "cash" },
+      replacement.id,
+      {
+        configId: "commission-1",
+        percent: "30.00",
+        mode: "gross",
+        baseCents: 20000,
+        commissionCents: 6000,
+      },
+    );
+  });
+
+  it("não consulta MEMBER_COMMISSION_REPOSITORY nem é afetado por mudança de config vigente entre pagamento e correção", () => {
+    // CorrectServicePaymentUseCase não injeta IMemberCommissionRepository —
+    // a comissão da correção usa exclusivamente o snapshot já persistido no
+    // serviço (service.commissionPercent/commissionMode), nunca a config
+    // vigente hoje. A assinatura do construtor abaixo é a prova estrutural:
+    // se um dia alguém adicionar essa dependência, este teste (e o
+    // type-check do buildUseCase) quebra.
+    expect(CorrectServicePaymentUseCase.length).toBe(5);
+  });
+
+  it("serviço sem snapshot original (pago antes da feature de comissão): correção segue gravando null/0", async () => {
+    const service = buildService({
+      paymentTransactionId: "tx-1",
+      commissionConfigId: null,
+      commissionPercent: null,
+      commissionMode: null,
+      commissionBaseCents: 0,
+      commissionCents: 0,
+    });
+    const refreshed = buildService({ paymentTransactionId: "tx-3" });
+    const original = buildTransaction({ id: "tx-1" });
+    const reversal = buildTransaction({ id: "tx-2", type: "outcome" });
+    const replacement = buildTransaction({ id: "tx-3" });
+
+    const { useCase, serviceRepo } = buildUseCase({
+      serviceRepo: buildFakeServiceRepo({
+        findById: jest
+          .fn()
+          .mockResolvedValueOnce(service)
+          .mockResolvedValueOnce(refreshed),
+      }),
+      transactionRepo: buildFakeTransactionRepo({
+        findById: jest.fn().mockResolvedValue(original),
+        findReversalOf: jest.fn().mockResolvedValue(null),
+        create: jest
+          .fn()
+          .mockResolvedValueOnce(reversal)
+          .mockResolvedValueOnce(replacement),
+      }),
+    });
+
+    await useCase.execute(baseInput);
+
+    expect(serviceRepo.correctPayment).toHaveBeenCalledTimes(1);
+    expect(serviceRepo.correctPayment).toHaveBeenCalledWith(
+      service.id,
+      expect.anything(),
+      replacement.id,
+      {
+        configId: null,
+        percent: null,
+        mode: null,
+        baseCents: 0,
+        commissionCents: 0,
+      },
+    );
   });
 
   it("lança ServiceAlreadyCanceledException e não cria transação nem corrige o pagamento", async () => {

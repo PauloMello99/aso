@@ -21,6 +21,7 @@ export interface ServiceGroupRow {
   name: string
   count: number
   revenueCents: number
+  commissionCents: number
 }
 
 export interface PaymentMethodTotal {
@@ -41,6 +42,7 @@ export interface OverviewAnalytics {
   servicesCount: KpiWithDelta
   serviceRevenueCents: KpiWithDelta
   avgTicketCents: KpiWithDelta
+  commissionCents?: KpiWithDelta
   receitaCents?: KpiWithDelta
   despesaCents?: KpiWithDelta
   resultadoCents?: KpiWithDelta

@@ -57,6 +57,7 @@ export const queryKeys = {
       ["cashier", orgId, "history", from ?? "", to ?? ""] as const,
     fees: (orgId: string) => ["cashier", orgId, "fees"] as const,
     categories: (orgId: string) => ["cashier", orgId, "categories"] as const,
+    commissions: (orgId: string) => ["cashier", orgId, "commissions"] as const,
   },
 
   admin: {
