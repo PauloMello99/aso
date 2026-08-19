@@ -64,3 +64,27 @@ export const transactionCategorySchema = z.object({
 export type TransactionCategoryFormValues = z.infer<
   typeof transactionCategorySchema
 >
+
+const commissionPercentString = z
+  .string()
+  .refine(
+    (val) => val.trim() === "" || /^\d+([.,]\d{1,2})?$/.test(val),
+    "Percentual inválido",
+  )
+  .refine((val) => {
+    if (val.trim() === "") return true
+    const num = Number(val.replace(",", "."))
+    return num >= 0 && num <= 100
+  }, "Percentual deve estar entre 0 e 100")
+
+export const commissionItemSchema = z.object({
+  userId: z.string(),
+  percent: commissionPercentString,
+  mode: z.enum(["gross", "net"]),
+})
+
+export const commissionsSchema = z.object({
+  commissions: z.array(commissionItemSchema),
+})
+
+export type CommissionsFormValues = z.infer<typeof commissionsSchema>
