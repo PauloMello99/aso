@@ -1021,6 +1021,61 @@ passar (red → green → refactor).
   plus-address sozinho (é público/forjável). Detalhe completo, incluindo o bug real de
   try/catch-dentro-de-transação corrigido na idempotência do webhook, em ADR-0022.
 
+### M-P2b — Auto-cadastro/atualização de cliente: backend (2026-08-19, P-2 fatia 2/4)
+
+- **Módulo `customer-self-service`, fronteira de import unidirecional**: importa
+  `customers`, `anamnesis`, `mail`, `auth`/`orgs`, `audit` — nenhum desses importa de
+  volta. 6 use-cases: 2 autenticados (gerar convite, cenários 1 e 3) + 4 públicos (GET+POST
+  por cenário). Continua M10b (link público sem login, `.memory/domain-rules.md` seção
+  M10b) para o mesmo padrão de token 256-bit/`DRIZZLE_ADMIN` restrito/throttle, mas em
+  tabelas próprias (`customer_self_registrations`, `customer_update_invitations`,
+  migration `0052`, commit `3725767`).
+- **Retry-safety do cenário 1 (submit combinado customer+anamnese) é por marcador
+  persistido, não por lookup de e-mail**: `customer_self_registrations.customer_id` é
+  gravado (via `linkCustomer`) IMEDIATAMENTE após criar/reutilizar o customer, ANTES de
+  delegar a `SubmitAnamnesisResponseUseCase` — é esse campo, não `findByEmailInOrg`, que
+  decide se uma retentativa deve `updateCoreFields` ou `createForOrg`
+  (`registration.customerId ?? (await findByEmailInOrg(...))?.id`). Buscar só por e-mail
+  quebra se o e-mail do customer mudar entre tentativas (ex. via cenário 3 no meio de um
+  retry do cenário 1) — acharia `null` e criaria um segundo customer. A ordem
+  `linkCustomer(registro) → linkCustomer(anamnese) → submit` é obrigatória: o repositório
+  de anamnese faz `LEFT JOIN customers`, então pular o vínculo antes do submit faz a cópia
+  assinada por e-mail ser silenciosamente pulada (mesmo mecanismo do M10b).
+- **Reuso de convite pendente exige `serviceTypeId` (cenário 1) igual ao pedido novo** —
+  senão o convite antigo (ligado à ficha errada) é reaproveitado silenciosamente. Quando
+  diverge (ou expirou), o registro `pending` é deletado (policy de DELETE só permite
+  `status='pending'`) e recriado; o `anamnesis_response` do convite descartado fica órfão
+  de propósito (sem policy DELETE ali, é histórico).
+- **`IPublicCustomerWriter`/`DrizzlePublicCustomerWriter`: novo precedente de
+  DRIZZLE_ADMIN em caminho público de ESCRITA em `customers`** (M10b já usava admin em
+  anamnesis, isso estende o padrão para o módulo `customers`). Como `customers` não tem FK
+  composta `(id, org_id)` sendo referenciada por essas escritas, toda query filtra
+  `org_id` explicitamente em código (defesa em profundidade, já que admin bypassa RLS
+  totalmente) — inclusive o `create`, que recebe `orgId` como parâmetro posicional
+  separado do resto dos dados (nunca dentro do blob de input, para não repetir o mesmo
+  buraco que a whitelist de campos já fecha). Unique violation (23505) é distinguida por
+  NOME da constraint (`customers_org_email_lower_uq`), não só pelo código — `customers`
+  tem outra constraint única (`customers_id_org_id_uq`, também da migration 0052) que não
+  deve virar `CustomerEmailAlreadyExistsException`. A função que caça o código 23505
+  percorre `error.cause` recursivamente (gotcha do `drizzle-orm@0.45.2` já documentado na
+  seção M10b acima) — qualquer novo repositório que capture unique violation deve seguir
+  esse padrão, não o antigo `error.code` direto.
+- **`IAnamnesisResponseRepository.linkCustomer(responseId, customerId, orgId)`** (3
+  parâmetros — o `orgId` foi adicionado depois de review, não estava no desenho
+  original): `anamnesis_responses.customer_id` só tem FK simples pra `customers.id`, sem
+  par composto com `org_id` como as tabelas novas de convite têm — o filtro de `orgId` no
+  `WHERE` do UPDATE é a única defesa contra vincular resposta de uma org a customer de
+  outra, já que o método roda via `DRIZZLE_ADMIN`.
+- **DTO público do cenário 3 inclui `email`** (decisão de produto explícita da reunião —
+  ver `docs/planning/2026-08-19-meeting-backlog.md`, "cenário 3" lista endereço/telefone/
+  e-mail como campos atualizáveis) — cuidado ao ler o código sem esse contexto: o
+  use-case já validava conflito de e-mail antes do DTO expor o campo (branch ficou
+  "morto" por um passo intermediário do desenvolvimento, corrigido antes do fim da fatia).
+- **Pendente para fatia 3/4 (frontend)**: páginas públicas `/customer-registration/:token`
+  e `/customer-update/:token`, telas autenticadas de disparo dos 2 convites no módulo
+  Clientes (hoje só "Novo cliente"), `design` das 3 telas novas antes do
+  `frontend-implementer` (regra já prevista no backlog).
+
 ### Pendências não bloqueantes para V1
 
 - Sistema de créditos do cliente (manter da v1 ou reprojetar?)

@@ -15,6 +15,7 @@ import { NotificationsModule } from "./modules/notifications/notifications.modul
 import { CashierModule } from "./modules/cashier/cashier.module";
 import { ServicesModule } from "./modules/services/services.module";
 import { AnamnesisModule } from "./modules/anamnesis/anamnesis.module";
+import { CustomerSelfServiceModule } from "./modules/customer-self-service/customer-self-service.module";
 import { OverviewModule } from "./modules/overview/overview.module";
 import { AdminModule } from "./modules/admin/admin.module";
 import { AuditModule } from "./modules/audit/audit.module";
@@ -40,6 +41,7 @@ import { TelemetryModule } from "./common/telemetry/telemetry.module";
     CashierModule,
     ServicesModule,
     AnamnesisModule,
+    CustomerSelfServiceModule,
     OverviewModule,
     AdminModule,
     AuditModule,
