@@ -16,6 +16,7 @@ export * from "./studio/stock-movements";
 export * from "./studio/stock-verifications";
 export * from "./studio/transactions";
 export * from "./studio/payment-fees";
+export * from "./studio/member-commissions";
 export * from "./studio/services";
 export * from "./studio/service-media";
 export * from "./studio/calendar";

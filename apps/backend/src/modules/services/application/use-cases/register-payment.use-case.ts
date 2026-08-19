@@ -17,6 +17,11 @@ import {
   PAYMENT_FEE_REPOSITORY,
 } from "../../../cashier/domain/payment-fee.repository.interface";
 import { computeNet } from "../../../cashier/domain/fee-calculator";
+import { computeCommission } from "../../../cashier/domain/commission-calculator";
+import {
+  IMemberCommissionRepository,
+  MEMBER_COMMISSION_REPOSITORY,
+} from "../../../cashier/domain/member-commission.repository.interface";
 import { ServiceNotFoundException } from "../../domain/exceptions/service-not-found.exception";
 import { ServiceNotPayableException } from "../../domain/exceptions/service-not-payable.exception";
 import { ServiceForbiddenException } from "../../domain/exceptions/service-forbidden.exception";
@@ -39,6 +44,8 @@ export class RegisterPaymentUseCase {
     private readonly transactionRepo: ITransactionRepository,
     @Inject(PAYMENT_FEE_REPOSITORY)
     private readonly feeRepo: IPaymentFeeRepository,
+    @Inject(MEMBER_COMMISSION_REPOSITORY)
+    private readonly commissionRepo: IMemberCommissionRepository,
   ) {}
 
   async execute(input: RegisterPaymentInput): Promise<ServiceEntity> {
@@ -81,7 +88,26 @@ export class RegisterPaymentUseCase {
       netCents,
       paymentMethod: service.paymentMethod,
     });
-    await this.serviceRepo.setPaymentTransaction(service.id, tx.id);
+
+    const config = service.performedBy
+      ? await this.commissionRepo.findActiveByOrgAndUser(
+          input.orgId,
+          service.performedBy,
+        )
+      : null;
+    const { baseCents, commissionCents } = computeCommission(
+      service.amountCents,
+      netCents,
+      config,
+    );
+
+    await this.serviceRepo.setPaymentTransaction(service.id, tx.id, {
+      configId: config?.id ?? null,
+      percent: config?.percent ?? null,
+      mode: config?.mode ?? null,
+      baseCents,
+      commissionCents,
+    });
 
     const fresh = await this.serviceRepo.findById(service.id, input.orgId);
     return fresh ?? service;

@@ -15,6 +15,7 @@ import { customers } from "./customers";
 import { materials } from "./materials";
 import { transactions } from "./transactions";
 import { anamnesisResponses } from "./anamnesis";
+import { orgMemberCommissions } from "./member-commissions";
 
 export const services = pgTable("services", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -40,6 +41,19 @@ export const services = pgTable("services", {
   description: text("description"),
   amountCents: integer("amount_cents").notNull().default(0),
   paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  // Snapshot desnormalizado da comissão do profissional no momento do
+  // atendimento. commissionConfigId é só auditoria (aponta pra linha de
+  // config que gerou o snapshot) — NUNCA lido para cálculo, porque a config
+  // pode ser superseded depois; percent/mode/base/cents abaixo são a
+  // verdade congelada.
+  commissionConfigId: uuid("commission_config_id").references(
+    () => orgMemberCommissions.id,
+    { onDelete: "set null" },
+  ),
+  commissionPercent: numeric("commission_percent", { precision: 5, scale: 2 }),
+  commissionMode: text("commission_mode"),
+  commissionBaseCents: integer("commission_base_cents").notNull().default(0),
+  commissionCents: integer("commission_cents").notNull().default(0),
   performedAt: timestamp("performed_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -89,6 +103,14 @@ export const servicesRelations = relations(services, ({ one, many }) => ({
   anamnesisResponse: one(anamnesisResponses, {
     fields: [services.anamnesisResponseId],
     references: [anamnesisResponses.id],
+  }),
+  // Só auditoria (aponta pra linha de org_member_commissions que originou o
+  // snapshot) — NUNCA fonte de cálculo. A verdade congelada é
+  // commissionPercent/commissionMode/commissionBaseCents/commissionCents
+  // acima, porque a config apontada pode ter sido superseded depois.
+  commissionConfig: one(orgMemberCommissions, {
+    fields: [services.commissionConfigId],
+    references: [orgMemberCommissions.id],
   }),
   serviceMaterials: many(serviceMaterials),
 }));

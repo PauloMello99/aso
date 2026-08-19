@@ -21,6 +21,7 @@ import { ServiceNotFoundException } from "../../domain/exceptions/service-not-fo
 import { ServiceAlreadyCanceledException } from "../../domain/exceptions/service-already-canceled.exception";
 import { CustomerDisabledException } from "../../domain/exceptions/customer-disabled.exception";
 import { ServiceForbiddenException } from "../../domain/exceptions/service-forbidden.exception";
+import { ServicePerformerNotChangeableException } from "../../domain/exceptions/service-performer-not-changeable.exception";
 import {
   IAnamnesisResponseRepository,
   ANAMNESIS_RESPONSE_REPOSITORY,
@@ -151,6 +152,14 @@ export class UpdateServiceUseCase {
             input.performedBy,
           )
         : undefined;
+
+    if (
+      performedBy !== undefined &&
+      performedBy !== service.performedBy &&
+      service.paymentTransactionId !== null
+    ) {
+      throw new ServicePerformerNotChangeableException(input.serviceId);
+    }
 
     await this.serviceRepo.update(service.id, {
       serviceTypeId: input.serviceTypeId,

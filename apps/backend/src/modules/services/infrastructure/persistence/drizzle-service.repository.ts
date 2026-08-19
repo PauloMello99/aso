@@ -18,12 +18,15 @@ import {
 } from "../../domain/service.entity";
 import { ServiceMaterialEntity } from "../../domain/service-material.entity";
 import {
+  CommissionSnapshot,
   CreateServiceData,
   CreateServiceMaterialData,
   IServiceRepository,
   ListServicesFilter,
+  ServiceGroupRow,
   UpdateServiceData,
 } from "../../domain/service.repository.interface";
+import type { CommissionMode } from "../../../cashier/domain/member-commission.entity";
 import { AnamnesisResponseAlreadyLinkedException } from "../../../anamnesis/domain/exceptions/anamnesis-response-already-linked.exception";
 
 type ServiceRow = typeof schema.services.$inferSelect;
@@ -65,6 +68,11 @@ function toDomain(
     description: row.description ?? null,
     amountCents: row.amountCents,
     paymentMethod: row.paymentMethod as PaymentMethod,
+    commissionConfigId: row.commissionConfigId ?? null,
+    commissionPercent: row.commissionPercent ?? null,
+    commissionMode: (row.commissionMode as CommissionMode | null) ?? null,
+    commissionBaseCents: row.commissionBaseCents,
+    commissionCents: row.commissionCents,
     performedAt: row.performedAt,
     canceledAt: row.canceledAt ?? null,
     createdAt: row.createdAt,
@@ -245,10 +253,19 @@ export class DrizzleServiceRepository implements IServiceRepository {
   async setPaymentTransaction(
     id: string,
     transactionId: string,
+    commission: CommissionSnapshot,
   ): Promise<void> {
     await this.db
       .update(schema.services)
-      .set({ paymentTransactionId: transactionId, updatedAt: new Date() })
+      .set({
+        paymentTransactionId: transactionId,
+        commissionConfigId: commission.configId,
+        commissionPercent: commission.percent,
+        commissionMode: commission.mode,
+        commissionBaseCents: commission.baseCents,
+        commissionCents: commission.commissionCents,
+        updatedAt: new Date(),
+      })
       .where(eq(schema.services.id, id));
   }
 
@@ -298,6 +315,7 @@ export class DrizzleServiceRepository implements IServiceRepository {
     id: string,
     data: { amountCents: number; paymentMethod: PaymentMethod },
     transactionId: string,
+    commission: CommissionSnapshot,
   ): Promise<void> {
     await this.db
       .update(schema.services)
@@ -305,6 +323,11 @@ export class DrizzleServiceRepository implements IServiceRepository {
         amountCents: data.amountCents,
         paymentMethod: data.paymentMethod,
         paymentTransactionId: transactionId,
+        commissionConfigId: commission.configId,
+        commissionPercent: commission.percent,
+        commissionMode: commission.mode,
+        commissionBaseCents: commission.baseCents,
+        commissionCents: commission.commissionCents,
         updatedAt: new Date(),
       })
       .where(eq(schema.services.id, id));
@@ -372,7 +395,7 @@ export class DrizzleServiceRepository implements IServiceRepository {
     orgId: string,
     from: Date,
     to: Date,
-  ): Promise<{ name: string; count: number; revenueCents: number }[]> {
+  ): Promise<ServiceGroupRow[]> {
     const { rows } = await this.db.execute<{
       name: string;
       cnt: number;
@@ -394,6 +417,7 @@ export class DrizzleServiceRepository implements IServiceRepository {
       name: r.name,
       count: Number(r.cnt),
       revenueCents: Number(r.revenue_cents),
+      commissionCents: 0,
     }));
   }
 
@@ -401,15 +425,17 @@ export class DrizzleServiceRepository implements IServiceRepository {
     orgId: string,
     from: Date,
     to: Date,
-  ): Promise<{ name: string; count: number; revenueCents: number }[]> {
+  ): Promise<ServiceGroupRow[]> {
     const { rows } = await this.db.execute<{
       name: string;
       cnt: number;
       revenue_cents: string;
+      commission_cents: string;
     }>(sql`
       SELECT COALESCE(u.name, 'Sem profissional') AS name,
         COUNT(*)::int AS cnt,
-        COALESCE(SUM(s.amount_cents), 0)::bigint AS revenue_cents
+        COALESCE(SUM(s.amount_cents), 0)::bigint AS revenue_cents,
+        COALESCE(SUM(s.commission_cents), 0)::bigint AS commission_cents
       FROM services s
       LEFT JOIN users u ON u.id = s.performed_by
       WHERE s.org_id = ${orgId}
@@ -423,7 +449,27 @@ export class DrizzleServiceRepository implements IServiceRepository {
       name: r.name,
       count: Number(r.cnt),
       revenueCents: Number(r.revenue_cents),
+      commissionCents: Number(r.commission_cents),
     }));
+  }
+
+  async commissionCentsByPeriod(
+    orgId: string,
+    from: Date,
+    to: Date,
+    performedBy: string | null,
+  ): Promise<number> {
+    const performedByFilter =
+      performedBy !== null ? sql` AND performed_by = ${performedBy}` : sql``;
+    const { rows } = await this.db.execute<{ commission_cents: string }>(sql`
+      SELECT COALESCE(SUM(commission_cents), 0)::bigint AS commission_cents
+      FROM services
+      WHERE org_id = ${orgId}
+        AND canceled_at IS NULL
+        AND performed_at >= ${from}
+        AND performed_at <= ${to}${performedByFilter}
+    `);
+    return Number(rows[0]?.commission_cents ?? 0);
   }
 
   private async findMaterials(
