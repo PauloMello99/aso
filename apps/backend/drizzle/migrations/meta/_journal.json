@@ -365,6 +365,20 @@
       "when": 1782004100000,
       "tag": "0051_member_commissions",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1782004200000,
+      "tag": "0052_customer_self_service_invites",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1782004300000,
+      "tag": "0053_audit_action_customer_self_service",
+      "breakpoints": true
     }
   ]
 }
