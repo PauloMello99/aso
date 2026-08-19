@@ -476,6 +476,65 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   transação de substituição) — `CorrectTransactionUseCase` delega pra
   `ReverseTransactionUseCase` e herda de graça.
 
+### Comissão/repasse por profissional (2026-08-19, P-1)
+
+- **Config por `(org_id, user_id)`, não por org**: `org_member_commissions` guarda
+  percentual + modo (`gross`|`net`) POR PROFISSIONAL — diferente de `org_payment_fees`
+  (uma config por método, para toda a org). Cada profissional pode ter seu próprio modo.
+  Owner-write (`OrgOwnerGuard` no `PUT`), leitura escopada por ator: owner vê todos os
+  membros, employee vê só a própria linha (`GetMemberCommissionsUseCase` via
+  `resolveActor`, mesmo helper de `get-balance`/`list-transactions`).
+- **Histórico imutável via `active`+`superseded_at`** (índice único parcial
+  `(org_id, user_id) WHERE active`, mesmo padrão de `billing_plan_prices`/ADR-0024) —
+  nunca `UPDATE` de `percent`/`mode` numa linha existente, só "desativar + inserir nova"
+  (`supersede`, ordem obrigatória dentro de uma transação: desativar a linha antiga
+  ANTES de inserir a nova, senão colide com o índice parcial). Um trigger de banco
+  (`org_member_commissions_protect_immutable`) força essa imutabilidade
+  incondicionalmente — nem super_admin escapa, porque não existe caminho legítimo de
+  "corrigir" uma linha histórica.
+- **Snapshot DESNORMALIZADO em `services`** (`commission_config_id` FK nullable, só
+  auditoria, nunca lido para cálculo; `commission_percent`/`commission_mode`/
+  `commission_base_cents`/`commission_cents` = fonte de verdade), gravado na MESMA
+  escrita que `payment_transaction_id` (`RegisterPaymentUseCase`/`CreateServiceUseCase`
+  quando o serviço já nasce pago). Sem config ativa, zera explicitamente (nunca pula a
+  escrita) — é a única janela livre antes do primeiro pagamento; depois de pago, um
+  trigger de banco (`services_protect_commission_columns`) só libera alterar essas 5
+  colunas para o owner da org (o caminho de `CorrectServicePaymentUseCase`) ou role
+  privilegiada, e bloqueia INSERT com comissão não-nula/não-zero vindo de não-owner.
+- **Correção de pagamento preserva o snapshot ORIGINAL** (`percent`/`mode` do momento do
+  pagamento inicial) — recalcula só `baseCents`/`commissionCents` sobre o novo valor
+  corrigido. `CorrectServicePaymentUseCase` NÃO injeta `MEMBER_COMMISSION_REPOSITORY` de
+  propósito: reconsultar a config vigente precificaria retroativamente um evento
+  passado, o que a decisão de produto proíbe.
+- **`UpdateServiceUseCase` bloqueia reatribuir `performedBy` de serviço já pago**
+  (`ServicePerformerNotChangeableException`, 409) — comparando o valor RESOLVIDO (pós
+  `resolvePerformer`), não o bruto do input, porque `resolvePerformer` mapeia
+  `performedBy: null` enviado por um owner para `currentUserId`. Sem essa checagem, a
+  comissão congelada com o percentual do profissional A passaria a ser exibida como
+  comissão do profissional B nas agregações (que agrupam por `performed_by`).
+- **Cálculo é função pura separada** (`commission-calculator.ts`, `computeCommission`) —
+  NÃO reusa `computeNet`/`fee-calculator.ts`, que filtra por `FEE_ELIGIBLE_METHODS` (só
+  cartão) e zeraria comissão de dinheiro/pix silenciosamente. Modo `gross` = base é o
+  bruto (estúdio absorve 100% da taxa de cartão); modo `net` = base é o líquido pós-taxa
+  (`netCents` já calculado por `computeNet` em outro lugar).
+- **Agregação por período** (`commissionCentsByPeriod`) tem `performedBy: string | null`
+  **obrigatório** (não opcional) de propósito — força todo caller a declarar o escopo
+  explicitamente: `null` agrega a org inteira (só o ramo owner do overview usa), uma
+  string escopa a um profissional (ramo employee). Um parâmetro opcional permitiria
+  "esquecer" o escopo e vazar comissão de toda a org por omissão. Agregação ancorada em
+  `performed_at` (mesma âncora de todas as outras métricas de serviço no overview), não
+  na data do pagamento — um serviço executado num mês e pago no seguinte aparece na
+  comissão do mês de execução, por consistência com o resto do relatório.
+- **Débito conhecido, não bloqueante**: `resolveActor` (usado por `GetMemberCommissionsUseCase`
+  e outros use-cases do cashier) resolve `isOwner` via role da membership LOCAL, não via
+  `IOrganizationRepository.isOwner` — um super_admin agindo como owner de uma org da qual
+  NÃO é membro recebe 403 ao LER comissões (`GET`), mas CONSEGUE escrever (`PUT`, que usa
+  `orgRepo.isOwner` com fallback de `isSuperAdmin`). Falha fechada (sem vazamento), mas é
+  assimetria a corrigir num follow-up que alinhe `resolve-actor.ts` ao ADR-0013.
+- **Índice `services(org_id, performed_by, performed_at) WHERE canceled_at IS NULL`
+  ausente** — as 4 agregações do módulo fazem seq scan; aceito como débito dado o volume
+  baixo esperado (decisão de produto, não corrigir sem necessidade real).
+
 ### Serviços / Atendimentos (módulo `services`, 2026-06-21)
 - **Serviço = evento central** (cliente + profissional + materiais + pagamento). Backend
   `modules/services/` (Clean Arch, espelha cashier/materials). Rota
