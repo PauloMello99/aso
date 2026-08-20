@@ -11,18 +11,18 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
 
 ### Onde cada tipo de código vive
 
-| Tipo | Camada | Diretório |
-|---|---|---|
-| Entidade de domínio | Domain | `<feature>/domain/<entity>.entity.ts` |
-| Interface de repositório | Domain | `<feature>/domain/<entity>.repository.interface.ts` |
-| Exceção de domínio | Domain | `<feature>/domain/exceptions/<code>.exception.ts` |
-| Interface de serviço externo | Application/Ports | `<feature>/application/ports/<service>.interface.ts` |
-| Use-case | Application | `<feature>/application/use-cases/<verb>-<entity>.use-case.ts` |
-| Implementação de repositório | Infrastructure | `<feature>/infrastructure/persistence/<entity>.repository.ts` |
-| Mapper (Drizzle ↔ domain) | Infrastructure | `<feature>/infrastructure/persistence/<entity>.mapper.ts` |
-| Controller | Interface | `<feature>/<feature>.controller.ts` |
-| DTO + validação | Interface | `<feature>/dto/*.dto.ts` |
-| Guard / decorator | Interface | `<feature>/guards/` ou `<feature>/decorators/` |
+| Tipo                         | Camada            | Diretório                                                     |
+| ---------------------------- | ----------------- | ------------------------------------------------------------- |
+| Entidade de domínio          | Domain            | `<feature>/domain/<entity>.entity.ts`                         |
+| Interface de repositório     | Domain            | `<feature>/domain/<entity>.repository.interface.ts`           |
+| Exceção de domínio           | Domain            | `<feature>/domain/exceptions/<code>.exception.ts`             |
+| Interface de serviço externo | Application/Ports | `<feature>/application/ports/<service>.interface.ts`          |
+| Use-case                     | Application       | `<feature>/application/use-cases/<verb>-<entity>.use-case.ts` |
+| Implementação de repositório | Infrastructure    | `<feature>/infrastructure/persistence/<entity>.repository.ts` |
+| Mapper (Drizzle ↔ domain)    | Infrastructure    | `<feature>/infrastructure/persistence/<entity>.mapper.ts`     |
+| Controller                   | Interface         | `<feature>/<feature>.controller.ts`                           |
+| DTO + validação              | Interface         | `<feature>/dto/*.dto.ts`                                      |
+| Guard / decorator            | Interface         | `<feature>/guards/` ou `<feature>/decorators/`                |
 
 ### Regras obrigatórias
 
@@ -76,6 +76,8 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
 22. **Scroll de container alto (gotcha CSS)**: `overflow-x-auto` força `overflow-y:auto` no mesmo elemento (spec) → criava um scroll interno no calendário (week-view). Para a página inteira rolar, adicionar **`overflow-y-hidden`** ao container com `overflow-x-auto` quando a altura é o próprio conteúdo. (Corrigido 2026-06-20.)
 23. **DatePicker — dropdown de mês/ano (2026-06-20)**: o `<select>` nativo do `react-day-picker` v10 (`captionLayout="dropdown"`) abre um popup do SO (branco/azul) **não tematizável por CSS**. Override em `calendar.tsx` via **`components.Dropdown` = `CalendarDropdown`** que usa o nosso `Select` (Radix). O RDP v10 lê **`Number(e.target.value)`** no `onChange`, então o adapter sintetiza `onChange({ target: { value } })` a partir do `onValueChange` do Select (padrão shadcn). Não voltar ao select nativo.
 24. **Superfícies públicas só afirmam o que o produto faz (2026-08-16)**: landing, SEO, e-mails de marketing e páginas legais **não podem** conter métrica inventada, logo de integração inexistente ou recurso não implementado sem rótulo explícito de "em breve". Auditoria de 2026-08-16 encontrou na landing 4 métricas fabricadas (`about.tsx`), 5 integrações que existiam **apenas** naquele arquivo (WhatsApp/Instagram/Notion/Zapier/Pix), "lembretes por WhatsApp" (notificação real é in-app + e-mail) e "Começar grátis" para um trial que **exige cartão** (`paymentMethodCollection: "always"`, 60 dias). Ao escrever copy nova: rastrear cada afirmação até um módulo, ADR ou linha de código; número agregado vive em **uma** constante (`features/landing/constants/`), nunca inline. Posicionamento é **vertical de tatuagem explícito**, não "estúdios criativos" — anamnese, consumo de material por sessão e taxa de cartão são o que diferencia de CRM horizontal. Spec completa em `docs/product/landing-page-spec.md`.
+25. **Upload de imagem = recorte + compressão client-side antes do envio (2026-08-19)**: todo fluxo de upload de imagem (avatar da conta, anexos de cliente, anexos de ticket de suporte) passa por `ImageCropper` (`shared/components/image-cropper.tsx`) + `ImageCropDialog` (`shared/components/ui/image-crop-dialog.tsx`) antes do POST. Política pura (MIME, dimensão, qualidade, geometria, naming) em `shared/lib/image-compression.ts`; I/O de canvas em `shared/lib/image-crop.ts` — zero dependência nova. **MIME de saída = MIME de entrada** (nunca reconverte PNG→JPEG): preserva a extensão do arquivo e evita path órfão no avatar (que deriva o nome do storage do MIME, e `DELETE` em `storage.objects` é bloqueado por trigger). GIF e PDF são **pass-through** — sem cropper, sem re-encode (`canvas.toBlob("image/gif")` cai silenciosamente para PNG). EXIF de rotação sempre normalizado via `createImageBitmap(file, { imageOrientation: "from-image" })`, com fallback `<img>`+`decode()`. **Aceitação de MIME por fluxo não é uniforme** — confira o backend antes de mexer no `accept` do input: avatar aceita gif (`auth.controller.ts`, regex inclui gif), anexos de cliente aceitam gif+pdf (`customers.controller.ts`), anexos de ticket **não** aceitam gif (`upload-ticket-attachment.use-case.ts`, `ALLOWED_MIME_TYPES` sem gif) — um agente já errou essa suposição para o avatar (achou que rejeitava gif; não rejeita), verificar sempre a validação real, não assumir.
+26. **HEIC (padrão de foto do iPhone) não é aceito em nenhum fluxo de upload de imagem (gap conhecido, 2026-08-19)**: reproduzido em staging — o backend devolve 400 com mensagem crua expondo a regex de validação (`"Validation failed (current file type is image/heic, expected type is ...)"`). O frontend hoje só troca essa mensagem por uma amigável ("Formato de imagem não suportado. Envie PNG, JPG, WEBP ou GIF/PDF conforme o fluxo") — **não converte nem aceita HEIC**. Suporte real exigiria conversão HEIC→JPEG no backend (nova dependência de processamento de imagem, ex. sharp+libheif — nenhuma instalada hoje) ou decodificação client-side (inconsistente entre browsers: Safari decodifica HEIC via canvas, Chrome não). Ficou deliberadamente fora de escopo; se for endereçado, é feature nova, não bugfix.
 
 ---
 
@@ -169,16 +171,19 @@ Platform User (único por email/auth)
 - Um user pode acumular platform_role + org_role (caso Ruan/João Pedro: super_admin + owner da Ink House)
 
 #### Roles da plataforma (`platform_role`)
+
 - `super_admin`: tudo que owner faz + gerenciar assinaturas, painel financeiro da plataforma, todas as orgs/users/acessos
 - `user`: acesso às orgs em que tem membership
 
 #### Roles dentro da org (`org_role`)
+
 - `owner`: gestão total da org
 - `employee`: acesso conforme permissões configuradas pelo owner (granularidade a definir)
 
 **Visibilidade por funcionário ("só vê o que é dele") — backend.** Regra de produto: o
 funcionário só enxerga dados referentes a ele; o owner vê tudo e pode lançar **em nome de**
 um funcionário. Estado por módulo (2026-06-21):
+
 - **Services** ✅ — `list-services` força `performedBy=self` p/ funcionário; owner escolhe o
   profissional (`resolvePerformer`). Coluna `services.performed_by` + `created_by`.
 - **Agenda/Calendar** ✅ — `list-calendar-events` força `assignedTo=self` p/ funcionário;
@@ -202,7 +207,8 @@ um funcionário. Estado por módulo (2026-06-21):
 
 **Navegação por papel (multi-org/multi-papel) — frontend.** Um usuário pode ser `owner`
 de N orgs e `employee` de outras N ao mesmo tempo. `GET /orgs` retorna `role` por org;
-a UI deve refletir o papel da org *ativa*:
+a UI deve refletir o papel da org _ativa_:
+
 - `NavItem.roles?: Array<"owner"|"employee">` em `features/dashboard/lib/nav.ts` — item sem
   `roles` é visível a todos; com `roles`, só aparece para quem tem o papel. Hoje
   `Caixa` e `Configurações` são `roles:["owner"]`.
@@ -219,6 +225,7 @@ a UI deve refletir o papel da org *ativa*:
   (rotas owner-only respondem 403). Nunca confiar só no nav para autorização.
 
 **Roteamento Next (pages router) — gotchas (2026-06-29).**
+
 - **Lista + detalhe NÃO podem ser `foo.tsx` + `foo/[id].tsx`** (arquivo e diretório de mesmo
   nome). É ambíguo: a rota dinâmica filha cai em **404 no dev** (o `next build` até passa,
   mascarando). Usar sempre `foo/index.tsx` + `foo/[id].tsx`. Foi a causa do bug "ao abrir
@@ -325,6 +332,7 @@ transactions (agnóstica, append-only)
 ### Billing / assinatura (Stripe) — implementado (ADR-0016 M11, ADR-0023, ADR-0024)
 
 Produto: "assessoria". Quatro configurações possíveis (gerenciadas pelo super_admin):
+
 1. **Gratuita** — para a própria Ink House
 2. **Trial** — via Checkout com cartão obrigatório (`trial_period_days` nativo do Stripe)
 3. **Preço cheio** — configurado em `billing_plans` (banco), não hardcoded
@@ -341,7 +349,7 @@ Produto: "assessoria". Quatro configurações possíveis (gerenciadas pelo super
   descrição, `stripeProductId`); preço vive em `billing_plan_prices`, N linhas por plano — uma
   por intervalo de cobrança (`monthly`/`semiannual`/`annual`), cada uma independentemente
   editável/habilitável. Dois índices únicos **parciais** (`WHERE active`) — `(plan_id,
-  interval)` e `lookup_key` — garantem só uma linha vigente por par; preços antigos nunca são
+interval)` e `lookup_key` — garantem só uma linha vigente por par; preços antigos nunca são
   apagados, só desativados (`deactivateById`, que limpa `active` e `lookup_key` juntos).
 - **Nenhum use-case deve tentar `PATCH` de valor num objeto Stripe imutável** (ADR-0023):
   `unit_amount` de um `Price` existente, ou `percent_off`/`amount_off`/`duration` de um
@@ -365,6 +373,32 @@ Produto: "assessoria". Quatro configurações possíveis (gerenciadas pelo super
   reintroduzir lógica de "desmarcar" trial fora de migration explícita). Bug histórico:
   marcar na criação da checkout session queimava o trial de 60 dias em qualquer checkout
   abandonado — corrigido nesta data.
+- **`lookup_key`/`stripeProductId` ausentes numa linha ATIVA de `billing_plan_prices` são
+  irrecuperáveis por boot (2026-08-19, bug real corrigido).** Causa: `ReconcilePlanCatalogUseCase`
+  desativa uma linha divergente/sumida no Stripe via `deactivateById` (limpa `active` e
+  `lookup_key` juntos); se o super_admin reativa o intervalo depois (`SetPlanIntervalActiveUseCase`),
+  a linha volta a `active: true` mas com `lookup_key` NULL — e `SyncPlanCatalogUseCase.onModuleInit`
+  **não repara isso** (`syncPrice` encontra a linha existente e retorna `"unchanged"`, nunca
+  repopula). Isso fazia `RotatePlanIntervalPriceUseCase` falhar com "plano/preço sem
+  produto/lookup_key associado" até o próximo restart — e mesmo assim só se o restart
+  coincidisse com o Stripe ainda tendo o produto correto. Fix: `PlanPriceLinkageService`
+  (`modules/subscriptions/application/plan-price-linkage.service.ts`) resolve o par sob
+  demanda — fast path se `stripeProductId`+`lookupKey` já existem (nenhuma chamada ao Stripe);
+  senão consulta `gateway.retrievePrice` (Stripe é autoritário); senão deriva
+  `${productKey}-${interval}` (mesma regra de `UpsertPlanIntervalPriceUseCase`). Usado por
+  `RotatePlanIntervalPriceUseCase` (autocura antes de lançar `InvalidBillingPlanUpdateException`)
+  e `SetPlanIntervalActiveUseCase` (repõe `lookup_key` na mesma escrita ao reativar). **Não é**
+  o sync manual global removido em ADR-0024 — opera só sobre um par (plano, preço) específico,
+  sob ação explícita do admin, sem ler `PLAN_CATALOG` nem rotacionar Price.
+- **Campos de apresentação `highlighted`/`features` em `billing_plans` (migration 0051,
+  2026-08-19) vivem em colunas dedicadas, nunca em `metadata`.** `metadata` é sobrescrito pelo
+  round-trip do Stripe em `UpdateBillingPlanProductUseCase` (o `result.metadata` que volta do
+  `paymentGateway.updateProduct`) e no webhook `product.updated` — qualquer coisa guardada lá
+  seria apagada na próxima edição/sync. Editados só por super_admin via
+  `PATCH /admin/billing/plans/:key/product`; **nunca** entram no `set:` do
+  `onConflictDoUpdate` de `DrizzleBillingPlanRepository.upsert` (usado por
+  `SyncPlanCatalogUseCase` no boot) — se entrassem, todo boot resetaria a curadoria do
+  super_admin para o default, já que `PLAN_CATALOG` (seed) não carrega esses campos.
 
 ### Gaps de reunião aplicados (2026-06-20) — migrations 0011–0013
 
@@ -403,19 +437,19 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   `customer_attachments`. `IStorageProvider` ganhou `uploadFile/createSignedUrl/removeFile`
   (genéricos). Rotas `POST/GET/DELETE /orgs/:orgId/customers/:id/attachments` (GET = signed URLs).
 - **Export CSV** de clientes: `GET /orgs/:orgId/customers/export` (text/csv; respeita filtro).
-- ⚠️ **Gotcha (repetido):** ao adicionar campo a uma *entity* de domínio, adicione nos **3**
+- ⚠️ **Gotcha (repetido):** ao adicionar campo a uma _entity_ de domínio, adicione nos **3**
   lugares — props interface, `readonly` field e atribuição no constructor — senão não serializa
   (pegadinha que ocultou `transaction.categoryId` até o teste e2e).
 - **Fora do escopo (por design):** super-admin panel, módulo de Serviços, Google Calendar, push
   externo, caixa-poupança, tema/exclusão de conta.
 - **Preview inline vs download forçado — Supabase Storage (2026-07-31)**: `createSignedUrl(bucket,
-  path, expires, downloadFileName?)` do `IStorageProvider` força `Content-Disposition: attachment`
+path, expires, downloadFileName?)` do `IStorageProvider` força `Content-Disposition: attachment`
   quando `downloadFileName` é passado — sem ele, a URL é inline (`<img>`/`<iframe>` funcionam
   direto). **Descoberta que evita assinar duas vezes**: no supabase-js, `download` **não entra na
   assinatura** — é query param concatenado à URL já assinada (`?download=<nome>` ou
   `&download=<nome>`). Uma única `createSignedUrl`/`createSignedUrls` basta para os dois links;
   a versão de download é só `url + (url.includes('?') ? '&' : '?') + 'download=' +
-  encodeURIComponent(nome)`. Para listagens, usar `createSignedUrls` (plural) — 1 chamada HTTP
+encodeURIComponent(nome)`. Para listagens, usar `createSignedUrls` (plural) — 1 chamada HTTP
   para N arquivos, mapeando o resultado por `path` (a ordem de retorno não é garantida), nunca
   por índice, e omitindo entradas com `signedUrl: null`/`error` sem derrubar as demais.
 - **Travar extensão de arquivo por composição, não validação (2026-07-31)**: quando um campo de
@@ -424,7 +458,7 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   (`storage_path` já salvo, ou `file.originalname` no upload) + só o nome-base vindo do usuário.
   Não existe caminho de input que quebre a extensão, então não precisa de exceção de domínio nova.
   Bônus: conserta de graça qualquer arquivo legado salvo sem extensão no próximo rename.
-  Utilitário `extensionOf`/`splitFileName`/`joinFileName` (extrai o *basename* antes de procurar
+  Utilitário `extensionOf`/`splitFileName`/`joinFileName` (extrai o _basename_ antes de procurar
   a extensão) é duplicado em `apps/frontend/src/shared/lib/file-name.ts` e
   `apps/backend/src/common/lib/file-name.ts` — os dois apps não compartilham workspace para isso.
 
@@ -477,6 +511,7 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   `ReverseTransactionUseCase` e herda de graça.
 
 ### Serviços / Atendimentos (módulo `services`, 2026-06-21)
+
 - **Serviço = evento central** (cliente + profissional + materiais + pagamento). Backend
   `modules/services/` (Clean Arch, espelha cashier/materials). Rota
   `orgs/:orgId/services` (`AuthGuard`+`OrgMembershipGuard` — **membros**, não owner-only).
@@ -494,7 +529,7 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
 - **`performed_by` / `created_by` = `users.id` (app), NÃO authId.** `user.id` no controller é o
   **authId** Supabase (guards comparam `users.auth_id = user.id`). Os use-cases resolvem a
   associação via `MEMBER_REPOSITORY.findByAuthId(orgId, authId)` (método **novo**) → `{ userId
-  (app), isOwner }`. `performed_by` casa com `member.userId` e com `calendar.assigned_to`.
+(app), isOwner }`. `performed_by` casa com `member.userId` e com `calendar.assigned_to`.
 - **Papéis:** funcionário (não-owner) **força `performedBy=self`** e vê/edita/paga/cancela só os
   próprios (`SERVICE_FORBIDDEN` 403); owner escolhe o profissional (membro ativo, senão
   `EMPLOYEE_INACTIVE` 422) e filtra por membro. Lista **default = mês vigente** (1º→hoje).
@@ -521,16 +556,16 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   `DatabaseModule`). Ver ADR a considerar / `.memory/sessions/` para o raciocínio completo.
 - **Consumo de materiais:** linha não-compartilhável → quantidade (valida estoque, senão
   `INSUFFICIENT_STOCK` 422; debita via `updateStockQuantity` + movimento `service_consumption`
-  + `touchLastUsed`). Compartilhável (`shareable`) → checkbox **"acabou?"**: marcado ⇒ baixa
-  **1 unidade** + grava `service_materials.quantity=1`; desmarcado ⇒ não baixa / sem linha.
+  - `touchLastUsed`). Compartilhável (`shareable`) → checkbox **"acabou?"**: marcado ⇒ baixa
+    **1 unidade** + grava `service_materials.quantity=1`; desmarcado ⇒ não baixa / sem linha.
 - **Cliente** precisa estar `enabled` (senão `CUSTOMER_DISABLED` 422).
 - **Tipos de serviço criáveis inline** (`POST /services/types`, upsert UNIQUE org+name — espelha
   transaction-category). ⚠️ Rotas `/types` declaradas **antes** de `/:id` no controller (senão
   `:id` captura "types").
 - **Frontend** `features/services/`: Sheet com 3 seções (Dados·Materiais·Pagamento), `useFieldArray`
-  + `useFormContext` em `material-lines` (mutar o snapshot do field **não** atualiza o RHF — usar
-  `register`/`Controller`); lista Table desktop + cards mobile com badge de status; reusa
-  `lib/money` do cashier e `useCustomers`/`useMembers`/`useMaterials`.
+  - `useFormContext` em `material-lines` (mutar o snapshot do field **não** atualiza o RHF — usar
+    `register`/`Controller`); lista Table desktop + cards mobile com badge de status; reusa
+    `lib/money` do cashier e `useCustomers`/`useMembers`/`useMaterials`.
 
 ### Estoque — modelo realista (reunião 11/06)
 
@@ -540,6 +575,7 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
 - **Integração estoque ↔ serviço** (futuro, pesquisar): relacionar materiais ao serviço para custo real/lucro líquido (`service_materials` já existe no schema)
 
 #### Simplificações implementadas (2026-06-15)
+
 - **Material NÃO tem mais campo `unit`** (removido — migration `0006`). Não reintroduzir.
 - **`shareable` (bool, migration `0005`)**: material compartilhável não é "queimado" por inteiro a cada serviço (ex.: luvas). UI = `Switch` no form + badge "Compartilhável" na lista. ⚠️ O comportamento de consumo (ao vincular no serviço, perguntar se acabou → descontar) é **pendente** e será feito com o módulo de Serviços — hoje só existe a flag.
 - **Ajuste de estoque**: o form separa **direção** (`Select` Adição/Remoção) + **quantidade** (input só-número); o `quantityDelta` com sinal é montado na submissão (`stock-page handleAdjust`). Backend continua recebendo `quantityDelta` assinado.
@@ -597,10 +633,10 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   publicado no npm tem vulnerabilidade conhecida (prototype pollution/ReDoS) sem correção
   no próprio registro (só corrigida no CDN deles, fora do fluxo normal de instalação).
 - **Content-Type/Content-Disposition por formato**: CSV mantém `text/csv; charset=utf-8`
-  + `.csv`; Excel usa
-  `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` + `.xlsx`.
-  `res.send()` aceita tanto `string` (CSV) quanto `Buffer` (Excel) sem tratamento
-  especial.
+  - `.csv`; Excel usa
+    `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` + `.xlsx`.
+    `res.send()` aceita tanto `string` (CSV) quanto `Buffer` (Excel) sem tratamento
+    especial.
 - **Frontend**: `export-menu.tsx` (componente único reusado pelas 4 páginas) ganhou
   `Select` de Formato (CSV/Excel) + `Select` de Delimitador (só visível quando CSV,
   espelhando o padrão de campo condicional já usado no projeto). Textos renomeados:
@@ -668,7 +704,7 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   `createdBy` sempre resolvido de `authId` (sessão) → `users.id`, nunca aceito do
   client/body.
 - **Perguntas sem schema no banco** (`jsonb` puro: `{ id: uuid, type: 'text'|'yes_no',
-  label, required }[]`) — a única validação é em aplicação (`class-validator` nested no
+label, required }[]`) — a única validação é em aplicação (`class-validator` nested no
   DTO, `whitelist: true` no `ValidationPipe` global remove chaves extras antes de
   chegar no jsonb). Sem verificação de unicidade de `question.id` dentro do array ainda
   — pendência registrada pra M10b resolver antes de mapear respostas por pergunta.
@@ -713,7 +749,7 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   restrito no submit (5/60s vs. 120/min global) — token é 256 bits (`gen_random_bytes(32)`
   hex), enumeração inviável mesmo sem o throttle mais apertado.
 - **Vínculo `services.anamnesis_response_id`** (índice único parcial `WHERE
-  anamnesis_response_id IS NOT NULL`): `assertAnamnesisResponseLinkable` faz o
+anamnesis_response_id IS NOT NULL`): `assertAnamnesisResponseLinkable` faz o
   pré-check de aplicação (existe na org, `status=submitted`, cliente/tipo batem
   quando a resposta já os tem preenchidos), mas a violação do índice único
   (resposta já vinculada a OUTRO service) é responsabilidade exclusiva do catch de
@@ -803,7 +839,7 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   `database-guardian` como decisão de produto (LGPD: CPF é PII, legível por qualquer
   membro da org via RLS `is_org_member`), não bloqueante. Não resolvido nesta fatia.
 - **F10 está completo**: M10a (construtor+versionamento) + M10b (link público+submissão)
-  + M10c (assinatura) cobrem o fluxo inteiro de ficha de anamnese.
+  - M10c (assinatura) cobrem o fluxo inteiro de ficha de anamnese.
 
 ### Conformidade legal — LGPD Tier 1 (2026-07-27, ADR-0018)
 
@@ -841,6 +877,7 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   dados por titular.
 
 ### Notificações — núcleo reutilizável (2026-06-15)
+
 - **Módulo `modules/notifications/`**: `NotificationService.notify({userId, orgId?, type, title, body?, data?, email?, actionUrl?, actionLabel?})` cria a notificação **in-app** (tabela `notifications`, migration `0008`) e dispara **e-mail** via `MailService.sendNotification` (best-effort em `try/catch` — falha nunca quebra agenda/estoque/cron). **Outros módulos injetam `NotificationService`** (exportado).
 - **E-mail transacional centralizado (ADR-0012)**: módulo dedicado `modules/mail/` (sem dep de auth/notifications → evita ciclo) é dono do port `IEmailSender`/`ResendEmailSender` e do `MailService` (`sendOrgInvite`/`sendPasswordReset`/`sendWelcome`/`sendNotification`). Templates **React Email** `.tsx` em `modules/mail/templates/` (preview: `pnpm --filter backend email:dev`). **`IEmailSender.send`**: `false` = desabilitado (no-op, dev), `true` = enviado, **lança** em falha real. **Críticos (abortam):** convite (cria→envia→em falha **reverte** o convite + `InvitationEmailFailedException`/HTTP 502) e **reset de senha**. **Best-effort:** notificações/crons e welcome. **Reset de senha saiu do GoTrue**: `IAuthProvider.generatePasswordResetLink` (`admin.generateLink type=recovery`, sem enviar) → enviamos via Resend; `null` p/ user inexistente (sem enumeração). Welcome no sign-up. `NOTIFICATIONS_FROM_EMAIL` exige domínio verificado no Resend.
 - A tabela `notifications` **não tem RLS** — acesso só pelo módulo, sempre escopado por `user_id` no código, via **`DRIZZLE_ADMIN`**. Inbox por usuário: `GET/POST /me/notifications` (`AuthGuard`, resolve `authId→users.id`).
@@ -951,7 +988,7 @@ passar (red → green → refactor).
   Svix) criam ticket **sem organização**, visível só a `super_admin` na fila de
   triagem. TODAS as policies de SELECT/UPDATE ramificam explicitamente
   `(org_id IS NULL AND is_super_admin()) OR (org_id IS NOT NULL AND (is_super_admin()
-  OR is_org_member(org_id)))`; as de INSERT exigem `org_id IS NOT NULL AND (...)` sem
+OR is_org_member(org_id)))`; as de INSERT exigem `org_id IS NOT NULL AND (...)` sem
   ramo órfão — nenhum caminho via RLS comum (`app_user`) cria linha órfã, só
   `DRIZZLE_ADMIN`. **Vínculo a uma organização é sempre manual** (ação explícita de
   `super_admin` na fila admin via `LinkTicketToOrganizationUseCase`, nunca heurística
