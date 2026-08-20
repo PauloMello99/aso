@@ -1,4 +1,4 @@
-# Decisões Recentes
+﻿# Decisões Recentes
 
 Índice rápido — ver `.memory/adr/` para detalhe completo.
 
@@ -76,3 +76,12 @@
   (2 rodadas) e `reviewer` (1 rodada) aprovaram após correções. Detalhe técnico completo em
   `domain-rules.md` (GOTCHA seção RLS); status no backlog em
   `docs/planning/2026-08-19-meeting-backlog.md`.
+- **2026-08-20 — P-2 fatia 3/4 concluída (frontend)**: menu de auto-cadastro/atualização no
+  módulo de Clientes + páginas públicas `/customer-registration/:token` (2 passos, dados
+  cadastrais + ficha de anamnese, único submit) e `/customer-update/:token` (1 passo,
+  atualização PARCIAL via `dirtyFields` do react-hook-form — nunca envia `gender` se o
+  campo não for tocado, já que o GET de atualização não devolve o gênero atual do cliente;
+  regra confirmada pelo `reviewer`). `SignaturePadField` passou a ser exportado por
+  `features/anamnesis/index.ts` (reuso cross-feature). `reviewer`: `approved_with_notes`.
+  Commit `4c7f308` na branch `worktree-p2-fatia3-customer-self-service-frontend`, mergeada
+  em `development`.

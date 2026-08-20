@@ -2,7 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/router"
-import { Users, UserCheck, Plus, RefreshCw, Search } from "lucide-react"
+import {
+  Users,
+  UserCheck,
+  Plus,
+  RefreshCw,
+  Search,
+  UserPlus,
+  Link2,
+} from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import {
@@ -21,9 +29,19 @@ import {
   ExportMenu,
   type ExportFormat,
 } from "@/shared/components/ui/export-menu"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu"
 import { downloadExport } from "@/shared/lib/download-export"
 import { KpiCard } from "@/shared/components/kpi-card"
 import { useCurrentOrg } from "@/features/dashboard"
+import {
+  CreateCustomerRegistrationDialog,
+  SendCustomerUpdateInviteDialog,
+} from "@/features/customer-self-service"
 import { useCustomers } from "../hooks/use-customers"
 import { useCustomerOrigins } from "../hooks/use-customer-origins"
 import { CustomerList } from "./customer-list"
@@ -123,6 +141,15 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
 
   const [formOpen, setFormOpen] = useState(false)
   const [activeCustomer, setActiveCustomer] = useState<Customer | null>(null)
+  const [registrationInviteOpen, setRegistrationInviteOpen] = useState(false)
+  const [updateInviteDialogOpen, setUpdateInviteDialogOpen] = useState(false)
+  const [updateInviteCustomer, setUpdateInviteCustomer] =
+    useState<Customer | null>(null)
+
+  function openUpdateInvite(customer: Customer) {
+    setUpdateInviteCustomer(customer)
+    setUpdateInviteDialogOpen(true)
+  }
 
   const activeCount = useMemo(
     () => customers.filter((c) => c.enabled).length,
@@ -218,10 +245,24 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
           <ExportMenu columns={EXPORT_COLUMNS} onExport={handleExport} />
-          <Button onClick={openCreate} className="flex-1 sm:flex-none">
-            <Plus className="h-4 w-4" />
-            Novo cliente
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="flex-1 sm:flex-none">
+                <Plus className="h-4 w-4" />
+                Novo cliente
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={openCreate}>
+                <UserPlus className="h-3.5 w-3.5 shrink-0" />
+                Cadastro manual
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setRegistrationInviteOpen(true)}>
+                <Link2 className="h-3.5 w-3.5 shrink-0" />
+                Criar cliente + ficha via link
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -401,6 +442,7 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
           onToggleStatus={handleToggleStatus}
           onDelete={handleDelete}
           onViewDetail={openDetail}
+          onSendUpdateInvite={openUpdateInvite}
         />
       )}
 
@@ -412,6 +454,21 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
         origins={origins}
         onSubmit={handleSubmit}
       />
+
+      <CreateCustomerRegistrationDialog
+        open={registrationInviteOpen}
+        onOpenChange={setRegistrationInviteOpen}
+        orgId={orgId}
+      />
+
+      {updateInviteCustomer && (
+        <SendCustomerUpdateInviteDialog
+          open={updateInviteDialogOpen}
+          onOpenChange={setUpdateInviteDialogOpen}
+          orgId={orgId}
+          customer={updateInviteCustomer}
+        />
+      )}
     </div>
   )
 }
