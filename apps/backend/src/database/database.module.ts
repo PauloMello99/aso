@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { Module, Global, Injectable, Inject } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
+import { Pool, type PoolClient } from "pg";
 import * as schema from "./schema";
 
 export const DRIZZLE = Symbol("DRIZZLE");
@@ -16,6 +16,8 @@ export type DrizzleDB = ReturnType<typeof drizzle<typeof schema>>;
 type RlsStore = {
   db: DrizzleDB;
   memo: Map<string, Promise<unknown>>;
+  client: PoolClient;
+  savepointSeq: { current: number };
 };
 const rlsStorage = new AsyncLocalStorage<RlsStore>();
 
@@ -45,7 +47,10 @@ export class RlsContext {
         claims,
       ]);
       const db = drizzle(client, { schema }) as unknown as DrizzleDB;
-      const result = await rlsStorage.run({ db, memo: new Map() }, fn);
+      const result = await rlsStorage.run(
+        { db, memo: new Map(), client, savepointSeq: { current: 0 } },
+        fn,
+      );
       await client.query("COMMIT");
       return result;
     } catch (err) {
@@ -91,8 +96,47 @@ export class RlsContext {
       useFactory: (pool: Pool) => {
         const fallback = drizzle(pool, { schema });
         return new Proxy(fallback, {
+          // Dentro de uma request, "active" ja roda sobre a transacao aberta por
+          // RlsContext.runWithClaims na MESMA conexao (client). Um db.transaction()
+          // aninhado ali viraria um BEGIN/COMMIT no-op do driver e commitaria a
+          // transacao externa prematuramente, resetando request.jwt.claims no meio
+          // da execucao (ver GOTCHA em .memory/domain-rules.md, secao RLS). Por
+          // isso interceptamos "transaction" nesse caso e simulamos com
+          // SAVEPOINT, preservando atomicidade sem tocar no BEGIN/COMMIT externo.
           get(_target, prop, receiver) {
-            const active = rlsStorage.getStore()?.db ?? fallback;
+            const store = rlsStorage.getStore();
+            const active = store?.db ?? fallback;
+
+            if (prop === "transaction" && store) {
+              return async (
+                callback: (tx: DrizzleDB) => Promise<unknown>,
+                config?: unknown,
+              ) => {
+                if (config !== undefined) {
+                  throw new Error(
+                    "Config de transacao (isolationLevel/accessMode) nao e " +
+                      "suportado dentro de uma transacao de request ja aberta " +
+                      "(interceptada via SAVEPOINT).",
+                  );
+                }
+
+                const spName = `sp_${store.savepointSeq.current++}`;
+                await store.client.query(`SAVEPOINT ${spName}`);
+                try {
+                  const result = await callback(receiver as DrizzleDB);
+                  await store.client.query(`RELEASE SAVEPOINT ${spName}`);
+                  return result;
+                } catch (err) {
+                  try {
+                    await store.client.query(`ROLLBACK TO SAVEPOINT ${spName}`);
+                  } catch {
+                    void 0;
+                  }
+                  throw err;
+                }
+              };
+            }
+
             const value = Reflect.get(active, prop, receiver);
             return typeof value === "function" ? value.bind(active) : value;
           },
