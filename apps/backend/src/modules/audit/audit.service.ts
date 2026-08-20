@@ -1,5 +1,9 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { DRIZZLE_ADMIN, type DrizzleDB } from "../../database/database.module";
+import {
+  DRIZZLE_ADMIN,
+  registerPostCommit,
+  type DrizzleDB,
+} from "../../database/database.module";
 import {
   IUserRepository,
   USER_REPOSITORY,
@@ -38,22 +42,30 @@ export class AuditService {
   ) {}
 
   async log(entry: AuditEntry): Promise<void> {
-    try {
-      await this.db.insert(schema.auditLogs).values({
-        actorId: entry.actorId,
-        orgId: entry.orgId ?? null,
-        action: entry.action,
-        entityType: entry.entityType,
-        entityId: entry.entityId ?? null,
-        metadata: (entry.metadata ?? null) as Record<string, unknown> | null,
-      });
-    } catch (err) {
-      this.logger.error(
-        `Falha ao gravar audit log [${entry.action}:${entry.entityType}]: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
-    }
+    // Adiado para depois do COMMIT real da transacao do request: o INSERT
+    // usa DRIZZLE_ADMIN (pool separado, autocommit imediato) e, se rodasse
+    // aqui, gravaria o audit log mesmo que o request falhe/faca ROLLBACK
+    // depois (ver GOTCHA em .memory/domain-rules.md, secao RLS). Fora de um
+    // request, registerPostCommit executa imediatamente (mesmo comportamento
+    // de sempre).
+    registerPostCommit(async () => {
+      try {
+        await this.db.insert(schema.auditLogs).values({
+          actorId: entry.actorId,
+          orgId: entry.orgId ?? null,
+          action: entry.action,
+          entityType: entry.entityType,
+          entityId: entry.entityId ?? null,
+          metadata: (entry.metadata ?? null) as Record<string, unknown> | null,
+        });
+      } catch (err) {
+        this.logger.error(
+          `Falha ao gravar audit log [${entry.action}:${entry.entityType}]: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    });
   }
 
   async logByAuthId(

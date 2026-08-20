@@ -1,7 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { and, desc, eq } from "drizzle-orm";
 import { DRIZZLE, DrizzleDB } from "../../../../database/database.module";
-import { TtlCache } from "../../../../common/cache/ttl-cache.service";
 import * as schema from "../../../../database/schema";
 import { MemberCommissionEntity } from "../../domain/member-commission.entity";
 import {
@@ -10,31 +9,21 @@ import {
 } from "../../domain/member-commission.repository.interface";
 import { MemberCommissionMapper } from "./member-commission.mapper";
 
-const COMMISSIONS_TTL_MS = 60 * 60 * 1000;
-const commissionsKey = (orgId: string) => `commissions:${orgId}`;
-
 @Injectable()
-export class DrizzleMemberCommissionRepository
-  implements IMemberCommissionRepository
-{
-  constructor(
-    @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly cache: TtlCache,
-  ) {}
+export class DrizzleMemberCommissionRepository implements IMemberCommissionRepository {
+  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   async findActiveByOrg(orgId: string): Promise<MemberCommissionEntity[]> {
-    return this.cache.wrap(commissionsKey(orgId), COMMISSIONS_TTL_MS, async () => {
-      const rows = await this.db
-        .select()
-        .from(schema.orgMemberCommissions)
-        .where(
-          and(
-            eq(schema.orgMemberCommissions.orgId, orgId),
-            eq(schema.orgMemberCommissions.active, true),
-          ),
-        );
-      return rows.map(MemberCommissionMapper.toDomain);
-    });
+    const rows = await this.db
+      .select()
+      .from(schema.orgMemberCommissions)
+      .where(
+        and(
+          eq(schema.orgMemberCommissions.orgId, orgId),
+          eq(schema.orgMemberCommissions.active, true),
+        ),
+      );
+    return rows.map(MemberCommissionMapper.toDomain);
   }
 
   // Leitura pontual usada no caminho de pagamento (calculo da comissao na hora do
@@ -113,7 +102,6 @@ export class DrizzleMemberCommissionRepository
       return inserted!;
     });
 
-    this.cache.del(commissionsKey(data.orgId));
     return MemberCommissionMapper.toDomain(row);
   }
 }

@@ -1,33 +1,51 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/router"
-import { Loader2, AlertCircle, UserPlus } from "lucide-react"
-import { useOrg } from "@/features/dashboard/hooks/use-orgs"
-import { useAuth } from "@/features/auth/hooks/use-auth"
-import { Button } from "@/shared/components/ui/button"
-import { useOrgMutations } from "../hooks/use-org-mutations"
-import { useMembers } from "../hooks/use-members"
-import { EditOrgForm } from "./edit-org-form"
-import { DeleteOrgDialog } from "./delete-org-dialog"
-import { TransferOrgDialog } from "./transfer-org-dialog"
-import { MemberList } from "./member-list"
-import { InviteMemberForm } from "./invite-member-form"
-import type { UpdateOrgFormValues, InviteFormValues } from "../schemas/org.schemas"
-import type { OrgRole } from "../types"
+import { useState } from "react";
+import { useRouter } from "next/router";
+import { Loader2, AlertCircle, UserPlus } from "lucide-react";
+import { useOrg } from "@/features/dashboard/hooks/use-orgs";
+import { useAuth } from "@/features/auth/hooks/use-auth";
+import { useMemberCommissions } from "@/features/cashier";
+import { Button } from "@/shared/components/ui/button";
+import { useOrgMutations } from "../hooks/use-org-mutations";
+import { useMembers } from "../hooks/use-members";
+import { EditOrgForm } from "./edit-org-form";
+import { DeleteOrgDialog } from "./delete-org-dialog";
+import { TransferOrgDialog } from "./transfer-org-dialog";
+import { MemberList } from "./member-list";
+import { InviteMemberForm } from "./invite-member-form";
+import type {
+  UpdateOrgFormValues,
+  InviteFormValues,
+} from "../schemas/org.schemas";
+import type { OrgRole } from "../types";
 
 interface OrgSettingsPageProps {
-  orgId: string
+  orgId: string;
 }
 
 export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
-  const router = useRouter()
-  const { org, loading, isOwner, notFound } = useOrg(orgId)
-  const { updateOrg, deleteOrg, transferOwnership } = useOrgMutations(orgId)
-  const { user } = useAuth()
-  const { members, invitations, inviteMember, updateMemberRole, removeMember, setMemberStatus, updateMemberPermissions, cancelInvitation } =
-    useMembers(orgId)
-  const [inviteOpen, setInviteOpen] = useState(false)
+  const router = useRouter();
+  const { org, loading, isOwner, notFound } = useOrg(orgId);
+  const { updateOrg, deleteOrg, transferOwnership } = useOrgMutations(orgId);
+  const { user } = useAuth();
+  const {
+    members,
+    invitations,
+    inviteMember,
+    updateMemberRole,
+    removeMember,
+    setMemberStatus,
+    updateMemberPermissions,
+    cancelInvitation,
+  } = useMembers(orgId);
+  const {
+    commissions,
+    loading: commissionsLoading,
+    error: commissionsError,
+    upsertCommissions,
+  } = useMemberCommissions(orgId);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   if (loading) {
     return (
@@ -35,7 +53,7 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         Carregando…
       </div>
-    )
+    );
   }
 
   if (notFound || !org) {
@@ -44,20 +62,20 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
         <AlertCircle className="h-4 w-4 shrink-0" />
         Organização não encontrada.
       </div>
-    )
+    );
   }
 
   async function handleUpdate(values: UpdateOrgFormValues) {
-    await updateOrg(values)
+    await updateOrg(values);
   }
 
   async function handleDelete() {
-    await deleteOrg()
-    await router.push("/dashboard/organizations")
+    await deleteOrg();
+    await router.push("/dashboard/organizations");
   }
 
   async function handleInvite(values: InviteFormValues) {
-    await inviteMember(values.email, values.role as OrgRole)
+    await inviteMember(values.email, values.role as OrgRole);
   }
 
   return (
@@ -65,7 +83,9 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
       <section>
         <div className="mb-4">
           <h2 className="text-lg font-semibold">Informações gerais</h2>
-          <p className="text-sm text-foreground/40">Nome e identificador público da organização.</p>
+          <p className="text-sm text-foreground/40">
+            Nome e identificador público da organização.
+          </p>
         </div>
 
         {isOwner ? (
@@ -80,7 +100,9 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
             </div>
             <div className="grid gap-1">
               <span className="text-xs text-foreground/40">Slug</span>
-              <span className="font-mono text-sm text-foreground/70">/{org.slug}</span>
+              <span className="font-mono text-sm text-foreground/70">
+                /{org.slug}
+              </span>
             </div>
           </div>
         )}
@@ -90,10 +112,16 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold">Membros</h2>
-            <p className="text-sm text-foreground/40">Gerencie quem tem acesso a esta organização.</p>
+            <p className="text-sm text-foreground/40">
+              Gerencie quem tem acesso a esta organização.
+            </p>
           </div>
           {isOwner && (
-            <Button size="sm" className="w-full sm:w-auto" onClick={() => setInviteOpen(true)}>
+            <Button
+              size="sm"
+              className="w-full sm:w-auto"
+              onClick={() => setInviteOpen(true)}
+            >
               <UserPlus className="mr-2 h-4 w-4" />
               Convidar
             </Button>
@@ -106,16 +134,22 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
           currentUserEmail={user?.email ?? ""}
           isOwner={isOwner}
           onUpdateRole={async (memberId, role) => {
-            await updateMemberRole(memberId, role)
+            await updateMemberRole(memberId, role);
           }}
           onRemove={removeMember}
           onToggleStatus={async (memberId, enabled) => {
-            await setMemberStatus(memberId, enabled)
+            await setMemberStatus(memberId, enabled);
           }}
           onUpdatePermissions={async (memberId, permissions) => {
-            await updateMemberPermissions(memberId, permissions)
+            await updateMemberPermissions(memberId, permissions);
           }}
           onCancelInvitation={cancelInvitation}
+          commissions={commissions}
+          commissionsLoading={commissionsLoading}
+          commissionsError={commissionsError}
+          onUpdateCommission={async (userId, percent, mode) => {
+            await upsertCommissions([{ userId, percent, mode }]);
+          }}
         />
 
         <InviteMemberForm
@@ -143,7 +177,7 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
                 members={members}
                 currentUserEmail={user?.email ?? ""}
                 onConfirm={async (memberId) => {
-                  await transferOwnership(memberId)
+                  await transferOwnership(memberId);
                 }}
               />
             </div>
@@ -156,7 +190,9 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
           <div className="rounded-lg border border-destructive/25 p-4 sm:p-6">
             <div className="mb-4">
               <h3 className="font-semibold text-destructive">Zona de perigo</h3>
-              <p className="mt-1 text-sm text-foreground/40">Ações irreversíveis. Prossiga com cautela.</p>
+              <p className="mt-1 text-sm text-foreground/40">
+                Ações irreversíveis. Prossiga com cautela.
+              </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -171,5 +207,5 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
         </section>
       )}
     </div>
-  )
+  );
 }

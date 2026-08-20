@@ -59,9 +59,7 @@ export class UpsertMemberCommissionsUseCase {
 
     const members = await this.memberRepo.findAllByOrg(input.orgId);
     const memberIds = new Set(
-      members
-        .filter((member) => member.enabled)
-        .map((member) => member.userId),
+      members.filter((member) => member.enabled).map((member) => member.userId),
     );
 
     for (const item of input.commissions) {
@@ -79,7 +77,8 @@ export class UpsertMemberCommissionsUseCase {
       const normalizedPercent = item.percent.trim();
       const unchanged =
         active !== null &&
-        Number.parseFloat(active.percent) === Number.parseFloat(normalizedPercent) &&
+        Number.parseFloat(active.percent) ===
+          Number.parseFloat(normalizedPercent) &&
         active.mode === item.mode;
 
       if (unchanged) continue;

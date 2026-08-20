@@ -139,6 +139,13 @@ export const queryKeys = {
     categories: () => ["public-support", "categories"] as const,
   },
 
+  customerSelfService: {
+    registration: (token: string) =>
+      ["customer-self-service", "registration", token] as const,
+    update: (token: string) =>
+      ["customer-self-service", "update", token] as const,
+  },
+
   publicBilling: {
     plans: () => ["public-billing", "plans"] as const,
   },

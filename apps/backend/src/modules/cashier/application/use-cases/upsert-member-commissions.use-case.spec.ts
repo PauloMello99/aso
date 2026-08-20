@@ -94,7 +94,9 @@ function buildFakeMemberRepo(
 describe("UpsertMemberCommissionsUseCase", () => {
   it("lança CashierForbiddenException quando o autor não é owner e nunca chama supersede", async () => {
     const commissionRepo = buildFakeCommissionRepo();
-    const orgRepo = buildFakeOrgRepo({ isOwner: jest.fn().mockResolvedValue(false) });
+    const orgRepo = buildFakeOrgRepo({
+      isOwner: jest.fn().mockResolvedValue(false),
+    });
     const memberRepo = buildFakeMemberRepo();
     const useCase = new UpsertMemberCommissionsUseCase(
       commissionRepo,
@@ -115,7 +117,9 @@ describe("UpsertMemberCommissionsUseCase", () => {
   it("chama supersede uma vez por item com valor diferente do vigente", async () => {
     const commissionRepo = buildFakeCommissionRepo({
       findActiveByOrgAndUser: jest.fn().mockResolvedValue(buildCommission()),
-      supersede: jest.fn().mockResolvedValue(buildCommission({ percent: "20.00" })),
+      supersede: jest
+        .fn()
+        .mockResolvedValue(buildCommission({ percent: "20.00" })),
     });
     const orgRepo = buildFakeOrgRepo();
     const memberRepo = buildFakeMemberRepo();
@@ -166,7 +170,9 @@ describe("UpsertMemberCommissionsUseCase", () => {
     const commissionRepo = buildFakeCommissionRepo();
     const orgRepo = buildFakeOrgRepo();
     const memberRepo = buildFakeMemberRepo({
-      findAllByOrg: jest.fn().mockResolvedValue([buildMember({ userId: "user-1" })]),
+      findAllByOrg: jest
+        .fn()
+        .mockResolvedValue([buildMember({ userId: "user-1" })]),
     });
     const useCase = new UpsertMemberCommissionsUseCase(
       commissionRepo,
@@ -213,7 +219,7 @@ describe("UpsertMemberCommissionsUseCase", () => {
     expect(commissionRepo.supersede).not.toHaveBeenCalled();
   });
 
-  it("não chama supersede quando o percent enviado difere apenas em formatação decimal do vigente (\"50\" vs \"50.00\")", async () => {
+  it('não chama supersede quando o percent enviado difere apenas em formatação decimal do vigente ("50" vs "50.00")', async () => {
     const commissionRepo = buildFakeCommissionRepo({
       findActiveByOrgAndUser: jest
         .fn()

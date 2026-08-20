@@ -1,17 +1,20 @@
-import type { ReactElement } from "react"
-import { Lock } from "lucide-react"
-import type { NextPageWithLayout } from "@/pages/_app"
-import { AuthGuard } from "@/features/auth/components/auth-guard"
-import { OrgLayout, OrgSettingsLayout, useCurrentOrg } from "@/features/dashboard"
+import type { ReactElement } from "react";
+import { Lock } from "lucide-react";
+import type { NextPageWithLayout } from "@/pages/_app";
+import { AuthGuard } from "@/features/auth/components/auth-guard";
+import {
+  OrgLayout,
+  OrgSettingsLayout,
+  useCurrentOrg,
+} from "@/features/dashboard";
 import {
   PaymentFeesForm,
-  MemberCommissionsForm,
   TransactionCategoriesSection,
-} from "@/features/cashier"
+} from "@/features/cashier";
 
 const SettingsCashierPage: NextPageWithLayout = () => {
-  const { org, orgId } = useCurrentOrg()
-  const isOwner = org.role === "owner"
+  const { org, orgId } = useCurrentOrg();
+  const isOwner = org.role === "owner";
 
   return (
     <div className="grid gap-8">
@@ -43,19 +46,6 @@ const SettingsCashierPage: NextPageWithLayout = () => {
 
           <div>
             <h2 className="text-sm font-medium text-foreground">
-              Comissão por profissional
-            </h2>
-            <p className="mt-0.5 text-sm text-foreground/50">
-              Configure o percentual de repasse informativo de cada
-              profissional e a base de cálculo usada.
-            </p>
-            <div className="mt-4">
-              <MemberCommissionsForm orgId={orgId} />
-            </div>
-          </div>
-
-          <div>
-            <h2 className="text-sm font-medium text-foreground">
               Categorias de lançamento
             </h2>
             <p className="mt-0.5 text-sm text-foreground/50">
@@ -69,8 +59,8 @@ const SettingsCashierPage: NextPageWithLayout = () => {
         </>
       )}
     </div>
-  )
-}
+  );
+};
 
 SettingsCashierPage.getLayout = (page: ReactElement) => (
   <AuthGuard>
@@ -78,6 +68,6 @@ SettingsCashierPage.getLayout = (page: ReactElement) => (
       <OrgSettingsLayout>{page}</OrgSettingsLayout>
     </OrgLayout>
   </AuthGuard>
-)
+);
 
-export default SettingsCashierPage
+export default SettingsCashierPage;
