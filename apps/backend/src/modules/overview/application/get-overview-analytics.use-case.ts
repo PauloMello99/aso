@@ -50,6 +50,7 @@ export interface OverviewAnalytics {
   revenueByProfessional?: ServiceGroupRow[];
   paymentMethods?: PaymentMethodTotal[];
   incomeExpenseSeries?: IncomeExpensePoint[];
+  commissionCents?: KpiWithDelta;
 }
 
 interface CoreMetrics {
@@ -120,14 +121,27 @@ export class GetOverviewAnalyticsUseCase {
     const base = { from: from.toISOString(), to: to.toISOString() };
 
     if (!isOwner) {
-      const [cur, prev] = await Promise.all([
-        this.listServices.execute({ orgId, authId, filter: { from, to } }),
-        this.listServices.execute({
-          orgId,
-          authId,
-          filter: { from: prevFrom, to: prevTo },
-        }),
-      ]);
+      const [cur, prev, curCommissionCents, prevCommissionCents] =
+        await Promise.all([
+          this.listServices.execute({ orgId, authId, filter: { from, to } }),
+          this.listServices.execute({
+            orgId,
+            authId,
+            filter: { from: prevFrom, to: prevTo },
+          }),
+          this.serviceRepo.commissionCentsByPeriod(
+            orgId,
+            from,
+            to,
+            member.userId,
+          ),
+          this.serviceRepo.commissionCentsByPeriod(
+            orgId,
+            prevFrom,
+            prevTo,
+            member.userId,
+          ),
+        ]);
       const c = serviceStats(cur);
       const p = serviceStats(prev);
       return {
@@ -136,19 +150,31 @@ export class GetOverviewAnalyticsUseCase {
         servicesCount: kpi(c.count, p.count),
         serviceRevenueCents: kpi(c.revenueCents, p.revenueCents),
         avgTicketCents: kpi(c.avgTicketCents, p.avgTicketCents),
+        commissionCents: kpi(curCommissionCents, prevCommissionCents),
       };
     }
 
-    const [cur, prev, series, byType, byProfessional, paymentMethods, incExp] =
-      await Promise.all([
-        this.computeCore(orgId, authId, from, to),
-        this.computeCore(orgId, authId, prevFrom, prevTo),
-        this.getBalanceHistory.execute(orgId, authId, from, to),
-        this.serviceRepo.countAndRevenueByType(orgId, from, to),
-        this.serviceRepo.countAndRevenueByProfessional(orgId, from, to),
-        this.transactionRepo.incomeByPaymentMethod(orgId, from, to),
-        this.transactionRepo.incomeExpenseSeries(orgId, from, to),
-      ]);
+    const [
+      cur,
+      prev,
+      series,
+      byType,
+      byProfessional,
+      paymentMethods,
+      incExp,
+      curCommissionCents,
+      prevCommissionCents,
+    ] = await Promise.all([
+      this.computeCore(orgId, authId, from, to),
+      this.computeCore(orgId, authId, prevFrom, prevTo),
+      this.getBalanceHistory.execute(orgId, authId, from, to),
+      this.serviceRepo.countAndRevenueByType(orgId, from, to),
+      this.serviceRepo.countAndRevenueByProfessional(orgId, from, to),
+      this.transactionRepo.incomeByPaymentMethod(orgId, from, to),
+      this.transactionRepo.incomeExpenseSeries(orgId, from, to),
+      this.serviceRepo.commissionCentsByPeriod(orgId, from, to, null),
+      this.serviceRepo.commissionCentsByPeriod(orgId, prevFrom, prevTo, null),
+    ]);
 
     return {
       role: "owner",
@@ -171,6 +197,7 @@ export class GetOverviewAnalyticsUseCase {
       revenueByProfessional: byProfessional,
       paymentMethods,
       incomeExpenseSeries: incExp,
+      commissionCents: kpi(curCommissionCents, prevCommissionCents),
     };
   }
 

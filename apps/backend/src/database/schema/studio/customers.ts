@@ -6,6 +6,7 @@ import {
   boolean,
   date,
   uniqueIndex,
+  unique,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { genderEnum } from "../enums";
@@ -49,6 +50,10 @@ export const customers = pgTable(
     uniqueIndex("customers_org_email_lower_uq")
       .on(table.orgId, sql`lower(btrim(${table.email}))`)
       .where(sql`${table.email} is not null and btrim(${table.email}) <> ''`),
+    // Base para as FKs compostas (customer_id, org_id) de
+    // customer_self_registrations/customer_update_invitations (migration 0052) —
+    // garante no banco que um convite so referencia cliente da PROPRIA org.
+    unique("customers_id_org_id_uq").on(table.id, table.orgId),
   ],
 );
 

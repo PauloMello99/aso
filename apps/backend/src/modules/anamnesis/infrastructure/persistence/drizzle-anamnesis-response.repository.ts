@@ -281,4 +281,21 @@ export class DrizzleAnamnesisResponseRepository
       versionNumber: row.versionNumber ?? null,
     });
   }
+
+  async linkCustomer(
+    responseId: string,
+    customerId: string,
+    orgId: string,
+  ): Promise<void> {
+    await this.admin
+      .update(schema.anamnesisResponses)
+      .set({ customerId })
+      .where(
+        and(
+          eq(schema.anamnesisResponses.id, responseId),
+          eq(schema.anamnesisResponses.orgId, orgId),
+          eq(schema.anamnesisResponses.status, "pending"),
+        ),
+      );
+  }
 }

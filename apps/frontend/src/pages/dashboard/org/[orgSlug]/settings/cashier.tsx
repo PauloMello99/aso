@@ -1,13 +1,20 @@
-import type { ReactElement } from "react"
-import { Lock } from "lucide-react"
-import type { NextPageWithLayout } from "@/pages/_app"
-import { AuthGuard } from "@/features/auth/components/auth-guard"
-import { OrgLayout, OrgSettingsLayout, useCurrentOrg } from "@/features/dashboard"
-import { PaymentFeesForm, TransactionCategoriesSection } from "@/features/cashier"
+import type { ReactElement } from "react";
+import { Lock } from "lucide-react";
+import type { NextPageWithLayout } from "@/pages/_app";
+import { AuthGuard } from "@/features/auth/components/auth-guard";
+import {
+  OrgLayout,
+  OrgSettingsLayout,
+  useCurrentOrg,
+} from "@/features/dashboard";
+import {
+  PaymentFeesForm,
+  TransactionCategoriesSection,
+} from "@/features/cashier";
 
 const SettingsCashierPage: NextPageWithLayout = () => {
-  const { org, orgId } = useCurrentOrg()
-  const isOwner = org.role === "owner"
+  const { org, orgId } = useCurrentOrg();
+  const isOwner = org.role === "owner";
 
   return (
     <div className="grid gap-8">
@@ -52,8 +59,8 @@ const SettingsCashierPage: NextPageWithLayout = () => {
         </>
       )}
     </div>
-  )
-}
+  );
+};
 
 SettingsCashierPage.getLayout = (page: ReactElement) => (
   <AuthGuard>
@@ -61,6 +68,6 @@ SettingsCashierPage.getLayout = (page: ReactElement) => (
       <OrgSettingsLayout>{page}</OrgSettingsLayout>
     </OrgLayout>
   </AuthGuard>
-)
+);
 
-export default SettingsCashierPage
+export default SettingsCashierPage;

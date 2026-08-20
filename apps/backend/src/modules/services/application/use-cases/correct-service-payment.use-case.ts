@@ -17,6 +17,8 @@ import {
   PAYMENT_FEE_REPOSITORY,
 } from "../../../cashier/domain/payment-fee.repository.interface";
 import { computeNet } from "../../../cashier/domain/fee-calculator";
+import { computeCommission } from "../../../cashier/domain/commission-calculator";
+import type { CommissionMode } from "../../../cashier/domain/member-commission.entity";
 import {
   ITransactionCategoryRepository,
   TRANSACTION_CATEGORY_REPOSITORY,
@@ -130,10 +132,34 @@ export class CorrectServicePaymentUseCase {
       transactedAt: input.transactedAt,
     });
 
+    // Preserva o percentual/modo do snapshot ORIGINAL do serviço — NUNCA
+    // consulta a config vigente aqui (precificaria retroativamente um
+    // evento passado com o percentual de hoje). Só baseCents/commissionCents
+    // são recalculados sobre o novo valor/método corrigido.
+    const snapshotConfig =
+      service.commissionPercent && service.commissionMode
+        ? {
+            percent: service.commissionPercent,
+            mode: service.commissionMode as CommissionMode,
+          }
+        : null;
+    const { baseCents, commissionCents } = computeCommission(
+      input.grossCents,
+      netCents,
+      snapshotConfig,
+    );
+
     await this.serviceRepo.correctPayment(
       service.id,
       { amountCents: input.grossCents, paymentMethod: input.paymentMethod },
       replacement.id,
+      {
+        configId: service.commissionConfigId,
+        percent: service.commissionPercent,
+        mode: service.commissionMode,
+        baseCents,
+        commissionCents,
+      },
     );
 
     const fresh = await this.serviceRepo.findById(service.id, input.orgId);

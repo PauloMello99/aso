@@ -13,7 +13,7 @@ export interface CreateAnamnesisResponseData {
   orgId: string;
   formVersionId: string;
   serviceTypeId: string;
-  customerId: string;
+  customerId: string | null;
   questionsSnapshot: AnamnesisQuestion[];
   createdBy: string | null;
 }
@@ -105,4 +105,10 @@ export interface IAnamnesisResponseRepository {
     id: string,
     orgId: string,
   ): Promise<AnamnesisResponseDetail | null>;
+
+  linkCustomer(
+    responseId: string,
+    customerId: string,
+    orgId: string,
+  ): Promise<void>;
 }

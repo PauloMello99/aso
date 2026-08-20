@@ -1,4 +1,5 @@
 import type { PaymentMethod } from "../../cashier/domain/transaction.entity";
+import type { CommissionMode } from "../../cashier/domain/member-commission.entity";
 import type { ServiceMaterialEntity } from "./service-material.entity";
 
 export type { PaymentMethod };
@@ -17,6 +18,11 @@ export interface ServiceEntityProps {
   description: string | null;
   amountCents: number;
   paymentMethod: PaymentMethod;
+  commissionConfigId: string | null;
+  commissionPercent: string | null;
+  commissionMode: CommissionMode | null;
+  commissionBaseCents: number;
+  commissionCents: number;
   performedAt: Date;
   canceledAt: Date | null;
   createdAt: Date;
@@ -39,6 +45,11 @@ export class ServiceEntity {
   readonly description: string | null;
   readonly amountCents: number;
   readonly paymentMethod: PaymentMethod;
+  readonly commissionConfigId: string | null;
+  readonly commissionPercent: string | null;
+  readonly commissionMode: CommissionMode | null;
+  readonly commissionBaseCents: number;
+  readonly commissionCents: number;
   readonly performedAt: Date;
   readonly canceledAt: Date | null;
   readonly createdAt: Date;
@@ -60,6 +71,11 @@ export class ServiceEntity {
     this.description = props.description;
     this.amountCents = props.amountCents;
     this.paymentMethod = props.paymentMethod;
+    this.commissionConfigId = props.commissionConfigId;
+    this.commissionPercent = props.commissionPercent;
+    this.commissionMode = props.commissionMode;
+    this.commissionBaseCents = props.commissionBaseCents;
+    this.commissionCents = props.commissionCents;
     this.performedAt = props.performedAt;
     this.canceledAt = props.canceledAt;
     this.createdAt = props.createdAt;

@@ -57,6 +57,7 @@ export const queryKeys = {
       ["cashier", orgId, "history", from ?? "", to ?? ""] as const,
     fees: (orgId: string) => ["cashier", orgId, "fees"] as const,
     categories: (orgId: string) => ["cashier", orgId, "categories"] as const,
+    commissions: (orgId: string) => ["cashier", orgId, "commissions"] as const,
   },
 
   admin: {
@@ -136,6 +137,13 @@ export const queryKeys = {
 
   publicSupport: {
     categories: () => ["public-support", "categories"] as const,
+  },
+
+  customerSelfService: {
+    registration: (token: string) =>
+      ["customer-self-service", "registration", token] as const,
+    update: (token: string) =>
+      ["customer-self-service", "update", token] as const,
   },
 
   publicBilling: {

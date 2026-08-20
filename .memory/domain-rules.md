@@ -11,18 +11,18 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
 
 ### Onde cada tipo de código vive
 
-| Tipo | Camada | Diretório |
-|---|---|---|
-| Entidade de domínio | Domain | `<feature>/domain/<entity>.entity.ts` |
-| Interface de repositório | Domain | `<feature>/domain/<entity>.repository.interface.ts` |
-| Exceção de domínio | Domain | `<feature>/domain/exceptions/<code>.exception.ts` |
-| Interface de serviço externo | Application/Ports | `<feature>/application/ports/<service>.interface.ts` |
-| Use-case | Application | `<feature>/application/use-cases/<verb>-<entity>.use-case.ts` |
-| Implementação de repositório | Infrastructure | `<feature>/infrastructure/persistence/<entity>.repository.ts` |
-| Mapper (Drizzle ↔ domain) | Infrastructure | `<feature>/infrastructure/persistence/<entity>.mapper.ts` |
-| Controller | Interface | `<feature>/<feature>.controller.ts` |
-| DTO + validação | Interface | `<feature>/dto/*.dto.ts` |
-| Guard / decorator | Interface | `<feature>/guards/` ou `<feature>/decorators/` |
+| Tipo                         | Camada            | Diretório                                                     |
+| ---------------------------- | ----------------- | ------------------------------------------------------------- |
+| Entidade de domínio          | Domain            | `<feature>/domain/<entity>.entity.ts`                         |
+| Interface de repositório     | Domain            | `<feature>/domain/<entity>.repository.interface.ts`           |
+| Exceção de domínio           | Domain            | `<feature>/domain/exceptions/<code>.exception.ts`             |
+| Interface de serviço externo | Application/Ports | `<feature>/application/ports/<service>.interface.ts`          |
+| Use-case                     | Application       | `<feature>/application/use-cases/<verb>-<entity>.use-case.ts` |
+| Implementação de repositório | Infrastructure    | `<feature>/infrastructure/persistence/<entity>.repository.ts` |
+| Mapper (Drizzle ↔ domain)    | Infrastructure    | `<feature>/infrastructure/persistence/<entity>.mapper.ts`     |
+| Controller                   | Interface         | `<feature>/<feature>.controller.ts`                           |
+| DTO + validação              | Interface         | `<feature>/dto/*.dto.ts`                                      |
+| Guard / decorator            | Interface         | `<feature>/guards/` ou `<feature>/decorators/`                |
 
 ### Regras obrigatórias
 
@@ -151,6 +151,91 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
   - `DATABASE_URL` = conexão admin (postgres); `DATABASE_APP_URL` = conexão `app_user`.
   - O guard de aplicação (`OrgMembershipGuard`) **continua obrigatório** — RLS é camada extra,
     não substitui o 403 explícito por endpoint.
+- ⚠️ **GOTCHA (2026-08-19, achado via debugger real, não hipótese): nunca chamar
+  `db.transaction()` do Drizzle sobre a conexão `DRIZZLE` dentro de um request.** O
+  `RlsInterceptor` já abre a transação do request inteiro (`RlsContext.runWithClaims`:
+  `pool.connect()` + `BEGIN` + `SET LOCAL request.jwt.claims`) e o Proxy `DRIZZLE` delega
+  toda chamada pro mesmo client via `AsyncLocalStorage`. O driver `node-postgres` do
+  drizzle-orm só isola uma conexão nova para `.transaction()` quando `this.client
+instanceof Pool` — como o client em uso já é um `pg.Client` (resultado de
+  `pool.connect()`), ele reaproveita o MESMO client: o `BEGIN` aninhado vira no-op
+  (Postgres emite warning, continua na transação já aberta) e o `COMMIT` do bloco
+  `.transaction()` faz o **commit real e prematuro da transação inteira do request**,
+  resetando `request.jwt.claims` (era `SET LOCAL`, escopo de transação) no meio da
+  execução. Qualquer leitura RLS-dependente **depois** desse ponto, na mesma request, roda
+  como se não houvesse usuário autenticado — `is_org_owner`/`is_org_member` (via
+  `auth.uid()`) passam a negar tudo, silenciosamente (sem exceção). Se o resultado vazio for
+  cacheado (`TtlCache`, processo inteiro, TTL 1h — ver `common/cache/ttl-cache.service.ts`),
+  o efeito persiste por até 1h para qualquer leitor da mesma chave/org, não só quem
+  disparou o bug. Sintoma clássico: um upsert que "nunca salva" (a escrita em si roda ANTES
+  do commit prematuro e vai pro banco certinho; só a leitura seguinte, dentro do mesmo
+  request/response, é que volta vazia/default). **Discriminante real: usar `DRIZZLE`
+  (`this.db`), não usar `.transaction()`** — `DRIZZLE_ADMIN` (`this.admin`) é
+  `drizzle(new Pool(...))`, e o driver isola conexão nova sempre que `this.client
+instanceof Pool` (`node-postgres/session.js`), então é imune ao bug mesmo chamando
+  `.transaction()`. Confirmado por `database-guardian` (2026-08-19, auditoria dos 6 sites
+  de `.transaction(` no backend): **vulneráveis** (sobre `DRIZZLE`) —
+  `drizzle-member-commission.repository.ts:82` (`supersede`, bug reportado em P-1),
+  `drizzle-member.repository.ts:270` (`transferOwnership` — **instância viva confirmada**:
+  `TransferOwnershipUseCase` chama isso e, em seguida, `AuditService.logByAuthId` faz uma
+  leitura via `DRIZZLE` que roda pós-commit-prematuro, gravando o log de transferência de
+  propriedade **sem `actorId`**, silenciosamente — trilha de auditoria perdida, severidade
+  high), `drizzle-anamnesis-form.repository.ts:77` (`createVersion` — **latente**, hoje sem
+  leitura RLS-dependente depois, vira bug vivo assim que alguém adicionar um
+  `auditService.logByAuthId` ali, padrão comum nos demais use-cases owner-only); **imunes**
+  (sobre `DRIZZLE_ADMIN`, apesar de também usarem `.transaction()`) —
+  `drizzle-org.repository.ts:122`, `drizzle-ticket.repository.ts:246`,
+  `drizzle-transaction-runner.ts:16` (support). **Fix estrutural APLICADO (2026-08-19,
+  `database.module.ts`)**: o Proxy `DRIZZLE` detecta transação já aberta no
+  `AsyncLocalStorage` (`rlsStorage.getStore()`) e, só nesse caso, faz `transaction()` rodar
+  o callback (recebendo o próprio Proxy, não o `db` cru — necessário pra uma transação
+  aninhada DENTRO do callback também ser interceptada) dentro de um **`SAVEPOINT`**
+  (`SAVEPOINT spN` / `ROLLBACK TO SAVEPOINT spN` em erro / `RELEASE SAVEPOINT spN` em
+  sucesso), **não** um passthrough puro (passthrough faria um erro capturado pelo caller
+  ficar com escritas parciais aplicadas, mudando o contrato de quem chama). Sem
+  `rlsStorage.getStore()` (fora de request), comportamento inalterado (transação real sobre
+  `Pool`). Um 2º parâmetro de config (`isolationLevel`/`accessMode`) faz a interceptação
+  lançar erro explícito (não pode ser honrado dentro de uma transação já aberta; nenhum
+  caller usa isso hoje, é defesa contra reintrodução silenciosa).
+  **Corolário (aplicado no fix de P-1):** com o COMMIT real agora só acontecendo no fim do
+  request (não mais prematuro no meio), qualquer efeito colateral NÃO-transacional
+  (cache de processo, `DRIZZLE_ADMIN` autocommit, envio de e-mail) que rode DEPOIS de uma
+  escrita mas ANTES do fim do request passa a rodar antes do commit real — o oposto do
+  problema original. Resolvido para o caso da comissão removendo o cache de leitura
+  inteiramente (`findActiveByOrg` virou select direto, sem `TtlCache` — único consumidor
+  era exibição, sem racional de performance documentado pro risco). **Corrigido
+  (2026-08-20, `database.module.ts` + `audit.service.ts`):** `RlsStore` ganhou
+  `postCommitHooks` e há uma função exportada `registerPostCommit(fn)`. Dentro de um
+  request, ela empilha o efeito e `RlsContext.runWithClaims` drena a fila **depois** de
+  `client.query("COMMIT")` ter sucesso (sequencialmente, com `try/catch` por hook que só
+  loga — um hook que falha não derruba o request nem impede os seguintes); se o `COMMIT`
+  falhar, o fluxo vai pro `catch` externo (`ROLLBACK`) e **nenhum** hook roda. Fora de
+  request (cron, bootstrap, endpoint público sem `authId`, teste direto) não há store e o
+  efeito roda imediatamente, sem `await` do caller. `AuditService.log` passou a usar isso:
+  o INSERT via `DRIZZLE_ADMIN` (pool separado, autocommit) só acontece após o commit real,
+  fechando o risco de `transferOwnership` acima — não existe mais log de uma
+  transferência/exclusão que não aconteceu.
+
+  ⚠️ **GOTCHA (2026-08-20): dentro de um hook de `registerPostCommit`,
+  `rlsStorage.getStore()` é `undefined`.** Os hooks rodam **depois** que `rlsStorage.run()`
+  já retornou, então o `AsyncLocalStorage` está vazio. Três consequências, todas armadilha
+  para hook futuro:
+  1. **Nada de `DRIZZLE` dentro de hook.** O Proxy cai no `fallback` (pool `app_user`
+     **sem** `request.jwt.claims` — o `SET LOCAL` morreu no COMMIT), então `auth.uid()` é
+     NULL e as policies negam tudo: leitura volta **0 linhas** e escrita é rejeitada. É
+     **fail-closed, não vazamento cross-org** — não escalar como incidente de tenancy, mas
+     é falha silenciosa. Hook só pode usar `DRIZZLE_ADMIN` com o `orgId`/`actorId`
+     **passados explicitamente por closure**, resolvidos ANTES de registrar (é por isso
+     que `AuditService.logByAuthId` faz o `findByAuthId` fora do hook — movê-lo pra dentro
+     produziria `actorId: null` silencioso).
+  2. **Hook não pode referenciar por FK uma linha que a transação do request apagou.** O
+     hook roda pós-commit: a linha já não existe e o INSERT morre com `23503`, engolido
+     pelo `catch` por hook. Caso real: `audit_logs.org_id` → `organizations.id`
+     (`ON DELETE SET NULL`, não deferrable) em `DeleteOrgUseCase` — logar com `orgId` da
+     org recém-apagada perde o registro da exclusão. Padrão correto: `orgId: null` + id no
+     `metadata`/`entityId` (`entity_id` não tem FK).
+  3. `registerPostCommit` chamado **de dentro** de um hook executa na hora (não há mais
+     store) e sem `await` — não encadear hooks.
 
 ### Modelo de usuários e roles
 
@@ -169,16 +254,19 @@ Platform User (único por email/auth)
 - Um user pode acumular platform_role + org_role (caso Ruan/João Pedro: super_admin + owner da Ink House)
 
 #### Roles da plataforma (`platform_role`)
+
 - `super_admin`: tudo que owner faz + gerenciar assinaturas, painel financeiro da plataforma, todas as orgs/users/acessos
 - `user`: acesso às orgs em que tem membership
 
 #### Roles dentro da org (`org_role`)
+
 - `owner`: gestão total da org
 - `employee`: acesso conforme permissões configuradas pelo owner (granularidade a definir)
 
 **Visibilidade por funcionário ("só vê o que é dele") — backend.** Regra de produto: o
 funcionário só enxerga dados referentes a ele; o owner vê tudo e pode lançar **em nome de**
 um funcionário. Estado por módulo (2026-06-21):
+
 - **Services** ✅ — `list-services` força `performedBy=self` p/ funcionário; owner escolhe o
   profissional (`resolvePerformer`). Coluna `services.performed_by` + `created_by`.
 - **Agenda/Calendar** ✅ — `list-calendar-events` força `assignedTo=self` p/ funcionário;
@@ -202,7 +290,8 @@ um funcionário. Estado por módulo (2026-06-21):
 
 **Navegação por papel (multi-org/multi-papel) — frontend.** Um usuário pode ser `owner`
 de N orgs e `employee` de outras N ao mesmo tempo. `GET /orgs` retorna `role` por org;
-a UI deve refletir o papel da org *ativa*:
+a UI deve refletir o papel da org _ativa_:
+
 - `NavItem.roles?: Array<"owner"|"employee">` em `features/dashboard/lib/nav.ts` — item sem
   `roles` é visível a todos; com `roles`, só aparece para quem tem o papel. Hoje
   `Caixa` e `Configurações` são `roles:["owner"]`.
@@ -219,6 +308,7 @@ a UI deve refletir o papel da org *ativa*:
   (rotas owner-only respondem 403). Nunca confiar só no nav para autorização.
 
 **Roteamento Next (pages router) — gotchas (2026-06-29).**
+
 - **Lista + detalhe NÃO podem ser `foo.tsx` + `foo/[id].tsx`** (arquivo e diretório de mesmo
   nome). É ambíguo: a rota dinâmica filha cai em **404 no dev** (o `next build` até passa,
   mascarando). Usar sempre `foo/index.tsx` + `foo/[id].tsx`. Foi a causa do bug "ao abrir
@@ -325,6 +415,7 @@ transactions (agnóstica, append-only)
 ### Billing / assinatura (Stripe) — implementado (ADR-0016 M11, ADR-0023, ADR-0024)
 
 Produto: "assessoria". Quatro configurações possíveis (gerenciadas pelo super_admin):
+
 1. **Gratuita** — para a própria Ink House
 2. **Trial** — via Checkout com cartão obrigatório (`trial_period_days` nativo do Stripe)
 3. **Preço cheio** — configurado em `billing_plans` (banco), não hardcoded
@@ -341,7 +432,7 @@ Produto: "assessoria". Quatro configurações possíveis (gerenciadas pelo super
   descrição, `stripeProductId`); preço vive em `billing_plan_prices`, N linhas por plano — uma
   por intervalo de cobrança (`monthly`/`semiannual`/`annual`), cada uma independentemente
   editável/habilitável. Dois índices únicos **parciais** (`WHERE active`) — `(plan_id,
-  interval)` e `lookup_key` — garantem só uma linha vigente por par; preços antigos nunca são
+interval)` e `lookup_key` — garantem só uma linha vigente por par; preços antigos nunca são
   apagados, só desativados (`deactivateById`, que limpa `active` e `lookup_key` juntos).
 - **Nenhum use-case deve tentar `PATCH` de valor num objeto Stripe imutável** (ADR-0023):
   `unit_amount` de um `Price` existente, ou `percent_off`/`amount_off`/`duration` de um
@@ -403,19 +494,19 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   `customer_attachments`. `IStorageProvider` ganhou `uploadFile/createSignedUrl/removeFile`
   (genéricos). Rotas `POST/GET/DELETE /orgs/:orgId/customers/:id/attachments` (GET = signed URLs).
 - **Export CSV** de clientes: `GET /orgs/:orgId/customers/export` (text/csv; respeita filtro).
-- ⚠️ **Gotcha (repetido):** ao adicionar campo a uma *entity* de domínio, adicione nos **3**
+- ⚠️ **Gotcha (repetido):** ao adicionar campo a uma _entity_ de domínio, adicione nos **3**
   lugares — props interface, `readonly` field e atribuição no constructor — senão não serializa
   (pegadinha que ocultou `transaction.categoryId` até o teste e2e).
 - **Fora do escopo (por design):** super-admin panel, módulo de Serviços, Google Calendar, push
   externo, caixa-poupança, tema/exclusão de conta.
 - **Preview inline vs download forçado — Supabase Storage (2026-07-31)**: `createSignedUrl(bucket,
-  path, expires, downloadFileName?)` do `IStorageProvider` força `Content-Disposition: attachment`
+path, expires, downloadFileName?)` do `IStorageProvider` força `Content-Disposition: attachment`
   quando `downloadFileName` é passado — sem ele, a URL é inline (`<img>`/`<iframe>` funcionam
   direto). **Descoberta que evita assinar duas vezes**: no supabase-js, `download` **não entra na
   assinatura** — é query param concatenado à URL já assinada (`?download=<nome>` ou
   `&download=<nome>`). Uma única `createSignedUrl`/`createSignedUrls` basta para os dois links;
   a versão de download é só `url + (url.includes('?') ? '&' : '?') + 'download=' +
-  encodeURIComponent(nome)`. Para listagens, usar `createSignedUrls` (plural) — 1 chamada HTTP
+encodeURIComponent(nome)`. Para listagens, usar `createSignedUrls` (plural) — 1 chamada HTTP
   para N arquivos, mapeando o resultado por `path` (a ordem de retorno não é garantida), nunca
   por índice, e omitindo entradas com `signedUrl: null`/`error` sem derrubar as demais.
 - **Travar extensão de arquivo por composição, não validação (2026-07-31)**: quando um campo de
@@ -424,7 +515,7 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   (`storage_path` já salvo, ou `file.originalname` no upload) + só o nome-base vindo do usuário.
   Não existe caminho de input que quebre a extensão, então não precisa de exceção de domínio nova.
   Bônus: conserta de graça qualquer arquivo legado salvo sem extensão no próximo rename.
-  Utilitário `extensionOf`/`splitFileName`/`joinFileName` (extrai o *basename* antes de procurar
+  Utilitário `extensionOf`/`splitFileName`/`joinFileName` (extrai o _basename_ antes de procurar
   a extensão) é duplicado em `apps/frontend/src/shared/lib/file-name.ts` e
   `apps/backend/src/common/lib/file-name.ts` — os dois apps não compartilham workspace para isso.
 
@@ -476,7 +567,67 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   transação de substituição) — `CorrectTransactionUseCase` delega pra
   `ReverseTransactionUseCase` e herda de graça.
 
+### Comissão/repasse por profissional (2026-08-19, P-1)
+
+- **Config por `(org_id, user_id)`, não por org**: `org_member_commissions` guarda
+  percentual + modo (`gross`|`net`) POR PROFISSIONAL — diferente de `org_payment_fees`
+  (uma config por método, para toda a org). Cada profissional pode ter seu próprio modo.
+  Owner-write (`OrgOwnerGuard` no `PUT`), leitura escopada por ator: owner vê todos os
+  membros, employee vê só a própria linha (`GetMemberCommissionsUseCase` via
+  `resolveActor`, mesmo helper de `get-balance`/`list-transactions`).
+- **Histórico imutável via `active`+`superseded_at`** (índice único parcial
+  `(org_id, user_id) WHERE active`, mesmo padrão de `billing_plan_prices`/ADR-0024) —
+  nunca `UPDATE` de `percent`/`mode` numa linha existente, só "desativar + inserir nova"
+  (`supersede`, ordem obrigatória dentro de uma transação: desativar a linha antiga
+  ANTES de inserir a nova, senão colide com o índice parcial). Um trigger de banco
+  (`org_member_commissions_protect_immutable`) força essa imutabilidade
+  incondicionalmente — nem super_admin escapa, porque não existe caminho legítimo de
+  "corrigir" uma linha histórica.
+- **Snapshot DESNORMALIZADO em `services`** (`commission_config_id` FK nullable, só
+  auditoria, nunca lido para cálculo; `commission_percent`/`commission_mode`/
+  `commission_base_cents`/`commission_cents` = fonte de verdade), gravado na MESMA
+  escrita que `payment_transaction_id` (`RegisterPaymentUseCase`/`CreateServiceUseCase`
+  quando o serviço já nasce pago). Sem config ativa, zera explicitamente (nunca pula a
+  escrita) — é a única janela livre antes do primeiro pagamento; depois de pago, um
+  trigger de banco (`services_protect_commission_columns`) só libera alterar essas 5
+  colunas para o owner da org (o caminho de `CorrectServicePaymentUseCase`) ou role
+  privilegiada, e bloqueia INSERT com comissão não-nula/não-zero vindo de não-owner.
+- **Correção de pagamento preserva o snapshot ORIGINAL** (`percent`/`mode` do momento do
+  pagamento inicial) — recalcula só `baseCents`/`commissionCents` sobre o novo valor
+  corrigido. `CorrectServicePaymentUseCase` NÃO injeta `MEMBER_COMMISSION_REPOSITORY` de
+  propósito: reconsultar a config vigente precificaria retroativamente um evento
+  passado, o que a decisão de produto proíbe.
+- **`UpdateServiceUseCase` bloqueia reatribuir `performedBy` de serviço já pago**
+  (`ServicePerformerNotChangeableException`, 409) — comparando o valor RESOLVIDO (pós
+  `resolvePerformer`), não o bruto do input, porque `resolvePerformer` mapeia
+  `performedBy: null` enviado por um owner para `currentUserId`. Sem essa checagem, a
+  comissão congelada com o percentual do profissional A passaria a ser exibida como
+  comissão do profissional B nas agregações (que agrupam por `performed_by`).
+- **Cálculo é função pura separada** (`commission-calculator.ts`, `computeCommission`) —
+  NÃO reusa `computeNet`/`fee-calculator.ts`, que filtra por `FEE_ELIGIBLE_METHODS` (só
+  cartão) e zeraria comissão de dinheiro/pix silenciosamente. Modo `gross` = base é o
+  bruto (estúdio absorve 100% da taxa de cartão); modo `net` = base é o líquido pós-taxa
+  (`netCents` já calculado por `computeNet` em outro lugar).
+- **Agregação por período** (`commissionCentsByPeriod`) tem `performedBy: string | null`
+  **obrigatório** (não opcional) de propósito — força todo caller a declarar o escopo
+  explicitamente: `null` agrega a org inteira (só o ramo owner do overview usa), uma
+  string escopa a um profissional (ramo employee). Um parâmetro opcional permitiria
+  "esquecer" o escopo e vazar comissão de toda a org por omissão. Agregação ancorada em
+  `performed_at` (mesma âncora de todas as outras métricas de serviço no overview), não
+  na data do pagamento — um serviço executado num mês e pago no seguinte aparece na
+  comissão do mês de execução, por consistência com o resto do relatório.
+- **Débito conhecido, não bloqueante**: `resolveActor` (usado por `GetMemberCommissionsUseCase`
+  e outros use-cases do cashier) resolve `isOwner` via role da membership LOCAL, não via
+  `IOrganizationRepository.isOwner` — um super_admin agindo como owner de uma org da qual
+  NÃO é membro recebe 403 ao LER comissões (`GET`), mas CONSEGUE escrever (`PUT`, que usa
+  `orgRepo.isOwner` com fallback de `isSuperAdmin`). Falha fechada (sem vazamento), mas é
+  assimetria a corrigir num follow-up que alinhe `resolve-actor.ts` ao ADR-0013.
+- **Índice `services(org_id, performed_by, performed_at) WHERE canceled_at IS NULL`
+  ausente** — as 4 agregações do módulo fazem seq scan; aceito como débito dado o volume
+  baixo esperado (decisão de produto, não corrigir sem necessidade real).
+
 ### Serviços / Atendimentos (módulo `services`, 2026-06-21)
+
 - **Serviço = evento central** (cliente + profissional + materiais + pagamento). Backend
   `modules/services/` (Clean Arch, espelha cashier/materials). Rota
   `orgs/:orgId/services` (`AuthGuard`+`OrgMembershipGuard` — **membros**, não owner-only).
@@ -494,7 +645,7 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
 - **`performed_by` / `created_by` = `users.id` (app), NÃO authId.** `user.id` no controller é o
   **authId** Supabase (guards comparam `users.auth_id = user.id`). Os use-cases resolvem a
   associação via `MEMBER_REPOSITORY.findByAuthId(orgId, authId)` (método **novo**) → `{ userId
-  (app), isOwner }`. `performed_by` casa com `member.userId` e com `calendar.assigned_to`.
+(app), isOwner }`. `performed_by` casa com `member.userId` e com `calendar.assigned_to`.
 - **Papéis:** funcionário (não-owner) **força `performedBy=self`** e vê/edita/paga/cancela só os
   próprios (`SERVICE_FORBIDDEN` 403); owner escolhe o profissional (membro ativo, senão
   `EMPLOYEE_INACTIVE` 422) e filtra por membro. Lista **default = mês vigente** (1º→hoje).
@@ -521,16 +672,16 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   `DatabaseModule`). Ver ADR a considerar / `.memory/sessions/` para o raciocínio completo.
 - **Consumo de materiais:** linha não-compartilhável → quantidade (valida estoque, senão
   `INSUFFICIENT_STOCK` 422; debita via `updateStockQuantity` + movimento `service_consumption`
-  + `touchLastUsed`). Compartilhável (`shareable`) → checkbox **"acabou?"**: marcado ⇒ baixa
-  **1 unidade** + grava `service_materials.quantity=1`; desmarcado ⇒ não baixa / sem linha.
+  - `touchLastUsed`). Compartilhável (`shareable`) → checkbox **"acabou?"**: marcado ⇒ baixa
+    **1 unidade** + grava `service_materials.quantity=1`; desmarcado ⇒ não baixa / sem linha.
 - **Cliente** precisa estar `enabled` (senão `CUSTOMER_DISABLED` 422).
 - **Tipos de serviço criáveis inline** (`POST /services/types`, upsert UNIQUE org+name — espelha
   transaction-category). ⚠️ Rotas `/types` declaradas **antes** de `/:id` no controller (senão
   `:id` captura "types").
 - **Frontend** `features/services/`: Sheet com 3 seções (Dados·Materiais·Pagamento), `useFieldArray`
-  + `useFormContext` em `material-lines` (mutar o snapshot do field **não** atualiza o RHF — usar
-  `register`/`Controller`); lista Table desktop + cards mobile com badge de status; reusa
-  `lib/money` do cashier e `useCustomers`/`useMembers`/`useMaterials`.
+  - `useFormContext` em `material-lines` (mutar o snapshot do field **não** atualiza o RHF — usar
+    `register`/`Controller`); lista Table desktop + cards mobile com badge de status; reusa
+    `lib/money` do cashier e `useCustomers`/`useMembers`/`useMaterials`.
 
 ### Estoque — modelo realista (reunião 11/06)
 
@@ -540,6 +691,7 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
 - **Integração estoque ↔ serviço** (futuro, pesquisar): relacionar materiais ao serviço para custo real/lucro líquido (`service_materials` já existe no schema)
 
 #### Simplificações implementadas (2026-06-15)
+
 - **Material NÃO tem mais campo `unit`** (removido — migration `0006`). Não reintroduzir.
 - **`shareable` (bool, migration `0005`)**: material compartilhável não é "queimado" por inteiro a cada serviço (ex.: luvas). UI = `Switch` no form + badge "Compartilhável" na lista. ⚠️ O comportamento de consumo (ao vincular no serviço, perguntar se acabou → descontar) é **pendente** e será feito com o módulo de Serviços — hoje só existe a flag.
 - **Ajuste de estoque**: o form separa **direção** (`Select` Adição/Remoção) + **quantidade** (input só-número); o `quantityDelta` com sinal é montado na submissão (`stock-page handleAdjust`). Backend continua recebendo `quantityDelta` assinado.
@@ -597,10 +749,10 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   publicado no npm tem vulnerabilidade conhecida (prototype pollution/ReDoS) sem correção
   no próprio registro (só corrigida no CDN deles, fora do fluxo normal de instalação).
 - **Content-Type/Content-Disposition por formato**: CSV mantém `text/csv; charset=utf-8`
-  + `.csv`; Excel usa
-  `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` + `.xlsx`.
-  `res.send()` aceita tanto `string` (CSV) quanto `Buffer` (Excel) sem tratamento
-  especial.
+  - `.csv`; Excel usa
+    `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` + `.xlsx`.
+    `res.send()` aceita tanto `string` (CSV) quanto `Buffer` (Excel) sem tratamento
+    especial.
 - **Frontend**: `export-menu.tsx` (componente único reusado pelas 4 páginas) ganhou
   `Select` de Formato (CSV/Excel) + `Select` de Delimitador (só visível quando CSV,
   espelhando o padrão de campo condicional já usado no projeto). Textos renomeados:
@@ -668,7 +820,7 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   `createdBy` sempre resolvido de `authId` (sessão) → `users.id`, nunca aceito do
   client/body.
 - **Perguntas sem schema no banco** (`jsonb` puro: `{ id: uuid, type: 'text'|'yes_no',
-  label, required }[]`) — a única validação é em aplicação (`class-validator` nested no
+label, required }[]`) — a única validação é em aplicação (`class-validator` nested no
   DTO, `whitelist: true` no `ValidationPipe` global remove chaves extras antes de
   chegar no jsonb). Sem verificação de unicidade de `question.id` dentro do array ainda
   — pendência registrada pra M10b resolver antes de mapear respostas por pergunta.
@@ -713,7 +865,7 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   restrito no submit (5/60s vs. 120/min global) — token é 256 bits (`gen_random_bytes(32)`
   hex), enumeração inviável mesmo sem o throttle mais apertado.
 - **Vínculo `services.anamnesis_response_id`** (índice único parcial `WHERE
-  anamnesis_response_id IS NOT NULL`): `assertAnamnesisResponseLinkable` faz o
+anamnesis_response_id IS NOT NULL`): `assertAnamnesisResponseLinkable` faz o
   pré-check de aplicação (existe na org, `status=submitted`, cliente/tipo batem
   quando a resposta já os tem preenchidos), mas a violação do índice único
   (resposta já vinculada a OUTRO service) é responsabilidade exclusiva do catch de
@@ -803,7 +955,7 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   `database-guardian` como decisão de produto (LGPD: CPF é PII, legível por qualquer
   membro da org via RLS `is_org_member`), não bloqueante. Não resolvido nesta fatia.
 - **F10 está completo**: M10a (construtor+versionamento) + M10b (link público+submissão)
-  + M10c (assinatura) cobrem o fluxo inteiro de ficha de anamnese.
+  - M10c (assinatura) cobrem o fluxo inteiro de ficha de anamnese.
 
 ### Conformidade legal — LGPD Tier 1 (2026-07-27, ADR-0018)
 
@@ -841,6 +993,7 @@ Auditoria código vs. transcrições → aplicados nos módulos já construídos
   dados por titular.
 
 ### Notificações — núcleo reutilizável (2026-06-15)
+
 - **Módulo `modules/notifications/`**: `NotificationService.notify({userId, orgId?, type, title, body?, data?, email?, actionUrl?, actionLabel?})` cria a notificação **in-app** (tabela `notifications`, migration `0008`) e dispara **e-mail** via `MailService.sendNotification` (best-effort em `try/catch` — falha nunca quebra agenda/estoque/cron). **Outros módulos injetam `NotificationService`** (exportado).
 - **E-mail transacional centralizado (ADR-0012)**: módulo dedicado `modules/mail/` (sem dep de auth/notifications → evita ciclo) é dono do port `IEmailSender`/`ResendEmailSender` e do `MailService` (`sendOrgInvite`/`sendPasswordReset`/`sendWelcome`/`sendNotification`). Templates **React Email** `.tsx` em `modules/mail/templates/` (preview: `pnpm --filter backend email:dev`). **`IEmailSender.send`**: `false` = desabilitado (no-op, dev), `true` = enviado, **lança** em falha real. **Críticos (abortam):** convite (cria→envia→em falha **reverte** o convite + `InvitationEmailFailedException`/HTTP 502) e **reset de senha**. **Best-effort:** notificações/crons e welcome. **Reset de senha saiu do GoTrue**: `IAuthProvider.generatePasswordResetLink` (`admin.generateLink type=recovery`, sem enviar) → enviamos via Resend; `null` p/ user inexistente (sem enumeração). Welcome no sign-up. `NOTIFICATIONS_FROM_EMAIL` exige domínio verificado no Resend.
 - A tabela `notifications` **não tem RLS** — acesso só pelo módulo, sempre escopado por `user_id` no código, via **`DRIZZLE_ADMIN`**. Inbox por usuário: `GET/POST /me/notifications` (`AuthGuard`, resolve `authId→users.id`).
@@ -951,7 +1104,7 @@ passar (red → green → refactor).
   Svix) criam ticket **sem organização**, visível só a `super_admin` na fila de
   triagem. TODAS as policies de SELECT/UPDATE ramificam explicitamente
   `(org_id IS NULL AND is_super_admin()) OR (org_id IS NOT NULL AND (is_super_admin()
-  OR is_org_member(org_id)))`; as de INSERT exigem `org_id IS NOT NULL AND (...)` sem
+OR is_org_member(org_id)))`; as de INSERT exigem `org_id IS NOT NULL AND (...)` sem
   ramo órfão — nenhum caminho via RLS comum (`app_user`) cria linha órfã, só
   `DRIZZLE_ADMIN`. **Vínculo a uma organização é sempre manual** (ação explícita de
   `super_admin` na fila admin via `LinkTicketToOrganizationUseCase`, nunca heurística
@@ -961,6 +1114,61 @@ passar (red → green → refactor).
   remetente do e-mail bate com `requesterEmail` do ticket** — nunca confia no
   plus-address sozinho (é público/forjável). Detalhe completo, incluindo o bug real de
   try/catch-dentro-de-transação corrigido na idempotência do webhook, em ADR-0022.
+
+### M-P2b — Auto-cadastro/atualização de cliente: backend (2026-08-19, P-2 fatia 2/4)
+
+- **Módulo `customer-self-service`, fronteira de import unidirecional**: importa
+  `customers`, `anamnesis`, `mail`, `auth`/`orgs`, `audit` — nenhum desses importa de
+  volta. 6 use-cases: 2 autenticados (gerar convite, cenários 1 e 3) + 4 públicos (GET+POST
+  por cenário). Continua M10b (link público sem login, `.memory/domain-rules.md` seção
+  M10b) para o mesmo padrão de token 256-bit/`DRIZZLE_ADMIN` restrito/throttle, mas em
+  tabelas próprias (`customer_self_registrations`, `customer_update_invitations`,
+  migration `0052`, commit `3725767`).
+- **Retry-safety do cenário 1 (submit combinado customer+anamnese) é por marcador
+  persistido, não por lookup de e-mail**: `customer_self_registrations.customer_id` é
+  gravado (via `linkCustomer`) IMEDIATAMENTE após criar/reutilizar o customer, ANTES de
+  delegar a `SubmitAnamnesisResponseUseCase` — é esse campo, não `findByEmailInOrg`, que
+  decide se uma retentativa deve `updateCoreFields` ou `createForOrg`
+  (`registration.customerId ?? (await findByEmailInOrg(...))?.id`). Buscar só por e-mail
+  quebra se o e-mail do customer mudar entre tentativas (ex. via cenário 3 no meio de um
+  retry do cenário 1) — acharia `null` e criaria um segundo customer. A ordem
+  `linkCustomer(registro) → linkCustomer(anamnese) → submit` é obrigatória: o repositório
+  de anamnese faz `LEFT JOIN customers`, então pular o vínculo antes do submit faz a cópia
+  assinada por e-mail ser silenciosamente pulada (mesmo mecanismo do M10b).
+- **Reuso de convite pendente exige `serviceTypeId` (cenário 1) igual ao pedido novo** —
+  senão o convite antigo (ligado à ficha errada) é reaproveitado silenciosamente. Quando
+  diverge (ou expirou), o registro `pending` é deletado (policy de DELETE só permite
+  `status='pending'`) e recriado; o `anamnesis_response` do convite descartado fica órfão
+  de propósito (sem policy DELETE ali, é histórico).
+- **`IPublicCustomerWriter`/`DrizzlePublicCustomerWriter`: novo precedente de
+  DRIZZLE_ADMIN em caminho público de ESCRITA em `customers`** (M10b já usava admin em
+  anamnesis, isso estende o padrão para o módulo `customers`). Como `customers` não tem FK
+  composta `(id, org_id)` sendo referenciada por essas escritas, toda query filtra
+  `org_id` explicitamente em código (defesa em profundidade, já que admin bypassa RLS
+  totalmente) — inclusive o `create`, que recebe `orgId` como parâmetro posicional
+  separado do resto dos dados (nunca dentro do blob de input, para não repetir o mesmo
+  buraco que a whitelist de campos já fecha). Unique violation (23505) é distinguida por
+  NOME da constraint (`customers_org_email_lower_uq`), não só pelo código — `customers`
+  tem outra constraint única (`customers_id_org_id_uq`, também da migration 0052) que não
+  deve virar `CustomerEmailAlreadyExistsException`. A função que caça o código 23505
+  percorre `error.cause` recursivamente (gotcha do `drizzle-orm@0.45.2` já documentado na
+  seção M10b acima) — qualquer novo repositório que capture unique violation deve seguir
+  esse padrão, não o antigo `error.code` direto.
+- **`IAnamnesisResponseRepository.linkCustomer(responseId, customerId, orgId)`** (3
+  parâmetros — o `orgId` foi adicionado depois de review, não estava no desenho
+  original): `anamnesis_responses.customer_id` só tem FK simples pra `customers.id`, sem
+  par composto com `org_id` como as tabelas novas de convite têm — o filtro de `orgId` no
+  `WHERE` do UPDATE é a única defesa contra vincular resposta de uma org a customer de
+  outra, já que o método roda via `DRIZZLE_ADMIN`.
+- **DTO público do cenário 3 inclui `email`** (decisão de produto explícita da reunião —
+  ver `docs/planning/2026-08-19-meeting-backlog.md`, "cenário 3" lista endereço/telefone/
+  e-mail como campos atualizáveis) — cuidado ao ler o código sem esse contexto: o
+  use-case já validava conflito de e-mail antes do DTO expor o campo (branch ficou
+  "morto" por um passo intermediário do desenvolvimento, corrigido antes do fim da fatia).
+- **Pendente para fatia 3/4 (frontend)**: páginas públicas `/customer-registration/:token`
+  e `/customer-update/:token`, telas autenticadas de disparo dos 2 convites no módulo
+  Clientes (hoje só "Novo cliente"), `design` das 3 telas novas antes do
+  `frontend-implementer` (regra já prevista no backlog).
 
 ### Pendências não bloqueantes para V1
 

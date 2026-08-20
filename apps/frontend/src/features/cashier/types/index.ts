@@ -105,3 +105,19 @@ export const FEE_ELIGIBLE_METHODS: PaymentMethod[] = [
   "credit_card",
   "debit_card",
 ]
+
+export type CommissionMode = "gross" | "net"
+
+export interface MemberCommission {
+  userId: string
+  name: string
+  role: "owner" | "employee"
+  percent: string
+  mode: CommissionMode | null
+  configured: boolean
+}
+
+export const COMMISSION_MODE_LABELS: Record<CommissionMode, string> = {
+  gross: "Sobre o valor bruto (estúdio absorve a taxa)",
+  net: "Sobre o valor líquido (taxa dividida)",
+}

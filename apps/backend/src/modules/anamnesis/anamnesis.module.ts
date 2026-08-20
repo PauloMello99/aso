@@ -45,5 +45,10 @@ import { PublicAnamnesisController } from "./interface/public-anamnesis.controll
     ListAnamnesisResponsesUseCase,
     GetAnamnesisResponseDetailUseCase,
   ],
+  exports: [
+    SubmitAnamnesisResponseUseCase,
+    GetAnamnesisResponseByTokenUseCase,
+    GetCurrentAnamnesisFormVersionUseCase,
+  ],
 })
 export class AnamnesisModule {}

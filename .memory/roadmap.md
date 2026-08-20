@@ -7,11 +7,12 @@ metadata:
 
 # Roadmap & Situação — ink-ops
 
-> **CICLO ATIVO (2026-07-29 → lançamento em 13/08/2026)**: o backlog vigente é
-> `docs/planning/2026-07-29-meeting-backlog.md` (milestones N-A a N-K), vindo da reunião
-> de revisão pós-testes de 29/07. O backlog anterior
-> (`docs/planning/2026-07-10-meeting-backlog.md`, M0–M11) está **encerrado**. Bloqueio
-> duro de deploy ativo: `LEGAL_ENTITY` com placeholders (ADR-0018, `docs/deployment.md`).
+> **CICLO ATIVO (2026-08-19 → Ink Day em 12-13/09/2026)**: o backlog vigente é
+> `docs/planning/2026-08-19-meeting-backlog.md` (milestones P-1 a P-5 + P-BUG-1), vindo da
+> reunião de 18/08 (comissão por profissional, auto-cadastro de cliente + anamnese, bug de
+> visibilidade do Caixa para super_admin com membership real, migração Ink House V1). O
+> backlog anterior (`docs/planning/2026-07-29-meeting-backlog.md`, N-A a N-K) está
+> **encerrado** — ASO já em produção com Ink House + 1 cliente adicional.
 >
 > Snapshot de **2026-06-22**. Fonte única de follow-up com stakeholders (a documentação
 > de produto anterior estava defasada). Espelhado no Notion (board de tarefas).
