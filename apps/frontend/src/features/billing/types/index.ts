@@ -1,162 +1,174 @@
-export type SubscriptionType = "free" | "trial" | "standard" | "custom"
+export type SubscriptionType = "free" | "trial" | "standard" | "custom";
 
-export type SubscriptionStatus = "active" | "trialing" | "past_due" | "canceled"
+export type SubscriptionStatus =
+  | "active"
+  | "trialing"
+  | "past_due"
+  | "canceled";
 
-export type BillingInterval = "monthly" | "semiannual" | "annual"
+export type BillingInterval = "monthly" | "semiannual" | "annual";
 
 export interface Subscription {
-  id: string
-  orgId: string
-  stripeCustomerId: string | null
-  stripeSubscriptionId: string | null
-  type: SubscriptionType
-  status: SubscriptionStatus
-  billingInterval: BillingInterval | null
-  priceCents: number | null
-  stripePriceId: string | null
-  stripeCouponId: string | null
-  discountPercent: number | null
-  trialEndsAt: string | null
-  currentPeriodStart: string | null
-  currentPeriodEnd: string | null
-  gracePeriodDays: number
-  compReason: string | null
-  compGrantedBy: string | null
-  compExpiresAt: string | null
-  canceledAt: string | null
-  trialConsumed: boolean
-  createdAt: string
-  updatedAt: string
+  id: string;
+  orgId: string;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  type: SubscriptionType;
+  status: SubscriptionStatus;
+  billingInterval: BillingInterval | null;
+  priceCents: number | null;
+  stripePriceId: string | null;
+  stripeCouponId: string | null;
+  discountPercent: number | null;
+  trialEndsAt: string | null;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+  gracePeriodDays: number;
+  compReason: string | null;
+  compGrantedBy: string | null;
+  compExpiresAt: string | null;
+  canceledAt: string | null;
+  trialConsumed: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CheckoutSessionResponse {
-  url: string
+  url: string;
 }
 
 export interface PublicBillingPlanPrice {
-  interval: BillingInterval
-  amountCents: number
-  currency: string
+  interval: BillingInterval;
+  amountCents: number;
+  currency: string;
 }
 
 export interface PublicBillingPlan {
-  key: string
-  name: string
-  description: string | null
-  prices: PublicBillingPlanPrice[]
+  key: string;
+  name: string;
+  description: string | null;
+  prices: PublicBillingPlanPrice[];
+  /** Opcional: payload ISR em cache pode ser anterior ao deploy deste campo. */
+  highlighted?: boolean;
+  /** Opcional: payload ISR em cache pode ser anterior ao deploy deste campo. */
+  features?: string[];
 }
 
 export interface PortalSessionResponse {
-  url: string
+  url: string;
 }
 
 export interface NormalizedInvoice {
-  stripeInvoiceId: string
-  type: "paid" | "payment_failed"
-  amountCents: number
-  currency: string
-  occurredAt: string
+  stripeInvoiceId: string;
+  type: "paid" | "payment_failed";
+  amountCents: number;
+  currency: string;
+  occurredAt: string;
 }
 
 export interface BillingPlanPrice {
-  id: string
-  planId: string
-  interval: BillingInterval
-  amountCents: number
-  currency: string
-  stripePriceId: string | null
-  lookupKey: string | null
-  active: boolean
-  lastSyncedAt: string | null
-  createdAt: string
-  updatedAt: string
+  id: string;
+  planId: string;
+  interval: BillingInterval;
+  amountCents: number;
+  currency: string;
+  stripePriceId: string | null;
+  lookupKey: string | null;
+  active: boolean;
+  lastSyncedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface BillingPlan {
-  id: string
-  key: string
-  name: string
-  description: string | null
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
   /** @deprecated derivado do primeiro preço ativo monthly; use `prices` */
-  amountCents: number
+  amountCents: number;
   /** @deprecated derivado do primeiro preço ativo monthly; use `prices` */
-  currency: string
+  currency: string;
   /** @deprecated derivado do primeiro preço ativo monthly; use `prices` */
-  interval: BillingInterval
-  active: boolean
-  stripeProductId: string | null
+  interval: BillingInterval;
+  active: boolean;
+  stripeProductId: string | null;
   /** @deprecated derivado do primeiro preço ativo monthly; use `prices` */
-  stripePriceId: string | null
+  stripePriceId: string | null;
   /** @deprecated derivado do primeiro preço ativo monthly; use `prices` */
-  lookupKey: string | null
-  productKey: string | null
-  metadata: Record<string, string>
+  lookupKey: string | null;
+  productKey: string | null;
+  metadata: Record<string, string>;
   /** @deprecated derivado do primeiro preço ativo monthly; use `prices` */
-  lastSyncedAt: string | null
-  prices: BillingPlanPrice[]
+  lastSyncedAt: string | null;
+  prices: BillingPlanPrice[];
+  highlighted: boolean;
+  features: string[];
 }
 
-export type CouponDuration = "once" | "repeating" | "forever"
+export type CouponDuration = "once" | "repeating" | "forever";
 
 export interface BillingCoupon {
-  id: string
-  stripeCouponId: string
-  stripePromotionCodeId: string | null
-  code: string | null
-  name: string
-  percentOff: number | null
-  amountOffCents: number | null
-  currency: string | null
-  duration: CouponDuration
-  durationInMonths: number | null
-  maxRedemptions: number | null
-  timesRedeemed: number
-  expiresAt: string | null
-  active: boolean
-  createdBy: string | null
-  lastSyncedAt: string | null
+  id: string;
+  stripeCouponId: string;
+  stripePromotionCodeId: string | null;
+  code: string | null;
+  name: string;
+  percentOff: number | null;
+  amountOffCents: number | null;
+  currency: string | null;
+  duration: CouponDuration;
+  durationInMonths: number | null;
+  maxRedemptions: number | null;
+  timesRedeemed: number;
+  expiresAt: string | null;
+  active: boolean;
+  createdBy: string | null;
+  lastSyncedAt: string | null;
 }
 
 export interface UpdateBillingPlanProductInput {
-  name?: string
-  description?: string
-  active?: boolean
-  metadata?: Record<string, string>
+  name?: string;
+  description?: string;
+  active?: boolean;
+  metadata?: Record<string, string>;
+  highlighted?: boolean;
+  features?: string[];
 }
 
 export interface MigrateSubscribersResult {
-  orgId: string
-  stripeSubscriptionId: string
-  status: "migrated" | "skipped_already_migrated" | "failed"
-  error?: string
+  orgId: string;
+  stripeSubscriptionId: string;
+  status: "migrated" | "skipped_already_migrated" | "failed";
+  error?: string;
 }
 
 export interface RotatePlanIntervalPriceResult {
-  price: BillingPlanPrice
+  price: BillingPlanPrice;
   migration: {
-    results: MigrateSubscribersResult[]
-  }
+    results: MigrateSubscribersResult[];
+  };
 }
 
 export interface UpsertPlanIntervalPriceInput {
-  interval: BillingInterval
-  amountCents: number
-  currency: string
+  interval: BillingInterval;
+  amountCents: number;
+  currency: string;
 }
 
 export interface RotatePlanIntervalPriceInput {
-  amountCents: number
-  currency?: string
+  amountCents: number;
+  currency?: string;
 }
 
 export interface CreateBillingCouponInput {
-  name: string
-  percentOff?: number
-  amountOffCents?: number
-  currency?: string
-  duration: CouponDuration
-  durationInMonths?: number
-  code?: string
-  maxRedemptions?: number
-  expiresAt?: string
+  name: string;
+  percentOff?: number;
+  amountOffCents?: number;
+  currency?: string;
+  duration: CouponDuration;
+  durationInMonths?: number;
+  code?: string;
+  maxRedemptions?: number;
+  expiresAt?: string;
 }

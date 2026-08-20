@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
-import { useEffect, useRef, useState } from "react"
-import { useRouter } from "next/router"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/router";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
   KeyRound,
   Loader2,
@@ -17,14 +17,15 @@ import {
   Sun,
   Trash2,
   Upload,
-} from "lucide-react"
-import { useTheme } from "next-themes"
-import { useMe } from "@/features/auth"
-import { useAuth } from "@/features/auth"
-import { clearSession } from "@/features/auth/lib/session"
-import { useOrgs } from "@/features/dashboard/hooks/use-orgs"
-import { shouldShowDeleteAccount } from "@/features/account/lib/can-delete-account"
-import { apiRequest } from "@/infrastructure/api/client"
+} from "lucide-react";
+import { useTheme } from "next-themes";
+import { useMe } from "@/features/auth";
+import { useAuth } from "@/features/auth";
+import { clearSession } from "@/features/auth/lib/session";
+import { useOrgs } from "@/features/dashboard/hooks/use-orgs";
+import { shouldShowDeleteAccount } from "@/features/account/lib/can-delete-account";
+import { apiRequest } from "@/infrastructure/api/client";
+import { ImageCropDialog } from "@/shared/components/ui/image-crop-dialog";
 import {
   Form,
   FormControl,
@@ -33,7 +34,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/shared/components/ui/form"
+} from "@/shared/components/ui/form";
 import {
   Dialog,
   DialogContent,
@@ -42,90 +43,110 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/shared/components/ui/dialog"
-import { Button } from "@/shared/components/ui/button"
-import { Input } from "@/shared/components/ui/input"
-import { Label } from "@/shared/components/ui/label"
-import { cn } from "@/shared/lib/utils"
+} from "@/shared/components/ui/dialog";
+import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import { cn } from "@/shared/lib/utils";
 
 function SectionHeader({
   title,
   description,
 }: {
-  title: string
-  description: string
+  title: string;
+  description: string;
 }) {
   return (
     <div>
       <h2 className="text-lg font-semibold">{title}</h2>
       <p className="mt-0.5 text-sm text-foreground/50">{description}</p>
     </div>
-  )
+  );
 }
 
 const profileSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório").max(120),
   email: z.string().email("E-mail inválido"),
-})
-type ProfileFormValues = z.infer<typeof profileSchema>
-const MAX_AVATAR_BYTES = 5 * 1024 * 1024
+});
+type ProfileFormValues = z.infer<typeof profileSchema>;
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
 export function ProfileSection() {
-  const { me, loading, updateMe, uploadAvatar } = useMe()
-  const router = useRouter()
-  const { orgs, loading: orgsLoading } = useOrgs()
-  const [saved, setSaved] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [avatarUploading, setAvatarUploading] = useState(false)
-  const [avatarError, setAvatarError] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const initialized = useRef(false)
+  const { me, loading, updateMe, uploadAvatar } = useMe();
+  const router = useRouter();
+  const { orgs, loading: orgsLoading } = useOrgs();
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
+  const [cropDialogOpen, setCropDialogOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const initialized = useRef(false);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: { name: "", email: "" },
-  })
+  });
 
   useEffect(() => {
     if (me && !initialized.current) {
-      initialized.current = true
-      form.reset({ name: me.name, email: me.email })
+      initialized.current = true;
+      form.reset({ name: me.name, email: me.email });
     }
-  }, [me, form])
+  }, [me, form]);
 
   const handleSubmit = form.handleSubmit(async (values) => {
-    setError(null)
-    setSaved(false)
+    setError(null);
+    setSaved(false);
     try {
-      await updateMe({ name: values.name, email: values.email })
-      setSaved(true)
+      await updateMe({ name: values.name, email: values.email });
+      setSaved(true);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Não foi possível salvar o perfil.",
-      )
+        err instanceof Error
+          ? err.message
+          : "Não foi possível salvar o perfil.",
+      );
     }
-  })
+  });
 
-  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    e.target.value = ""
-    if (!file) return
-    setAvatarError(null)
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setAvatarError(null);
     if (!file.type.startsWith("image/")) {
-      setAvatarError("Selecione um arquivo de imagem.")
-      return
+      setAvatarError("Selecione um arquivo de imagem.");
+      return;
     }
     if (file.size > MAX_AVATAR_BYTES) {
-      setAvatarError("A imagem deve ter no máximo 5 MB.")
-      return
+      setAvatarError("A imagem deve ter no máximo 5 MB.");
+      return;
     }
-    setAvatarUploading(true)
+    setPendingAvatarFile(file);
+    setCropDialogOpen(true);
+  }
+
+  async function handleAvatarConfirm(file: File) {
+    setAvatarUploading(true);
     try {
-      await uploadAvatar(file)
+      await uploadAvatar(file);
     } catch (err) {
-      setAvatarError(err instanceof Error ? err.message : "Falha ao enviar a foto.")
+      if (
+        err instanceof Error &&
+        err.message.includes("current file type is")
+      ) {
+        setAvatarError(
+          "Formato de imagem não suportado. Envie PNG, JPG, WEBP ou GIF.",
+        );
+      } else {
+        setAvatarError(
+          err instanceof Error ? err.message : "Falha ao enviar a foto.",
+        );
+      }
     } finally {
-      setAvatarUploading(false)
+      setAvatarUploading(false);
     }
   }
 
@@ -186,6 +207,18 @@ export function ProfileSection() {
               )}
             </div>
           </div>
+
+          <ImageCropDialog
+            open={cropDialogOpen}
+            onOpenChange={setCropDialogOpen}
+            file={pendingAvatarFile}
+            aspect={1}
+            circular
+            maxDimension={512}
+            maxBytes={MAX_AVATAR_BYTES}
+            title="Recortar foto de perfil"
+            onConfirm={handleAvatarConfirm}
+          />
 
           <Form {...form}>
             <form onSubmit={handleSubmit} className="grid gap-5">
@@ -249,11 +282,11 @@ export function ProfileSection() {
               className="mt-3"
               disabled={orgsLoading || orgs.length === 0}
               onClick={() => {
-                const firstOrg = orgs[0]
-                if (!firstOrg) return
+                const firstOrg = orgs[0];
+                if (!firstOrg) return;
                 void router.push(
                   `/dashboard/org/${firstOrg.slug}/overview?tour=1`,
-                )
+                );
               }}
             >
               <RotateCcw className="h-4 w-4" />
@@ -263,26 +296,26 @@ export function ProfileSection() {
         </div>
       )}
     </div>
-  )
+  );
 }
 
 export function AccessSection() {
-  const { user, forgotPassword } = useAuth()
-  const [sent, setSent] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { user, forgotPassword } = useAuth();
+  const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleRequest() {
-    if (!user?.email) return
-    setLoading(true)
-    setError(null)
+    if (!user?.email) return;
+    setLoading(true);
+    setError(null);
     try {
-      await forgotPassword(user.email)
-      setSent(true)
+      await forgotPassword(user.email);
+      setSent(true);
     } catch {
-      setError("Não foi possível enviar o e-mail. Tente novamente.")
+      setError("Não foi possível enviar o e-mail. Tente novamente.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -315,7 +348,10 @@ export function AccessSection() {
             </p>
             {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
             <div className="mt-4">
-              <Button onClick={handleRequest} disabled={loading || !user?.email}>
+              <Button
+                onClick={handleRequest}
+                disabled={loading || !user?.email}
+              >
                 {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                 Enviar link de alteração
               </Button>
@@ -324,20 +360,20 @@ export function AccessSection() {
         )}
       </section>
     </div>
-  )
+  );
 }
 
 const THEME_OPTIONS = [
   { value: "light", label: "Claro", icon: Sun },
   { value: "dark", label: "Escuro", icon: Moon },
   { value: "system", label: "Sistema", icon: Monitor },
-] as const
+] as const;
 
 export function AppearanceSection() {
-  const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
-  const current = mounted ? (theme ?? "system") : undefined
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const current = mounted ? (theme ?? "system") : undefined;
 
   return (
     <div className="grid gap-6">
@@ -355,7 +391,7 @@ export function AppearanceSection() {
         </p>
         <div className="mt-4 grid grid-cols-3 gap-2">
           {THEME_OPTIONS.map(({ value, label, icon: Icon }) => {
-            const active = current === value
+            const active = current === value;
             return (
               <button
                 key={value}
@@ -377,43 +413,43 @@ export function AppearanceSection() {
                 />
                 {label}
               </button>
-            )
+            );
           })}
         </div>
       </section>
     </div>
-  )
+  );
 }
 
 export function DangerSection() {
-  const router = useRouter()
-  const { user } = useAuth()
-  const { orgs, loading: orgsLoading } = useOrgs()
-  const [open, setOpen] = useState(false)
-  const [confirmation, setConfirmation] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const router = useRouter();
+  const { user } = useAuth();
+  const { orgs, loading: orgsLoading } = useOrgs();
+  const [open, setOpen] = useState(false);
+  const [confirmation, setConfirmation] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const email = user?.email ?? ""
-  const isConfirmed = confirmation.trim().toLowerCase() === email.toLowerCase()
+  const email = user?.email ?? "";
+  const isConfirmed = confirmation.trim().toLowerCase() === email.toLowerCase();
 
-  if (!orgsLoading && !shouldShowDeleteAccount(orgs)) return null
+  if (!orgsLoading && !shouldShowDeleteAccount(orgs)) return null;
 
   async function handleDelete() {
-    if (!isConfirmed) return
-    setLoading(true)
-    setError(null)
+    if (!isConfirmed) return;
+    setLoading(true);
+    setError(null);
     try {
-      await apiRequest<void>("/auth/me", { method: "DELETE" })
-      clearSession()
-      await router.replace("/auth/login")
+      await apiRequest<void>("/auth/me", { method: "DELETE" });
+      clearSession();
+      await router.replace("/auth/login");
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
           : "Não foi possível excluir a conta.",
-      )
-      setLoading(false)
+      );
+      setLoading(false);
     }
   }
 
@@ -444,15 +480,19 @@ export function DangerSection() {
             <Dialog
               open={open}
               onOpenChange={(v) => {
-                setOpen(v)
+                setOpen(v);
                 if (!v) {
-                  setConfirmation("")
-                  setError(null)
+                  setConfirmation("");
+                  setError(null);
                 }
               }}
             >
               <DialogTrigger asChild>
-                <Button variant="destructive" size="sm" className="w-full sm:w-auto">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="w-full sm:w-auto"
+                >
                   <Trash2 className="h-4 w-4" />
                   Apagar conta
                 </Button>
@@ -462,18 +502,22 @@ export function DangerSection() {
                   <DialogTitle>Excluir minha conta</DialogTitle>
                   <DialogDescription>
                     Esta ação é{" "}
-                    <span className="font-semibold text-destructive">irreversível</span>.
-                    Seus dados pessoais serão permanentemente removidos. Se você
-                    ainda for proprietário de alguma organização, a exclusão será
-                    bloqueada.
+                    <span className="font-semibold text-destructive">
+                      irreversível
+                    </span>
+                    . Seus dados pessoais serão permanentemente removidos. Se
+                    você ainda for proprietário de alguma organização, a
+                    exclusão será bloqueada.
                   </DialogDescription>
                 </DialogHeader>
 
                 <div className="grid gap-3">
                   <Label htmlFor="delete-account-confirm">
                     Digite seu e-mail{" "}
-                    <span className="font-mono text-foreground/80">{email}</span> para
-                    confirmar:
+                    <span className="font-mono text-foreground/80">
+                      {email}
+                    </span>{" "}
+                    para confirmar:
                   </Label>
                   <Input
                     id="delete-account-confirm"
@@ -501,5 +545,5 @@ export function DangerSection() {
         )}
       </section>
     </div>
-  )
+  );
 }
