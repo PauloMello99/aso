@@ -23,11 +23,11 @@ export class DeleteOrgUseCase {
     if (!isOwner) throw new OrgForbiddenException();
 
     await this.auditService.logByAuthId(authId, {
-      orgId,
+      orgId: null,
       action: "delete",
       entityType: "organization",
       entityId: orgId,
-      metadata: { name: org.name, slug: org.slug },
+      metadata: { orgId, name: org.name, slug: org.slug },
     });
 
     await this.orgRepo.delete(orgId);

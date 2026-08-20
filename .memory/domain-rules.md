@@ -203,10 +203,39 @@ instanceof Pool` (`node-postgres/session.js`), então é imune ao bug mesmo cham
   escrita mas ANTES do fim do request passa a rodar antes do commit real — o oposto do
   problema original. Resolvido para o caso da comissão removendo o cache de leitura
   inteiramente (`findActiveByOrg` virou select direto, sem `TtlCache` — único consumidor
-  era exibição, sem racional de performance documentado pro risco). Ainda **não corrigido,
-  aceito como risco documentado de baixo custo/benefício**: `transferOwnership` grava o
-  audit log (via `DRIZZLE_ADMIN`, autocommit) antes do commit real da transferência —
-  se o request falhar depois, fica um log de uma transferência que não aconteceu.
+  era exibição, sem racional de performance documentado pro risco). **Corrigido
+  (2026-08-20, `database.module.ts` + `audit.service.ts`):** `RlsStore` ganhou
+  `postCommitHooks` e há uma função exportada `registerPostCommit(fn)`. Dentro de um
+  request, ela empilha o efeito e `RlsContext.runWithClaims` drena a fila **depois** de
+  `client.query("COMMIT")` ter sucesso (sequencialmente, com `try/catch` por hook que só
+  loga — um hook que falha não derruba o request nem impede os seguintes); se o `COMMIT`
+  falhar, o fluxo vai pro `catch` externo (`ROLLBACK`) e **nenhum** hook roda. Fora de
+  request (cron, bootstrap, endpoint público sem `authId`, teste direto) não há store e o
+  efeito roda imediatamente, sem `await` do caller. `AuditService.log` passou a usar isso:
+  o INSERT via `DRIZZLE_ADMIN` (pool separado, autocommit) só acontece após o commit real,
+  fechando o risco de `transferOwnership` acima — não existe mais log de uma
+  transferência/exclusão que não aconteceu.
+
+  ⚠️ **GOTCHA (2026-08-20): dentro de um hook de `registerPostCommit`,
+  `rlsStorage.getStore()` é `undefined`.** Os hooks rodam **depois** que `rlsStorage.run()`
+  já retornou, então o `AsyncLocalStorage` está vazio. Três consequências, todas armadilha
+  para hook futuro:
+  1. **Nada de `DRIZZLE` dentro de hook.** O Proxy cai no `fallback` (pool `app_user`
+     **sem** `request.jwt.claims` — o `SET LOCAL` morreu no COMMIT), então `auth.uid()` é
+     NULL e as policies negam tudo: leitura volta **0 linhas** e escrita é rejeitada. É
+     **fail-closed, não vazamento cross-org** — não escalar como incidente de tenancy, mas
+     é falha silenciosa. Hook só pode usar `DRIZZLE_ADMIN` com o `orgId`/`actorId`
+     **passados explicitamente por closure**, resolvidos ANTES de registrar (é por isso
+     que `AuditService.logByAuthId` faz o `findByAuthId` fora do hook — movê-lo pra dentro
+     produziria `actorId: null` silencioso).
+  2. **Hook não pode referenciar por FK uma linha que a transação do request apagou.** O
+     hook roda pós-commit: a linha já não existe e o INSERT morre com `23503`, engolido
+     pelo `catch` por hook. Caso real: `audit_logs.org_id` → `organizations.id`
+     (`ON DELETE SET NULL`, não deferrable) em `DeleteOrgUseCase` — logar com `orgId` da
+     org recém-apagada perde o registro da exclusão. Padrão correto: `orgId: null` + id no
+     `metadata`/`entityId` (`entity_id` não tem FK).
+  3. `registerPostCommit` chamado **de dentro** de um hook executa na hora (não há mais
+     store) e sem `await` — não encadear hooks.
 
 ### Modelo de usuários e roles
 

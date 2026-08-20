@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { Module, Global, Injectable, Inject } from "@nestjs/common";
+import { Module, Global, Injectable, Inject, Logger } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool, type PoolClient } from "pg";
@@ -18,8 +18,10 @@ type RlsStore = {
   memo: Map<string, Promise<unknown>>;
   client: PoolClient;
   savepointSeq: { current: number };
+  postCommitHooks: Array<() => void | Promise<void>>;
 };
 const rlsStorage = new AsyncLocalStorage<RlsStore>();
+const postCommitLogger = new Logger("PostCommit");
 
 export function requestMemo<T>(
   key: string,
@@ -34,8 +36,35 @@ export function requestMemo<T>(
   return p;
 }
 
+// Registra um efeito colateral (ex.: audit log via DRIZZLE_ADMIN) para so
+// executar DEPOIS do COMMIT real da transacao do request (RlsContext.
+// runWithClaims). Evita gravar efeitos que descrevem uma operacao que na
+// verdade nao foi commitada (ver GOTCHA em .memory/domain-rules.md, secao
+// RLS). Fora de um request (cron, bootstrap, endpoint publico sem authId,
+// teste direto) nao ha store: o efeito roda imediatamente, sem await do
+// caller (antes era awaited - a mudanca e deliberada, o hook trata o
+// proprio erro).
+export function registerPostCommit(fn: () => void | Promise<void>): void {
+  const store = rlsStorage.getStore();
+  if (!store) {
+    void Promise.resolve()
+      .then(fn)
+      .catch((err) => {
+        postCommitLogger.error(
+          `Falha ao executar hook pos-commit: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      });
+    return;
+  }
+  store.postCommitHooks.push(fn);
+}
+
 @Injectable()
 export class RlsContext {
+  private readonly logger = new Logger(RlsContext.name);
+
   constructor(@Inject(RLS_POOL) private readonly pool: Pool) {}
 
   async runWithClaims<T>(authId: string, fn: () => Promise<T>): Promise<T> {
@@ -47,11 +76,29 @@ export class RlsContext {
         claims,
       ]);
       const db = drizzle(client, { schema }) as unknown as DrizzleDB;
+      const postCommitHooks: RlsStore["postCommitHooks"] = [];
       const result = await rlsStorage.run(
-        { db, memo: new Map(), client, savepointSeq: { current: 0 } },
+        {
+          db,
+          memo: new Map(),
+          client,
+          savepointSeq: { current: 0 },
+          postCommitHooks,
+        },
         fn,
       );
       await client.query("COMMIT");
+      for (const hook of postCommitHooks) {
+        try {
+          await hook();
+        } catch (err) {
+          this.logger.error(
+            `Falha ao executar hook pos-commit: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        }
+      }
       return result;
     } catch (err) {
       try {
