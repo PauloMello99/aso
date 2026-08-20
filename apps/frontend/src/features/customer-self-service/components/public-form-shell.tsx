@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react"
 import {
   Card,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/shared/components/ui/card"
@@ -30,11 +31,13 @@ export function PublicFormSpinner() {
 interface PublicFormMessageCardProps {
   title: string
   description: string
+  action?: React.ReactNode
 }
 
 export function PublicFormMessageCard({
   title,
   description,
+  action,
 }: PublicFormMessageCardProps) {
   return (
     <PublicFormCentered>
@@ -44,6 +47,7 @@ export function PublicFormMessageCard({
           {description}
         </CardDescription>
       </CardHeader>
+      {action && <CardFooter className="justify-center">{action}</CardFooter>}
     </PublicFormCentered>
   )
 }

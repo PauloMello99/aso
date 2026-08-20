@@ -20,13 +20,23 @@ describe("resolvePublicLookupErrorState", () => {
     )
   })
 
-  it("retorna 'invalid' para um code de ApiError desconhecido", () => {
+  it("retorna 'invalid' para um ApiError 4xx com code desconhecido (rejeição de contrato do backend)", () => {
     const error = new ApiError("não encontrado", 404, "/x", "NOT_FOUND")
     expect(resolvePublicLookupErrorState(error, CODES)).toBe("invalid")
   })
 
-  it("retorna 'invalid' para erro que não é ApiError (falha de rede)", () => {
+  it("retorna 'error' para um ApiError sem status (falha de rede, status 0)", () => {
+    const error = new ApiError("network request failed", 0, "/x")
+    expect(resolvePublicLookupErrorState(error, CODES)).toBe("error")
+  })
+
+  it("retorna 'error' para um ApiError 5xx (indisponibilidade momentânea do backend)", () => {
+    const error = new ApiError("internal error", 500, "/x")
+    expect(resolvePublicLookupErrorState(error, CODES)).toBe("error")
+  })
+
+  it("retorna 'error' para erro que não é ApiError (falha de rede/transporte)", () => {
     const error = new Error("network error")
-    expect(resolvePublicLookupErrorState(error, CODES)).toBe("invalid")
+    expect(resolvePublicLookupErrorState(error, CODES)).toBe("error")
   })
 })

@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Controller, useForm, type Control, type FieldErrors } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Loader2 } from "lucide-react"
+import { Loader2, RefreshCw } from "lucide-react"
 import {
   CardContent,
   CardDescription,
@@ -39,7 +39,7 @@ import {
   REGISTRATION_STEP_1_FIELDS,
   type CustomerRegistrationFormValues,
 } from "../schemas/customer-registration.schemas"
-import { fetchAddressByCep } from "../lib/viacep"
+import { fetchAddressByCep } from "@/shared/lib/viacep"
 import { resolvePublicLookupErrorState } from "../lib/public-lookup-state"
 import {
   PublicFormCentered,
@@ -685,7 +685,13 @@ interface CustomerRegistrationPublicPageProps {
 export function CustomerRegistrationPublicPage({
   token,
 }: CustomerRegistrationPublicPageProps) {
-  const { data: lookup, isLoading, error } = useCustomerRegistrationLookup(token)
+  const {
+    data: lookup,
+    isLoading,
+    error,
+    isFetching,
+    refetch,
+  } = useCustomerRegistrationLookup(token)
   const [submitted, setSubmitted] = React.useState(false)
 
   if (isLoading) return <PublicFormSpinner />
@@ -709,6 +715,26 @@ export function CustomerRegistrationPublicPage({
         <PublicFormMessageCard
           title="Cadastro já enviado"
           description="Este cadastro já foi enviado, obrigado!"
+        />
+      )
+    }
+    if (state === "error") {
+      return (
+        <PublicFormMessageCard
+          title="Não foi possível carregar"
+          description="Não foi possível carregar seu cadastro. Tente novamente."
+          action={
+            <Button
+              variant="outline"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+            >
+              <RefreshCw
+                className={cn("mr-2 h-4 w-4", isFetching && "animate-spin")}
+              />
+              Tentar novamente
+            </Button>
+          }
         />
       )
     }

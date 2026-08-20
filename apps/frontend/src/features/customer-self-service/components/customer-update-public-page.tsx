@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Loader2 } from "lucide-react"
+import { Loader2, RefreshCw } from "lucide-react"
 import {
   CardContent,
   CardDescription,
@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/components/ui/select"
+import { cn } from "@/shared/lib/utils"
 import { ApiError } from "@/infrastructure/api/client"
 import {
   useCustomerUpdateLookup,
@@ -34,7 +35,7 @@ import {
   type CustomerUpdateFormValues,
 } from "../schemas/customer-update.schemas"
 import { buildPartialUpdateBody } from "../lib/build-partial-update-body"
-import { fetchAddressByCep } from "../lib/viacep"
+import { fetchAddressByCep } from "@/shared/lib/viacep"
 import { resolvePublicLookupErrorState } from "../lib/public-lookup-state"
 import {
   PublicFormCentered,
@@ -237,6 +238,10 @@ function CustomerUpdateForm({
                 </Select>
               )}
             />
+            <p className="text-xs text-foreground/30">
+              Deixado em &quot;Não informado&quot;, mantém o gênero já
+              cadastrado.
+            </p>
             {formState.errors.gender && (
               <p className="text-xs text-destructive">
                 {formState.errors.gender.message}
@@ -412,7 +417,13 @@ interface CustomerUpdatePublicPageProps {
 }
 
 export function CustomerUpdatePublicPage({ token }: CustomerUpdatePublicPageProps) {
-  const { data: lookup, isLoading, error } = useCustomerUpdateLookup(token)
+  const {
+    data: lookup,
+    isLoading,
+    error,
+    isFetching,
+    refetch,
+  } = useCustomerUpdateLookup(token)
   const [submitted, setSubmitted] = React.useState(false)
 
   if (isLoading) return <PublicFormSpinner />
@@ -436,6 +447,26 @@ export function CustomerUpdatePublicPage({ token }: CustomerUpdatePublicPageProp
         <PublicFormMessageCard
           title="Dados já atualizados"
           description="Seus dados já foram atualizados, obrigado!"
+        />
+      )
+    }
+    if (state === "error") {
+      return (
+        <PublicFormMessageCard
+          title="Não foi possível carregar"
+          description="Não foi possível carregar seus dados. Tente novamente."
+          action={
+            <Button
+              variant="outline"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+            >
+              <RefreshCw
+                className={cn("mr-2 h-4 w-4", isFetching && "animate-spin")}
+              />
+              Tentar novamente
+            </Button>
+          }
         />
       )
     }

@@ -38,7 +38,7 @@ import {
   customerSchema,
   type CustomerFormValues,
 } from "../schemas/client.schemas";
-import { fetchAddressByCep } from "../lib/viacep";
+import { fetchAddressByCep } from "@/shared/lib/viacep";
 import type { Customer } from "../types";
 import { AttachmentsSection } from "./attachments-section";
 
