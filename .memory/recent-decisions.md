@@ -55,3 +55,11 @@
   por `database-guardian` (1 rodada, `changes_required` → corrigido) e `reviewer` (1
   rodada, `changes_required` → corrigido). Não abriu ADR novo por ser extensão direta de
   um padrão já registrado, não uma decisão arquitetural nova.
+- **2026-08-20 — P-2 fatia 3/4 concluída (frontend)**: menu de auto-cadastro/atualização no
+  módulo de Clientes + páginas públicas `/customer-registration/:token` (2 passos, dados
+  cadastrais + ficha de anamnese, único submit) e `/customer-update/:token` (1 passo,
+  atualização PARCIAL via `dirtyFields` do react-hook-form — nunca envia `gender` se o
+  campo não for tocado, já que o GET de atualização não devolve o gênero atual do cliente;
+  regra confirmada pelo `reviewer`). `SignaturePadField` passou a ser exportado por
+  `features/anamnesis/index.ts` (reuso cross-feature). `reviewer`: `approved_with_notes`.
+  Feito em worktree dedicado, ainda não commitado/mergeado em `development`.

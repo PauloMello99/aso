@@ -9,6 +9,7 @@ import {
   Phone,
   MapPin,
   Eye,
+  Send,
 } from "lucide-react"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
@@ -35,6 +36,7 @@ interface CustomerListProps {
   onToggleStatus: (customer: Customer) => void
   onDelete: (customer: Customer) => void
   onViewDetail: (customer: Customer) => void
+  onSendUpdateInvite: (customer: Customer) => void
 }
 
 type RowActions = Omit<CustomerListProps, "customers">
@@ -56,6 +58,7 @@ function ActionMenu({
   onToggleStatus,
   onDelete,
   onViewDetail,
+  onSendUpdateInvite,
 }: { customer: Customer } & RowActions) {
   return (
     <DropdownMenu>
@@ -79,6 +82,10 @@ function ActionMenu({
           <Pencil className="h-3.5 w-3.5 shrink-0" />
           Editar
         </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onSendUpdateInvite(customer)}>
+          <Send className="h-3.5 w-3.5 shrink-0" />
+          Enviar atualização cadastral
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onToggleStatus(customer)}>
           <Power className="h-3.5 w-3.5 shrink-0" />
           {customer.enabled ? "Desativar" : "Ativar"}
@@ -98,6 +105,7 @@ function CustomerCard({
   onToggleStatus,
   onDelete,
   onViewDetail,
+  onSendUpdateInvite,
 }: { customer: Customer } & RowActions) {
   return (
     <div
@@ -136,6 +144,7 @@ function CustomerCard({
         onToggleStatus={onToggleStatus}
         onDelete={onDelete}
         onViewDetail={onViewDetail}
+        onSendUpdateInvite={onSendUpdateInvite}
       />
     </div>
   )
@@ -147,6 +156,7 @@ function CustomerRow({
   onToggleStatus,
   onDelete,
   onViewDetail,
+  onSendUpdateInvite,
 }: { customer: Customer } & RowActions) {
   return (
     <TableRow
@@ -178,6 +188,7 @@ function CustomerRow({
           onToggleStatus={onToggleStatus}
           onDelete={onDelete}
           onViewDetail={onViewDetail}
+          onSendUpdateInvite={onSendUpdateInvite}
         />
       </TableCell>
     </TableRow>
@@ -190,6 +201,7 @@ export function CustomerList({
   onToggleStatus,
   onDelete,
   onViewDetail,
+  onSendUpdateInvite,
 }: CustomerListProps) {
   if (customers.length === 0) {
     return (
@@ -213,6 +225,7 @@ export function CustomerList({
             onToggleStatus={onToggleStatus}
             onDelete={onDelete}
             onViewDetail={onViewDetail}
+            onSendUpdateInvite={onSendUpdateInvite}
           />
         ))}
       </div>
@@ -238,6 +251,7 @@ export function CustomerList({
                 onToggleStatus={onToggleStatus}
                 onDelete={onDelete}
                 onViewDetail={onViewDetail}
+                onSendUpdateInvite={onSendUpdateInvite}
               />
             ))}
           </TableBody>
