@@ -85,3 +85,21 @@
   `features/anamnesis/index.ts` (reuso cross-feature). `reviewer`: `approved_with_notes`.
   Commit `4c7f308` na branch `worktree-p2-fatia3-customer-self-service-frontend`, mergeada
   em `development`.
+- **2026-08-21 — Merge `features/dev-workflow-issues-d28237` → `development` finalizado**
+  (commit `53b0af9`, checkout principal `C:/Repos/Pessoal/aso`). Estava parado com 2
+  conflitos: `.memory/domain-rules.md` (3 blocos, todos inserção lado a lado sem
+  sobreposição real — gotcha do `lookup_key` self-heal + `highlighted`/`features` da branch
+  nova, seções de Comissão/P-1 e M-P2b já em `development`) e
+  `apps/backend/drizzle/migrations/meta/_journal.json` (já resolvido manualmente no disco,
+  faltava só `git add`). A branch trazia `0051_billing_plans_presentation_fields.*`, mas essa
+  numeração colidia com `0051_member_commissions`/`0052`/`0053` já mergeados — a renumeração
+  para `0054` já estava feita no disco (mesmo conteúdo), só faltava finalizar com
+  `git rm`/`git add` (o "encoding corrompido" que `Get-Content` do PowerShell mostrava era
+  artefato do console, o arquivo em UTF-8 estava correto). Também corrigida uma indentação
+  perdida em `docs/gotchas.md` (regressão de formatação da própria branch, não conflito).
+  Conteúdo da branch: self-heal de `lookup_key` na rotação de preço
+  (`PlanPriceLinkageService`), campos `highlighted`/`features` editáveis em `billing_plans`,
+  upload de imagem com crop+compressão (`image-cropper.tsx`/`image-crop-dialog.tsx`/
+  `image-compression.ts`), fix de `jest.config.js rootDir` no Windows com worktree em path
+  com segmento `.claude`. Validado pós-merge: check-types + lint + test (102/102 suites
+  backend, 610 testes; 34/34 frontend, 279 testes) + build, tudo verde. Sem push.

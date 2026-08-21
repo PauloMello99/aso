@@ -37,7 +37,9 @@ function buildFakeBillingPlanPriceRepo(
   } as unknown as jest.Mocked<IBillingPlanPriceRepository>;
 }
 
-function buildPlan(overrides: Partial<BillingPlanEntity> = {}): BillingPlanEntity {
+function buildPlan(
+  overrides: Partial<BillingPlanEntity> = {},
+): BillingPlanEntity {
   return {
     id: "plan-1",
     key: "standard",
@@ -53,6 +55,8 @@ function buildPlan(overrides: Partial<BillingPlanEntity> = {}): BillingPlanEntit
     lookupKey: null,
     productKey: null,
     lastSyncedAt: new Date("2026-01-01T00:00:00Z"),
+    highlighted: false,
+    features: [],
     ...overrides,
   };
 }
@@ -92,9 +96,7 @@ describe("ListBillingPlansUseCase", () => {
     );
     const result = await useCase.execute();
 
-    expect(billingPlanPriceRepo.findAllByPlanId).toHaveBeenCalledWith(
-      plan.id,
-    );
+    expect(billingPlanPriceRepo.findAllByPlanId).toHaveBeenCalledWith(plan.id);
     expect(result).toEqual([
       {
         ...plan,

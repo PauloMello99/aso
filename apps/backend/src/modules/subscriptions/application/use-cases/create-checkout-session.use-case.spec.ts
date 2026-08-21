@@ -100,6 +100,8 @@ function buildPlan(
     lookupKey: null,
     productKey: null,
     lastSyncedAt: new Date("2026-01-01T00:00:00Z"),
+    highlighted: false,
+    features: [],
     ...overrides,
   };
 }
@@ -244,9 +246,11 @@ function buildConfig(): jest.Mocked<ConfigService> {
 describe("CreateCheckoutSessionUseCase", () => {
   it("reuses the existing Stripe customer when already linked", async () => {
     const subscriptionRepo = buildFakeSubscriptionRepo({
-      findByOrgId: jest.fn().mockResolvedValue(
-        buildSubscription({ stripeCustomerId: "cus_1", trialConsumed: true }),
-      ),
+      findByOrgId: jest
+        .fn()
+        .mockResolvedValue(
+          buildSubscription({ stripeCustomerId: "cus_1", trialConsumed: true }),
+        ),
     });
     const billingPlanRepo = buildFakeBillingPlanRepo({
       findByKey: jest.fn().mockResolvedValue(buildPlan()),
@@ -255,7 +259,10 @@ describe("CreateCheckoutSessionUseCase", () => {
     const paymentGateway = buildFakePaymentGateway({
       createCheckoutSession: jest
         .fn()
-        .mockResolvedValue({ url: "https://checkout.stripe.com/1", sessionId: "cs_1" }),
+        .mockResolvedValue({
+          url: "https://checkout.stripe.com/1",
+          sessionId: "cs_1",
+        }),
     });
     const orgRepo = buildFakeOrgRepo({
       findByIdAndAuthId: jest.fn().mockResolvedValue(buildOrg()),
@@ -279,10 +286,9 @@ describe("CreateCheckoutSessionUseCase", () => {
     expect(result).toEqual({ url: "https://checkout.stripe.com/1" });
     expect(paymentGateway.createCustomer).not.toHaveBeenCalled();
     expect(subscriptionRepo.update).not.toHaveBeenCalled();
-    expect(billingPlanPriceRepo.findActiveByPlanIdAndInterval).toHaveBeenCalledWith(
-      "plan-1",
-      "monthly",
-    );
+    expect(
+      billingPlanPriceRepo.findActiveByPlanIdAndInterval,
+    ).toHaveBeenCalledWith("plan-1", "monthly");
     expect(paymentGateway.createCheckoutSession).toHaveBeenCalledWith(
       expect.objectContaining({ customerId: "cus_1", priceId: "price_1" }),
     );
@@ -290,22 +296,29 @@ describe("CreateCheckoutSessionUseCase", () => {
 
   it("resolves the price for an explicit non-default interval", async () => {
     const subscriptionRepo = buildFakeSubscriptionRepo({
-      findByOrgId: jest.fn().mockResolvedValue(
-        buildSubscription({ stripeCustomerId: "cus_1", trialConsumed: true }),
-      ),
+      findByOrgId: jest
+        .fn()
+        .mockResolvedValue(
+          buildSubscription({ stripeCustomerId: "cus_1", trialConsumed: true }),
+        ),
     });
     const billingPlanRepo = buildFakeBillingPlanRepo({
       findByKey: jest.fn().mockResolvedValue(buildPlan()),
     });
     const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo({
-      findActiveByPlanIdAndInterval: jest.fn().mockResolvedValue(
-        buildPlanPrice({ interval: "annual", stripePriceId: "price_annual" }),
-      ),
+      findActiveByPlanIdAndInterval: jest
+        .fn()
+        .mockResolvedValue(
+          buildPlanPrice({ interval: "annual", stripePriceId: "price_annual" }),
+        ),
     });
     const paymentGateway = buildFakePaymentGateway({
       createCheckoutSession: jest
         .fn()
-        .mockResolvedValue({ url: "https://checkout.stripe.com/annual", sessionId: "cs_a" }),
+        .mockResolvedValue({
+          url: "https://checkout.stripe.com/annual",
+          sessionId: "cs_a",
+        }),
     });
     const orgRepo = buildFakeOrgRepo({
       findByIdAndAuthId: jest.fn().mockResolvedValue(buildOrg()),
@@ -326,10 +339,9 @@ describe("CreateCheckoutSessionUseCase", () => {
 
     const result = await useCase.execute("org-1", "auth-1", "annual");
 
-    expect(billingPlanPriceRepo.findActiveByPlanIdAndInterval).toHaveBeenCalledWith(
-      "plan-1",
-      "annual",
-    );
+    expect(
+      billingPlanPriceRepo.findActiveByPlanIdAndInterval,
+    ).toHaveBeenCalledWith("plan-1", "annual");
     expect(paymentGateway.createCheckoutSession).toHaveBeenCalledWith(
       expect.objectContaining({ priceId: "price_annual" }),
     );
@@ -377,9 +389,7 @@ describe("CreateCheckoutSessionUseCase", () => {
       findByOrgId: jest.fn().mockResolvedValue(subscription),
       update: jest
         .fn()
-        .mockResolvedValue(
-          buildSubscription({ stripeCustomerId: "cus_new" }),
-        ),
+        .mockResolvedValue(buildSubscription({ stripeCustomerId: "cus_new" })),
     });
     const billingPlanRepo = buildFakeBillingPlanRepo({
       findByKey: jest.fn().mockResolvedValue(buildPlan()),
@@ -389,7 +399,10 @@ describe("CreateCheckoutSessionUseCase", () => {
       createCustomer: jest.fn().mockResolvedValue({ customerId: "cus_new" }),
       createCheckoutSession: jest
         .fn()
-        .mockResolvedValue({ url: "https://checkout.stripe.com/2", sessionId: "cs_2" }),
+        .mockResolvedValue({
+          url: "https://checkout.stripe.com/2",
+          sessionId: "cs_2",
+        }),
     });
     const orgRepo = buildFakeOrgRepo({
       findByIdAndAuthId: jest.fn().mockResolvedValue(buildOrg()),
@@ -504,7 +517,10 @@ describe("CreateCheckoutSessionUseCase", () => {
     const paymentGateway = buildFakePaymentGateway({
       createCheckoutSession: jest
         .fn()
-        .mockResolvedValue({ url: "https://checkout.stripe.com/3", sessionId: "cs_3" }),
+        .mockResolvedValue({
+          url: "https://checkout.stripe.com/3",
+          sessionId: "cs_3",
+        }),
     });
     const orgRepo = buildFakeOrgRepo({
       findByIdAndAuthId: jest.fn().mockResolvedValue(buildOrg()),
@@ -554,7 +570,10 @@ describe("CreateCheckoutSessionUseCase", () => {
     const paymentGateway = buildFakePaymentGateway({
       createCheckoutSession: jest
         .fn()
-        .mockResolvedValue({ url: "https://checkout.stripe.com/5", sessionId: "cs_5" }),
+        .mockResolvedValue({
+          url: "https://checkout.stripe.com/5",
+          sessionId: "cs_5",
+        }),
     });
     const orgRepo = buildFakeOrgRepo({
       findByIdAndAuthId: jest.fn().mockResolvedValue(buildOrg()),
@@ -591,9 +610,7 @@ describe("CreateCheckoutSessionUseCase", () => {
       findByOrgId: jest.fn().mockResolvedValue(subscription),
       update: jest
         .fn()
-        .mockResolvedValue(
-          buildSubscription({ stripeCustomerId: "cus_new" }),
-        ),
+        .mockResolvedValue(buildSubscription({ stripeCustomerId: "cus_new" })),
     });
     const billingPlanRepo = buildFakeBillingPlanRepo({
       findByKey: jest.fn().mockResolvedValue(buildPlan()),
@@ -603,7 +620,10 @@ describe("CreateCheckoutSessionUseCase", () => {
       createCustomer: jest.fn().mockResolvedValue({ customerId: "cus_new" }),
       createCheckoutSession: jest
         .fn()
-        .mockResolvedValue({ url: "https://checkout.stripe.com/6", sessionId: "cs_6" }),
+        .mockResolvedValue({
+          url: "https://checkout.stripe.com/6",
+          sessionId: "cs_6",
+        }),
     });
     const orgRepo = buildFakeOrgRepo({
       findByIdAndAuthId: jest.fn().mockResolvedValue(buildOrg()),
@@ -632,9 +652,11 @@ describe("CreateCheckoutSessionUseCase", () => {
 
   it("does not grant a trial nor mark it consumed again once already consumed", async () => {
     const subscriptionRepo = buildFakeSubscriptionRepo({
-      findByOrgId: jest.fn().mockResolvedValue(
-        buildSubscription({ stripeCustomerId: "cus_1", trialConsumed: true }),
-      ),
+      findByOrgId: jest
+        .fn()
+        .mockResolvedValue(
+          buildSubscription({ stripeCustomerId: "cus_1", trialConsumed: true }),
+        ),
     });
     const billingPlanRepo = buildFakeBillingPlanRepo({
       findByKey: jest.fn().mockResolvedValue(buildPlan()),
@@ -643,7 +665,10 @@ describe("CreateCheckoutSessionUseCase", () => {
     const paymentGateway = buildFakePaymentGateway({
       createCheckoutSession: jest
         .fn()
-        .mockResolvedValue({ url: "https://checkout.stripe.com/4", sessionId: "cs_4" }),
+        .mockResolvedValue({
+          url: "https://checkout.stripe.com/4",
+          sessionId: "cs_4",
+        }),
     });
     const orgRepo = buildFakeOrgRepo({
       findByIdAndAuthId: jest.fn().mockResolvedValue(buildOrg()),

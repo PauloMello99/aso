@@ -1,14 +1,20 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { ChevronDown, ChevronRight, Loader2, PackageOpen, Plus } from "lucide-react"
-import { Button } from "@/shared/components/ui/button"
-import { Badge } from "@/shared/components/ui/badge"
-import { Input } from "@/shared/components/ui/input"
-import { Textarea } from "@/shared/components/ui/textarea"
-import { Label } from "@/shared/components/ui/label"
-import { Switch } from "@/shared/components/ui/switch"
-import { CurrencyInput } from "@/shared/components/ui/currency-input"
+import * as React from "react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+  PackageOpen,
+  Plus,
+} from "lucide-react";
+import { Button } from "@/shared/components/ui/button";
+import { Badge } from "@/shared/components/ui/badge";
+import { Input } from "@/shared/components/ui/input";
+import { Textarea } from "@/shared/components/ui/textarea";
+import { Label } from "@/shared/components/ui/label";
+import { Switch } from "@/shared/components/ui/switch";
+import { CurrencyInput } from "@/shared/components/ui/currency-input";
 import {
   Dialog,
   DialogContent,
@@ -16,14 +22,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/shared/components/ui/dialog"
+} from "@/shared/components/ui/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/shared/components/ui/select"
+} from "@/shared/components/ui/select";
 import {
   Table,
   TableBody,
@@ -31,8 +37,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/shared/components/ui/table"
-import { formatBRL } from "@/features/cashier/lib/money"
+} from "@/shared/components/ui/table";
+import { formatBRL } from "@/features/cashier/lib/money";
 import type {
   BillingInterval,
   BillingPlan,
@@ -41,87 +47,108 @@ import type {
   RotatePlanIntervalPriceResult,
   UpdateBillingPlanProductInput,
   UpsertPlanIntervalPriceInput,
-} from "@/features/billing/types"
+} from "@/features/billing/types";
 import {
   useAdminBillingPlans,
   useCreatePlanIntervalPrice,
   useRotatePlanIntervalPrice,
   useSetPlanIntervalActive,
   useUpdateBillingPlanProduct,
-} from "../hooks/use-admin-billing-plans"
-import { ConfirmDialog } from "@/shared/components/ui/confirm-dialog"
+} from "../hooks/use-admin-billing-plans";
+import { ConfirmDialog } from "@/shared/components/ui/confirm-dialog";
 
 const INTERVAL_LABELS: Record<BillingInterval, string> = {
   monthly: "Mensal",
   semiannual: "Semestral",
   annual: "Anual",
-}
+};
 
-const ALL_INTERVALS: BillingInterval[] = ["monthly", "semiannual", "annual"]
+const ALL_INTERVALS: BillingInterval[] = ["monthly", "semiannual", "annual"];
 
-const MIGRATION_STATUS_LABELS: Record<MigrateSubscribersResult["status"], string> = {
+const MIGRATION_STATUS_LABELS: Record<
+  MigrateSubscribersResult["status"],
+  string
+> = {
   migrated: "Migrado",
   skipped_already_migrated: "Já migrado",
   failed: "Falhou",
-}
+};
 
-const MIGRATION_STATUS_CLASSES: Record<MigrateSubscribersResult["status"], string> = {
+const MIGRATION_STATUS_CLASSES: Record<
+  MigrateSubscribersResult["status"],
+  string
+> = {
   migrated: "bg-success/15 text-success",
   skipped_already_migrated: "bg-foreground/10 text-foreground/50",
   failed: "bg-destructive/15 text-destructive",
-}
+};
 
 interface RotateTarget {
-  plan: BillingPlan
-  price: BillingPlanPrice
+  plan: BillingPlan;
+  price: BillingPlanPrice;
 }
 
 interface DisableTarget {
-  plan: BillingPlan
-  price: BillingPlanPrice
+  plan: BillingPlan;
+  price: BillingPlanPrice;
 }
 
 export function BillingPlansPanel() {
-  const { plans, loading, error } = useAdminBillingPlans()
+  const { plans, loading, error } = useAdminBillingPlans();
 
-  const [editingPlan, setEditingPlan] = React.useState<BillingPlan | null>(null)
-  const [addingIntervalPlan, setAddingIntervalPlan] = React.useState<BillingPlan | null>(
+  const [editingPlan, setEditingPlan] = React.useState<BillingPlan | null>(
     null,
-  )
-  const [rotateTarget, setRotateTarget] = React.useState<RotateTarget | null>(null)
-  const [disableTarget, setDisableTarget] = React.useState<DisableTarget | null>(null)
-  const [expandedPlanIds, setExpandedPlanIds] = React.useState<Set<string>>(new Set())
-  const [activatingKey, setActivatingKey] = React.useState<string | null>(null)
+  );
+  const [addingIntervalPlan, setAddingIntervalPlan] =
+    React.useState<BillingPlan | null>(null);
+  const [rotateTarget, setRotateTarget] = React.useState<RotateTarget | null>(
+    null,
+  );
+  const [disableTarget, setDisableTarget] =
+    React.useState<DisableTarget | null>(null);
+  const [expandedPlanIds, setExpandedPlanIds] = React.useState<Set<string>>(
+    new Set(),
+  );
+  const [activatingKey, setActivatingKey] = React.useState<string | null>(null);
 
-  const { setActive, isPending: settingActive, error: setActiveError } =
-    useSetPlanIntervalActive()
+  const {
+    setActive,
+    isPending: settingActive,
+    error: setActiveError,
+  } = useSetPlanIntervalActive();
 
   function toggleExpanded(planId: string) {
     setExpandedPlanIds((prev) => {
-      const next = new Set(prev)
+      const next = new Set(prev);
       if (next.has(planId)) {
-        next.delete(planId)
+        next.delete(planId);
       } else {
-        next.add(planId)
+        next.add(planId);
       }
-      return next
-    })
+      return next;
+    });
   }
 
   async function handleEnable(plan: BillingPlan, price: BillingPlanPrice) {
-    const key = `${plan.key}:${price.interval}`
-    setActivatingKey(key)
+    const key = `${plan.key}:${price.interval}`;
+    setActivatingKey(key);
     try {
-      await setActive({ key: plan.key, interval: price.interval, active: true })
+      await setActive({
+        key: plan.key,
+        interval: price.interval,
+        active: true,
+      });
     } finally {
-      setActivatingKey(null)
+      setActivatingKey(null);
     }
   }
 
   return (
     <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base font-semibold text-foreground">Catálogo de planos</h2>
+        <h2 className="text-base font-semibold text-foreground">
+          Catálogo de planos
+        </h2>
         <span className="text-xs text-foreground/40">
           Sincronização automática (boot + reconciliação a cada 3 dias)
         </span>
@@ -137,7 +164,10 @@ export function BillingPlansPanel() {
         {loading && (
           <div className="space-y-px">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-12 animate-pulse rounded-md bg-foreground/[0.02]" />
+              <div
+                key={i}
+                className="h-12 animate-pulse rounded-md bg-foreground/[0.02]"
+              />
             ))}
           </div>
         )}
@@ -167,8 +197,8 @@ export function BillingPlansPanel() {
               </TableHeader>
               <TableBody>
                 {plans.map((plan) => {
-                  const expanded = expandedPlanIds.has(plan.id)
-                  const canAddInterval = plan.prices.length < 3
+                  const expanded = expandedPlanIds.has(plan.id);
+                  const canAddInterval = plan.prices.length < 3;
 
                   return (
                     <React.Fragment key={plan.id}>
@@ -193,7 +223,9 @@ export function BillingPlansPanel() {
                         </TableCell>
                         <TableCell>
                           {plan.active ? (
-                            <Badge className="bg-success/15 text-success">Ativo</Badge>
+                            <Badge className="bg-success/15 text-success">
+                              Ativo
+                            </Badge>
                           ) : (
                             <Badge className="bg-foreground/10 text-foreground/50">
                               Inativo
@@ -214,7 +246,10 @@ export function BillingPlansPanel() {
 
                       {expanded && (
                         <TableRow>
-                          <TableCell colSpan={3} className="whitespace-normal bg-foreground/[0.015]">
+                          <TableCell
+                            colSpan={3}
+                            className="whitespace-normal bg-foreground/[0.015]"
+                          >
                             <div className="space-y-2 py-1">
                               {plan.prices.length === 0 && (
                                 <p className="text-sm text-foreground/40">
@@ -224,8 +259,9 @@ export function BillingPlansPanel() {
 
                               {plan.prices.map((price) => {
                                 const isActivating =
-                                  activatingKey === `${plan.key}:${price.interval}` &&
-                                  settingActive
+                                  activatingKey ===
+                                    `${plan.key}:${price.interval}` &&
+                                  settingActive;
 
                                 return (
                                   <div
@@ -256,7 +292,9 @@ export function BillingPlansPanel() {
                                           variant="outline"
                                           size="sm"
                                           disabled={settingActive}
-                                          onClick={() => setRotateTarget({ plan, price })}
+                                          onClick={() =>
+                                            setRotateTarget({ plan, price })
+                                          }
                                         >
                                           Rotacionar preço
                                         </Button>
@@ -267,7 +305,9 @@ export function BillingPlansPanel() {
                                           variant="outline"
                                           size="sm"
                                           disabled={settingActive}
-                                          onClick={() => setDisableTarget({ plan, price })}
+                                          onClick={() =>
+                                            setDisableTarget({ plan, price })
+                                          }
                                         >
                                           Desabilitar
                                         </Button>
@@ -277,7 +317,9 @@ export function BillingPlansPanel() {
                                           variant="outline"
                                           size="sm"
                                           disabled={settingActive}
-                                          onClick={() => void handleEnable(plan, price)}
+                                          onClick={() =>
+                                            void handleEnable(plan, price)
+                                          }
                                         >
                                           {isActivating && (
                                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -287,7 +329,7 @@ export function BillingPlansPanel() {
                                       )}
                                     </div>
                                   </div>
-                                )
+                                );
                               })}
 
                               {canAddInterval && (
@@ -306,7 +348,7 @@ export function BillingPlansPanel() {
                         </TableRow>
                       )}
                     </React.Fragment>
-                  )
+                  );
                 })}
               </TableBody>
             </Table>
@@ -314,12 +356,18 @@ export function BillingPlansPanel() {
         )}
       </div>
 
-      <EditProductDialog plan={editingPlan} onClose={() => setEditingPlan(null)} />
+      <EditProductDialog
+        plan={editingPlan}
+        onClose={() => setEditingPlan(null)}
+      />
       <AddIntervalDialog
         plan={addingIntervalPlan}
         onClose={() => setAddingIntervalPlan(null)}
       />
-      <RotatePriceFlow target={rotateTarget} onClose={() => setRotateTarget(null)} />
+      <RotatePriceFlow
+        target={rotateTarget}
+        onClose={() => setRotateTarget(null)}
+      />
 
       <ConfirmDialog
         open={disableTarget !== null}
@@ -335,61 +383,76 @@ export function BillingPlansPanel() {
         loading={settingActive}
         error={setActiveError}
         onConfirm={() => {
-          if (!disableTarget) return
+          if (!disableTarget) return;
           void setActive({
             key: disableTarget.plan.key,
             interval: disableTarget.price.interval,
             active: false,
-          }).then(() => setDisableTarget(null))
+          }).then(() => setDisableTarget(null));
         }}
       />
     </div>
-  )
+  );
 }
 
 function EditProductDialog({
   plan,
   onClose,
 }: {
-  plan: BillingPlan | null
-  onClose: () => void
+  plan: BillingPlan | null;
+  onClose: () => void;
 }) {
-  const { updateProduct, isPending, error } = useUpdateBillingPlanProduct()
+  const { updateProduct, isPending, error } = useUpdateBillingPlanProduct();
 
-  const [name, setName] = React.useState("")
-  const [description, setDescription] = React.useState("")
-  const [active, setActive] = React.useState(true)
+  const [name, setName] = React.useState("");
+  const [description, setDescription] = React.useState("");
+  const [active, setActive] = React.useState(true);
+  const [highlighted, setHighlighted] = React.useState(false);
+  const [featuresText, setFeaturesText] = React.useState("");
 
   React.useEffect(() => {
     if (plan) {
-      setName(plan.name)
-      setDescription(plan.description ?? "")
-      setActive(plan.active)
+      setName(plan.name);
+      setDescription(plan.description ?? "");
+      setActive(plan.active);
+      setHighlighted(plan.highlighted);
+      setFeaturesText(plan.features.join("\n"));
     }
-  }, [plan])
+  }, [plan]);
 
-  const open = plan !== null
+  const open = plan !== null;
 
   const hasChanges =
     plan !== null &&
     (name.trim() !== plan.name ||
       description.trim() !== (plan.description ?? "") ||
-      active !== plan.active)
+      active !== plan.active ||
+      highlighted !== plan.highlighted ||
+      featuresText !== plan.features.join("\n"));
 
-  const nameValid = name.trim().length > 0
+  const nameValid = name.trim().length > 0;
 
   async function handleSave() {
-    if (!plan || !hasChanges || !nameValid) return
+    if (!plan || !hasChanges || !nameValid) return;
 
-    const input: UpdateBillingPlanProductInput = {}
-    if (name.trim() !== plan.name) input.name = name.trim()
+    const features = featuresText
+      .split("\n")
+      .map((f) => f.trim())
+      .filter(Boolean);
+
+    const input: UpdateBillingPlanProductInput = {};
+    if (name.trim() !== plan.name) input.name = name.trim();
     if (description.trim() !== (plan.description ?? "")) {
-      input.description = description.trim()
+      input.description = description.trim();
     }
-    if (active !== plan.active) input.active = active
+    if (active !== plan.active) input.active = active;
+    if (highlighted !== plan.highlighted) input.highlighted = highlighted;
+    if (features.join("\n") !== plan.features.join("\n")) {
+      input.features = features;
+    }
 
-    await updateProduct({ key: plan.key, input })
-    onClose()
+    await updateProduct({ key: plan.key, input });
+    onClose();
   }
 
   return (
@@ -423,7 +486,33 @@ function EditProductDialog({
           </div>
           <div className="flex items-center justify-between gap-2">
             <Label htmlFor="plan-active">Ativo</Label>
-            <Switch id="plan-active" checked={active} onCheckedChange={setActive} />
+            <Switch
+              id="plan-active"
+              checked={active}
+              onCheckedChange={setActive}
+            />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="plan-highlighted">Plano recomendado</Label>
+              <Switch
+                id="plan-highlighted"
+                checked={highlighted}
+                onCheckedChange={setHighlighted}
+              />
+            </div>
+            <p className="text-xs text-foreground/40">
+              Exibe o selo Recomendado na landing
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="plan-features">Features</Label>
+            <Textarea
+              id="plan-features"
+              value={featuresText}
+              onChange={(e) => setFeaturesText(e.target.value)}
+              placeholder="Uma por linha"
+            />
           </div>
 
           {error && (
@@ -434,7 +523,12 @@ function EditProductDialog({
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={isPending}
+          >
             Cancelar
           </Button>
           <Button
@@ -448,56 +542,56 @@ function EditProductDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 function AddIntervalDialog({
   plan,
   onClose,
 }: {
-  plan: BillingPlan | null
-  onClose: () => void
+  plan: BillingPlan | null;
+  onClose: () => void;
 }) {
-  const { createPrice, isPending, error } = useCreatePlanIntervalPrice()
+  const { createPrice, isPending, error } = useCreatePlanIntervalPrice();
 
   const missingIntervals = plan
     ? ALL_INTERVALS.filter((i) => !plan.prices.some((p) => p.interval === i))
-    : []
+    : [];
 
-  const [selectedInterval, setSelectedInterval] = React.useState<BillingInterval | "">(
-    "",
-  )
-  const [amountCents, setAmountCents] = React.useState<number | null>(null)
+  const [selectedInterval, setSelectedInterval] = React.useState<
+    BillingInterval | ""
+  >("");
+  const [amountCents, setAmountCents] = React.useState<number | null>(null);
 
   React.useEffect(() => {
     if (plan) {
       const missing = ALL_INTERVALS.filter(
         (i) => !plan.prices.some((p) => p.interval === i),
-      )
-      setSelectedInterval(missing[0] ?? "")
-      setAmountCents(null)
+      );
+      setSelectedInterval(missing[0] ?? "");
+      setAmountCents(null);
     }
-  }, [plan])
+  }, [plan]);
 
-  const open = plan !== null
+  const open = plan !== null;
 
   const canSubmit =
     plan !== null &&
     selectedInterval !== "" &&
     amountCents !== null &&
     Number.isInteger(amountCents) &&
-    amountCents > 0
+    amountCents > 0;
 
   async function handleCreate() {
-    if (!plan || selectedInterval === "" || amountCents === null) return
+    if (!plan || selectedInterval === "" || amountCents === null) return;
 
     const input: UpsertPlanIntervalPriceInput = {
       interval: selectedInterval,
       amountCents,
       currency: "brl",
-    }
-    await createPrice({ key: plan.key, input })
-    onClose()
+    };
+    await createPrice({ key: plan.key, input });
+    onClose();
   }
 
   return (
@@ -547,7 +641,12 @@ function AddIntervalDialog({
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={isPending}
+          >
             Cancelar
           </Button>
           <Button
@@ -561,68 +660,77 @@ function AddIntervalDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 function RotatePriceFlow({
   target,
   onClose,
 }: {
-  target: RotateTarget | null
-  onClose: () => void
+  target: RotateTarget | null;
+  onClose: () => void;
 }) {
-  const { rotatePrice, isPending, error } = useRotatePlanIntervalPrice()
+  const { rotatePrice, isPending, error } = useRotatePlanIntervalPrice();
 
-  const [amountCents, setAmountCents] = React.useState<number | null>(null)
-  const [validationError, setValidationError] = React.useState<string | null>(null)
-  const [confirming, setConfirming] = React.useState(false)
-  const [result, setResult] = React.useState<RotatePlanIntervalPriceResult | null>(null)
+  const [amountCents, setAmountCents] = React.useState<number | null>(null);
+  const [validationError, setValidationError] = React.useState<string | null>(
+    null,
+  );
+  const [confirming, setConfirming] = React.useState(false);
+  const [result, setResult] =
+    React.useState<RotatePlanIntervalPriceResult | null>(null);
 
   React.useEffect(() => {
     if (target) {
-      setAmountCents(target.price.amountCents)
-      setValidationError(null)
-      setConfirming(false)
-      setResult(null)
+      setAmountCents(target.price.amountCents);
+      setValidationError(null);
+      setConfirming(false);
+      setResult(null);
     }
-  }, [target])
+  }, [target]);
 
-  const formOpen = target !== null && !confirming && result === null
-  const confirmOpen = target !== null && confirming && result === null
-  const resultOpen = target !== null && result !== null
+  const formOpen = target !== null && !confirming && result === null;
+  const confirmOpen = target !== null && confirming && result === null;
+  const resultOpen = target !== null && result !== null;
 
   function handleContinue() {
-    if (amountCents === null || !Number.isInteger(amountCents) || amountCents <= 0) {
-      setValidationError("Informe um valor válido maior que zero.")
-      return
+    if (
+      amountCents === null ||
+      !Number.isInteger(amountCents) ||
+      amountCents <= 0
+    ) {
+      setValidationError("Informe um valor válido maior que zero.");
+      return;
     }
-    setValidationError(null)
-    setConfirming(true)
+    setValidationError(null);
+    setConfirming(true);
   }
 
   async function handleConfirm() {
-    if (!target || amountCents === null) return
+    if (!target || amountCents === null) return;
     const res = await rotatePrice({
       key: target.plan.key,
       interval: target.price.interval,
       input: { amountCents },
-    })
-    setResult(res)
+    });
+    setResult(res);
   }
 
   function handleClose() {
-    setConfirming(false)
-    setResult(null)
-    onClose()
+    setConfirming(false);
+    setResult(null);
+    onClose();
   }
 
   const failedCount =
-    result?.migration.results.filter((r) => r.status === "failed").length ?? 0
+    result?.migration.results.filter((r) => r.status === "failed").length ?? 0;
   const migratedCount =
-    result?.migration.results.filter((r) => r.status === "migrated").length ?? 0
+    result?.migration.results.filter((r) => r.status === "migrated").length ??
+    0;
   const skippedCount =
-    result?.migration.results.filter((r) => r.status === "skipped_already_migrated")
-      .length ?? 0
+    result?.migration.results.filter(
+      (r) => r.status === "skipped_already_migrated",
+    ).length ?? 0;
 
   return (
     <>
@@ -645,8 +753,8 @@ function RotatePriceFlow({
               id="rotate-amount"
               value={amountCents}
               onValueChange={(v) => {
-                setAmountCents(v)
-                setValidationError(null)
+                setAmountCents(v);
+                setValidationError(null);
               }}
             />
             {validationError && (
@@ -672,16 +780,17 @@ function RotatePriceFlow({
         description={
           target && amountCents !== null ? (
             <>
-              Você está prestes a alterar o preço do plano &quot;{target.plan.name}&quot; (
-              {INTERVAL_LABELS[target.price.interval]}) para {formatBRL(amountCents)}.
-              Isso cria um novo preço no Stripe e arquiva o atual.{" "}
+              Você está prestes a alterar o preço do plano &quot;
+              {target.plan.name}&quot; ({INTERVAL_LABELS[target.price.interval]}
+              ) para {formatBRL(amountCents)}. Isso cria um novo preço no Stripe
+              e arquiva o atual.{" "}
               <strong>
-                Todos os assinantes ativos e em trial nesse intervalo serão migrados
-                automaticamente para o novo valor, com cobrança ou crédito proporcional
-                ao período já pago (rateio).
+                Todos os assinantes ativos e em trial nesse intervalo serão
+                migrados automaticamente para o novo valor, com cobrança ou
+                crédito proporcional ao período já pago (rateio).
               </strong>{" "}
-              Assinantes com fatura em atraso não são migrados agora. Esta ação não pode
-              ser desfeita.
+              Assinantes com fatura em atraso não são migrados agora. Esta ação
+              não pode ser desfeita.
             </>
           ) : undefined
         }
@@ -697,8 +806,8 @@ function RotatePriceFlow({
           <DialogHeader>
             <DialogTitle>Resultado da rotação</DialogTitle>
             <DialogDescription>
-              {migratedCount} migrado(s), {skippedCount} já migrado(s), {failedCount}{" "}
-              falhou(aram).
+              {migratedCount} migrado(s), {skippedCount} já migrado(s),{" "}
+              {failedCount} falhou(aram).
             </DialogDescription>
           </DialogHeader>
 
@@ -709,7 +818,9 @@ function RotatePriceFlow({
                 className="flex flex-col gap-1 rounded-lg border border-foreground/[0.06] p-2"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm text-foreground/70">org: {r.orgId}</span>
+                  <span className="text-sm text-foreground/70">
+                    org: {r.orgId}
+                  </span>
                   <Badge className={MIGRATION_STATUS_CLASSES[r.status]}>
                     {MIGRATION_STATUS_LABELS[r.status]}
                   </Badge>
@@ -734,5 +845,5 @@ function RotatePriceFlow({
         </DialogContent>
       </Dialog>
     </>
-  )
+  );
 }

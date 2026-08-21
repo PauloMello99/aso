@@ -17,8 +17,11 @@ import { ISubscriptionRepository } from "../../domain/subscription.repository.in
 import { SubscriptionEntity } from "../../domain/subscription.entity";
 import { TelemetryService } from "../../../../common/telemetry/telemetry.service";
 import { FrontendRevalidationClient } from "../../infrastructure/frontend-revalidation.client";
+import { PlanPriceLinkageService } from "../plan-price-linkage.service";
 
-function buildPlan(overrides: Partial<BillingPlanEntity> = {}): BillingPlanEntity {
+function buildPlan(
+  overrides: Partial<BillingPlanEntity> = {},
+): BillingPlanEntity {
   return {
     id: "plan-1",
     key: "standard",
@@ -34,6 +37,8 @@ function buildPlan(overrides: Partial<BillingPlanEntity> = {}): BillingPlanEntit
     lookupKey: "standard",
     productKey: "standard",
     lastSyncedAt: new Date("2026-01-01T00:00:00Z"),
+    highlighted: false,
+    features: [],
     ...overrides,
   };
 }
@@ -194,6 +199,21 @@ function buildFakeMigrateSubscribers(
   } as unknown as jest.Mocked<MigrateSubscribersToPriceUseCase>;
 }
 
+// Default resolves matching the default buildPlan()/buildPrice() fixtures
+// (stripeProductId: "prod_1", lookupKey: "standard-monthly") so existing
+// tests that don't care about linkage resolution keep passing unchanged.
+function buildFakePlanPriceLinkage(
+  overrides: Partial<jest.Mocked<PlanPriceLinkageService>> = {},
+): jest.Mocked<PlanPriceLinkageService> {
+  return {
+    resolve: jest.fn().mockResolvedValue({
+      stripeProductId: "prod_1",
+      lookupKey: "standard-monthly",
+    }),
+    ...overrides,
+  } as unknown as jest.Mocked<PlanPriceLinkageService>;
+}
+
 describe("RotatePlanIntervalPriceUseCase", () => {
   it("throws InvalidBillingPlanUpdateException when amountCents is not a positive integer and never calls the repo/gateway", async () => {
     const billingPlanRepo = buildFakeBillingPlanRepo();
@@ -208,6 +228,7 @@ describe("RotatePlanIntervalPriceUseCase", () => {
       buildFakeSubscriptionRepo(),
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
+      buildFakePlanPriceLinkage(),
     );
 
     for (const amountCents of [0, -100, 10.5]) {
@@ -234,10 +255,16 @@ describe("RotatePlanIntervalPriceUseCase", () => {
       buildFakeSubscriptionRepo(),
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
+      buildFakePlanPriceLinkage(),
     );
 
     await expect(
-      useCase.execute("missing-plan", "monthly", { amountCents: 5990 }, "auth-1"),
+      useCase.execute(
+        "missing-plan",
+        "monthly",
+        { amountCents: 5990 },
+        "auth-1",
+      ),
     ).rejects.toThrow(BillingPlanNotFoundException);
     expect(paymentGateway.createPrice).not.toHaveBeenCalled();
   });
@@ -259,6 +286,7 @@ describe("RotatePlanIntervalPriceUseCase", () => {
       buildFakeSubscriptionRepo(),
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
+      buildFakePlanPriceLinkage(),
     );
 
     await expect(
@@ -288,6 +316,7 @@ describe("RotatePlanIntervalPriceUseCase", () => {
       buildFakeSubscriptionRepo(),
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
+      buildFakePlanPriceLinkage(),
     );
 
     const result = await useCase.execute(
@@ -359,6 +388,7 @@ describe("RotatePlanIntervalPriceUseCase", () => {
       buildFakeSubscriptionRepo(),
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
+      buildFakePlanPriceLinkage(),
     );
 
     const { price: newPrice, migration } = await useCase.execute(
@@ -453,6 +483,7 @@ describe("RotatePlanIntervalPriceUseCase", () => {
       buildFakeSubscriptionRepo(),
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
+      buildFakePlanPriceLinkage(),
     );
 
     const { price: newPrice } = await useCase.execute(
@@ -502,6 +533,7 @@ describe("RotatePlanIntervalPriceUseCase", () => {
       buildFakeSubscriptionRepo(),
       telemetry,
       revalidationClient,
+      buildFakePlanPriceLinkage(),
     );
 
     await expect(
@@ -548,6 +580,7 @@ describe("RotatePlanIntervalPriceUseCase", () => {
       buildFakeSubscriptionRepo(),
       telemetry,
       buildFakeRevalidationClient(),
+      buildFakePlanPriceLinkage(),
     );
 
     await expect(
@@ -589,6 +622,7 @@ describe("RotatePlanIntervalPriceUseCase", () => {
       subscriptionRepo,
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
+      buildFakePlanPriceLinkage(),
     );
 
     await expect(
@@ -641,6 +675,7 @@ describe("RotatePlanIntervalPriceUseCase", () => {
       subscriptionRepo,
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
+      buildFakePlanPriceLinkage(),
     );
 
     const { price: newPrice } = await useCase.execute(
@@ -665,9 +700,11 @@ describe("RotatePlanIntervalPriceUseCase", () => {
     const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo({
       findActiveByPlanIdAndInterval: jest.fn().mockResolvedValue(price),
       deactivateById: jest.fn().mockResolvedValue(undefined),
-      create: jest.fn().mockResolvedValue(
-        buildPrice({ id: "price-row-2", stripePriceId: "price_new" }),
-      ),
+      create: jest
+        .fn()
+        .mockResolvedValue(
+          buildPrice({ id: "price-row-2", stripePriceId: "price_new" }),
+        ),
     });
     const paymentGateway = buildFakePaymentGateway({
       createPrice: jest.fn().mockResolvedValue({ priceId: "price_new" }),
@@ -683,6 +720,7 @@ describe("RotatePlanIntervalPriceUseCase", () => {
       buildFakeSubscriptionRepo(),
       buildFakeTelemetry(),
       revalidationClient,
+      buildFakePlanPriceLinkage(),
     );
 
     await useCase.execute(
@@ -693,5 +731,143 @@ describe("RotatePlanIntervalPriceUseCase", () => {
     );
 
     expect(revalidationClient.revalidate).toHaveBeenCalledWith("/");
+  });
+
+  it("self-heals via PlanPriceLinkageService when the local lookupKey is null: rotation completes and gateway.createPrice receives the derived lookupKey", async () => {
+    const plan = buildPlan();
+    const price = buildPrice({ lookupKey: null });
+    const billingPlanRepo = buildFakeBillingPlanRepo({
+      findByKey: jest.fn().mockResolvedValue(plan),
+    });
+    const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo({
+      findActiveByPlanIdAndInterval: jest.fn().mockResolvedValue(price),
+      deactivateById: jest.fn().mockResolvedValue(undefined),
+      create: jest.fn().mockResolvedValue(
+        buildPrice({
+          id: "price-row-2",
+          stripePriceId: "price_new",
+          amountCents: 6990,
+          lookupKey: "standard-monthly",
+        }),
+      ),
+    });
+    const paymentGateway = buildFakePaymentGateway({
+      createPrice: jest.fn().mockResolvedValue({ priceId: "price_new" }),
+    });
+    const planPriceLinkage = buildFakePlanPriceLinkage({
+      resolve: jest.fn().mockResolvedValue({
+        stripeProductId: "prod_1",
+        lookupKey: "standard-monthly",
+      }),
+    });
+
+    const useCase = new RotatePlanIntervalPriceUseCase(
+      paymentGateway,
+      billingPlanRepo,
+      billingPlanPriceRepo,
+      buildFakeAuditService(),
+      buildFakeMigrateSubscribers(),
+      buildFakeSubscriptionRepo(),
+      buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
+      planPriceLinkage,
+    );
+
+    const { price: newPrice } = await useCase.execute(
+      "standard",
+      "monthly",
+      { amountCents: 6990 },
+      "auth-1",
+    );
+
+    expect(planPriceLinkage.resolve).toHaveBeenCalledWith(plan, price);
+    expect(paymentGateway.createPrice).toHaveBeenCalledWith(
+      expect.objectContaining({ lookupKey: "standard-monthly" }),
+    );
+    expect(newPrice.lookupKey).toBe("standard-monthly");
+  });
+
+  it("uses the lookupKey resolved from Stripe when the local row has stripePriceId but no lookupKey", async () => {
+    const plan = buildPlan();
+    const price = buildPrice({ lookupKey: null });
+    const billingPlanRepo = buildFakeBillingPlanRepo({
+      findByKey: jest.fn().mockResolvedValue(plan),
+    });
+    const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo({
+      findActiveByPlanIdAndInterval: jest.fn().mockResolvedValue(price),
+      deactivateById: jest.fn().mockResolvedValue(undefined),
+      create: jest.fn().mockResolvedValue(
+        buildPrice({
+          id: "price-row-2",
+          stripePriceId: "price_new",
+          amountCents: 6990,
+          lookupKey: "resolved-from-stripe",
+        }),
+      ),
+    });
+    const paymentGateway = buildFakePaymentGateway({
+      createPrice: jest.fn().mockResolvedValue({ priceId: "price_new" }),
+    });
+    const planPriceLinkage = buildFakePlanPriceLinkage({
+      resolve: jest.fn().mockResolvedValue({
+        stripeProductId: "prod_1",
+        lookupKey: "resolved-from-stripe",
+      }),
+    });
+
+    const useCase = new RotatePlanIntervalPriceUseCase(
+      paymentGateway,
+      billingPlanRepo,
+      billingPlanPriceRepo,
+      buildFakeAuditService(),
+      buildFakeMigrateSubscribers(),
+      buildFakeSubscriptionRepo(),
+      buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
+      planPriceLinkage,
+    );
+
+    await useCase.execute(
+      "standard",
+      "monthly",
+      { amountCents: 6990 },
+      "auth-1",
+    );
+
+    expect(paymentGateway.createPrice).toHaveBeenCalledWith(
+      expect.objectContaining({ lookupKey: "resolved-from-stripe" }),
+    );
+  });
+
+  it("throws InvalidBillingPlanUpdateException and never calls gateway.createPrice when PlanPriceLinkageService cannot resolve the linkage", async () => {
+    const plan = buildPlan({ stripeProductId: null, productKey: null });
+    const price = buildPrice({ lookupKey: null, stripePriceId: null });
+    const billingPlanRepo = buildFakeBillingPlanRepo({
+      findByKey: jest.fn().mockResolvedValue(plan),
+    });
+    const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo({
+      findActiveByPlanIdAndInterval: jest.fn().mockResolvedValue(price),
+    });
+    const paymentGateway = buildFakePaymentGateway();
+    const planPriceLinkage = buildFakePlanPriceLinkage({
+      resolve: jest.fn().mockResolvedValue(null),
+    });
+
+    const useCase = new RotatePlanIntervalPriceUseCase(
+      paymentGateway,
+      billingPlanRepo,
+      billingPlanPriceRepo,
+      buildFakeAuditService(),
+      buildFakeMigrateSubscribers(),
+      buildFakeSubscriptionRepo(),
+      buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
+      planPriceLinkage,
+    );
+
+    await expect(
+      useCase.execute("standard", "monthly", { amountCents: 6990 }, "auth-1"),
+    ).rejects.toThrow(InvalidBillingPlanUpdateException);
+    expect(paymentGateway.createPrice).not.toHaveBeenCalled();
   });
 });
