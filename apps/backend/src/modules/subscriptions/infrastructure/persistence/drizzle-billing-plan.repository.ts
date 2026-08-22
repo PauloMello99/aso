@@ -29,6 +29,8 @@ function toDomain(row: BillingPlanRow): BillingPlanEntity {
     lookupKey: row.lookupKey ?? null,
     productKey: row.productKey ?? null,
     lastSyncedAt: row.lastSyncedAt ?? null,
+    highlighted: row.highlighted,
+    features: row.features ?? [],
   };
 }
 
@@ -86,12 +88,20 @@ export class DrizzleBillingPlanRepository implements IBillingPlanRepository {
         interval: data.interval,
         ...(data.active !== undefined && { active: data.active }),
         ...(data.metadata !== undefined && { metadata: data.metadata }),
+        ...(data.highlighted !== undefined && {
+          highlighted: data.highlighted,
+        }),
+        ...(data.features !== undefined && { features: data.features }),
         lookupKey: data.lookupKey ?? null,
         productKey: data.productKey ?? null,
         lastSyncedAt: data.lastSyncedAt ?? null,
       })
       .onConflictDoUpdate({
         target: schema.billingPlans.key,
+        // highlighted/features são curadoria de apresentação do super_admin —
+        // NUNCA incluir aqui: o sync do Stripe (SyncPlanCatalogUseCase, roda em
+        // onModuleInit a partir de PLAN_CATALOG, que não carrega esses campos)
+        // apagaria a curadoria a cada boot se estivessem no set do conflito.
         set: {
           stripeProductId: data.stripeProductId ?? null,
           stripePriceId: data.stripePriceId ?? null,
@@ -138,6 +148,10 @@ export class DrizzleBillingPlanRepository implements IBillingPlanRepository {
         ...(data.interval !== undefined && { interval: data.interval }),
         ...(data.active !== undefined && { active: data.active }),
         ...(data.metadata !== undefined && { metadata: data.metadata }),
+        ...(data.highlighted !== undefined && {
+          highlighted: data.highlighted,
+        }),
+        ...(data.features !== undefined && { features: data.features }),
         ...(data.lookupKey !== undefined && { lookupKey: data.lookupKey }),
         ...(data.productKey !== undefined && { productKey: data.productKey }),
         ...(data.lastSyncedAt !== undefined && {

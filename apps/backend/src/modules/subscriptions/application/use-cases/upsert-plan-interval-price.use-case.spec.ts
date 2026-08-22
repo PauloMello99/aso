@@ -13,7 +13,9 @@ import { BillingPlanNotFoundException } from "../../domain/exceptions/billing-pl
 import { InvalidBillingPlanUpdateException } from "../../domain/exceptions/invalid-billing-plan-update.exception";
 import { FrontendRevalidationClient } from "../../infrastructure/frontend-revalidation.client";
 
-function buildPlan(overrides: Partial<BillingPlanEntity> = {}): BillingPlanEntity {
+function buildPlan(
+  overrides: Partial<BillingPlanEntity> = {},
+): BillingPlanEntity {
   return {
     id: "plan-1",
     key: "standard",
@@ -29,6 +31,8 @@ function buildPlan(overrides: Partial<BillingPlanEntity> = {}): BillingPlanEntit
     lookupKey: "standard",
     productKey: "standard",
     lastSyncedAt: new Date("2026-01-01T00:00:00Z"),
+    highlighted: false,
+    features: [],
     ...overrides,
   };
 }

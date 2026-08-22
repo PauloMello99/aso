@@ -23,6 +23,20 @@ RLS/tenancy, ADRs) — consulte lá primeiro para contexto de produto/arquitetur
   repetidos (ex.: `findByAuthId` chamado ~3x no carregamento do overview) dentro do escopo de uma
   única request.
 
+### Testes (Jest)
+
+- **`jest.config.js` com `rootDir: "."` não descobre NENHUM `.spec.ts` no Windows quando o
+  checkout vive dentro de um caminho com um segmento iniciado por ponto** (ex.: worktree em
+  `...\.claude\worktrees\<nome>\apps\backend`) — `jest --listTests` retorna 0 arquivos
+  silenciosamente, mesmo com os specs existindo em disco (confirmado: 91 arquivos via
+  `Get-ChildItem`, 0 via jest). Causa: a normalização de path do glob interno do Jest não lida
+  bem com o segmento `.claude` no prefixo absoluto do `rootDir` resolvido. Contorno: rodar o
+  binário direto com `rootDir`/`testMatch` sobrescritos via CLI com barras normais
+  (`node node_modules/jest/bin/jest.js --rootDir="C:/caminho/com/barras" --testMatch="**/*.spec.ts" ...`)
+  em vez de `pnpm --filter backend test`, que herda o `rootDir: "."` quebrado do config. Não é
+  bug do projeto — não "corrigir" o `jest.config.js` por causa disso, é specific de ambiente
+  (Windows + worktree com dot-segment no path).
+
 ### E-mail / telemetria
 
 - **`all-exceptions.filter.ts`**: só erros 5xx / não mapeados / inesperados são reportados ao

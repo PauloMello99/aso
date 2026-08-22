@@ -13,7 +13,9 @@ import {
   IBillingPlanPriceRepository,
 } from "../../domain/billing-plan-price.repository.interface";
 
-function buildPlan(overrides: Partial<BillingPlanEntity> = {}): BillingPlanEntity {
+function buildPlan(
+  overrides: Partial<BillingPlanEntity> = {},
+): BillingPlanEntity {
   return {
     id: "plan-1",
     key: "pro",
@@ -29,6 +31,8 @@ function buildPlan(overrides: Partial<BillingPlanEntity> = {}): BillingPlanEntit
     lookupKey: null,
     productKey: "pro",
     lastSyncedAt: new Date("2026-01-01T00:00:00Z"),
+    highlighted: false,
+    features: [],
     ...overrides,
   };
 }
@@ -72,9 +76,8 @@ function buildBillingPlanRepo(
     findByStripePriceId: jest.fn(),
     updateByKey: jest
       .fn()
-      .mockImplementation(
-        (key: string, data: Partial<UpsertBillingPlanData>) =>
-          Promise.resolve(buildPlan({ key, ...data })),
+      .mockImplementation((key: string, data: Partial<UpsertBillingPlanData>) =>
+        Promise.resolve(buildPlan({ key, ...data })),
       ),
     ...overrides,
   } as unknown as jest.Mocked<IBillingPlanRepository>;
@@ -359,9 +362,7 @@ describe("ReconcilePlanCatalogUseCase", () => {
     );
     const result = await useCase.execute();
 
-    expect(billingPlanPriceRepo.deactivateById).toHaveBeenCalledWith(
-      "price-1",
-    );
+    expect(billingPlanPriceRepo.deactivateById).toHaveBeenCalledWith("price-1");
     expect(telemetry.captureMessage).toHaveBeenCalledWith(
       expect.stringContaining("missing"),
       "warn",
@@ -413,9 +414,7 @@ describe("ReconcilePlanCatalogUseCase", () => {
     );
     const result = await useCase.execute();
 
-    expect(billingPlanPriceRepo.deactivateById).toHaveBeenCalledWith(
-      "price-1",
-    );
+    expect(billingPlanPriceRepo.deactivateById).toHaveBeenCalledWith("price-1");
     expect(billingPlanPriceRepo.updateById).not.toHaveBeenCalled();
     expect(telemetry.captureMessage).toHaveBeenCalledWith(
       expect.stringContaining("archived"),

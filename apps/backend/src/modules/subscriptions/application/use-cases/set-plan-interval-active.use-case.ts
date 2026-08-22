@@ -14,12 +14,19 @@ import { InvalidBillingPlanUpdateException } from "../../domain/exceptions/inval
 import { PlanIntervalNotEnabledException } from "../../domain/exceptions/plan-interval-not-enabled.exception";
 import { AuditService } from "../../../audit/audit.service";
 import { FrontendRevalidationClient } from "../../infrastructure/frontend-revalidation.client";
+import { PlanPriceLinkageService } from "../plan-price-linkage.service";
 
 /**
  * Habilita/desabilita um intervalo de cobrança já existente para um plano,
  * sem tocar no Stripe (o Price já existe lá, ativo ou não; aqui só
  * alternamos a flag `active` na linha local). Bloqueia desabilitar o
  * último intervalo ativo do plano — isso derrubaria o checkout inteiro.
+ *
+ * Ao reativar (`active: true`) uma linha cujo `lookupKey` está NULL, tenta
+ * repor essa lacuna via `PlanPriceLinkageService` na mesma escrita — sem
+ * isso, a reativação recriaria o estado quebrado que motivou o auto-reparo
+ * na rotação (`RotatePlanIntervalPriceUseCase`). Nunca escreve `lookupKey`
+ * ao desativar: NULL é o valor correto produzido por `deactivateById`.
  */
 @Injectable()
 export class SetPlanIntervalActiveUseCase {
@@ -30,6 +37,7 @@ export class SetPlanIntervalActiveUseCase {
     private readonly billingPlanPriceRepo: IBillingPlanPriceRepository,
     private readonly auditService: AuditService,
     private readonly revalidationClient: FrontendRevalidationClient,
+    private readonly planPriceLinkage: PlanPriceLinkageService,
   ) {}
 
   async execute(
@@ -74,10 +82,18 @@ export class SetPlanIntervalActiveUseCase {
       }
     }
 
-    const updatedPrice = await this.billingPlanPriceRepo.updateById(
-      price.id,
-      { active },
-    );
+    let lookupKeyPatch: { lookupKey: string } | undefined;
+    if (active && !price.lookupKey) {
+      const linkage = await this.planPriceLinkage.resolve(plan, price);
+      if (linkage) {
+        lookupKeyPatch = { lookupKey: linkage.lookupKey };
+      }
+    }
+
+    const updatedPrice = await this.billingPlanPriceRepo.updateById(price.id, {
+      active,
+      ...lookupKeyPatch,
+    });
 
     await this.auditService.logByAuthId(actorAuthId, {
       action: "subscription_changed",
