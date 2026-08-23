@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo } from "react"
-import { FileDown, Loader2 } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { FileDown, Loader2, Mail } from "lucide-react"
 import {
   Sheet,
   SheetBody,
@@ -15,6 +15,10 @@ import {
 import { Button } from "@/shared/components/ui/button"
 import { Badge } from "@/shared/components/ui/badge"
 import { useAnamnesisResponse } from "../hooks/use-anamnesis-responses"
+import {
+  sendAnamnesisCopyErrorMessage,
+  useSendAnamnesisResponseCopy,
+} from "../hooks/use-send-anamnesis-response-copy"
 import { ANAMNESIS_RESPONSE_STATUS_LABELS } from "../types"
 
 interface AnamnesisResponseViewerProps {
@@ -58,6 +62,28 @@ export function AnamnesisResponseViewer({
   responseId,
 }: AnamnesisResponseViewerProps) {
   const { response, loading, error } = useAnamnesisResponse(orgId, responseId)
+  const {
+    mutateAsync: sendCopy,
+    isPending: sendingCopy,
+    isSuccess: copySent,
+    reset: resetSendCopy,
+  } = useSendAnamnesisResponseCopy(orgId, responseId ?? "")
+  const [copyError, setCopyError] = useState<string | null>(null)
+
+  useEffect(() => {
+    resetSendCopy()
+    setCopyError(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [responseId])
+
+  async function handleSendCopy() {
+    setCopyError(null)
+    try {
+      await sendCopy()
+    } catch (err) {
+      setCopyError(sendAnamnesisCopyErrorMessage(err))
+    }
+  }
 
   const answersByQuestion = useMemo(() => {
     const map = new Map<string, (string | boolean)[]>()
@@ -191,21 +217,51 @@ export function AnamnesisResponseViewer({
                 )}
               </section>
 
-              {response.pdfUrl && (
+              {response.status === "submitted" && (
                 <section className="flex flex-col gap-3">
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/40">
                     Documento
                   </h3>
-                  <Button variant="outline" asChild className="w-full sm:w-auto">
-                    <a
-                      href={response.pdfUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                    {response.pdfUrl && (
+                      <Button
+                        variant="outline"
+                        asChild
+                        className="w-full sm:w-auto"
+                      >
+                        <a
+                          href={response.pdfUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <FileDown className="h-4 w-4" />
+                          Abrir PDF
+                        </a>
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                      disabled={sendingCopy}
+                      onClick={() => void handleSendCopy()}
                     >
-                      <FileDown className="h-4 w-4" />
-                      Abrir PDF
-                    </a>
-                  </Button>
+                      {sendingCopy ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Mail className="h-4 w-4" />
+                      )}
+                      Enviar por e-mail ao cliente
+                    </Button>
+                  </div>
+                  {copySent && !copyError && (
+                    <p className="text-xs text-success">
+                      PDF enviado para o e-mail do cliente.
+                    </p>
+                  )}
+                  {copyError && (
+                    <p className="text-xs text-destructive">{copyError}</p>
+                  )}
                 </section>
               )}
             </>

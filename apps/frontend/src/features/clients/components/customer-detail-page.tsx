@@ -276,6 +276,8 @@ export function CustomerDetailPage({
             <SectionSkeleton />
           ) : (
             <CustomerAnamnesisList
+              orgId={orgId}
+              customerId={customer.id}
               responses={anamnesisResponses}
               onSelect={(response) =>
                 setSelectedAnamnesisResponseId(response.id)

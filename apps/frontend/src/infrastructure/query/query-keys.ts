@@ -91,6 +91,7 @@ export const queryKeys = {
     versions: (orgId: string, serviceTypeId: string) =>
       ["anamnesis", orgId, serviceTypeId, "versions"] as const,
     publicResponse: (token: string) => ["anamnesis", "public", token] as const,
+    responsesAll: (orgId: string) => ["anamnesis", orgId, "responses"] as const,
     responses: (orgId: string, filters?: AnamnesisResponsesFilter) =>
       ["anamnesis", orgId, "responses", filters ?? {}] as const,
     response: (orgId: string, id: string) =>

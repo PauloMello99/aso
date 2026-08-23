@@ -438,6 +438,8 @@ export type Database = {
           created_at: string
           currency: string
           description: string | null
+          features: Json
+          highlighted: boolean
           id: string
           interval: string
           key: string
@@ -456,6 +458,8 @@ export type Database = {
           created_at?: string
           currency: string
           description?: string | null
+          features?: Json
+          highlighted?: boolean
           id?: string
           interval: string
           key: string
@@ -474,6 +478,8 @@ export type Database = {
           created_at?: string
           currency?: string
           description?: string | null
+          features?: Json
+          highlighted?: boolean
           id?: string
           interval?: string
           key?: string
@@ -745,6 +751,145 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "customer_origins_org_id_organizations_id_fk"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_self_registrations: {
+        Row: {
+          anamnesis_response_id: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          email: string
+          expires_at: string
+          id: string
+          org_id: string
+          service_type_id: string | null
+          status: string
+          submitted_at: string | null
+          token: string
+        }
+        Insert: {
+          anamnesis_response_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          email: string
+          expires_at?: string
+          id?: string
+          org_id: string
+          service_type_id?: string | null
+          status?: string
+          submitted_at?: string | null
+          token?: string
+        }
+        Update: {
+          anamnesis_response_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          org_id?: string
+          service_type_id?: string | null
+          status?: string
+          submitted_at?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_self_registrations_anamnesis_response_id_fkey"
+            columns: ["anamnesis_response_id"]
+            isOneToOne: false
+            referencedRelation: "anamnesis_responses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_self_registrations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_self_registrations_customer_org_fk"
+            columns: ["customer_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id", "org_id"]
+          },
+          {
+            foreignKeyName: "customer_self_registrations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_self_registrations_service_type_id_fkey"
+            columns: ["service_type_id"]
+            isOneToOne: false
+            referencedRelation: "service_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_update_invitations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          expires_at: string
+          id: string
+          org_id: string
+          status: string
+          submitted_at: string | null
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          customer_id: string
+          expires_at?: string
+          id?: string
+          org_id: string
+          status?: string
+          submitted_at?: string | null
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string
+          expires_at?: string
+          id?: string
+          org_id?: string
+          status?: string
+          submitted_at?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_update_invitations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_update_invitations_customer_org_fk"
+            columns: ["customer_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id", "org_id"]
+          },
+          {
+            foreignKeyName: "customer_update_invitations_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -2145,6 +2290,12 @@ export type Database = {
         | "invite_accepted"
         | "subscription_changed"
         | "anamnesis_invite_sent"
+        | "customer_self_registration_invite_sent"
+        | "customer_self_registered"
+        | "customer_update_invite_sent"
+        | "customer_self_updated"
+        | "anamnesis_invite_resent"
+        | "anamnesis_copy_sent"
       billing_interval: "monthly" | "semiannual" | "annual"
       billing_invoice_event_type: "paid" | "payment_failed"
       calendar_attendee_status: "going" | "not_going"
@@ -2315,6 +2466,12 @@ export const Constants = {
         "invite_accepted",
         "subscription_changed",
         "anamnesis_invite_sent",
+        "customer_self_registration_invite_sent",
+        "customer_self_registered",
+        "customer_update_invite_sent",
+        "customer_self_updated",
+        "anamnesis_invite_resent",
+        "anamnesis_copy_sent",
       ],
       billing_interval: ["monthly", "semiannual", "annual"],
       billing_invoice_event_type: ["paid", "payment_failed"],

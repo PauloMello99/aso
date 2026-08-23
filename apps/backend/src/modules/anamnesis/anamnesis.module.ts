@@ -15,6 +15,7 @@ import { SubmitAnamnesisResponseUseCase } from "./application/use-cases/submit-a
 import { ListLinkableAnamnesisResponsesUseCase } from "./application/use-cases/list-linkable-anamnesis-responses.use-case";
 import { ListAnamnesisResponsesUseCase } from "./application/use-cases/list-anamnesis-responses.use-case";
 import { GetAnamnesisResponseDetailUseCase } from "./application/use-cases/get-anamnesis-response-detail.use-case";
+import { SendAnamnesisResponseCopyUseCase } from "./application/use-cases/send-anamnesis-response-copy.use-case";
 import { AnamnesisController } from "./interface/anamnesis.controller";
 import { AnamnesisResponsesController } from "./interface/anamnesis-responses.controller";
 import { PublicAnamnesisController } from "./interface/public-anamnesis.controller";
@@ -44,6 +45,7 @@ import { PublicAnamnesisController } from "./interface/public-anamnesis.controll
     ListLinkableAnamnesisResponsesUseCase,
     ListAnamnesisResponsesUseCase,
     GetAnamnesisResponseDetailUseCase,
+    SendAnamnesisResponseCopyUseCase,
   ],
   exports: [
     SubmitAnamnesisResponseUseCase,
