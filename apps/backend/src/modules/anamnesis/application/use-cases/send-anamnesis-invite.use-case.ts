@@ -132,12 +132,11 @@ export class SendAnamnesisInviteUseCase {
         fillUrl,
       });
     } catch (err) {
-      if (createdNew) {
-        await this.compensate(response.id);
-      }
       this.logger.error(
         `Falha ao enviar link de anamnese (response ${response.id}, customer ${input.customerId}); ${
-          createdNew ? "resposta revertida" : "convite pendente preexistente preservado"
+          createdNew
+            ? "resposta será desfeita pelo rollback da transação"
+            : "convite pendente preexistente preservado"
         }: ${err instanceof Error ? err.message : String(err)}`,
       );
       throw new AnamnesisInviteEmailFailedException(customer.email);
@@ -153,16 +152,5 @@ export class SendAnamnesisInviteUseCase {
     });
 
     return { response, fillUrl, resent: !createdNew };
-  }
-
-  private async compensate(responseId: string): Promise<void> {
-    try {
-      await this.responseRepo.delete(responseId);
-    } catch (rollbackErr) {
-      this.logger.error(
-        `Falha ao reverter resposta de anamnese ${responseId} após erro de e-mail`,
-        rollbackErr instanceof Error ? rollbackErr.stack : undefined,
-      );
-    }
   }
 }

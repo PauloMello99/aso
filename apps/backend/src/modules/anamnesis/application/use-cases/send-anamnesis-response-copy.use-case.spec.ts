@@ -11,6 +11,7 @@ import { AnamnesisResponseEntity } from "../../domain/anamnesis-response.entity"
 import { AnamnesisResponseNotFoundException } from "../../domain/exceptions/anamnesis-response-not-found.exception";
 import { AnamnesisResponseNotSubmittedException } from "../../domain/exceptions/anamnesis-response-not-submitted.exception";
 import { AnamnesisDocumentUnavailableException } from "../../domain/exceptions/anamnesis-document-unavailable.exception";
+import { AnamnesisDocumentFetchFailedException } from "../../domain/exceptions/anamnesis-document-fetch-failed.exception";
 import { AnamnesisResponseNoRecipientException } from "../../domain/exceptions/anamnesis-response-no-recipient.exception";
 import { AnamnesisInviteEmailFailedException } from "../../domain/exceptions/anamnesis-invite-email-failed.exception";
 import type { AnamnesisQuestion } from "../../domain/anamnesis-question";
@@ -306,7 +307,7 @@ describe("SendAnamnesisResponseCopyUseCase", () => {
     expect(mail.sendSignedAnamnesisResponseCopy).not.toHaveBeenCalled();
   });
 
-  it("lança AnamnesisDocumentUnavailableException quando a geração da signed URL falha", async () => {
+  it("lança AnamnesisDocumentFetchFailedException quando a geração da signed URL falha", async () => {
     const { useCase, mail } = buildUseCase({
       storage: buildFakeStorage({
         createSignedUrl: jest
@@ -316,7 +317,7 @@ describe("SendAnamnesisResponseCopyUseCase", () => {
     });
 
     await expect(useCase.execute(buildInput())).rejects.toBeInstanceOf(
-      AnamnesisDocumentUnavailableException,
+      AnamnesisDocumentFetchFailedException,
     );
     expect(mail.sendSignedAnamnesisResponseCopy).not.toHaveBeenCalled();
   });

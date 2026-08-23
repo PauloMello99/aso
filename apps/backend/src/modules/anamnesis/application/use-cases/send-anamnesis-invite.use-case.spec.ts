@@ -396,7 +396,7 @@ describe("SendAnamnesisInviteUseCase", () => {
     expect(responseRepo.deletePendingFor).not.toHaveBeenCalled();
   });
 
-  it("(h) falha de e-mail no caminho de CRIAÇÃO: compensa deletando a resposta recém-criada", async () => {
+  it("(h) falha de e-mail no caminho de CRIAÇÃO: não chama delete explícito (rollback é da transação do request)", async () => {
     const newResponse = buildResponse({ id: "response-new" });
     const { useCase, responseRepo } = buildUseCase({
       responseRepo: buildFakeRepo({
@@ -410,7 +410,7 @@ describe("SendAnamnesisInviteUseCase", () => {
     await expect(useCase.execute(buildInput())).rejects.toBeInstanceOf(
       AnamnesisInviteEmailFailedException,
     );
-    expect(responseRepo.delete).toHaveBeenCalledWith("response-new");
+    expect(responseRepo.delete).not.toHaveBeenCalled();
   });
 
   it("lança CustomerNotFoundException quando o cliente não é encontrado, sem escritas", async () => {

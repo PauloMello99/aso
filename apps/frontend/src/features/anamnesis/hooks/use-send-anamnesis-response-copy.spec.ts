@@ -23,6 +23,18 @@ describe("sendAnamnesisCopyErrorMessage", () => {
     expect(sendAnamnesisCopyErrorMessage(err)).toContain("documento assinado")
   })
 
+  it("maps ANAMNESIS_DOCUMENT_FETCH_FAILED to a curated message distinct from UNAVAILABLE", () => {
+    const err = new ApiError(
+      "raw",
+      502,
+      "/orgs/1/anamnesis-responses/1/send-copy",
+      "ANAMNESIS_DOCUMENT_FETCH_FAILED",
+    )
+    const message = sendAnamnesisCopyErrorMessage(err)
+    expect(message).toContain("Não foi possível acessar o PDF")
+    expect(message).not.toContain("documento assinado")
+  })
+
   it("maps ANAMNESIS_RESPONSE_NO_RECIPIENT to a curated message", () => {
     const err = new ApiError(
       "raw",

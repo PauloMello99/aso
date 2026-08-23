@@ -6,6 +6,7 @@ import {
   text,
   timestamp,
   unique,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { organizations } from "../organizations";
@@ -60,53 +61,63 @@ export const anamnesisFormVersions = pgTable(
   (t) => [unique().on(t.formId, t.versionNumber)],
 );
 
-export const anamnesisResponses = pgTable("anamnesis_responses", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id")
-    .notNull()
-    .references(() => organizations.id, { onDelete: "cascade" }),
-  formVersionId: uuid("form_version_id").references(
-    () => anamnesisFormVersions.id,
-    { onDelete: "set null" },
-  ),
-  serviceTypeId: uuid("service_type_id").references(() => serviceTypes.id, {
-    onDelete: "set null",
-  }),
-  customerId: uuid("customer_id").references(() => customers.id, {
-    onDelete: "set null",
-  }),
-  questionsSnapshot: jsonb("questions_snapshot")
-    .$type<AnamnesisQuestion[]>()
-    .notNull(),
-  token: text("token")
-    .unique()
-    .notNull()
-    .default(sql`encode(gen_random_bytes(32), 'hex')`),
-  expiresAt: timestamp("expires_at", { withTimezone: true })
-    .notNull()
-    .default(sql`now() + interval '7 days'`),
-  status: anamnesisResponseStatusEnum("status").notNull().default("pending"),
-  answers: jsonb("answers").$type<
-    { questionId: string; value: string | boolean }[]
-  >(),
-  submittedAt: timestamp("submitted_at", { withTimezone: true }),
-  createdBy: uuid("created_by").references(() => users.id, {
-    onDelete: "set null",
-  }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  signerFullName: text("signer_full_name"),
-  signerCpf: text("signer_cpf"),
-  signatureStoragePath: text("signature_storage_path"),
-  pdfStoragePath: text("pdf_storage_path"),
-  pdfHashSha256: text("pdf_hash_sha256"),
-  requestIp: text("request_ip"),
-  requestUserAgent: text("request_user_agent"),
-  consentTextSnapshot: text("consent_text_snapshot"),
-  consentVersion: text("consent_version"),
-  consentAcceptedAt: timestamp("consent_accepted_at", { withTimezone: true }),
-});
+export const anamnesisResponses = pgTable(
+  "anamnesis_responses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    formVersionId: uuid("form_version_id").references(
+      () => anamnesisFormVersions.id,
+      { onDelete: "set null" },
+    ),
+    serviceTypeId: uuid("service_type_id").references(() => serviceTypes.id, {
+      onDelete: "set null",
+    }),
+    customerId: uuid("customer_id").references(() => customers.id, {
+      onDelete: "set null",
+    }),
+    questionsSnapshot: jsonb("questions_snapshot")
+      .$type<AnamnesisQuestion[]>()
+      .notNull(),
+    token: text("token")
+      .unique()
+      .notNull()
+      .default(sql`encode(gen_random_bytes(32), 'hex')`),
+    expiresAt: timestamp("expires_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now() + interval '7 days'`),
+    status: anamnesisResponseStatusEnum("status").notNull().default("pending"),
+    answers: jsonb("answers").$type<
+      { questionId: string; value: string | boolean }[]
+    >(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    createdBy: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    signerFullName: text("signer_full_name"),
+    signerCpf: text("signer_cpf"),
+    signatureStoragePath: text("signature_storage_path"),
+    pdfStoragePath: text("pdf_storage_path"),
+    pdfHashSha256: text("pdf_hash_sha256"),
+    requestIp: text("request_ip"),
+    requestUserAgent: text("request_user_agent"),
+    consentTextSnapshot: text("consent_text_snapshot"),
+    consentVersion: text("consent_version"),
+    consentAcceptedAt: timestamp("consent_accepted_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("anamnesis_responses_org_customer_status_idx").on(
+      t.orgId,
+      t.customerId,
+      t.status,
+    ),
+  ],
+);
 
 export const anamnesisFormsRelations = relations(
   anamnesisForms,

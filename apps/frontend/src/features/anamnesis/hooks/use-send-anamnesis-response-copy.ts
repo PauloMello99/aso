@@ -12,6 +12,8 @@ const SEND_RESPONSE_COPY_ERROR_MESSAGES: Record<string, string> = {
     "Esta ficha ainda não foi respondida, por isso não há documento para enviar.",
   ANAMNESIS_DOCUMENT_UNAVAILABLE:
     "O documento assinado desta ficha ainda não está disponível. Tente novamente em instantes.",
+  ANAMNESIS_DOCUMENT_FETCH_FAILED:
+    "Não foi possível acessar o PDF no momento. Tente novamente em instantes.",
   ANAMNESIS_RESPONSE_NO_RECIPIENT:
     "Este cliente não tem um e-mail cadastrado para receber a ficha.",
   ANAMNESIS_INVITE_EMAIL_FAILED:

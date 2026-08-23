@@ -6,6 +6,7 @@ import {
 import { AnamnesisResponseNotFoundException } from "../../domain/exceptions/anamnesis-response-not-found.exception";
 import { AnamnesisResponseNotSubmittedException } from "../../domain/exceptions/anamnesis-response-not-submitted.exception";
 import { AnamnesisDocumentUnavailableException } from "../../domain/exceptions/anamnesis-document-unavailable.exception";
+import { AnamnesisDocumentFetchFailedException } from "../../domain/exceptions/anamnesis-document-fetch-failed.exception";
 import { AnamnesisResponseNoRecipientException } from "../../domain/exceptions/anamnesis-response-no-recipient.exception";
 import { AnamnesisInviteEmailFailedException } from "../../domain/exceptions/anamnesis-invite-email-failed.exception";
 import {
@@ -106,7 +107,7 @@ export class SendAnamnesisResponseCopyUseCase {
           err instanceof Error ? err.message : String(err)
         }`,
       );
-      throw new AnamnesisDocumentUnavailableException();
+      throw new AnamnesisDocumentFetchFailedException();
     }
 
     try {

@@ -1004,8 +1004,11 @@ anamnesis_response_id IS NOT NULL`): `assertAnamnesisResponseLinkable` faz o
   é congelado na criação, reusar reenviaria formulário desatualizado). **Decisão de produto
   confirmada**: o reenvio NÃO estende `expiresAt` — um convite reenviado perto do vencimento
   continua expirando no prazo original. Flag `createdNew` controla a compensação de falha de
-  e-mail: só apaga a resposta se ela foi CRIADA nesta chamada, nunca um pendente
-  PREEXISTENTE reaproveitado. Audit action `anamnesis_invite_sent` (criação) vs.
+  e-mail: hoje só decide a `audit_action` (`anamnesis_invite_sent` vs.
+  `anamnesis_invite_resent`) e a mensagem de log — não há mais compensação explícita
+  (`delete`) no catch; a resposta recém-criada é desfeita pelo `ROLLBACK` automático da
+  transação do request quando a exceção de falha de e-mail é lançada (ver débito (a),
+  resolvido, abaixo). Audit action `anamnesis_invite_sent` (criação) vs.
   `anamnesis_invite_resent` (reuso) — ambos valores de `audit_action` adicionados na
   migration `0055_audit_action_anamnesis_resend_copy` (renumerada de 0054 no meio do
   trabalho por colisão com `0054_billing_plans_presentation_fields`, que chegou de um merge
@@ -1036,16 +1039,13 @@ anamnesis_response_id IS NOT NULL`): `assertAnamnesisResponseLinkable` faz o
   (seção M10c acima); replicada aqui em `send-anamnesis-invite.use-case.ts` e
   `send-anamnesis-response-copy.use-case.ts`.
 - **Débitos conhecidos, não bloqueantes** (aceitos nesta fatia, achados por
-  `database-guardian`/`reviewer`): (a) `compensate()` em `send-anamnesis-invite.use-case.ts`
-  chama `delete` via `this.admin` sobre uma linha ainda não commitada por `this.db` — o
-  DELETE casa zero linhas, mas o `ROLLBACK` da transação do request já desfaz o INSERT
-  corretamente, então não há corrupção, só código morto; (b) sem índice
-  `(org_id, customer_id, status)` em `anamnesis_responses` — as leituras novas fazem seq
-  scan, aceitável no volume atual; (c) `AnamnesisDocumentUnavailableException` (422) cobre
-  tanto "PDF nunca existiu" quanto "falha de infra ao gerar signed URL" — um 502 distinto
-  para o segundo caso ficou pendente; (d) sem unique index parcial `WHERE status='pending'`
-  em `(org_id, customer_id, service_type_id)` — duas requisições de reenvio simultâneas
-  ainda podem, em tese, criar 2 pendentes (pré-existente, janela só diminuiu com esta fatia).
+  `database-guardian`/`reviewer`; itens (a)-(c) resolvidos em 2026-08-23): (b) resolvido —
+  índice `anamnesis_responses_org_customer_status_idx` em
+  `(org_id, customer_id, status)` criado na migration
+  `0056_anamnesis_responses_org_customer_status_idx`; (d) sem unique index parcial
+  `WHERE status='pending'` em `(org_id, customer_id, service_type_id)` — duas requisições de
+  reenvio simultâneas ainda podem, em tese, criar 2 pendentes (pré-existente, janela só
+  diminuiu com esta fatia; decisão de produto/prioridade, não resolvida nesta rodada).
 
 ### Conformidade legal — LGPD Tier 1 (2026-07-27, ADR-0018)
 
