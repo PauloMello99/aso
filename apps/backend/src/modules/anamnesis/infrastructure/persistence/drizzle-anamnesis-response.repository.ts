@@ -182,6 +182,55 @@ export class DrizzleAnamnesisResponseRepository
     return rows.map(AnamnesisResponseMapper.toDomain);
   }
 
+  async findSubmittedForVersion(
+    customerId: string,
+    formVersionId: string,
+    orgId: string,
+  ): Promise<AnamnesisResponseEntity | null> {
+    // Não reaproveita `findLinkable`: aquele método exclui respostas já
+    // vinculadas a um `service` (notExists sobre services.anamnesisResponseId).
+    // Aqui o gate é sobre saúde do cliente ("já respondeu a ficha vigente?"),
+    // então uma resposta já vinculada a um serviço CONTINUA contando como
+    // "já respondida".
+    const [row] = await this.db
+      .select()
+      .from(schema.anamnesisResponses)
+      .where(
+        and(
+          eq(schema.anamnesisResponses.customerId, customerId),
+          eq(schema.anamnesisResponses.formVersionId, formVersionId),
+          eq(schema.anamnesisResponses.orgId, orgId),
+          eq(schema.anamnesisResponses.status, "submitted"),
+        ),
+      )
+      .orderBy(desc(schema.anamnesisResponses.submittedAt))
+      .limit(1);
+
+    return row ? AnamnesisResponseMapper.toDomain(row) : null;
+  }
+
+  async findPendingFor(
+    customerId: string,
+    serviceTypeId: string,
+    orgId: string,
+  ): Promise<AnamnesisResponseEntity | null> {
+    const [row] = await this.db
+      .select()
+      .from(schema.anamnesisResponses)
+      .where(
+        and(
+          eq(schema.anamnesisResponses.customerId, customerId),
+          eq(schema.anamnesisResponses.serviceTypeId, serviceTypeId),
+          eq(schema.anamnesisResponses.orgId, orgId),
+          eq(schema.anamnesisResponses.status, "pending"),
+        ),
+      )
+      .orderBy(desc(schema.anamnesisResponses.createdAt))
+      .limit(1);
+
+    return row ? AnamnesisResponseMapper.toDomain(row) : null;
+  }
+
   async listByOrg(
     orgId: string,
     filters: ListAnamnesisResponsesFilters,
