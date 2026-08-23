@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   Power,
   SlidersHorizontal,
+  Percent,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -105,45 +106,56 @@ export function MemberList({
   const [removeDialog, setRemoveDialog] = useState<Member | null>(null);
   const [permsDialog, setPermsDialog] = useState<Member | null>(null);
   const [permsDraft, setPermsDraft] = useState<string[]>([]);
+  const [commissionDialog, setCommissionDialog] = useState<Member | null>(null);
   const [commissionPercent, setCommissionPercent] = useState("");
   const [commissionMode, setCommissionMode] = useState<CommissionMode>("gross");
   const [commissionWasConfigured, setCommissionWasConfigured] = useState(false);
   const [commissionTouched, setCommissionTouched] = useState(false);
   const [commissionError, setCommissionError] = useState<string | null>(null);
   const [permsSubmitError, setPermsSubmitError] = useState<string | null>(null);
+  const [commissionSubmitError, setCommissionSubmitError] = useState<
+    string | null
+  >(null);
   const [loading, setLoading] = useState(false);
 
   function openPerms(member: Member) {
     setPermsDraft(member.permissions ?? []);
+    setPermsSubmitError(null);
+    setPermsDialog(member);
+  }
+
+  function openCommission(member: Member) {
     const existing = commissions.find((c) => c.userId === member.userId);
     setCommissionPercent(existing?.configured ? existing.percent : "");
     setCommissionMode(existing?.mode ?? "gross");
     setCommissionWasConfigured(existing?.configured ?? false);
     setCommissionTouched(false);
     setCommissionError(null);
-    setPermsSubmitError(null);
-    setPermsDialog(member);
+    setCommissionSubmitError(null);
+    setCommissionDialog(member);
   }
 
-  // Os campos de comissão só são semeados no clique (openPerms). Se `commissions`
-  // ainda não tinha carregado nesse momento, os campos ficavam presos no estado
-  // inicial (placeholder vazio) mesmo depois do dado chegar. Re-semeia quando os
-  // dados mudam, mas só enquanto o owner não tiver mexido no campo — não queremos
-  // sobrescrever uma edição em andamento.
-  const permsDialogUserId = permsDialog?.userId;
+  // Os campos de comissão só são semeados no clique (openCommission). Se
+  // `commissions` ainda não tinha carregado nesse momento, os campos ficavam
+  // presos no estado inicial (placeholder vazio) mesmo depois do dado chegar.
+  // Re-semeia quando os dados mudam, mas só enquanto o owner não tiver mexido
+  // no campo — não queremos sobrescrever uma edição em andamento.
+  const commissionDialogUserId = commissionDialog?.userId;
   useEffect(() => {
-    if (!permsDialogUserId) return;
-    const existing = commissions.find((c) => c.userId === permsDialogUserId);
+    if (!commissionDialogUserId) return;
+    const existing = commissions.find(
+      (c) => c.userId === commissionDialogUserId,
+    );
     // `commissionWasConfigured` reflete o fato de existir (ou não) uma comissão
     // ativa no servidor — precisa sempre acompanhar `commissions`, mesmo que o
     // owner já tenha editado o percentual, senão o guard de "comissão fantasma"
-    // em confirmPerms pode achar que nunca existiu configuração e silenciosamente
-    // deixar de zerar uma comissão que ainda está ativa no banco.
+    // em confirmCommission pode achar que nunca existiu configuração e
+    // silenciosamente deixar de zerar uma comissão que ainda está ativa no banco.
     setCommissionWasConfigured(existing?.configured ?? false);
     if (commissionTouched) return;
     setCommissionPercent(existing?.configured ? existing.percent : "");
     setCommissionMode(existing?.mode ?? "gross");
-  }, [commissions, permsDialogUserId, commissionTouched]);
+  }, [commissions, commissionDialogUserId, commissionTouched]);
 
   function togglePerm(module: ModuleKey, on: boolean) {
     setPermsDraft((prev) =>
@@ -172,47 +184,45 @@ export function MemberList({
 
   async function confirmPerms() {
     if (!permsDialog) return;
-    if (commissionError) return;
     setLoading(true);
     setPermsSubmitError(null);
     try {
-      let permissionsSaved = false;
-      if (permsDialog.role === "employee") {
-        try {
-          await onUpdatePermissions(permsDialog.memberId, permsDraft);
-          permissionsSaved = true;
-        } catch (err) {
-          setPermsSubmitError(
-            err instanceof Error
-              ? err.message
-              : "Não foi possível salvar as permissões.",
-          );
-          return;
-        }
-      }
+      await onUpdatePermissions(permsDialog.memberId, permsDraft);
+      setPermsDialog(null);
+    } catch (err) {
+      setPermsSubmitError(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível salvar as permissões.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
 
+  async function confirmCommission() {
+    if (!commissionDialog) return;
+    if (commissionError) return;
+    setLoading(true);
+    setCommissionSubmitError(null);
+    try {
       const trimmedPercent = commissionPercent.trim();
       // Só grava comissão se o campo foi preenchido ou já existia config prévia —
       // evita criar uma comissão fantasma em 0% para quem nunca teve nenhuma.
       if (trimmedPercent !== "" || commissionWasConfigured) {
         try {
           await onUpdateCommission(
-            permsDialog.userId,
+            commissionDialog.userId,
             trimmedPercent === "" ? "0" : trimmedPercent.replace(",", "."),
             commissionMode,
           );
         } catch (err) {
-          const mapped = commissionErrorMessage(err);
-          setPermsSubmitError(
-            permissionsSaved
-              ? `Permissões salvas, mas não foi possível salvar a comissão: ${mapped}`
-              : mapped,
-          );
+          setCommissionSubmitError(commissionErrorMessage(err));
           return;
         }
       }
 
-      setPermsDialog(null);
+      setCommissionDialog(null);
     } finally {
       setLoading(false);
     }
@@ -297,6 +307,7 @@ export function MemberList({
                       onToggleStatus(member.memberId, !member.enabled)
                     }
                     onPermissions={() => openPerms(member)}
+                    onCommission={() => openCommission(member)}
                   />
                 )}
               </div>
@@ -396,54 +407,69 @@ export function MemberList({
       >
         <DialogContent>
           <DialogHeader>
-            {permsDialog?.role === "owner" ? (
-              <>
-                <DialogTitle>Comissão</DialogTitle>
-                <DialogDescription>
-                  Configure o percentual de repasse de{" "}
-                  <span className="font-medium text-foreground">
-                    {permsDialog?.userName}
-                  </span>
-                  .
-                </DialogDescription>
-              </>
-            ) : (
-              <>
-                <DialogTitle>Permissões do funcionário</DialogTitle>
-                <DialogDescription>
-                  Escolha os módulos que{" "}
-                  <span className="font-medium text-foreground">
-                    {permsDialog?.userName}
-                  </span>{" "}
-                  pode acessar. Em cada módulo, o funcionário vê apenas os
-                  próprios registros.
-                </DialogDescription>
-              </>
-            )}
+            <DialogTitle>Permissões do funcionário</DialogTitle>
+            <DialogDescription>
+              Escolha os módulos que{" "}
+              <span className="font-medium text-foreground">
+                {permsDialog?.userName}
+              </span>{" "}
+              pode acessar. Em cada módulo, o funcionário vê apenas os próprios
+              registros.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid max-h-[60vh] gap-5 overflow-y-auto pr-1">
-            {permsDialog?.role === "employee" && (
-              <div className="grid gap-1">
-                {MODULE_KEYS.map((module) => {
-                  const on = permsDraft.includes(module);
-                  return (
-                    <label
-                      key={module}
-                      className="flex items-center justify-between gap-4 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] px-3 py-2.5"
-                    >
-                      <span className="text-sm text-foreground">
-                        {MODULE_LABEL[module]}
-                      </span>
-                      <Switch
-                        checked={on}
-                        onCheckedChange={(v) => togglePerm(module, v)}
-                      />
-                    </label>
-                  );
-                })}
-              </div>
-            )}
+            <div className="grid gap-1">
+              {MODULE_KEYS.map((module) => {
+                const on = permsDraft.includes(module);
+                return (
+                  <label
+                    key={module}
+                    className="flex items-center justify-between gap-4 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] px-3 py-2.5"
+                  >
+                    <span className="text-sm text-foreground">
+                      {MODULE_LABEL[module]}
+                    </span>
+                    <Switch
+                      checked={on}
+                      onCheckedChange={(v) => togglePerm(module, v)}
+                    />
+                  </label>
+                );
+              })}
+            </div>
 
+            {permsSubmitError && (
+              <p className="text-sm text-destructive">{permsSubmitError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              disabled={loading}
+              onClick={confirmPerms}
+              className="w-full sm:w-auto"
+            >
+              {loading ? "Salvando…" : "Salvar permissões"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!commissionDialog}
+        onOpenChange={(v) => !v && setCommissionDialog(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Comissão</DialogTitle>
+            <DialogDescription>
+              Configure o percentual de repasse de{" "}
+              <span className="font-medium text-foreground">
+                {commissionDialog?.userName}
+              </span>
+              .
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid max-h-[60vh] gap-5 overflow-y-auto pr-1">
             <div className="grid gap-2 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3">
               <p className="text-xs text-foreground/50">
                 Comissão apenas informativa: o sistema não movimenta dinheiro,
@@ -496,8 +522,10 @@ export function MemberList({
               )}
             </div>
 
-            {permsSubmitError && (
-              <p className="text-sm text-destructive">{permsSubmitError}</p>
+            {commissionSubmitError && (
+              <p className="text-sm text-destructive">
+                {commissionSubmitError}
+              </p>
             )}
           </div>
           <DialogFooter>
@@ -506,19 +534,13 @@ export function MemberList({
                 loading ||
                 commissionsLoading ||
                 !!commissionError ||
-                (permsDialog?.role === "owner" &&
-                  (!!commissionsError ||
-                    (commissionPercent.trim() === "" &&
-                      !commissionWasConfigured)))
+                !!commissionsError ||
+                (commissionPercent.trim() === "" && !commissionWasConfigured)
               }
-              onClick={confirmPerms}
+              onClick={confirmCommission}
               className="w-full sm:w-auto"
             >
-              {loading
-                ? "Salvando…"
-                : permsDialog?.role === "owner"
-                  ? "Salvar comissão"
-                  : "Salvar permissões"}
+              {loading ? "Salvando…" : "Salvar comissão"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -561,12 +583,14 @@ function MemberActions({
   onRemove,
   onToggleStatus,
   onPermissions,
+  onCommission,
 }: {
   member: Member;
   onChangeRole: (role: OrgRole) => void;
   onRemove: () => void;
   onToggleStatus: () => void;
   onPermissions: () => void;
+  onCommission: () => void;
 }) {
   const nextRole: OrgRole = member.role === "owner" ? "employee" : "owner";
   const nextRoleLabel =
@@ -580,9 +604,15 @@ function MemberActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={onPermissions}>
-          <SlidersHorizontal className="mr-2 h-4 w-4" />
-          Permissões
+        {member.role === "employee" && (
+          <DropdownMenuItem onClick={onPermissions}>
+            <SlidersHorizontal className="mr-2 h-4 w-4" />
+            Permissões
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onClick={onCommission}>
+          <Percent className="mr-2 h-4 w-4" />
+          Comissão
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onChangeRole(nextRole)}>
           <ShieldCheck className="mr-2 h-4 w-4" />
