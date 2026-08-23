@@ -244,6 +244,8 @@ function buildBillingPlan(
     lookupKey: "standard_monthly_lookup",
     productKey: "standard",
     lastSyncedAt: null,
+    highlighted: false,
+    features: [],
     ...overrides,
   };
 }
@@ -800,15 +802,11 @@ describe("HandleStripeWebhookUseCase", () => {
       });
       const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo({
         findByStripePriceId: jest.fn().mockResolvedValue(null),
-        findAllByPlanId: jest
-          .fn()
-          .mockResolvedValue([oldActiveRow, newRow]),
+        findAllByPlanId: jest.fn().mockResolvedValue([oldActiveRow, newRow]),
         findActiveByPlanIdAndInterval: jest
           .fn()
           .mockResolvedValue(oldActiveRow),
-        updateById: jest
-          .fn()
-          .mockResolvedValue({ ...newRow, active: true }),
+        updateById: jest.fn().mockResolvedValue({ ...newRow, active: true }),
       });
       const billingPlanRepo = buildFakeBillingPlanRepo({
         findByStripeProductId: jest
@@ -919,10 +917,9 @@ describe("HandleStripeWebhookUseCase", () => {
 
       await useCase.execute("raw", "sig");
 
-      expect(billingPlanPriceRepo.findActiveByPlanIdAndInterval).toHaveBeenCalledWith(
-        "plan-1",
-        "semiannual",
-      );
+      expect(
+        billingPlanPriceRepo.findActiveByPlanIdAndInterval,
+      ).toHaveBeenCalledWith("plan-1", "semiannual");
       expect(billingPlanPriceRepo.deactivateById).toHaveBeenCalledWith(
         oldSemiannualRow.id,
       );
@@ -965,9 +962,7 @@ describe("HandleStripeWebhookUseCase", () => {
       });
       const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo({
         findByStripePriceId: jest.fn().mockResolvedValue(activeRow),
-        findActiveByPlanIdAndInterval: jest
-          .fn()
-          .mockResolvedValue(activeRow),
+        findActiveByPlanIdAndInterval: jest.fn().mockResolvedValue(activeRow),
       });
       const webhookEventRepo = buildFakeWebhookEventRepo();
       const revalidationClient = buildFakeRevalidationClient();

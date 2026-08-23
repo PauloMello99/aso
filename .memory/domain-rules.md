@@ -76,6 +76,8 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
 22. **Scroll de container alto (gotcha CSS)**: `overflow-x-auto` força `overflow-y:auto` no mesmo elemento (spec) → criava um scroll interno no calendário (week-view). Para a página inteira rolar, adicionar **`overflow-y-hidden`** ao container com `overflow-x-auto` quando a altura é o próprio conteúdo. (Corrigido 2026-06-20.)
 23. **DatePicker — dropdown de mês/ano (2026-06-20)**: o `<select>` nativo do `react-day-picker` v10 (`captionLayout="dropdown"`) abre um popup do SO (branco/azul) **não tematizável por CSS**. Override em `calendar.tsx` via **`components.Dropdown` = `CalendarDropdown`** que usa o nosso `Select` (Radix). O RDP v10 lê **`Number(e.target.value)`** no `onChange`, então o adapter sintetiza `onChange({ target: { value } })` a partir do `onValueChange` do Select (padrão shadcn). Não voltar ao select nativo.
 24. **Superfícies públicas só afirmam o que o produto faz (2026-08-16)**: landing, SEO, e-mails de marketing e páginas legais **não podem** conter métrica inventada, logo de integração inexistente ou recurso não implementado sem rótulo explícito de "em breve". Auditoria de 2026-08-16 encontrou na landing 4 métricas fabricadas (`about.tsx`), 5 integrações que existiam **apenas** naquele arquivo (WhatsApp/Instagram/Notion/Zapier/Pix), "lembretes por WhatsApp" (notificação real é in-app + e-mail) e "Começar grátis" para um trial que **exige cartão** (`paymentMethodCollection: "always"`, 60 dias). Ao escrever copy nova: rastrear cada afirmação até um módulo, ADR ou linha de código; número agregado vive em **uma** constante (`features/landing/constants/`), nunca inline. Posicionamento é **vertical de tatuagem explícito**, não "estúdios criativos" — anamnese, consumo de material por sessão e taxa de cartão são o que diferencia de CRM horizontal. Spec completa em `docs/product/landing-page-spec.md`.
+25. **Upload de imagem = recorte + compressão client-side antes do envio (2026-08-19)**: todo fluxo de upload de imagem (avatar da conta, anexos de cliente, anexos de ticket de suporte) passa por `ImageCropper` (`shared/components/image-cropper.tsx`) + `ImageCropDialog` (`shared/components/ui/image-crop-dialog.tsx`) antes do POST. Política pura (MIME, dimensão, qualidade, geometria, naming) em `shared/lib/image-compression.ts`; I/O de canvas em `shared/lib/image-crop.ts` — zero dependência nova. **MIME de saída = MIME de entrada** (nunca reconverte PNG→JPEG): preserva a extensão do arquivo e evita path órfão no avatar (que deriva o nome do storage do MIME, e `DELETE` em `storage.objects` é bloqueado por trigger). GIF e PDF são **pass-through** — sem cropper, sem re-encode (`canvas.toBlob("image/gif")` cai silenciosamente para PNG). EXIF de rotação sempre normalizado via `createImageBitmap(file, { imageOrientation: "from-image" })`, com fallback `<img>`+`decode()`. **Aceitação de MIME por fluxo não é uniforme** — confira o backend antes de mexer no `accept` do input: avatar aceita gif (`auth.controller.ts`, regex inclui gif), anexos de cliente aceitam gif+pdf (`customers.controller.ts`), anexos de ticket **não** aceitam gif (`upload-ticket-attachment.use-case.ts`, `ALLOWED_MIME_TYPES` sem gif) — um agente já errou essa suposição para o avatar (achou que rejeitava gif; não rejeita), verificar sempre a validação real, não assumir.
+26. **HEIC (padrão de foto do iPhone) não é aceito em nenhum fluxo de upload de imagem (gap conhecido, 2026-08-19)**: reproduzido em staging — o backend devolve 400 com mensagem crua expondo a regex de validação (`"Validation failed (current file type is image/heic, expected type is ...)"`). O frontend hoje só troca essa mensagem por uma amigável ("Formato de imagem não suportado. Envie PNG, JPG, WEBP ou GIF/PDF conforme o fluxo") — **não converte nem aceita HEIC**. Suporte real exigiria conversão HEIC→JPEG no backend (nova dependência de processamento de imagem, ex. sharp+libheif — nenhuma instalada hoje) ou decodificação client-side (inconsistente entre browsers: Safari decodifica HEIC via canvas, Chrome não). Ficou deliberadamente fora de escopo; se for endereçado, é feature nova, não bugfix.
 
 ---
 
@@ -456,6 +458,34 @@ interval)` e `lookup_key` — garantem só uma linha vigente por par; preços an
   reintroduzir lógica de "desmarcar" trial fora de migration explícita). Bug histórico:
   marcar na criação da checkout session queimava o trial de 60 dias em qualquer checkout
   abandonado — corrigido nesta data.
+- **`lookup_key`/`stripeProductId` ausentes numa linha ATIVA de `billing_plan_prices` são
+  irrecuperáveis por boot (2026-08-19, bug real corrigido).** Causa: `ReconcilePlanCatalogUseCase`
+  desativa uma linha divergente/sumida no Stripe via `deactivateById` (limpa `active` e
+  `lookup_key` juntos); se o super_admin reativa o intervalo depois (`SetPlanIntervalActiveUseCase`),
+  a linha volta a `active: true` mas com `lookup_key` NULL — e `SyncPlanCatalogUseCase.onModuleInit`
+  **não repara isso** (`syncPrice` encontra a linha existente e retorna `"unchanged"`, nunca
+  repopula). Isso fazia `RotatePlanIntervalPriceUseCase` falhar com "plano/preço sem
+  produto/lookup_key associado" até o próximo restart — e mesmo assim só se o restart
+  coincidisse com o Stripe ainda tendo o produto correto. Fix: `PlanPriceLinkageService`
+  (`modules/subscriptions/application/plan-price-linkage.service.ts`) resolve o par sob
+  demanda — fast path se `stripeProductId`+`lookupKey` já existem (nenhuma chamada ao Stripe);
+  senão consulta `gateway.retrievePrice` (Stripe é autoritário); senão deriva
+  `${productKey}-${interval}` (mesma regra de `UpsertPlanIntervalPriceUseCase`). Usado por
+  `RotatePlanIntervalPriceUseCase` (autocura antes de lançar `InvalidBillingPlanUpdateException`)
+  e `SetPlanIntervalActiveUseCase` (repõe `lookup_key` na mesma escrita ao reativar). **Não é**
+  o sync manual global removido em ADR-0024 — opera só sobre um par (plano, preço) específico,
+  sob ação explícita do admin, sem ler `PLAN_CATALOG` nem rotacionar Price.
+- **Campos de apresentação `highlighted`/`features` em `billing_plans` (migration 0054 —
+  renumerada de 0051 no merge para `development`, colisão com `0051_member_commissions`/
+  `0052_customer_self_service_invites`/`0053_audit_action_customer_self_service` já
+  mergeadas, 2026-08-19) vivem em colunas dedicadas, nunca em `metadata`.** `metadata` é
+  sobrescrito pelo round-trip do Stripe em `UpdateBillingPlanProductUseCase` (o
+  `result.metadata` que volta do `paymentGateway.updateProduct`) e no webhook
+  `product.updated` — qualquer coisa guardada lá seria apagada na próxima edição/sync.
+  Editados só por super_admin via `PATCH /admin/billing/plans/:key/product`; **nunca**
+  entram no `set:` do `onConflictDoUpdate` de `DrizzleBillingPlanRepository.upsert` (usado
+  por `SyncPlanCatalogUseCase` no boot) — se entrassem, todo boot resetaria a curadoria do
+  super_admin para o default, já que `PLAN_CATALOG` (seed) não carrega esses campos.
 
 ### Gaps de reunião aplicados (2026-06-20) — migrations 0011–0013
 

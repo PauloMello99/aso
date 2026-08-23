@@ -379,6 +379,13 @@
       "when": 1782004300000,
       "tag": "0053_audit_action_customer_self_service",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1782004400000,
+      "tag": "0054_billing_plans_presentation_fields",
+      "breakpoints": true
     }
   ]
 }

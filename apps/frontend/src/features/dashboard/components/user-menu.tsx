@@ -1,10 +1,11 @@
-"use client"
+"use client";
 
-import { useRouter } from "next/router"
-import { Settings, LogOut, ChevronDown, ShieldCheck } from "lucide-react"
-import { useAuth } from "@/features/auth/hooks/use-auth"
-import { useMe } from "@/features/auth/hooks/use-me"
-import { Button } from "@/shared/components/ui/button"
+import { useState } from "react";
+import { useRouter } from "next/router";
+import { Settings, LogOut, ChevronDown, ShieldCheck } from "lucide-react";
+import { useAuth } from "@/features/auth/hooks/use-auth";
+import { useMe } from "@/features/auth/hooks/use-me";
+import { Button } from "@/shared/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,20 +13,21 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/shared/components/ui/dropdown-menu"
+} from "@/shared/components/ui/dropdown-menu";
 
 export function UserMenu() {
-  const { user, signOut } = useAuth()
-  const { me } = useMe()
-  const router = useRouter()
-  const isSuperAdmin = me?.platformRole === "super_admin"
+  const { user, signOut } = useAuth();
+  const { me } = useMe();
+  const router = useRouter();
+  const isSuperAdmin = me?.platformRole === "super_admin";
+  const [imgFailed, setImgFailed] = useState(false);
 
   const handleSignOut = async () => {
-    await signOut()
-    await router.replace("/auth/login")
-  }
+    await signOut();
+    await router.replace("/auth/login");
+  };
 
-  const initials = user?.email?.slice(0, 2).toUpperCase() ?? "??"
+  const initials = user?.email?.slice(0, 2).toUpperCase() ?? "??";
 
   return (
     <DropdownMenu>
@@ -36,9 +38,19 @@ export function UserMenu() {
           data-tour="user-menu"
           className="h-auto gap-2 px-2 py-1.5 text-foreground/60 hover:text-foreground"
         >
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 text-xs font-medium text-primary">
-            {initials}
-          </span>
+          {me?.avatarUrl && !imgFailed ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={me.avatarUrl}
+              alt=""
+              className="h-7 w-7 rounded-full object-cover"
+              onError={() => setImgFailed(true)}
+            />
+          ) : (
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 text-xs font-medium text-primary">
+              {initials}
+            </span>
+          )}
           <ChevronDown className="h-3.5 w-3.5" />
         </Button>
       </DropdownMenuTrigger>
@@ -47,7 +59,9 @@ export function UserMenu() {
           {user?.email}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => void router.push("/dashboard/account")}>
+        <DropdownMenuItem
+          onClick={() => void router.push("/dashboard/account")}
+        >
           <Settings className="h-4 w-4" />
           Minha Conta
         </DropdownMenuItem>
@@ -64,5 +78,5 @@ export function UserMenu() {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  )
+  );
 }

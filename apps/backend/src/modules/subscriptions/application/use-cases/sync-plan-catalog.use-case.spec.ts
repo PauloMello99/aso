@@ -65,7 +65,9 @@ jest.mock("../../domain/plan-catalog", () => {
   };
 });
 
-function buildPlan(overrides: Partial<BillingPlanEntity> = {}): BillingPlanEntity {
+function buildPlan(
+  overrides: Partial<BillingPlanEntity> = {},
+): BillingPlanEntity {
   return {
     id: "plan-1",
     key: "standard",
@@ -81,6 +83,8 @@ function buildPlan(overrides: Partial<BillingPlanEntity> = {}): BillingPlanEntit
     lookupKey: "ink-ops-standard-monthly",
     productKey: "ink-ops-standard",
     lastSyncedAt: new Date("2026-01-01T00:00:00Z"),
+    highlighted: false,
+    features: [],
     ...overrides,
   };
 }
@@ -237,7 +241,9 @@ describe("SyncPlanCatalogUseCase", () => {
       }),
     );
 
-    const statuses = report.results.map((r) => `${r.key}:${r.interval}=${r.status}`);
+    const statuses = report.results.map(
+      (r) => `${r.key}:${r.interval}=${r.status}`,
+    );
     expect(statuses).toEqual(
       expect.arrayContaining([
         "standard:monthly=created",
@@ -248,9 +254,14 @@ describe("SyncPlanCatalogUseCase", () => {
   });
 
   it("creates only the missing interval when the plan and one price already exist", async () => {
-    const plan = buildPlan({ key: "standard", stripeProductId: "prod_standard" });
+    const plan = buildPlan({
+      key: "standard",
+      stripeProductId: "prod_standard",
+    });
     const paymentGateway = buildFakePaymentGateway({
-      ensureProduct: jest.fn().mockResolvedValue({ productId: "prod_standard" }),
+      ensureProduct: jest
+        .fn()
+        .mockResolvedValue({ productId: "prod_standard" }),
       findPriceByLookupKey: jest.fn().mockResolvedValue(null),
       createPrice: jest.fn().mockResolvedValue({ priceId: "price_annual_new" }),
     });
@@ -261,17 +272,22 @@ describe("SyncPlanCatalogUseCase", () => {
       updateByKey: jest.fn().mockResolvedValue(plan),
       upsert: jest
         .fn()
-        .mockResolvedValue(buildPlan({ key: "pro", stripeProductId: "prod_pro" })),
+        .mockResolvedValue(
+          buildPlan({ key: "pro", stripeProductId: "prod_pro" }),
+        ),
     });
     const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo({
-      findActiveByPlanIdAndInterval: jest.fn((planId: string, interval: string) =>
-        Promise.resolve(
-          planId === "plan-1" && interval === "monthly"
-            ? buildPriceRow({ interval: "monthly" })
-            : null,
-        ),
+      findActiveByPlanIdAndInterval: jest.fn(
+        (planId: string, interval: string) =>
+          Promise.resolve(
+            planId === "plan-1" && interval === "monthly"
+              ? buildPriceRow({ interval: "monthly" })
+              : null,
+          ),
       ),
-      create: jest.fn().mockResolvedValue(buildPriceRow({ interval: "annual" })),
+      create: jest
+        .fn()
+        .mockResolvedValue(buildPriceRow({ interval: "annual" })),
     });
 
     const useCase = new SyncPlanCatalogUseCase(
@@ -284,7 +300,10 @@ describe("SyncPlanCatalogUseCase", () => {
     // Only the missing interval (annual) triggers createPrice/create for
     // "standard"; "monthly" already had an active row.
     expect(paymentGateway.createPrice).toHaveBeenCalledWith(
-      expect.objectContaining({ interval: "annual", lookupKey: "ink-ops-standard-annual" }),
+      expect.objectContaining({
+        interval: "annual",
+        lookupKey: "ink-ops-standard-annual",
+      }),
     );
     // NOTE: this also holds for "pro"'s monthly price, but only because
     // every buildPlan() in this file defaults to id "plan-1" — pro's upsert
@@ -318,12 +337,16 @@ describe("SyncPlanCatalogUseCase", () => {
       updateByKey: jest.fn().mockResolvedValue(plan),
       upsert: jest
         .fn()
-        .mockResolvedValue(buildPlan({ key: "standard", stripeProductId: "prod_standard" })),
+        .mockResolvedValue(
+          buildPlan({ key: "standard", stripeProductId: "prod_standard" }),
+        ),
     });
     const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo({
-      findActiveByPlanIdAndInterval: jest.fn().mockResolvedValue(
-        buildPriceRow({ interval: "monthly", amountCents: 80000 }),
-      ),
+      findActiveByPlanIdAndInterval: jest
+        .fn()
+        .mockResolvedValue(
+          buildPriceRow({ interval: "monthly", amountCents: 80000 }),
+        ),
       create: jest.fn().mockResolvedValue(buildPriceRow()),
     });
 
@@ -343,7 +366,10 @@ describe("SyncPlanCatalogUseCase", () => {
       (r) => r.key === "pro" && r.interval === "monthly",
     );
     expect(proResult).toEqual(
-      expect.objectContaining({ status: "unchanged", stripePriceId: "price_1" }),
+      expect.objectContaining({
+        status: "unchanged",
+        stripePriceId: "price_1",
+      }),
     );
   });
 
@@ -359,7 +385,9 @@ describe("SyncPlanCatalogUseCase", () => {
       updateByKey: jest.fn().mockResolvedValue(plan),
       upsert: jest
         .fn()
-        .mockResolvedValue(buildPlan({ key: "standard", stripeProductId: "prod_standard" })),
+        .mockResolvedValue(
+          buildPlan({ key: "standard", stripeProductId: "prod_standard" }),
+        ),
     });
     const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo({
       findActiveByPlanIdAndInterval: jest.fn().mockResolvedValue(
@@ -401,7 +429,9 @@ describe("SyncPlanCatalogUseCase", () => {
         return Promise.resolve({ productId: params.id });
       }),
       findPriceByLookupKey: jest.fn().mockResolvedValue(null),
-      createPrice: jest.fn().mockResolvedValue({ priceId: "price_pro_monthly" }),
+      createPrice: jest
+        .fn()
+        .mockResolvedValue({ priceId: "price_pro_monthly" }),
     });
     const billingPlanRepo = buildFakeBillingPlanRepo({
       findByKey: jest.fn((key: string) =>
@@ -425,7 +455,8 @@ describe("SyncPlanCatalogUseCase", () => {
       await useCase.execute();
     } catch (error) {
       expect(error).toBeInstanceOf(StripeCatalogSyncFailedException);
-      const syncError = error as StripeCatalogSyncFailedException<SyncPlanCatalogReport>;
+      const syncError =
+        error as StripeCatalogSyncFailedException<SyncPlanCatalogReport>;
       // "standard" has two prices in the fixture catalog: both must be
       // reported as failed, one row per (key, interval).
       const standardResults = syncError.report.results.filter(
@@ -464,7 +495,9 @@ describe("SyncPlanCatalogUseCase", () => {
       updateByKey: jest.fn().mockResolvedValue(plan),
       upsert: jest
         .fn()
-        .mockResolvedValue(buildPlan({ key: "standard", stripeProductId: "prod_standard" })),
+        .mockResolvedValue(
+          buildPlan({ key: "standard", stripeProductId: "prod_standard" }),
+        ),
     });
     const inactiveRow = buildPriceRow({
       interval: "monthly",

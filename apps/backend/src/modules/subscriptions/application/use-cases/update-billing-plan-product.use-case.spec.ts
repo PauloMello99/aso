@@ -10,8 +10,11 @@ import {
 import { AuditService } from "../../../audit/audit.service";
 import { BillingPlanNotFoundException } from "../../domain/exceptions/billing-plan-not-found.exception";
 import { InvalidBillingPlanUpdateException } from "../../domain/exceptions/invalid-billing-plan-update.exception";
+import { FrontendRevalidationClient } from "../../infrastructure/frontend-revalidation.client";
 
-function buildPlan(overrides: Partial<BillingPlanEntity> = {}): BillingPlanEntity {
+function buildPlan(
+  overrides: Partial<BillingPlanEntity> = {},
+): BillingPlanEntity {
   return {
     id: "plan-1",
     key: "standard-monthly",
@@ -27,6 +30,8 @@ function buildPlan(overrides: Partial<BillingPlanEntity> = {}): BillingPlanEntit
     lookupKey: "standard-monthly",
     productKey: "standard",
     lastSyncedAt: new Date("2026-01-01T00:00:00Z"),
+    highlighted: false,
+    features: [],
     ...overrides,
   };
 }
@@ -83,6 +88,12 @@ function buildFakeAuditService(): jest.Mocked<AuditService> {
   } as unknown as jest.Mocked<AuditService>;
 }
 
+function buildFakeRevalidationClient(): jest.Mocked<FrontendRevalidationClient> {
+  return {
+    revalidate: jest.fn(),
+  } as unknown as jest.Mocked<FrontendRevalidationClient>;
+}
+
 describe("UpdateBillingPlanProductUseCase", () => {
   it("throws BillingPlanNotFoundException when the plan doesn't exist and never calls the gateway", async () => {
     const billingPlanRepo = buildFakeBillingPlanRepo({
@@ -94,6 +105,7 @@ describe("UpdateBillingPlanProductUseCase", () => {
       billingPlanRepo,
       paymentGateway,
       buildFakeAuditService(),
+      buildFakeRevalidationClient(),
     );
 
     await expect(
@@ -114,6 +126,7 @@ describe("UpdateBillingPlanProductUseCase", () => {
       billingPlanRepo,
       paymentGateway,
       buildFakeAuditService(),
+      buildFakeRevalidationClient(),
     );
 
     await expect(
@@ -132,6 +145,7 @@ describe("UpdateBillingPlanProductUseCase", () => {
       billingPlanRepo,
       paymentGateway,
       buildFakeAuditService(),
+      buildFakeRevalidationClient(),
     );
 
     await expect(
@@ -150,6 +164,7 @@ describe("UpdateBillingPlanProductUseCase", () => {
       billingPlanRepo,
       paymentGateway,
       buildFakeAuditService(),
+      buildFakeRevalidationClient(),
     );
 
     await expect(
@@ -170,6 +185,7 @@ describe("UpdateBillingPlanProductUseCase", () => {
       billingPlanRepo,
       paymentGateway,
       buildFakeAuditService(),
+      buildFakeRevalidationClient(),
     );
 
     await expect(
@@ -202,11 +218,13 @@ describe("UpdateBillingPlanProductUseCase", () => {
       updateProduct: jest.fn().mockResolvedValue(gatewayResult),
     });
     const auditService = buildFakeAuditService();
+    const revalidationClient = buildFakeRevalidationClient();
 
     const useCase = new UpdateBillingPlanProductUseCase(
       billingPlanRepo,
       paymentGateway,
       auditService,
+      revalidationClient,
     );
 
     const params = {
@@ -218,10 +236,7 @@ describe("UpdateBillingPlanProductUseCase", () => {
 
     await useCase.execute("standard-monthly", params, "auth-1");
 
-    expect(paymentGateway.updateProduct).toHaveBeenCalledWith(
-      "prod_1",
-      params,
-    );
+    expect(paymentGateway.updateProduct).toHaveBeenCalledWith("prod_1", params);
     expect(billingPlanRepo.updateByKey).toHaveBeenCalledWith(
       "standard-monthly",
       {
@@ -248,5 +263,109 @@ describe("UpdateBillingPlanProductUseCase", () => {
         }),
       }),
     );
+    expect(revalidationClient.revalidate).toHaveBeenCalledWith("/");
+  });
+
+  it("includes highlighted alongside Stripe-updated fields and calls both updateProduct and revalidate", async () => {
+    const plan = buildPlan();
+    const gatewayResult: GatewayProduct = {
+      productId: "prod_1",
+      name: "New name",
+      description: plan.description,
+      metadata: plan.metadata,
+      active: plan.active,
+    };
+    const billingPlanRepo = buildFakeBillingPlanRepo({
+      findByKey: jest.fn().mockResolvedValue(plan),
+      updateByKey: jest.fn().mockResolvedValue(
+        buildPlan({ name: gatewayResult.name, highlighted: true }),
+      ),
+    });
+    const paymentGateway = buildFakePaymentGateway({
+      updateProduct: jest.fn().mockResolvedValue(gatewayResult),
+    });
+    const auditService = buildFakeAuditService();
+    const revalidationClient = buildFakeRevalidationClient();
+
+    const useCase = new UpdateBillingPlanProductUseCase(
+      billingPlanRepo,
+      paymentGateway,
+      auditService,
+      revalidationClient,
+    );
+
+    await useCase.execute(
+      "standard-monthly",
+      { name: "New name", highlighted: true },
+      "auth-1",
+    );
+
+    expect(paymentGateway.updateProduct).toHaveBeenCalledWith("prod_1", {
+      name: "New name",
+    });
+    expect(billingPlanRepo.updateByKey).toHaveBeenCalledWith(
+      "standard-monthly",
+      expect.objectContaining({
+        name: gatewayResult.name,
+        highlighted: true,
+      }),
+    );
+    expect(revalidationClient.revalidate).toHaveBeenCalledWith("/");
+  });
+
+  it("persists highlighted/features locally without calling the Stripe gateway when no Stripe field is informed", async () => {
+    const plan = buildPlan();
+    const billingPlanRepo = buildFakeBillingPlanRepo({
+      findByKey: jest.fn().mockResolvedValue(plan),
+      updateByKey: jest.fn().mockResolvedValue(
+        buildPlan({ highlighted: true, features: ["Feature A"] }),
+      ),
+    });
+    const paymentGateway = buildFakePaymentGateway();
+    const auditService = buildFakeAuditService();
+    const revalidationClient = buildFakeRevalidationClient();
+
+    const useCase = new UpdateBillingPlanProductUseCase(
+      billingPlanRepo,
+      paymentGateway,
+      auditService,
+      revalidationClient,
+    );
+
+    await useCase.execute(
+      "standard-monthly",
+      { highlighted: true, features: ["Feature A"] },
+      "auth-1",
+    );
+
+    expect(paymentGateway.updateProduct).not.toHaveBeenCalled();
+    expect(billingPlanRepo.updateByKey).toHaveBeenCalledWith(
+      "standard-monthly",
+      { highlighted: true, features: ["Feature A"] },
+    );
+    expect(revalidationClient.revalidate).toHaveBeenCalledWith("/");
+  });
+
+  it("does not call revalidate when local persistence fails", async () => {
+    const plan = buildPlan();
+    const billingPlanRepo = buildFakeBillingPlanRepo({
+      findByKey: jest.fn().mockResolvedValue(plan),
+      updateByKey: jest.fn().mockRejectedValue(new Error("db down")),
+    });
+    const paymentGateway = buildFakePaymentGateway();
+    const auditService = buildFakeAuditService();
+    const revalidationClient = buildFakeRevalidationClient();
+
+    const useCase = new UpdateBillingPlanProductUseCase(
+      billingPlanRepo,
+      paymentGateway,
+      auditService,
+      revalidationClient,
+    );
+
+    await expect(
+      useCase.execute("standard-monthly", { highlighted: true }, "auth-1"),
+    ).rejects.toThrow("db down");
+    expect(revalidationClient.revalidate).not.toHaveBeenCalled();
   });
 });

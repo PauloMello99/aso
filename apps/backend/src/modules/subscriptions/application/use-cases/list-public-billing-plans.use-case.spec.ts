@@ -8,7 +8,9 @@ import type {
   IBillingPlanPriceRepository,
 } from "../../domain/billing-plan-price.repository.interface";
 
-function makePlan(overrides: Partial<BillingPlanEntity> = {}): BillingPlanEntity {
+function makePlan(
+  overrides: Partial<BillingPlanEntity> = {},
+): BillingPlanEntity {
   return {
     id: "plan-1",
     key: "pro",
@@ -24,6 +26,8 @@ function makePlan(overrides: Partial<BillingPlanEntity> = {}): BillingPlanEntity
     lookupKey: "pro-monthly",
     productKey: "pro-product",
     lastSyncedAt: new Date("2026-01-01T00:00:00Z"),
+    highlighted: false,
+    features: [],
     ...overrides,
   };
 }

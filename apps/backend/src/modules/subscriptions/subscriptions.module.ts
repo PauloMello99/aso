@@ -21,6 +21,7 @@ import { ListBillingPlansUseCase } from "./application/use-cases/list-billing-pl
 import { ListPublicBillingPlansUseCase } from "./application/use-cases/list-public-billing-plans.use-case";
 import { UpdateBillingPlanProductUseCase } from "./application/use-cases/update-billing-plan-product.use-case";
 import { RotatePlanIntervalPriceUseCase } from "./application/use-cases/rotate-plan-interval-price.use-case";
+import { PlanPriceLinkageService } from "./application/plan-price-linkage.service";
 import { UpsertPlanIntervalPriceUseCase } from "./application/use-cases/upsert-plan-interval-price.use-case";
 import { SetPlanIntervalActiveUseCase } from "./application/use-cases/set-plan-interval-active.use-case";
 import { MigrateSubscribersToPriceUseCase } from "./application/use-cases/migrate-subscribers-to-price.use-case";
@@ -69,6 +70,7 @@ import { PublicBillingFeatureFlagGuard } from "./interface/public-billing-featur
     ListPublicBillingPlansUseCase,
     UpdateBillingPlanProductUseCase,
     RotatePlanIntervalPriceUseCase,
+    PlanPriceLinkageService,
     UpsertPlanIntervalPriceUseCase,
     SetPlanIntervalActiveUseCase,
     MigrateSubscribersToPriceUseCase,

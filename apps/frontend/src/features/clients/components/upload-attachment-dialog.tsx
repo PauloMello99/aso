@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { FileText, Loader2 } from "lucide-react"
+import { useEffect, useState } from "react";
+import { FileText, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -9,23 +9,29 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/shared/components/ui/dialog"
-import { Button } from "@/shared/components/ui/button"
-import { Input } from "@/shared/components/ui/input"
-import { Label } from "@/shared/components/ui/label"
-import { splitFileName } from "@/shared/lib/file-name"
+} from "@/shared/components/ui/dialog";
+import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import { ImageCropper } from "@/shared/components/image-cropper";
+import { splitFileName } from "@/shared/lib/file-name";
+import {
+  type CropRect,
+  isCompressibleImage,
+} from "@/shared/lib/image-compression";
+import { cropAndCompressImage } from "@/shared/lib/image-crop";
 
 interface UploadAttachmentDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  file: File | null
-  onConfirm: (file: File, baseName?: string) => Promise<void>
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  file: File | null;
+  onConfirm: (file: File, baseName?: string) => Promise<void>;
 }
 
 function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export function UploadAttachmentDialog({
@@ -34,52 +40,70 @@ export function UploadAttachmentDialog({
   file,
   onConfirm,
 }: UploadAttachmentDialogProps) {
-  const [baseName, setBaseName] = useState("")
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [baseName, setBaseName] = useState("");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [crop, setCrop] = useState<CropRect | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const isImage = file?.type.startsWith("image/") ?? false
-  const ext = file ? splitFileName(file.name).ext : ""
+  const isImage = file?.type.startsWith("image/") ?? false;
+  const compressible = file ? isCompressibleImage(file.type) : false;
+  const ext = file ? splitFileName(file.name).ext : "";
 
   useEffect(() => {
     if (open && file) {
-      setBaseName(splitFileName(file.name).base)
-      setError(null)
+      setBaseName(splitFileName(file.name).base);
+      setError(null);
+      setCrop(null);
     }
-  }, [open, file])
+  }, [open, file]);
 
   useEffect(() => {
-    if (!open || !file || !isImage) {
-      setPreviewUrl(null)
-      return
+    if (!open || !file || !isImage || compressible) {
+      setPreviewUrl(null);
+      return;
     }
-    const url = URL.createObjectURL(file)
-    setPreviewUrl(url)
-    return () => URL.revokeObjectURL(url)
-  }, [open, file, isImage])
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [open, file, isImage, compressible]);
 
   async function handleSubmit() {
-    if (!file) return
-    setUploading(true)
-    setError(null)
+    if (!file) return;
+    setUploading(true);
+    setError(null);
     try {
-      await onConfirm(file, baseName)
-      onOpenChange(false)
+      if (compressible && crop) {
+        const processed = await cropAndCompressImage(file, {
+          crop,
+          maxDimension: 1600,
+          maxBytes: 10 * 1024 * 1024,
+        });
+        await onConfirm(processed, baseName);
+      } else {
+        await onConfirm(file, baseName);
+      }
+      onOpenChange(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha no envio.")
+      if (
+        err instanceof Error &&
+        err.message.includes("current file type is")
+      ) {
+        setError(
+          "Formato de arquivo não suportado. Envie PNG, JPG, WEBP, GIF ou PDF.",
+        );
+      } else {
+        setError(err instanceof Error ? err.message : "Falha no envio.");
+      }
     } finally {
-      setUploading(false)
+      setUploading(false);
     }
   }
 
-  if (!file) return null
+  if (!file) return null;
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => !uploading && onOpenChange(o)}
-    >
+    <Dialog open={open} onOpenChange={(o) => !uploading && onOpenChange(o)}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Enviar anexo</DialogTitle>
@@ -88,21 +112,25 @@ export function UploadAttachmentDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex h-32 items-center justify-center overflow-hidden rounded-lg border border-foreground/[0.06] bg-foreground/[0.02]">
-          {previewUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={previewUrl}
-              alt={file.name}
-              className="h-full w-full object-contain"
-            />
-          ) : (
-            <div className="flex flex-col items-center gap-1.5 text-foreground/40">
-              <FileText className="h-6 w-6" />
-              <span className="text-xs">{formatBytes(file.size)}</span>
-            </div>
-          )}
-        </div>
+        {isImage && compressible ? (
+          <ImageCropper file={file} aspect={null} onCropChange={setCrop} />
+        ) : (
+          <div className="flex h-32 items-center justify-center overflow-hidden rounded-lg border border-foreground/[0.06] bg-foreground/[0.02]">
+            {previewUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={previewUrl}
+                alt={file.name}
+                className="h-full w-full object-contain"
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-1.5 text-foreground/40">
+                <FileText className="h-6 w-6" />
+                <span className="text-xs">{formatBytes(file.size)}</span>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="space-y-1.5">
           <Label htmlFor="upload-attachment-name">Nome</Label>
@@ -116,15 +144,13 @@ export function UploadAttachmentDialog({
               className="flex-1"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  e.preventDefault()
-                  void handleSubmit()
+                  e.preventDefault();
+                  void handleSubmit();
                 }
               }}
             />
             {ext && (
-              <span className="shrink-0 text-sm text-foreground/40">
-                {ext}
-              </span>
+              <span className="shrink-0 text-sm text-foreground/40">{ext}</span>
             )}
           </div>
           {error && <p className="text-xs text-destructive">{error}</p>}
@@ -142,5 +168,5 @@ export function UploadAttachmentDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
