@@ -49,12 +49,14 @@ export function SendAnamnesisInviteDialog({
   const [serviceTypeId, setServiceTypeId] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
+  const [resent, setResent] = useState(false)
 
   useEffect(() => {
     if (open) {
       setServiceTypeId(fixedServiceTypeId ?? "")
       setError(null)
       setSent(false)
+      setResent(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
@@ -63,7 +65,8 @@ export function SendAnamnesisInviteDialog({
     if (!serviceTypeId) return
     setError(null)
     try {
-      await sendInvite({ customerId, serviceTypeId })
+      const result = await sendInvite({ customerId, serviceTypeId })
+      setResent(result.resent)
       setSent(true)
     } catch (err) {
       setError(sendAnamnesisInviteErrorMessage(err))
@@ -78,10 +81,12 @@ export function SendAnamnesisInviteDialog({
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <MailCheck className="h-5 w-5 text-success" />
-                Ficha enviada
+                {resent ? "Ficha reenviada" : "Ficha enviada"}
               </DialogTitle>
               <DialogDescription>
-                Ficha enviada por e-mail para {customerName}.
+                {resent
+                  ? `Reenviamos o mesmo link pendente para ${customerName}.`
+                  : `Ficha enviada por e-mail para ${customerName}.`}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>

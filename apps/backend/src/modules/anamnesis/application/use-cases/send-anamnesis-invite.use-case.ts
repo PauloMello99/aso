@@ -7,6 +7,7 @@ import {
 import type { AnamnesisResponseEntity } from "../../domain/anamnesis-response.entity";
 import { AnamnesisFormNotConfiguredException } from "../../domain/exceptions/anamnesis-form-not-configured.exception";
 import { AnamnesisInviteEmailFailedException } from "../../domain/exceptions/anamnesis-invite-email-failed.exception";
+import { AnamnesisAlreadyAnsweredCurrentVersionException } from "../../domain/exceptions/anamnesis-already-answered-current-version.exception";
 import { GetCurrentAnamnesisFormVersionUseCase } from "./get-current-anamnesis-form-version.use-case";
 import {
   ICustomerRepository,
@@ -31,6 +32,7 @@ export interface SendAnamnesisInviteInput {
 export interface SendAnamnesisInviteResult {
   response: AnamnesisResponseEntity;
   fillUrl: string;
+  resent: boolean;
 }
 
 @Injectable()
@@ -73,20 +75,49 @@ export class SendAnamnesisInviteUseCase {
       throw new AnamnesisFormNotConfiguredException(input.serviceTypeId);
     }
 
-    await this.responseRepo.deletePendingFor(
+    const answered = await this.responseRepo.findSubmittedForVersion(
+      input.customerId,
+      version.id,
+      input.orgId,
+    );
+    if (answered) {
+      throw new AnamnesisAlreadyAnsweredCurrentVersionException(
+        answered.id,
+        answered.submittedAt,
+      );
+    }
+
+    const pending = await this.responseRepo.findPendingFor(
       input.customerId,
       input.serviceTypeId,
       input.orgId,
     );
 
-    const response = await this.responseRepo.create({
-      orgId: input.orgId,
-      formVersionId: version.id,
-      serviceTypeId: input.serviceTypeId,
-      customerId: input.customerId,
-      questionsSnapshot: version.questions,
-      createdBy: userId,
-    });
+    let response: AnamnesisResponseEntity;
+    let createdNew: boolean;
+
+    if (pending && !pending.isExpired && pending.formVersionId === version.id) {
+      // Reenvio: reutiliza o convite pendente vigente (mesmo token), sem
+      // estender o prazo de expiração.
+      response = pending;
+      createdNew = false;
+    } else {
+      await this.responseRepo.deletePendingFor(
+        input.customerId,
+        input.serviceTypeId,
+        input.orgId,
+      );
+
+      response = await this.responseRepo.create({
+        orgId: input.orgId,
+        formVersionId: version.id,
+        serviceTypeId: input.serviceTypeId,
+        customerId: input.customerId,
+        questionsSnapshot: version.questions,
+        createdBy: userId,
+      });
+      createdNew = true;
+    }
 
     const frontendUrl = this.config.get<string>(
       "FRONTEND_URL",
@@ -101,11 +132,13 @@ export class SendAnamnesisInviteUseCase {
         fillUrl,
       });
     } catch (err) {
-      await this.compensate(response.id);
+      if (createdNew) {
+        await this.compensate(response.id);
+      }
       this.logger.error(
-        `Falha ao enviar link de anamnese p/ ${customer.email}; resposta revertida: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
+        `Falha ao enviar link de anamnese (response ${response.id}, customer ${input.customerId}); ${
+          createdNew ? "resposta revertida" : "convite pendente preexistente preservado"
+        }: ${err instanceof Error ? err.message : String(err)}`,
       );
       throw new AnamnesisInviteEmailFailedException(customer.email);
     }
@@ -113,13 +146,13 @@ export class SendAnamnesisInviteUseCase {
     await this.auditService.log({
       actorId: userId,
       orgId: input.orgId,
-      action: "anamnesis_invite_sent",
+      action: createdNew ? "anamnesis_invite_sent" : "anamnesis_invite_resent",
       entityType: "anamnesis_response",
       entityId: response.id,
       metadata: { customerId: input.customerId, serviceTypeId: input.serviceTypeId },
     });
 
-    return { response, fillUrl };
+    return { response, fillUrl, resent: !createdNew };
   }
 
   private async compensate(responseId: string): Promise<void> {

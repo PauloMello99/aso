@@ -987,6 +987,66 @@ anamnesis_response_id IS NOT NULL`): `assertAnamnesisResponseLinkable` faz o
 - **F10 está completo**: M10a (construtor+versionamento) + M10b (link público+submissão)
   - M10c (assinatura) cobrem o fluxo inteiro de ficha de anamnese.
 
+### M10d — Gate de versão vigente, reenvio inteligente e envio de cópia por e-mail (2026-08-22/23)
+
+- **Gate de já-respondida é escopado por VERSÃO VIGENTE, não por vínculo com serviço.**
+  `SendAnamnesisInviteUseCase` chama `findSubmittedForVersion(customerId, formVersionId,
+  orgId)` — **diferente** de `findLinkable` (que exclui respostas já vinculadas a um
+  `service` via `notExists`). Uma resposta `submitted` já vinculada a um serviço CONTINUA
+  contando como "já respondida" para este gate: publicar uma nova versão do formulário é o
+  único jeito de reabrir o envio (coerente com ADR-0020). A checagem roda ANTES de qualquer
+  lookup de convite pendente — um cliente com `submitted` da versão vigente E um pendente
+  órfão qualquer sempre recebe 409 (`ANAMNESIS_ALREADY_ANSWERED_CURRENT_VERSION`), nunca cai
+  no caminho de reenvio.
+- **Reenvio REUTILIZA o convite pendente existente** (mesmo token/link) em vez do padrão
+  anterior de sempre `deletePendingFor` + criar — só quando `!pending.isExpired` E
+  `pending.formVersionId === version.id` (versão antiga não reutiliza: `questionsSnapshot`
+  é congelado na criação, reusar reenviaria formulário desatualizado). **Decisão de produto
+  confirmada**: o reenvio NÃO estende `expiresAt` — um convite reenviado perto do vencimento
+  continua expirando no prazo original. Flag `createdNew` controla a compensação de falha de
+  e-mail: só apaga a resposta se ela foi CRIADA nesta chamada, nunca um pendente
+  PREEXISTENTE reaproveitado. Audit action `anamnesis_invite_sent` (criação) vs.
+  `anamnesis_invite_resent` (reuso) — ambos valores de `audit_action` adicionados na
+  migration `0055_audit_action_anamnesis_resend_copy` (renumerada de 0054 no meio do
+  trabalho por colisão com `0054_billing_plans_presentation_fields`, que chegou de um merge
+  concorrente — checar sempre `db:status` antes de assumir o próximo número livre quando
+  há trabalho em paralelo).
+- **`findSubmittedForVersion`/`findPendingFor` usam `this.db` (DRIZZLE normal, RLS válido
+  via sessão), não `this.admin`** — ao contrário dos métodos vizinhos do mesmo repositório
+  (`deletePendingFor`, `findByToken`, `markSubmitted`, `linkCustomer`) que usam admin por
+  motivos próprios (fluxo público sem sessão, ou policy sem UPDATE/DELETE). Não copiar
+  `this.admin` "porque os vizinhos usam" — cada método do repositório escolhe a conexão pela
+  própria necessidade de RLS, não por convenção do arquivo.
+- **Envio de cópia por e-mail (`SendAnamnesisResponseCopyUseCase`, endpoint `POST
+  /orgs/:orgId/anamnesis-responses/:id/send-copy`) NUNCA regenera o PDF** — sempre a mesma
+  signed URL do artefato já gerado no submit (`pdf_storage_path`), TTL 604800s (7 dias),
+  mesmo valor usado em `submit-anamnesis-response.use-case.ts` (paridade deliberada, não
+  reduzir só neste ponto sem reduzir os dois juntos). **Decisão de produto confirmada**: o
+  e-mail vai sempre para o endereço JÁ CADASTRADO do cliente (`customer.email`), nunca um
+  destinatário digitado na hora — evita vazar PII de saúde para endereço não verificado. O
+  download autenticado pelo profissional (botão "Abrir PDF" no viewer) já cobria o caso
+  "quero consultar agora"; este endpoint cobre "quero que o CLIENTE receba".
+- **"Notificar quem solicitou" (requisito de produto) foi resolvido como erro 409 síncrono**,
+  não notificação in-app persistida — decisão confirmada com o usuário. O envio de convite
+  só tem um chamador (ação manual na tela), então o 409 já é o aviso; se surgir um remetente
+  assíncrono no futuro (cron, fila), aí sim vale integrar `NotificationService` (exigiria
+  migration no enum `notification_type`, hoje não usado no módulo `anamnesis`).
+- **GOTCHA de PII em log**: nunca interpolar `customer.email` em mensagens de log de falha
+  de envio — só `response.id`/`customerId`. Mesma regra já valia para `submit-anamnesis-response.use-case.ts`
+  (seção M10c acima); replicada aqui em `send-anamnesis-invite.use-case.ts` e
+  `send-anamnesis-response-copy.use-case.ts`.
+- **Débitos conhecidos, não bloqueantes** (aceitos nesta fatia, achados por
+  `database-guardian`/`reviewer`): (a) `compensate()` em `send-anamnesis-invite.use-case.ts`
+  chama `delete` via `this.admin` sobre uma linha ainda não commitada por `this.db` — o
+  DELETE casa zero linhas, mas o `ROLLBACK` da transação do request já desfaz o INSERT
+  corretamente, então não há corrupção, só código morto; (b) sem índice
+  `(org_id, customer_id, status)` em `anamnesis_responses` — as leituras novas fazem seq
+  scan, aceitável no volume atual; (c) `AnamnesisDocumentUnavailableException` (422) cobre
+  tanto "PDF nunca existiu" quanto "falha de infra ao gerar signed URL" — um 502 distinto
+  para o segundo caso ficou pendente; (d) sem unique index parcial `WHERE status='pending'`
+  em `(org_id, customer_id, service_type_id)` — duas requisições de reenvio simultâneas
+  ainda podem, em tese, criar 2 pendentes (pré-existente, janela só diminuiu com esta fatia).
+
 ### Conformidade legal — LGPD Tier 1 (2026-07-27, ADR-0018)
 
 - **Divisão controlador/operador**: para conta/billing/telemetria de usuário da plataforma,

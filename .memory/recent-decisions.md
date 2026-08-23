@@ -122,3 +122,25 @@
   `image-compression.ts`), fix de `jest.config.js rootDir` no Windows com worktree em path
   com segmento `.claude`. Validado pós-merge: check-types + lint + test (102/102 suites
   backend, 610 testes; 34/34 frontend, 279 testes) + build, tudo verde. Sem push.
+- **2026-08-22/23 — M10d: gate de versão vigente + reenvio inteligente + envio de cópia por
+  e-mail da ficha de anamnese** (feature nova, via skill `development-workflow`, classificada
+  complexa). Migration `0055_audit_action_anamnesis_resend_copy` (2 valores novos de
+  `audit_action`; renumerada de 0054 no meio do trabalho por colisão com
+  `0054_billing_plans_presentation_fields`, que chegou de um merge concorrente de
+  `development` para dentro desta branch). `SendAnamnesisInviteUseCase` reescrito: bloqueia
+  com 409 quando o cliente já respondeu a versão vigente (`findSubmittedForVersion`,
+  independente de vínculo com serviço) e reutiliza convite pendente não expirado da mesma
+  versão em vez de sempre deletar+recriar (sem estender `expiresAt`). Novo
+  `SendAnamnesisResponseCopyUseCase` (`POST /orgs/:orgId/anamnesis-responses/:id/send-copy`)
+  envia por e-mail, ao endereço cadastrado do cliente, a signed URL do PDF já gerado no
+  submit (nunca regenera). 3 decisões de produto confirmadas com o usuário: "notificar quem
+  solicitou" = erro 409 síncrono (sem notificação in-app); reenvio não estende validade;
+  PDF só para e-mail cadastrado (sem destinatário arbitrário). `database-guardian`
+  (`approved_with_notes`, 3 achados low) e `reviewer` (`approved_with_notes`, 2 achados
+  medium — PII de e-mail em log, estado obsoleto de sucesso/erro no viewer entre fichas
+  diferentes — e vários low) revisaram; os 2 medium + 2 low baratos (throttle assimétrico,
+  mapper de erro sem `SUBSCRIPTION_REQUIRED`) foram corrigidos numa segunda rodada. Detalhe
+  técnico completo em `domain-rules.md`, seção "M10d". Validado: check-types + lint + test
+  (104/104 suites backend, 628 testes; 36/36 frontend, 292 testes) + build, tudo verde.
+  Branch `features/continuar-progresso-de1de1`, sem commit ainda (aguardando pedido do
+  usuário).

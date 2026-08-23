@@ -21,7 +21,9 @@ export type AuditAction =
   | "customer_self_registration_invite_sent"
   | "customer_self_registered"
   | "customer_update_invite_sent"
-  | "customer_self_updated";
+  | "customer_self_updated"
+  | "anamnesis_invite_resent"
+  | "anamnesis_copy_sent";
 
 export interface AuditEntry {
   actorId: string | null;

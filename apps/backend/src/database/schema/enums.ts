@@ -98,6 +98,8 @@ export const auditActionEnum = pgEnum("audit_action", [
   "customer_self_registered",
   "customer_update_invite_sent",
   "customer_self_updated",
+  "anamnesis_invite_resent",
+  "anamnesis_copy_sent",
 ]);
 
 export const anamnesisResponseStatusEnum = pgEnum(
