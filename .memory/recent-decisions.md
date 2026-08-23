@@ -85,6 +85,25 @@
   `features/anamnesis/index.ts` (reuso cross-feature). `reviewer`: `approved_with_notes`.
   Commit `4c7f308` na branch `worktree-p2-fatia3-customer-self-service-frontend`, mergeada
   em `development`.
+- **2026-08-20 — P-2 fechada (pendências menores) + gotcha novo de post-commit hooks no
+  audit log**: 3 achados `low` do `reviewer` na fatia 3/4 resolvidos em `3cc1e15`
+  (`fetchAddressByCep` duplicado entre `features/clients` e `features/customer-self-service`
+  promovido a `shared/lib/viacep.ts`; hint no Select de gênero explicando que o valor atual
+  é preservado se o campo não for tocado; 4º estado `error` em `public-lookup-state.ts`
+  distinguindo falha de transporte de token de fato inválido). Em paralelo, `f48e611`
+  corrigiu um risco generalizável identificado a partir do fix de P-1 (SAVEPOINT): efeitos
+  colaterais não-transacionais (como o INSERT do audit log via `DRIZZLE_ADMIN`, autocommit)
+  que rodassem durante a transação do request podiam persistir mesmo se o COMMIT real
+  falhasse depois. `database.module.ts` ganhou `postCommitHooks`/`registerPostCommit(fn)`:
+  dentro de um request, o efeito só roda **depois** do `COMMIT` ter sucesso; `AuditService.log`
+  passou a usar isso. `database-guardian` achou uma regressão real na revisão: `DeleteOrgUseCase`
+  logava com o `orgId` da org que a mesma transação apagava — pós-commit a FK
+  `audit_logs.org_id → organizations.id` rejeitava o INSERT (engolido pelo catch);
+  corrigido gravando `orgId: null` + id no `metadata`/`entityId`. Gotcha completo (incluindo
+  a armadilha de `rlsStorage.getStore()` vazio dentro do hook) em `domain-rules.md`, seção
+  RLS. Sem ADR novo — extensão direta do padrão SAVEPOINT do fix de P-1, não uma decisão
+  arquitetural nova. Com isso, **P-2 está integralmente concluída e mergeada em `main`**
+  (via `staging`/`development`, PRs #59/#60).
 - **2026-08-21 — Merge `features/dev-workflow-issues-d28237` → `development` finalizado**
   (commit `53b0af9`, checkout principal `C:/Repos/Pessoal/aso`). Estava parado com 2
   conflitos: `.memory/domain-rules.md` (3 blocos, todos inserção lado a lado sem
