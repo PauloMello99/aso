@@ -95,6 +95,7 @@ export function Pricing({ plans }: PricingProps) {
             <div
               className={cn(
                 "grid grid-cols-1 gap-6",
+                plans.length === 1 && "max-w-md mx-auto",
                 plans.length === 2 && "md:grid-cols-2",
                 plans.length >= 3 && "md:grid-cols-3",
               )}
