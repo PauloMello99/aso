@@ -61,7 +61,7 @@ export function SignaturePadField({
         width={400}
         height={150}
         className={cn(
-          "max-w-full touch-none rounded-md border border-foreground/[0.08] bg-foreground/[0.04]",
+          "max-w-full touch-none rounded-md border border-foreground/[0.08] bg-white",
           error && "border-destructive",
         )}
       />
