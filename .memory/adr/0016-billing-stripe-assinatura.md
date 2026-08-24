@@ -173,6 +173,32 @@ coluna de lock): o pior caso falha a favor do cliente (trial extra, nunca cobran
 perda de acesso), e é uma corrida de segundos entre dois checkouts simultâneos da mesma org
 — cenário raro o suficiente para não justificar a complexidade de um mecanismo novo.
 
+## Addendum (2026-08-24): fluxo de trial verificado ponta a ponta contra Stripe real
+
+Investigando um relato de que "o fluxo de assinar não permite usar os 60 dias de trial",
+rodei o fluxo completo contra uma conta nova, sem mocks: `POST /auth/sign-up` → `POST /orgs`
+→ `POST /orgs/:orgId/subscription/checkout` → completar o Stripe Checkout hospedado com
+cartão de teste `4242...`. Resultado: `grantTrial` calculou `true` (org nova, `trialEndsAt`
+null, `trialConsumed` false), a Checkout Session veio com `amount_total: 0` e "60 days free",
+e a subscription criada no Stripe ficou com `status: "trialing"` e `trial_end - trial_start`
+= exatamente 5184000s (60 dias). **Nenhum bug encontrado** — a lógica descrita no addendum de
+2026-08-17 acima está correta e o relato original provavelmente antecede aquela correção.
+
+**Gotcha de ambiente local descoberto no processo**: `SyncPlanCatalogUseCase` (boot) só
+verifica o **Product** no Stripe quando já existe uma linha ativa em `billing_plan_prices`
+para o (plano, intervalo) — nunca revalida o `stripe_price_id` guardado. Se a
+`STRIPE_SECRET_KEY` do `.env` for trocada para uma conta Stripe diferente (rotação de chave
+para a conta errada, por exemplo), o app sobe sem erro nenhum e só quebra depois, no
+`createCheckoutSession`, com `No such price: '...'`. `ReconcilePlanCatalogUseCase` (cron,
+"Stripe manda") eventualmente detecta e desativa a linha local (`active: false`), mas **não
+recria** a linha ativa automaticamente — isso exige uma ação explícita de admin
+(`POST /admin/billing/plans/:key/prices`, problema 4), o que pode falhar com "already uses
+that lookup key" se já existir um Price com aquele `lookup_key` na conta nova (nesse caso o
+certo é adotar o Price existente via `GET /v1/prices?lookup_keys[]=...` e escrever direto na
+linha, não tentar criar um novo). Vale conferir sempre, ao trocar `STRIPE_SECRET_KEY`
+localmente, se o `stripe config --list` do Stripe CLI (`acct_id`) bate com a conta da nova
+chave — divergência silenciosa aqui custou a maior parte do tempo de debug desta sessão.
+
 ## Relacionado
 
 - Larmony `.memory/adr/0026-billing-stripe-entitlements.md` — mecanismo original
