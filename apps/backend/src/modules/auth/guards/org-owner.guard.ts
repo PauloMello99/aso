@@ -11,6 +11,7 @@ import { DRIZZLE_ADMIN, type DrizzleDB } from "../../../database/database.module
 import * as schema from "../../../database/schema";
 import { isSuperAdmin } from "../../../common/auth/is-super-admin";
 import { AuthUser } from "../application/ports/auth-provider.interface";
+import type { RequestWithActingContext } from "../../../common/request-context/acting-context";
 
 @Injectable()
 export class OrgOwnerGuard implements CanActivate {
@@ -46,7 +47,10 @@ export class OrgOwnerGuard implements CanActivate {
       .limit(1);
 
     if (!row) {
-      if (await isSuperAdmin(this.db, user.id)) return true;
+      if (await isSuperAdmin(this.db, user.id)) {
+        (request as RequestWithActingContext).actingAsSuperAdmin = true;
+        return true;
+      }
       throw new ForbiddenException(
         "Only organization owners can access this resource",
       );

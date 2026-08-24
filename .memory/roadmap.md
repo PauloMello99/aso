@@ -215,9 +215,22 @@ Visibilidade por funcionário ("só vê o que é dele; owner vê tudo + lança e
   Semestral R$2000/Anual R$4200/Customizado); **acesso à org só após billing configurado**;
   **grace period configurável** após inadimplência. Hoje não implementado (onboarding não
   exige billing). Mesmo escopo do BL-2 — priorizar quando o produto for confirmado.
-- **PLAT-3 — Auditoria de ações** · _Planejar (alinhar)_
-  Doc exige log de **quem / o quê / quando / qual org / quais alterações**. Não há trilha de
-  auditoria. Importante para compliance e suporte.
+- **PLAT-3 — Auditoria de ações** · _Fatia inicial ✅ done (2026-08-24); trilha genérica pendente_
+  Doc exige log de **quem / o quê / quando / qual org / quais alterações**. Priorizado após
+  investigação do problema "super_admin com acesso total à org" (2026-08-24): o ADR-0013 já
+  cobria o mecanismo de acesso (`super_admin` age como owner no caminho de miss de membership),
+  mas declarava a auditoria dessas ações como pendente — sem trilha de quem/o quê/quando quando
+  é um super_admin, não o owner real, executando a ação.
+  **Fatia inicial implementada**: `audit_logs.metadata.viaSuperAdmin: true` quando a autorização
+  veio da síntese de `isSuperAdmin()` (ADR-0013 addendum 2026-08-24 tem a arquitetura completa —
+  `AsyncLocalStorage` próprio, escrita nos 4 pontos de síntese em repositório + 3 guards, leitura
+  só em `AuditService.log()`, sem migration). Badge "via super_admin" no painel `/admin/audit-logs`.
+  Verificado end-to-end contra o banco local (super_admin sem membership editando uma org gravou
+  a chave corretamente). 109 suites/654 testes do backend passando.
+  **Pendente (próxima iteração)**: (1) trilha de auditoria genérica pra TODA mutação do sistema,
+  não só as via síntese de super_admin — esta fatia só cobre o caso específico do ADR-0013; (2)
+  promover `viaSuperAdmin` a coluna dedicada + índice se/quando o painel precisar filtrar por
+  esse campo (decisão adiada deliberadamente, registrada no ADR-0013).
 - **PLAT-4 — Onboarding self-service com billing** · _Planejar (alinhar)_
   Fluxo único do doc: `Cadastro → Criar org → Configurar billing → Acessar org`. Hoje
   cria-se org sem o passo de billing. Depende de PLAT-2.

@@ -8,6 +8,7 @@ import {
 } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
 import { isSuperAdmin } from "../../../../common/auth/is-super-admin";
+import { markActingAsSuperAdmin } from "../../../../common/request-context/acting-context";
 import type {
   IMemberRepository,
   UpsertMembershipData,
@@ -148,6 +149,7 @@ export class DrizzleMemberRepository implements IMemberRepository {
       if (row) return MemberMapper.toDomain(row);
 
       if (await isSuperAdmin(this.admin, authId)) {
+        markActingAsSuperAdmin();
         const [u] = await this.admin
           .select({
             id: schema.users.id,

@@ -118,8 +118,12 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
   `OrgLayout`, super_admin **sempre opera como owner** (override de `role` para "owner", paridade
   com o backend) em qualquer org. Banner em 2 níveis: **forte** ("gerenciando como super_admin")
   quando NÃO é o owner real (funcionário ou não-membro = `actingAsAdmin`); **sutil** ("Acesso de
-  super_admin") quando É o owner real (ex.: Ruan/João + Ink House). Auditoria das ações =
-  **PLAT-3** (pendente). Não-membro sem super_admin → 404 (sem vazar).
+  super_admin") quando É o owner real (ex.: Ruan/João + Ink House). **Auditoria do fato de ter
+  sido síntese de super_admin (PLAT-3, fatia inicial, 2026-08-24)**: `audit_logs.metadata.
+  viaSuperAdmin = true` gravado via `AsyncLocalStorage` próprio (`common/request-context/
+  acting-context.ts`) — escrita nos 4 pontos de síntese acima + nos 3 guards, leitura só em
+  `AuditService.log()` (captura síncrona, antes do hook pós-commit). Detalhe completo no
+  addendum do ADR-0013. Não-membro sem super_admin → 404 (sem vazar).
 - **Endpoint agregador multi-módulo (ex. `GET /orgs/:orgId/overview`) deve filtrar seção por
   `hasModuleAccess`, não confiar em não ter `@RequireModule` na rota (2026-07-30).** Todo
   controller org-scoped de módulo único já tem `@RequireModule`/`OrgModuleGuard`

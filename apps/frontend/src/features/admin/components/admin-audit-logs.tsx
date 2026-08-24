@@ -190,6 +190,14 @@ export function AdminAuditLogs() {
                             <p className="truncate text-xs text-foreground/50">
                               {row.actor.email}
                             </p>
+                            {row.metadata?.viaSuperAdmin === true && (
+                              <Badge
+                                variant="outline"
+                                className="mt-0.5 px-1.5 py-0 text-[10px]"
+                              >
+                                via super_admin
+                              </Badge>
+                            )}
                           </div>
                         ) : (
                           <span className="text-xs text-foreground/40">sistema</span>
