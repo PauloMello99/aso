@@ -23,6 +23,8 @@ export const billingPlans = pgTable("billing_plans", {
     .$type<Record<string, string>>()
     .notNull()
     .default({}),
+  highlighted: boolean("highlighted").notNull().default(false),
+  features: jsonb("features").$type<string[]>().notNull().default([]),
   lookupKey: text("lookup_key"),
   productKey: text("product_key"),
   lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),

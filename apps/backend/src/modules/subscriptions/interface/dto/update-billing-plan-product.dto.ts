@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsBoolean,
   IsNotEmpty,
   IsObject,
@@ -23,4 +24,13 @@ export class UpdateBillingPlanProductDto {
   @IsObject()
   @IsOptional()
   metadata?: Record<string, string>;
+
+  @IsBoolean()
+  @IsOptional()
+  highlighted?: boolean;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  features?: string[];
 }

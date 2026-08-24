@@ -76,6 +76,8 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
 22. **Scroll de container alto (gotcha CSS)**: `overflow-x-auto` força `overflow-y:auto` no mesmo elemento (spec) → criava um scroll interno no calendário (week-view). Para a página inteira rolar, adicionar **`overflow-y-hidden`** ao container com `overflow-x-auto` quando a altura é o próprio conteúdo. (Corrigido 2026-06-20.)
 23. **DatePicker — dropdown de mês/ano (2026-06-20)**: o `<select>` nativo do `react-day-picker` v10 (`captionLayout="dropdown"`) abre um popup do SO (branco/azul) **não tematizável por CSS**. Override em `calendar.tsx` via **`components.Dropdown` = `CalendarDropdown`** que usa o nosso `Select` (Radix). O RDP v10 lê **`Number(e.target.value)`** no `onChange`, então o adapter sintetiza `onChange({ target: { value } })` a partir do `onValueChange` do Select (padrão shadcn). Não voltar ao select nativo.
 24. **Superfícies públicas só afirmam o que o produto faz (2026-08-16)**: landing, SEO, e-mails de marketing e páginas legais **não podem** conter métrica inventada, logo de integração inexistente ou recurso não implementado sem rótulo explícito de "em breve". Auditoria de 2026-08-16 encontrou na landing 4 métricas fabricadas (`about.tsx`), 5 integrações que existiam **apenas** naquele arquivo (WhatsApp/Instagram/Notion/Zapier/Pix), "lembretes por WhatsApp" (notificação real é in-app + e-mail) e "Começar grátis" para um trial que **exige cartão** (`paymentMethodCollection: "always"`, 60 dias). Ao escrever copy nova: rastrear cada afirmação até um módulo, ADR ou linha de código; número agregado vive em **uma** constante (`features/landing/constants/`), nunca inline. Posicionamento é **vertical de tatuagem explícito**, não "estúdios criativos" — anamnese, consumo de material por sessão e taxa de cartão são o que diferencia de CRM horizontal. Spec completa em `docs/product/landing-page-spec.md`.
+25. **Upload de imagem = recorte + compressão client-side antes do envio (2026-08-19)**: todo fluxo de upload de imagem (avatar da conta, anexos de cliente, anexos de ticket de suporte) passa por `ImageCropper` (`shared/components/image-cropper.tsx`) + `ImageCropDialog` (`shared/components/ui/image-crop-dialog.tsx`) antes do POST. Política pura (MIME, dimensão, qualidade, geometria, naming) em `shared/lib/image-compression.ts`; I/O de canvas em `shared/lib/image-crop.ts` — zero dependência nova. **MIME de saída = MIME de entrada** (nunca reconverte PNG→JPEG): preserva a extensão do arquivo e evita path órfão no avatar (que deriva o nome do storage do MIME, e `DELETE` em `storage.objects` é bloqueado por trigger). GIF e PDF são **pass-through** — sem cropper, sem re-encode (`canvas.toBlob("image/gif")` cai silenciosamente para PNG). EXIF de rotação sempre normalizado via `createImageBitmap(file, { imageOrientation: "from-image" })`, com fallback `<img>`+`decode()`. **Aceitação de MIME por fluxo não é uniforme** — confira o backend antes de mexer no `accept` do input: avatar aceita gif (`auth.controller.ts`, regex inclui gif), anexos de cliente aceitam gif+pdf (`customers.controller.ts`), anexos de ticket **não** aceitam gif (`upload-ticket-attachment.use-case.ts`, `ALLOWED_MIME_TYPES` sem gif) — um agente já errou essa suposição para o avatar (achou que rejeitava gif; não rejeita), verificar sempre a validação real, não assumir.
+26. **HEIC (padrão de foto do iPhone) não é aceito em nenhum fluxo de upload de imagem (gap conhecido, 2026-08-19)**: reproduzido em staging — o backend devolve 400 com mensagem crua expondo a regex de validação (`"Validation failed (current file type is image/heic, expected type is ...)"`). O frontend hoje só troca essa mensagem por uma amigável ("Formato de imagem não suportado. Envie PNG, JPG, WEBP ou GIF/PDF conforme o fluxo") — **não converte nem aceita HEIC**. Suporte real exigiria conversão HEIC→JPEG no backend (nova dependência de processamento de imagem, ex. sharp+libheif — nenhuma instalada hoje) ou decodificação client-side (inconsistente entre browsers: Safari decodifica HEIC via canvas, Chrome não). Ficou deliberadamente fora de escopo; se for endereçado, é feature nova, não bugfix.
 
 ---
 
@@ -456,6 +458,34 @@ interval)` e `lookup_key` — garantem só uma linha vigente por par; preços an
   reintroduzir lógica de "desmarcar" trial fora de migration explícita). Bug histórico:
   marcar na criação da checkout session queimava o trial de 60 dias em qualquer checkout
   abandonado — corrigido nesta data.
+- **`lookup_key`/`stripeProductId` ausentes numa linha ATIVA de `billing_plan_prices` são
+  irrecuperáveis por boot (2026-08-19, bug real corrigido).** Causa: `ReconcilePlanCatalogUseCase`
+  desativa uma linha divergente/sumida no Stripe via `deactivateById` (limpa `active` e
+  `lookup_key` juntos); se o super_admin reativa o intervalo depois (`SetPlanIntervalActiveUseCase`),
+  a linha volta a `active: true` mas com `lookup_key` NULL — e `SyncPlanCatalogUseCase.onModuleInit`
+  **não repara isso** (`syncPrice` encontra a linha existente e retorna `"unchanged"`, nunca
+  repopula). Isso fazia `RotatePlanIntervalPriceUseCase` falhar com "plano/preço sem
+  produto/lookup_key associado" até o próximo restart — e mesmo assim só se o restart
+  coincidisse com o Stripe ainda tendo o produto correto. Fix: `PlanPriceLinkageService`
+  (`modules/subscriptions/application/plan-price-linkage.service.ts`) resolve o par sob
+  demanda — fast path se `stripeProductId`+`lookupKey` já existem (nenhuma chamada ao Stripe);
+  senão consulta `gateway.retrievePrice` (Stripe é autoritário); senão deriva
+  `${productKey}-${interval}` (mesma regra de `UpsertPlanIntervalPriceUseCase`). Usado por
+  `RotatePlanIntervalPriceUseCase` (autocura antes de lançar `InvalidBillingPlanUpdateException`)
+  e `SetPlanIntervalActiveUseCase` (repõe `lookup_key` na mesma escrita ao reativar). **Não é**
+  o sync manual global removido em ADR-0024 — opera só sobre um par (plano, preço) específico,
+  sob ação explícita do admin, sem ler `PLAN_CATALOG` nem rotacionar Price.
+- **Campos de apresentação `highlighted`/`features` em `billing_plans` (migration 0054 —
+  renumerada de 0051 no merge para `development`, colisão com `0051_member_commissions`/
+  `0052_customer_self_service_invites`/`0053_audit_action_customer_self_service` já
+  mergeadas, 2026-08-19) vivem em colunas dedicadas, nunca em `metadata`.** `metadata` é
+  sobrescrito pelo round-trip do Stripe em `UpdateBillingPlanProductUseCase` (o
+  `result.metadata` que volta do `paymentGateway.updateProduct`) e no webhook
+  `product.updated` — qualquer coisa guardada lá seria apagada na próxima edição/sync.
+  Editados só por super_admin via `PATCH /admin/billing/plans/:key/product`; **nunca**
+  entram no `set:` do `onConflictDoUpdate` de `DrizzleBillingPlanRepository.upsert` (usado
+  por `SyncPlanCatalogUseCase` no boot) — se entrassem, todo boot resetaria a curadoria do
+  super_admin para o default, já que `PLAN_CATALOG` (seed) não carrega esses campos.
 
 ### Gaps de reunião aplicados (2026-06-20) — migrations 0011–0013
 
@@ -956,6 +986,66 @@ anamnesis_response_id IS NOT NULL`): `assertAnamnesisResponseLinkable` faz o
   membro da org via RLS `is_org_member`), não bloqueante. Não resolvido nesta fatia.
 - **F10 está completo**: M10a (construtor+versionamento) + M10b (link público+submissão)
   - M10c (assinatura) cobrem o fluxo inteiro de ficha de anamnese.
+
+### M10d — Gate de versão vigente, reenvio inteligente e envio de cópia por e-mail (2026-08-22/23)
+
+- **Gate de já-respondida é escopado por VERSÃO VIGENTE, não por vínculo com serviço.**
+  `SendAnamnesisInviteUseCase` chama `findSubmittedForVersion(customerId, formVersionId,
+  orgId)` — **diferente** de `findLinkable` (que exclui respostas já vinculadas a um
+  `service` via `notExists`). Uma resposta `submitted` já vinculada a um serviço CONTINUA
+  contando como "já respondida" para este gate: publicar uma nova versão do formulário é o
+  único jeito de reabrir o envio (coerente com ADR-0020). A checagem roda ANTES de qualquer
+  lookup de convite pendente — um cliente com `submitted` da versão vigente E um pendente
+  órfão qualquer sempre recebe 409 (`ANAMNESIS_ALREADY_ANSWERED_CURRENT_VERSION`), nunca cai
+  no caminho de reenvio.
+- **Reenvio REUTILIZA o convite pendente existente** (mesmo token/link) em vez do padrão
+  anterior de sempre `deletePendingFor` + criar — só quando `!pending.isExpired` E
+  `pending.formVersionId === version.id` (versão antiga não reutiliza: `questionsSnapshot`
+  é congelado na criação, reusar reenviaria formulário desatualizado). **Decisão de produto
+  confirmada**: o reenvio NÃO estende `expiresAt` — um convite reenviado perto do vencimento
+  continua expirando no prazo original. Flag `createdNew` controla a compensação de falha de
+  e-mail: hoje só decide a `audit_action` (`anamnesis_invite_sent` vs.
+  `anamnesis_invite_resent`) e a mensagem de log — não há mais compensação explícita
+  (`delete`) no catch; a resposta recém-criada é desfeita pelo `ROLLBACK` automático da
+  transação do request quando a exceção de falha de e-mail é lançada (ver débito (a),
+  resolvido, abaixo). Audit action `anamnesis_invite_sent` (criação) vs.
+  `anamnesis_invite_resent` (reuso) — ambos valores de `audit_action` adicionados na
+  migration `0055_audit_action_anamnesis_resend_copy` (renumerada de 0054 no meio do
+  trabalho por colisão com `0054_billing_plans_presentation_fields`, que chegou de um merge
+  concorrente — checar sempre `db:status` antes de assumir o próximo número livre quando
+  há trabalho em paralelo).
+- **`findSubmittedForVersion`/`findPendingFor` usam `this.db` (DRIZZLE normal, RLS válido
+  via sessão), não `this.admin`** — ao contrário dos métodos vizinhos do mesmo repositório
+  (`deletePendingFor`, `findByToken`, `markSubmitted`, `linkCustomer`) que usam admin por
+  motivos próprios (fluxo público sem sessão, ou policy sem UPDATE/DELETE). Não copiar
+  `this.admin` "porque os vizinhos usam" — cada método do repositório escolhe a conexão pela
+  própria necessidade de RLS, não por convenção do arquivo.
+- **Envio de cópia por e-mail (`SendAnamnesisResponseCopyUseCase`, endpoint `POST
+  /orgs/:orgId/anamnesis-responses/:id/send-copy`) NUNCA regenera o PDF** — sempre a mesma
+  signed URL do artefato já gerado no submit (`pdf_storage_path`), TTL 604800s (7 dias),
+  mesmo valor usado em `submit-anamnesis-response.use-case.ts` (paridade deliberada, não
+  reduzir só neste ponto sem reduzir os dois juntos). **Decisão de produto confirmada**: o
+  e-mail vai sempre para o endereço JÁ CADASTRADO do cliente (`customer.email`), nunca um
+  destinatário digitado na hora — evita vazar PII de saúde para endereço não verificado. O
+  download autenticado pelo profissional (botão "Abrir PDF" no viewer) já cobria o caso
+  "quero consultar agora"; este endpoint cobre "quero que o CLIENTE receba".
+- **"Notificar quem solicitou" (requisito de produto) foi resolvido como erro 409 síncrono**,
+  não notificação in-app persistida — decisão confirmada com o usuário. O envio de convite
+  só tem um chamador (ação manual na tela), então o 409 já é o aviso; se surgir um remetente
+  assíncrono no futuro (cron, fila), aí sim vale integrar `NotificationService` (exigiria
+  migration no enum `notification_type`, hoje não usado no módulo `anamnesis`).
+- **GOTCHA de PII em log**: nunca interpolar `customer.email` em mensagens de log de falha
+  de envio — só `response.id`/`customerId`. Mesma regra já valia para `submit-anamnesis-response.use-case.ts`
+  (seção M10c acima); replicada aqui em `send-anamnesis-invite.use-case.ts` e
+  `send-anamnesis-response-copy.use-case.ts`.
+- **Débitos conhecidos, não bloqueantes** (aceitos nesta fatia, achados por
+  `database-guardian`/`reviewer`; itens (a)-(c) resolvidos em 2026-08-23): (b) resolvido —
+  índice `anamnesis_responses_org_customer_status_idx` em
+  `(org_id, customer_id, status)` criado na migration
+  `0056_anamnesis_responses_org_customer_status_idx`; (d) sem unique index parcial
+  `WHERE status='pending'` em `(org_id, customer_id, service_type_id)` — duas requisições de
+  reenvio simultâneas ainda podem, em tese, criar 2 pendentes (pré-existente, janela só
+  diminuiu com esta fatia; decisão de produto/prioridade, não resolvida nesta rodada).
 
 ### Conformidade legal — LGPD Tier 1 (2026-07-27, ADR-0018)
 

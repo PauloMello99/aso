@@ -27,6 +27,7 @@ import {
 } from "../../domain/subscription.repository.interface";
 import { TelemetryService } from "../../../../common/telemetry/telemetry.service";
 import { FrontendRevalidationClient } from "../../infrastructure/frontend-revalidation.client";
+import { PlanPriceLinkageService } from "../plan-price-linkage.service";
 
 export interface RotatePlanIntervalPriceParams {
   amountCents: number;
@@ -64,6 +65,7 @@ export class RotatePlanIntervalPriceUseCase {
     private readonly subscriptionRepo: ISubscriptionRepository,
     private readonly telemetry: TelemetryService,
     private readonly revalidationClient: FrontendRevalidationClient,
+    private readonly planPriceLinkage: PlanPriceLinkageService,
   ) {}
 
   async execute(
@@ -124,19 +126,23 @@ export class RotatePlanIntervalPriceUseCase {
 
     // Só exigido a partir daqui: o no-op acima não precisa de
     // produto/lookup_key válidos, só a rotação de fato (que fala com o
-    // Stripe) precisa.
-    if (!plan.stripeProductId || !currentPrice.lookupKey) {
+    // Stripe) precisa. `PlanPriceLinkageService` se auto-recupera a partir
+    // do Stripe (ou deriva de `productKey`) quando a linha local está com
+    // `stripeProductId`/`lookupKey` faltando — não depende mais de rodar o
+    // sync de boot.
+    const linkage = await this.planPriceLinkage.resolve(plan, currentPrice);
+    if (!linkage) {
       throw new InvalidBillingPlanUpdateException(
-        "plano/preço sem produto/lookup_key associado — rode a sincronização do catálogo primeiro",
+        "Não foi possível resolver o produto/lookup_key deste plano no Stripe — verifique se o preço ainda existe no Stripe e se o plano tem productKey configurado.",
       );
     }
 
     const { priceId: newPriceId } = await this.paymentGateway.createPrice({
-      productId: plan.stripeProductId,
+      productId: linkage.stripeProductId,
       amountCents: params.amountCents,
       currency,
       interval,
-      lookupKey: currentPrice.lookupKey,
+      lookupKey: linkage.lookupKey,
       transferLookupKey: true,
     });
 
@@ -154,16 +160,18 @@ export class RotatePlanIntervalPriceUseCase {
     // (interface + impl Drizzle) só para este caso seria desproporcional
     // pra este PR. Em vez disso, compensamos manualmente: se `create` falhar
     // depois de `deactivateById` ter tido sucesso, reativamos a linha antiga
-    // (`currentPrice.lookupKey` continua íntegro em memória — `deactivateById`
-    // só limpa a coluna no banco, não muta o objeto já carregado — mas
-    // capturamos numa constante nomeada para deixar a intenção explícita).
+    // (`linkage.lookupKey` — resolvido/recuperado acima, pode não coincidir
+    // com o `currentPrice.lookupKey` original quando este estava faltando —
+    // continua íntegro em memória; `deactivateById` só limpa a coluna no
+    // banco, não muta objetos já carregados — mas capturamos numa constante
+    // nomeada para deixar a intenção explícita).
     // A compensação NÃO é perfeita: o Stripe já transferiu o `lookup_key`
     // (`transferLookupKey: true`) para o Price novo antes desse ponto, então
     // a linha antiga reativada fica com um `lookupKey` local que o Stripe já
     // não associa mais a ela. Aceitamos essa divergência residual — a
     // alternativa (nenhuma linha ativa) é pior, pois derruba o checkout
     // daquele intervalo sem caminho de recuperação pela UI.
-    const oldLookupKey = currentPrice.lookupKey;
+    const oldLookupKey = linkage.lookupKey;
     await this.billingPlanPriceRepo.deactivateById(currentPrice.id);
 
     let newPrice: BillingPlanPriceEntity;

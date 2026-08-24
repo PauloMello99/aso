@@ -12,8 +12,11 @@ import { BillingPlanNotFoundException } from "../../domain/exceptions/billing-pl
 import { InvalidBillingPlanUpdateException } from "../../domain/exceptions/invalid-billing-plan-update.exception";
 import { PlanIntervalNotEnabledException } from "../../domain/exceptions/plan-interval-not-enabled.exception";
 import { FrontendRevalidationClient } from "../../infrastructure/frontend-revalidation.client";
+import { PlanPriceLinkageService } from "../plan-price-linkage.service";
 
-function buildPlan(overrides: Partial<BillingPlanEntity> = {}): BillingPlanEntity {
+function buildPlan(
+  overrides: Partial<BillingPlanEntity> = {},
+): BillingPlanEntity {
   return {
     id: "plan-1",
     key: "standard",
@@ -29,6 +32,8 @@ function buildPlan(overrides: Partial<BillingPlanEntity> = {}): BillingPlanEntit
     lookupKey: "standard",
     productKey: "standard",
     lastSyncedAt: new Date("2026-01-01T00:00:00Z"),
+    highlighted: false,
+    features: [],
     ...overrides,
   };
 }
@@ -95,6 +100,15 @@ function buildFakeRevalidationClient(): jest.Mocked<FrontendRevalidationClient> 
   } as unknown as jest.Mocked<FrontendRevalidationClient>;
 }
 
+function buildFakePlanPriceLinkage(
+  overrides: Partial<jest.Mocked<PlanPriceLinkageService>> = {},
+): jest.Mocked<PlanPriceLinkageService> {
+  return {
+    resolve: jest.fn().mockResolvedValue(null),
+    ...overrides,
+  } as unknown as jest.Mocked<PlanPriceLinkageService>;
+}
+
 describe("SetPlanIntervalActiveUseCase", () => {
   it("throws BillingPlanNotFoundException when the plan doesn't exist", async () => {
     const billingPlanRepo = buildFakeBillingPlanRepo({
@@ -106,6 +120,7 @@ describe("SetPlanIntervalActiveUseCase", () => {
       billingPlanPriceRepo,
       buildFakeAuditService(),
       buildFakeRevalidationClient(),
+      buildFakePlanPriceLinkage(),
     );
 
     await expect(
@@ -127,6 +142,7 @@ describe("SetPlanIntervalActiveUseCase", () => {
       billingPlanPriceRepo,
       buildFakeAuditService(),
       buildFakeRevalidationClient(),
+      buildFakePlanPriceLinkage(),
     );
 
     await expect(
@@ -149,27 +165,24 @@ describe("SetPlanIntervalActiveUseCase", () => {
     });
     const auditService = buildFakeAuditService();
     const revalidationClient = buildFakeRevalidationClient();
+    const planPriceLinkage = buildFakePlanPriceLinkage();
 
     const useCase = new SetPlanIntervalActiveUseCase(
       billingPlanRepo,
       billingPlanPriceRepo,
       auditService,
       revalidationClient,
+      planPriceLinkage,
     );
 
-    const result = await useCase.execute(
-      "standard",
-      "annual",
-      true,
-      "auth-1",
-    );
+    const result = await useCase.execute("standard", "annual", true, "auth-1");
 
     expect(revalidationClient.revalidate).toHaveBeenCalledWith("/");
     expect(billingPlanPriceRepo.findActiveByPlanId).not.toHaveBeenCalled();
-    expect(billingPlanPriceRepo.updateById).toHaveBeenCalledWith(
-      price.id,
-      { active: true },
-    );
+    expect(planPriceLinkage.resolve).not.toHaveBeenCalled();
+    expect(billingPlanPriceRepo.updateById).toHaveBeenCalledWith(price.id, {
+      active: true,
+    });
     expect(auditService.logByAuthId).toHaveBeenCalledWith(
       "auth-1",
       expect.objectContaining({
@@ -201,12 +214,8 @@ describe("SetPlanIntervalActiveUseCase", () => {
     const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo({
       findActiveByPlanIdAndInterval: jest.fn().mockResolvedValue(price),
       findByPlanIdAndInterval: jest.fn().mockResolvedValue(price),
-      findActiveByPlanId: jest
-        .fn()
-        .mockResolvedValue([price, monthlyPrice]),
-      updateById: jest
-        .fn()
-        .mockResolvedValue({ ...price, active: false }),
+      findActiveByPlanId: jest.fn().mockResolvedValue([price, monthlyPrice]),
+      updateById: jest.fn().mockResolvedValue({ ...price, active: false }),
     });
 
     const useCase = new SetPlanIntervalActiveUseCase(
@@ -214,19 +223,14 @@ describe("SetPlanIntervalActiveUseCase", () => {
       billingPlanPriceRepo,
       buildFakeAuditService(),
       buildFakeRevalidationClient(),
+      buildFakePlanPriceLinkage(),
     );
 
-    const result = await useCase.execute(
-      "standard",
-      "annual",
-      false,
-      "auth-1",
-    );
+    const result = await useCase.execute("standard", "annual", false, "auth-1");
 
-    expect(billingPlanPriceRepo.updateById).toHaveBeenCalledWith(
-      price.id,
-      { active: false },
-    );
+    expect(billingPlanPriceRepo.updateById).toHaveBeenCalledWith(price.id, {
+      active: false,
+    });
     expect(result.active).toBe(false);
   });
 
@@ -247,11 +251,127 @@ describe("SetPlanIntervalActiveUseCase", () => {
       billingPlanPriceRepo,
       buildFakeAuditService(),
       buildFakeRevalidationClient(),
+      buildFakePlanPriceLinkage(),
     );
 
     await expect(
       useCase.execute("standard", "annual", false, "auth-1"),
     ).rejects.toThrow(InvalidBillingPlanUpdateException);
     expect(billingPlanPriceRepo.updateById).not.toHaveBeenCalled();
+  });
+
+  it("reactivating a row with lookupKey: null resolves it via PlanPriceLinkageService and writes both fields in a single updateById call", async () => {
+    const plan = buildPlan();
+    const price = buildPrice({ active: false, lookupKey: null });
+    const billingPlanRepo = buildFakeBillingPlanRepo({
+      findByKey: jest.fn().mockResolvedValue(plan),
+    });
+    const updatedPrice = {
+      ...price,
+      active: true,
+      lookupKey: "standard-annual",
+    };
+    const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo({
+      findActiveByPlanIdAndInterval: jest.fn().mockResolvedValue(null),
+      findByPlanIdAndInterval: jest.fn().mockResolvedValue(price),
+      updateById: jest.fn().mockResolvedValue(updatedPrice),
+    });
+    const planPriceLinkage = buildFakePlanPriceLinkage({
+      resolve: jest.fn().mockResolvedValue({
+        stripeProductId: "prod_1",
+        lookupKey: "standard-annual",
+      }),
+    });
+
+    const useCase = new SetPlanIntervalActiveUseCase(
+      billingPlanRepo,
+      billingPlanPriceRepo,
+      buildFakeAuditService(),
+      buildFakeRevalidationClient(),
+      planPriceLinkage,
+    );
+
+    const result = await useCase.execute("standard", "annual", true, "auth-1");
+
+    expect(planPriceLinkage.resolve).toHaveBeenCalledWith(plan, price);
+    expect(billingPlanPriceRepo.updateById).toHaveBeenCalledTimes(1);
+    expect(billingPlanPriceRepo.updateById).toHaveBeenCalledWith(price.id, {
+      active: true,
+      lookupKey: "standard-annual",
+    });
+    expect(result).toEqual(updatedPrice);
+  });
+
+  it("reactivating a row with lookupKey: null still succeeds without writing lookupKey when PlanPriceLinkageService cannot resolve it", async () => {
+    const plan = buildPlan();
+    const price = buildPrice({ active: false, lookupKey: null });
+    const billingPlanRepo = buildFakeBillingPlanRepo({
+      findByKey: jest.fn().mockResolvedValue(plan),
+    });
+    const updatedPrice = { ...price, active: true };
+    const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo({
+      findActiveByPlanIdAndInterval: jest.fn().mockResolvedValue(null),
+      findByPlanIdAndInterval: jest.fn().mockResolvedValue(price),
+      updateById: jest.fn().mockResolvedValue(updatedPrice),
+    });
+    const planPriceLinkage = buildFakePlanPriceLinkage({
+      resolve: jest.fn().mockResolvedValue(null),
+    });
+
+    const useCase = new SetPlanIntervalActiveUseCase(
+      billingPlanRepo,
+      billingPlanPriceRepo,
+      buildFakeAuditService(),
+      buildFakeRevalidationClient(),
+      planPriceLinkage,
+    );
+
+    const result = await useCase.execute("standard", "annual", true, "auth-1");
+
+    expect(planPriceLinkage.resolve).toHaveBeenCalledWith(plan, price);
+    expect(billingPlanPriceRepo.updateById).toHaveBeenCalledWith(price.id, {
+      active: true,
+    });
+    expect(result).toEqual(updatedPrice);
+  });
+
+  it("never writes lookupKey when deactivating, even if PlanPriceLinkageService would resolve one", async () => {
+    const plan = buildPlan();
+    const price = buildPrice({ id: "price-annual", active: true });
+    const monthlyPrice = buildPrice({
+      id: "price-monthly",
+      interval: "monthly",
+      active: true,
+    });
+    const billingPlanRepo = buildFakeBillingPlanRepo({
+      findByKey: jest.fn().mockResolvedValue(plan),
+    });
+    const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo({
+      findActiveByPlanIdAndInterval: jest.fn().mockResolvedValue(price),
+      findByPlanIdAndInterval: jest.fn().mockResolvedValue(price),
+      findActiveByPlanId: jest.fn().mockResolvedValue([price, monthlyPrice]),
+      updateById: jest.fn().mockResolvedValue({ ...price, active: false }),
+    });
+    const planPriceLinkage = buildFakePlanPriceLinkage({
+      resolve: jest.fn().mockResolvedValue({
+        stripeProductId: "prod_1",
+        lookupKey: "should-not-be-used",
+      }),
+    });
+
+    const useCase = new SetPlanIntervalActiveUseCase(
+      billingPlanRepo,
+      billingPlanPriceRepo,
+      buildFakeAuditService(),
+      buildFakeRevalidationClient(),
+      planPriceLinkage,
+    );
+
+    await useCase.execute("standard", "annual", false, "auth-1");
+
+    expect(planPriceLinkage.resolve).not.toHaveBeenCalled();
+    expect(billingPlanPriceRepo.updateById).toHaveBeenCalledWith(price.id, {
+      active: false,
+    });
   });
 });

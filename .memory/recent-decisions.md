@@ -85,3 +85,62 @@
   `features/anamnesis/index.ts` (reuso cross-feature). `reviewer`: `approved_with_notes`.
   Commit `4c7f308` na branch `worktree-p2-fatia3-customer-self-service-frontend`, mergeada
   em `development`.
+- **2026-08-20 — P-2 fechada (pendências menores) + gotcha novo de post-commit hooks no
+  audit log**: 3 achados `low` do `reviewer` na fatia 3/4 resolvidos em `3cc1e15`
+  (`fetchAddressByCep` duplicado entre `features/clients` e `features/customer-self-service`
+  promovido a `shared/lib/viacep.ts`; hint no Select de gênero explicando que o valor atual
+  é preservado se o campo não for tocado; 4º estado `error` em `public-lookup-state.ts`
+  distinguindo falha de transporte de token de fato inválido). Em paralelo, `f48e611`
+  corrigiu um risco generalizável identificado a partir do fix de P-1 (SAVEPOINT): efeitos
+  colaterais não-transacionais (como o INSERT do audit log via `DRIZZLE_ADMIN`, autocommit)
+  que rodassem durante a transação do request podiam persistir mesmo se o COMMIT real
+  falhasse depois. `database.module.ts` ganhou `postCommitHooks`/`registerPostCommit(fn)`:
+  dentro de um request, o efeito só roda **depois** do `COMMIT` ter sucesso; `AuditService.log`
+  passou a usar isso. `database-guardian` achou uma regressão real na revisão: `DeleteOrgUseCase`
+  logava com o `orgId` da org que a mesma transação apagava — pós-commit a FK
+  `audit_logs.org_id → organizations.id` rejeitava o INSERT (engolido pelo catch);
+  corrigido gravando `orgId: null` + id no `metadata`/`entityId`. Gotcha completo (incluindo
+  a armadilha de `rlsStorage.getStore()` vazio dentro do hook) em `domain-rules.md`, seção
+  RLS. Sem ADR novo — extensão direta do padrão SAVEPOINT do fix de P-1, não uma decisão
+  arquitetural nova. Com isso, **P-2 está integralmente concluída e mergeada em `main`**
+  (via `staging`/`development`, PRs #59/#60).
+- **2026-08-21 — Merge `features/dev-workflow-issues-d28237` → `development` finalizado**
+  (commit `53b0af9`, checkout principal `C:/Repos/Pessoal/aso`). Estava parado com 2
+  conflitos: `.memory/domain-rules.md` (3 blocos, todos inserção lado a lado sem
+  sobreposição real — gotcha do `lookup_key` self-heal + `highlighted`/`features` da branch
+  nova, seções de Comissão/P-1 e M-P2b já em `development`) e
+  `apps/backend/drizzle/migrations/meta/_journal.json` (já resolvido manualmente no disco,
+  faltava só `git add`). A branch trazia `0051_billing_plans_presentation_fields.*`, mas essa
+  numeração colidia com `0051_member_commissions`/`0052`/`0053` já mergeados — a renumeração
+  para `0054` já estava feita no disco (mesmo conteúdo), só faltava finalizar com
+  `git rm`/`git add` (o "encoding corrompido" que `Get-Content` do PowerShell mostrava era
+  artefato do console, o arquivo em UTF-8 estava correto). Também corrigida uma indentação
+  perdida em `docs/gotchas.md` (regressão de formatação da própria branch, não conflito).
+  Conteúdo da branch: self-heal de `lookup_key` na rotação de preço
+  (`PlanPriceLinkageService`), campos `highlighted`/`features` editáveis em `billing_plans`,
+  upload de imagem com crop+compressão (`image-cropper.tsx`/`image-crop-dialog.tsx`/
+  `image-compression.ts`), fix de `jest.config.js rootDir` no Windows com worktree em path
+  com segmento `.claude`. Validado pós-merge: check-types + lint + test (102/102 suites
+  backend, 610 testes; 34/34 frontend, 279 testes) + build, tudo verde. Sem push.
+- **2026-08-22/23 — M10d: gate de versão vigente + reenvio inteligente + envio de cópia por
+  e-mail da ficha de anamnese** (feature nova, via skill `development-workflow`, classificada
+  complexa). Migration `0055_audit_action_anamnesis_resend_copy` (2 valores novos de
+  `audit_action`; renumerada de 0054 no meio do trabalho por colisão com
+  `0054_billing_plans_presentation_fields`, que chegou de um merge concorrente de
+  `development` para dentro desta branch). `SendAnamnesisInviteUseCase` reescrito: bloqueia
+  com 409 quando o cliente já respondeu a versão vigente (`findSubmittedForVersion`,
+  independente de vínculo com serviço) e reutiliza convite pendente não expirado da mesma
+  versão em vez de sempre deletar+recriar (sem estender `expiresAt`). Novo
+  `SendAnamnesisResponseCopyUseCase` (`POST /orgs/:orgId/anamnesis-responses/:id/send-copy`)
+  envia por e-mail, ao endereço cadastrado do cliente, a signed URL do PDF já gerado no
+  submit (nunca regenera). 3 decisões de produto confirmadas com o usuário: "notificar quem
+  solicitou" = erro 409 síncrono (sem notificação in-app); reenvio não estende validade;
+  PDF só para e-mail cadastrado (sem destinatário arbitrário). `database-guardian`
+  (`approved_with_notes`, 3 achados low) e `reviewer` (`approved_with_notes`, 2 achados
+  medium — PII de e-mail em log, estado obsoleto de sucesso/erro no viewer entre fichas
+  diferentes — e vários low) revisaram; os 2 medium + 2 low baratos (throttle assimétrico,
+  mapper de erro sem `SUBSCRIPTION_REQUIRED`) foram corrigidos numa segunda rodada. Detalhe
+  técnico completo em `domain-rules.md`, seção "M10d". Validado: check-types + lint + test
+  (104/104 suites backend, 628 testes; 36/36 frontend, 292 testes) + build, tudo verde.
+  Branch `features/continuar-progresso-de1de1`, sem commit ainda (aguardando pedido do
+  usuário).

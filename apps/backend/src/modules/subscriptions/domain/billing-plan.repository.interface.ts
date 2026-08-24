@@ -15,6 +15,8 @@ export interface BillingPlanEntity {
   lookupKey: string | null;
   productKey: string | null;
   lastSyncedAt: Date | null;
+  highlighted: boolean;
+  features: string[];
 }
 
 export interface UpsertBillingPlanData {
@@ -31,6 +33,8 @@ export interface UpsertBillingPlanData {
   lookupKey?: string | null;
   productKey?: string | null;
   lastSyncedAt?: Date | null;
+  highlighted?: boolean;
+  features?: string[];
 }
 
 export interface IBillingPlanRepository {

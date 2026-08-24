@@ -96,6 +96,18 @@ export interface IAnamnesisResponseRepository {
     orgId: string,
   ): Promise<AnamnesisResponseEntity[]>;
 
+  findSubmittedForVersion(
+    customerId: string,
+    formVersionId: string,
+    orgId: string,
+  ): Promise<AnamnesisResponseEntity | null>;
+
+  findPendingFor(
+    customerId: string,
+    serviceTypeId: string,
+    orgId: string,
+  ): Promise<AnamnesisResponseEntity | null>;
+
   listByOrg(
     orgId: string,
     filters: ListAnamnesisResponsesFilters,

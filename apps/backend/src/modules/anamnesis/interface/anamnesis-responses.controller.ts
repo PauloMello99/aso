@@ -2,12 +2,14 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Post,
   Query,
   UseGuards,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
@@ -19,6 +21,7 @@ import { SendAnamnesisInviteUseCase } from "../application/use-cases/send-anamne
 import { ListLinkableAnamnesisResponsesUseCase } from "../application/use-cases/list-linkable-anamnesis-responses.use-case";
 import { ListAnamnesisResponsesUseCase } from "../application/use-cases/list-anamnesis-responses.use-case";
 import { GetAnamnesisResponseDetailUseCase } from "../application/use-cases/get-anamnesis-response-detail.use-case";
+import { SendAnamnesisResponseCopyUseCase } from "../application/use-cases/send-anamnesis-response-copy.use-case";
 import { SendAnamnesisInviteDto } from "./dto/send-anamnesis-invite.dto";
 import type { AnamnesisResponseStatus } from "../domain/anamnesis-response.entity";
 
@@ -31,10 +34,12 @@ export class AnamnesisResponsesController {
     private readonly listLinkable: ListLinkableAnamnesisResponsesUseCase,
     private readonly listResponses: ListAnamnesisResponsesUseCase,
     private readonly getDetail: GetAnamnesisResponseDetailUseCase,
+    private readonly sendCopy: SendAnamnesisResponseCopyUseCase,
   ) {}
 
   @Post()
   @UseGuards(ActiveSubscriptionGuard)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async send(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @CurrentUser() user: AuthUser,
@@ -83,5 +88,21 @@ export class AnamnesisResponsesController {
     @Param("id", ParseUUIDPipe) id: string,
   ) {
     return this.getDetail.execute({ id, orgId });
+  }
+
+  @Post(":id/send-copy")
+  @UseGuards(ActiveSubscriptionGuard)
+  @HttpCode(200)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async sendResponseCopy(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.sendCopy.execute({
+      orgId,
+      authId: user.id,
+      responseId: id,
+    });
   }
 }
