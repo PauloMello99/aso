@@ -17,6 +17,7 @@ import {
 } from "../../../organizations/domain/member.repository.interface";
 import { CashierForbiddenException } from "../../domain/exceptions/cashier-forbidden.exception";
 import { CommissionMemberNotFoundException } from "../../domain/exceptions/commission-member-not-found.exception";
+import { AuditService } from "../../../audit/audit.service";
 
 export interface UpsertMemberCommissionItem {
   userId: string;
@@ -39,6 +40,7 @@ export class UpsertMemberCommissionsUseCase {
     private readonly orgRepo: IOrganizationRepository,
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepo: IMemberRepository,
+    private readonly auditService: AuditService,
   ) {}
 
   async execute(
@@ -68,6 +70,14 @@ export class UpsertMemberCommissionsUseCase {
       }
     }
 
+    const changes: Array<{
+      userId: string;
+      previousPercent: string | null;
+      previousMode: CommissionMode | null;
+      percent: string;
+      mode: CommissionMode;
+    }> = [];
+
     for (const item of input.commissions) {
       const active = await this.commissionRepo.findActiveByOrgAndUser(
         input.orgId,
@@ -89,6 +99,24 @@ export class UpsertMemberCommissionsUseCase {
         percent: normalizedPercent,
         mode: item.mode,
         createdBy,
+      });
+
+      changes.push({
+        userId: item.userId,
+        previousPercent: active?.percent ?? null,
+        previousMode: active?.mode ?? null,
+        percent: normalizedPercent,
+        mode: item.mode,
+      });
+    }
+
+    if (changes.length > 0) {
+      await this.auditService.logByAuthId(input.authId, {
+        orgId: input.orgId,
+        action: "cashier_commissions_updated",
+        entityType: "member_commissions",
+        entityId: input.orgId,
+        metadata: { changes },
       });
     }
 

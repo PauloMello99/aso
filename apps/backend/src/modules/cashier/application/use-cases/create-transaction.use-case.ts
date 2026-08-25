@@ -17,6 +17,7 @@ import {
   IMemberRepository,
   MEMBER_REPOSITORY,
 } from "../../../organizations/domain/member.repository.interface";
+import { AuditService } from "../../../audit/audit.service";
 import { resolveActor, resolveCreatedBy } from "./resolve-actor";
 
 export interface CreateTransactionInput {
@@ -41,6 +42,7 @@ export class CreateTransactionUseCase {
     private readonly feeRepo: IPaymentFeeRepository,
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepo: IMemberRepository,
+    private readonly auditService: AuditService,
   ) {}
 
   async execute(input: CreateTransactionInput): Promise<TransactionEntity> {
@@ -73,7 +75,7 @@ export class CreateTransactionUseCase {
       fee,
     );
 
-    return this.transactionRepo.create({
+    const transaction = await this.transactionRepo.create({
       orgId: input.orgId,
       createdBy,
       description: input.description,
@@ -86,5 +88,32 @@ export class CreateTransactionUseCase {
       reversesTransactionId: null,
       transactedAt: input.transactedAt,
     });
+
+    const isCorrection = input.trustedCreatedBy !== undefined;
+
+    await this.auditService.logByAuthId(input.authId, {
+      orgId: input.orgId,
+      action: "cashier_transaction_created",
+      entityType: "transaction",
+      entityId: transaction.id,
+      metadata: {
+        type: input.type,
+        grossCents: input.grossCents,
+        feeCents,
+        netCents,
+        paymentMethod: input.paymentMethod,
+        categoryId: input.categoryId ?? null,
+        // No caminho de correção, `createdBy` vem de `trustedCreatedBy` (copiado de
+        // transactions.created_by da transação original), coluna hoje heterogênea
+        // entre auth id e users.id (perna de transferência grava auth id — ver
+        // cashier.controller.ts). Não afirmar attributedTo nesse ramo evita
+        // propagar essa confusão para o audit log.
+        attributedTo: isCorrection ? null : createdBy,
+        source: isCorrection ? "correction" : "manual",
+        transactedAt: transaction.transactedAt,
+      },
+    });
+
+    return transaction;
   }
 }

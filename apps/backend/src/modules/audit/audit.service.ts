@@ -24,7 +24,10 @@ export type AuditAction =
   | "customer_update_invite_sent"
   | "customer_self_updated"
   | "anamnesis_invite_resent"
-  | "anamnesis_copy_sent";
+  | "anamnesis_copy_sent"
+  | "cashier_transaction_created"
+  | "cashier_fees_updated"
+  | "cashier_commissions_updated";
 
 export interface AuditEntry {
   actorId: string | null;

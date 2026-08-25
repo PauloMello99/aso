@@ -40,6 +40,9 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   invite_sent: "Convite enviado",
   invite_accepted: "Convite aceito",
   subscription_changed: "Assinatura",
+  cashier_transaction_created: "Caixa: lançamento",
+  cashier_fees_updated: "Caixa: taxas",
+  cashier_commissions_updated: "Caixa: comissões",
 }
 
 const ACTION_VARIANTS: Record<
@@ -52,6 +55,9 @@ const ACTION_VARIANTS: Record<
   invite_sent: "outline",
   invite_accepted: "outline",
   subscription_changed: "secondary",
+  cashier_transaction_created: "default",
+  cashier_fees_updated: "secondary",
+  cashier_commissions_updated: "secondary",
 }
 
 const ACTION_OPTIONS: AuditAction[] = [
@@ -61,6 +67,9 @@ const ACTION_OPTIONS: AuditAction[] = [
   "invite_sent",
   "invite_accepted",
   "subscription_changed",
+  "cashier_transaction_created",
+  "cashier_fees_updated",
+  "cashier_commissions_updated",
 ]
 
 const PAGE_SIZE = 50

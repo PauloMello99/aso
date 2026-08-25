@@ -2296,6 +2296,9 @@ export type Database = {
         | "customer_self_updated"
         | "anamnesis_invite_resent"
         | "anamnesis_copy_sent"
+        | "cashier_transaction_created"
+        | "cashier_fees_updated"
+        | "cashier_commissions_updated"
       billing_interval: "monthly" | "semiannual" | "annual"
       billing_invoice_event_type: "paid" | "payment_failed"
       calendar_attendee_status: "going" | "not_going"
@@ -2472,6 +2475,9 @@ export const Constants = {
         "customer_self_updated",
         "anamnesis_invite_resent",
         "anamnesis_copy_sent",
+        "cashier_transaction_created",
+        "cashier_fees_updated",
+        "cashier_commissions_updated",
       ],
       billing_interval: ["monthly", "semiannual", "annual"],
       billing_invoice_event_type: ["paid", "payment_failed"],
