@@ -118,8 +118,32 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
   `OrgLayout`, super_admin **sempre opera como owner** (override de `role` para "owner", paridade
   com o backend) em qualquer org. Banner em 2 níveis: **forte** ("gerenciando como super_admin")
   quando NÃO é o owner real (funcionário ou não-membro = `actingAsAdmin`); **sutil** ("Acesso de
-  super_admin") quando É o owner real (ex.: Ruan/João + Ink House). Auditoria das ações =
-  **PLAT-3** (pendente). Não-membro sem super_admin → 404 (sem vazar).
+  super_admin") quando É o owner real (ex.: Ruan/João + Ink House). **Auditoria do fato de ter
+  sido síntese de super_admin (PLAT-3, fatia inicial, 2026-08-24)**: `audit_logs.metadata.
+  viaSuperAdmin = true` gravado via `AsyncLocalStorage` próprio (`common/request-context/
+  acting-context.ts`) — escrita nos 4 pontos de síntese acima + nos 3 guards, leitura só em
+  `AuditService.log()` (captura síncrona, antes do hook pós-commit). Detalhe completo no
+  addendum do ADR-0013. Não-membro sem super_admin → 404 (sem vazar).
+- **Cobertura de auditoria do caixa (PLAT-3, fatia caixa, 2026-08-24) — parcial e
+  deliberadamente incompleta.** Só 3 das 9 operações mutantes do módulo emitem
+  `audit_logs`: `create-transaction` (`cashier_transaction_created`),
+  `upsert-payment-fees` (`cashier_fees_updated`, só quando algum valor muda de fato —
+  `previousPercent`/`previousFixedCents` capturados antes do upsert) e
+  `upsert-member-commissions` (`cashier_commissions_updated`, mesma lógica de só-quando-
+  muda). **Não auditam ainda:** `reverse-transaction`, `correct-transaction`, `transfer`
+  (bloqueados pelo GOTCHA de `created_by` heterogêneo, ver acima — um `authId` novo ao
+  lado de um campo que já mistura auth id/users.id seria mais confusão, não menos) e
+  CRUD de categorias (exigiria converter assinaturas posicionais pra objeto, refactor à
+  parte). **`cashier_transaction_created` nem sub- nem sobre-cobre "criação de
+  lançamento" no sentido amplo:** pagamento de serviço (`register-payment`,
+  `create-service`, `cancel-service`, `correct-service-payment`) e as duas pernas de
+  `transfer` criam linhas em `transactions` sem passar por `create-transaction` — não
+  auditados por esta ação. Metadata sempre com `attributedTo` (quem recebeu o
+  lançamento, quando resolvido por `resolveCreatedBy`) separado de `actorId` (sempre
+  quem fez a chamada, via `logByAuthId`) — nunca a mesma coisa quando um owner lança em
+  nome de outro membro. Nenhum `description` (texto livre) nem PII no metadata dos 3
+  eventos. materials/services/customers/calendar/support seguem **sem nenhuma**
+  auditoria — próximas iterações da trilha genérica, nessa ordem de risco.
 - **Endpoint agregador multi-módulo (ex. `GET /orgs/:orgId/overview`) deve filtrar seção por
   `hasModuleAccess`, não confiar em não ter `@RequireModule` na rota (2026-07-30).** Todo
   controller org-scoped de módulo único já tem `@RequireModule`/`OrgModuleGuard`
@@ -289,6 +313,17 @@ um funcionário. Estado por módulo (2026-06-21):
     `created_by` do lançamento original e repassa via `trustedCreatedBy` (campo interno
     de `create-transaction` que pula `resolveActor`/`resolveCreatedBy`) — assim o
     corrigido **continua pertencendo ao funcionário**, não migra para o owner que corrige.
+  - **GOTCHA — `created_by` nem sempre é `users.id`, apesar da regra acima:**
+    `transfer.use-case.ts` grava as duas pernas com `input.createdBy`, e
+    `cashier.controller.ts` (endpoint de transferência) passa `user.id` (**auth id** do
+    Supabase, não `users.id`) — achado pela `reviewer` durante a fatia de auditoria do
+    caixa de PLAT-3 (2026-08-24). Uma perna de transferência corrigida propaga esse auth
+    id pra frente via `trustedCreatedBy`, então o mesmo bug alcança `correct-transaction`.
+    Pré-existente, não introduzido por essa fatia; corrigir exige backfill de dados
+    históricos (não dá pra saber, a-posteriori, quais linhas de `transactions.created_by`
+    são auth id vs. users.id sem reprocessar caso a caso) — registrado como item futuro,
+    não uma tarefa desta fatia. Ver "Cobertura de auditoria do caixa" abaixo — é por isso
+    que estorno/correção/transferência não têm auditoria ainda.
 
 **Navegação por papel (multi-org/multi-papel) — frontend.** Um usuário pode ser `owner`
 de N orgs e `employee` de outras N ao mesmo tempo. `GET /orgs` retorna `role` por org;

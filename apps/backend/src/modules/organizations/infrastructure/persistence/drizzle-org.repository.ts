@@ -7,6 +7,7 @@ import {
 } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
 import { isSuperAdmin } from "../../../../common/auth/is-super-admin";
+import { markActingAsSuperAdmin } from "../../../../common/request-context/acting-context";
 import type { IOrganizationRepository } from "../../domain/org.repository.interface";
 import type { OrgEntity } from "../../domain/org.entity";
 import { OrgMapper } from "./org.mapper";
@@ -58,6 +59,7 @@ export class DrizzleOrgRepository implements IOrganizationRepository {
 
     if (row) return OrgMapper.toDomain(row);
     if (await isSuperAdmin(this.admin, authId)) {
+      markActingAsSuperAdmin();
       return this.findByIdAsOwner(eq(schema.organizations.id, orgId));
     }
     return null;
@@ -77,6 +79,7 @@ export class DrizzleOrgRepository implements IOrganizationRepository {
 
     if (row) return OrgMapper.toDomain(row);
     if (await isSuperAdmin(this.admin, authId)) {
+      markActingAsSuperAdmin();
       return this.findByIdAsOwner(eq(schema.organizations.slug, slug));
     }
     return null;
@@ -115,7 +118,10 @@ export class DrizzleOrgRepository implements IOrganizationRepository {
       .limit(1);
 
     if (row) return true;
-    return isSuperAdmin(this.admin, authId);
+
+    const superAdmin = await isSuperAdmin(this.admin, authId);
+    if (superAdmin) markActingAsSuperAdmin();
+    return superAdmin;
   }
 
   async create(name: string, slug: string, creatorAuthId: string): Promise<OrgEntity> {

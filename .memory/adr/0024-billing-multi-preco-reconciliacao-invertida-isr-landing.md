@@ -145,6 +145,30 @@ precise "editar o preço de um plano" ou "adicionar mais um intervalo".
   superfícies de autenticação diferentes (cron tick vs. revalidação Next.js), tratadas como
   segredos independentes por padrão de segurança.
 
+## Addendum (2026-08-24): painel admin passa a mostrar só vigentes; "rotacionar" vira "editar" na UI
+
+Pedido do responsável: super_admin deve ver/gerenciar só os preços VIGENTES por padrão, e
+"editar o preço" deve ser possível em vez de precisar desabilitar um e criar outro. Investigado
+se dava pra editar um Price do Stripe em vez de rotacionar (criar novo + arquivar antigo):
+**inviável** — o Price do Stripe é imutável em `unit_amount`/`currency` pela própria API do
+Stripe (só `nickname`/`metadata`/`active`/`tax_behavior` são editáveis), então rotação
+(`RotatePlanIntervalPriceUseCase`, já existente desde a decisão 3 acima) já é a única forma
+correta de "editar" um valor, e já migra assinantes com rateio e arquiva o preço antigo — exatamente
+o que foi pedido. O gap real era só de UX: o painel (`billing-plans-panel.tsx`) misturava preços
+ativos e arquivados na mesma lista, e o botão chamava a ação de "Rotacionar preço" (jargão interno).
+
+Mudança (só frontend, sem tocar backend/schema): preços ativos aparecem na lista principal com
+botão **"Editar preço"** (mesmo fluxo de rotação por baixo, só o rótulo mudou); preços inativos
+ficam atrás de um disclosure colapsado "Ver preços desativados (N)", cada linha só com "Habilitar"
+— e **somente quando aquele intervalo não tem um preço ativo no momento** (`SetPlanIntervalActiveUseCase`
+é escopado por (planKey, interval), não por price id; "Habilitar" numa linha arquivada cujo
+intervalo já tem preço ativo seria um no-op enganoso, e com 2+ linhas arquivadas do mesmo
+intervalo sem nenhuma ativa o backend pode reativar uma linha diferente da clicada — ambiguidade
+que a UI evita escondendo o botão nesses casos, não resolvendo no backend). Também corrigido en
+passant: o gate de "Adicionar intervalo" contava linhas (`plan.prices.length < 3`) em vez de
+intervalos distintos ocupados — um plano rotacionado o suficiente acumulava 3+ linhas (histórico
+nunca é apagado) e perdia o botão permanentemente mesmo com intervalo faltando.
+
 ## Relacionado
 
 - ADR-0023 (catálogo de billing, imutabilidade Price/Coupon) — parcialmente superseded por

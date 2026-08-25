@@ -4,10 +4,13 @@ import {
   Injectable,
   NestInterceptor,
 } from "@nestjs/common";
-import type { Request } from "express";
 import { Observable, from, firstValueFrom } from "rxjs";
 import { RlsContext } from "../../database/database.module";
 import type { AuthUser } from "../../modules/auth/application/ports/auth-provider.interface";
+import {
+  runWithActingContext,
+  type RequestWithActingContext,
+} from "../request-context/acting-context";
 
 @Injectable()
 export class RlsInterceptor implements NestInterceptor {
@@ -21,12 +24,14 @@ export class RlsInterceptor implements NestInterceptor {
 
     const request = context
       .switchToHttp()
-      .getRequest<Request & { user?: AuthUser }>();
+      .getRequest<RequestWithActingContext & { user?: AuthUser }>();
     const authId = request.user?.id;
     if (!authId) return next.handle();
 
     return from(
-      this.rls.runWithClaims(authId, () => firstValueFrom(next.handle())),
+      runWithActingContext(request.actingAsSuperAdmin === true, () =>
+        this.rls.runWithClaims(authId, () => firstValueFrom(next.handle())),
+      ),
     );
   }
 }

@@ -10,6 +10,8 @@ import type { DrizzleDB } from "../../../database/database.module";
 import type { AuthUser } from "../application/ports/auth-provider.interface";
 import { CustomersController } from "../../customers/interface/customers.controller";
 import { MaterialsController } from "../../materials/interface/materials.controller";
+import * as isSuperAdminModule from "../../../common/auth/is-super-admin";
+import type { RequestWithActingContext } from "../../../common/request-context/acting-context";
 
 function buildDb(rows: unknown[]): DrizzleDB {
   const queryBuilder = {
@@ -44,6 +46,10 @@ function buildContext(
 const user: AuthUser = { id: "auth-1", email: "a@b.com", emailVerified: true };
 
 describe("OrgModuleGuard", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it("bloqueia funcionário sem a flag do módulo quando a classe exige o módulo", async () => {
     const db = buildDb([{ role: "employee", permissions: [] }]);
     const guard = new OrgModuleGuard(db, buildReflector("clients"));
@@ -96,6 +102,20 @@ describe("OrgModuleGuard", () => {
     await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
       ForbiddenException,
     );
+  });
+
+  it("marca actingAsSuperAdmin e passa quando não há membership mas o usuário é super_admin", async () => {
+    jest.spyOn(isSuperAdminModule, "isSuperAdmin").mockResolvedValueOnce(true);
+    const db = buildDb([]);
+    const guard = new OrgModuleGuard(db, buildReflector("clients"));
+    const request: Partial<RequestWithActingContext & { user?: AuthUser }> = {
+      user,
+      params: { orgId: "org-1" },
+    };
+    const context = buildContext(request);
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(request.actingAsSuperAdmin).toBe(true);
   });
 });
 

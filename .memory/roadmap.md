@@ -215,9 +215,48 @@ Visibilidade por funcionário ("só vê o que é dele; owner vê tudo + lança e
   Semestral R$2000/Anual R$4200/Customizado); **acesso à org só após billing configurado**;
   **grace period configurável** após inadimplência. Hoje não implementado (onboarding não
   exige billing). Mesmo escopo do BL-2 — priorizar quando o produto for confirmado.
-- **PLAT-3 — Auditoria de ações** · _Planejar (alinhar)_
-  Doc exige log de **quem / o quê / quando / qual org / quais alterações**. Não há trilha de
-  auditoria. Importante para compliance e suporte.
+- **PLAT-3 — Auditoria de ações** · _Fatia inicial ✅ done (2026-08-24); fatia caixa ✅ done
+  (2026-08-24, parcial); trilha genérica segue pendente para os demais módulos_
+  Doc exige log de **quem / o quê / quando / qual org / quais alterações**. Priorizado após
+  investigação do problema "super_admin com acesso total à org" (2026-08-24): o ADR-0013 já
+  cobria o mecanismo de acesso (`super_admin` age como owner no caminho de miss de membership),
+  mas declarava a auditoria dessas ações como pendente — sem trilha de quem/o quê/quando quando
+  é um super_admin, não o owner real, executando a ação.
+  **Fatia inicial implementada**: `audit_logs.metadata.viaSuperAdmin: true` quando a autorização
+  veio da síntese de `isSuperAdmin()` (ADR-0013 addendum 2026-08-24 tem a arquitetura completa —
+  `AsyncLocalStorage` próprio, escrita nos 4 pontos de síntese em repositório + 3 guards, leitura
+  só em `AuditService.log()`, sem migration). Badge "via super_admin" no painel `/admin/audit-logs`.
+  Verificado end-to-end contra o banco local (super_admin sem membership editando uma org gravou
+  a chave corretamente). 109 suites/654 testes do backend passando.
+  **Fatia caixa implementada (2026-08-24, parcial)**: escolhido como primeiro módulo da trilha
+  genérica (cashier = dados financeiros, ADR-0010 append-only, maior risco entre os 6 módulos sem
+  nenhuma auditoria — materials/services/customers/calendar/support seguem sem cobertura, nessa
+  ordem de risco decrescente). Cobre só 3 das 9 operações mutantes do módulo: criação de
+  lançamento (`cashier_transaction_created`), atualização de taxas (`cashier_fees_updated`) e
+  atualização de comissões (`cashier_commissions_updated`) — migration `0057_audit_action_cashier`
+  (3 valores novos no enum `audit_action`, formato igual aos precedentes 0031/0053/0055).
+  `actorId` sempre o requisitante real (via `logByAuthId`), nunca o membro atribuído (que vai em
+  `metadata.attributedTo`); taxas e comissões só auditam quando o valor efetivamente muda
+  (comparação com o estado anterior, capturado antes do upsert/supersede); nenhum texto livre
+  (`description`) ou PII no metadata. Ver "Cobertura de auditoria do caixa" em
+  `.memory/domain-rules.md` para o detalhe de qual operação é/não é auditada e por quê.
+  **Deliberadamente fora desta fatia** (motivo: `transactions.created_by` mistura hoje dois tipos
+  de id — `users.id` em criação normal via `resolveCreatedBy`, `auth.id` em pernas de
+  transferência via `cashier.controller.ts`; ver `.memory/domain-rules.md`, seção do bug de
+  `created_by`): estorno (`reverse-transaction`), correção (`correct-transaction`) e transferência
+  (`transfer`) de lançamento. Adicionar um campo `authId` explícito a esses 3 use-cases sem
+  primeiro resolver essa mistura de ids criaria mais um campo ambíguo. CRUD de categorias também
+  ficou fora (exigiria converter assinaturas posicionais para objeto — refactor não relacionado à
+  auditoria em si). O gap pré-existente de 7 valores de `AuditAction` (`anamnesis_*`,
+  `customer_self_*`) ausentes do DTO de filtro (`audit-logs-query.dto.ts`) e da union do frontend
+  (`features/admin/types/index.ts`) também não foi fechado aqui — bug separado, não introduzido
+  por esta fatia.
+  **Pendente (próximas iterações)**: (1) decidir a nomenclatura de id em
+  `transactions.created_by`/`reversedBy` antes de auditar estorno/correção/transferência; (2)
+  materials/services/customers/calendar/support seguem sem nenhuma auditoria; (3) fechar o gap
+  pré-existente dos 7 valores de `AuditAction` faltando no DTO de filtro e na union do frontend;
+  (4) promover `viaSuperAdmin` a coluna dedicada + índice se/quando o painel precisar filtrar por
+  esse campo (decisão adiada deliberadamente, registrada no ADR-0013).
 - **PLAT-4 — Onboarding self-service com billing** · _Planejar (alinhar)_
   Fluxo único do doc: `Cadastro → Criar org → Configurar billing → Acessar org`. Hoje
   cria-se org sem o passo de billing. Depende de PLAT-2.

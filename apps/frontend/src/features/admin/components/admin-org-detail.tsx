@@ -390,6 +390,9 @@ const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   invite_sent: "Convite enviado",
   invite_accepted: "Convite aceito",
   subscription_changed: "Assinatura",
+  cashier_transaction_created: "Caixa: lançamento",
+  cashier_fees_updated: "Caixa: taxas",
+  cashier_commissions_updated: "Caixa: comissões",
 }
 
 const AUDIT_ACTION_VARIANTS: Record<
@@ -402,6 +405,9 @@ const AUDIT_ACTION_VARIANTS: Record<
   invite_sent: "outline",
   invite_accepted: "outline",
   subscription_changed: "secondary",
+  cashier_transaction_created: "default",
+  cashier_fees_updated: "secondary",
+  cashier_commissions_updated: "secondary",
 }
 
 function AuditTab({ orgId }: { orgId: string }) {
