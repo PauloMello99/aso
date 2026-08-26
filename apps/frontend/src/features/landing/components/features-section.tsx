@@ -7,45 +7,48 @@ import {
   Users,
   TrendingUp,
 } from "lucide-react"
-import { Badge } from "@/shared/components/ui/badge"
+import { cn } from "@/shared/lib/utils"
+import { GlowCard } from "./glow-card"
 import { Reveal } from "./reveal"
 
 const FEATURES = [
   {
+    icon: Wallet,
+    title: "Caixa que não mente",
+    description:
+      "Lançamentos imutáveis com correção por errata: nada é apagado. A taxa do cartão já entra descontada, então o saldo mostrado é o líquido de verdade.",
+    featured: true,
+  },
+  {
     icon: CalendarDays,
     title: "Agenda por profissional",
     description:
-      "Cada tatuador vê a própria agenda; o dono vê tudo e agenda em nome de qualquer um. Lembrete automático antes da sessão.",
+      "Cada tatuador vê a própria agenda; o dono vê tudo e agenda em nome de qualquer um.",
   },
   {
     icon: FileSignature,
     title: "Anamnese digital assinada",
     description:
-      "Formulário por tipo de serviço, versionado. O cliente responde por link, assina e o PDF fica anexado à sessão.",
-  },
-  {
-    icon: Wallet,
-    title: "Caixa que não mente",
-    description:
-      "Lançamentos imutáveis com correção por errata — nada é apagado. A taxa do cartão já entra descontada.",
+      "Formulário por tipo de serviço, versionado. O cliente responde por link e assina.",
   },
   {
     icon: Boxes,
     title: "Estoque real",
     description:
-      "Descartável ou compartilhado, baixa automática por serviço, alerta de mínimo e quanto custa repor tudo.",
+      "Baixa automática por serviço, alerta de mínimo e quanto custa repor tudo.",
   },
   {
     icon: Users,
     title: "Clientes com histórico",
     description:
-      "Sessões, origem, anexos, observações e todas as fichas de anamnese num só lugar.",
+      "Sessões, origem, anexos e fichas de anamnese num só lugar.",
   },
   {
     icon: TrendingUp,
     title: "Números do estúdio",
     description:
-      "Receita, despesa, ticket médio, novos clientes e margem por serviço. Exporta em CSV escolhendo as colunas.",
+      "Receita, despesa, ticket médio e margem por serviço. Exporta em CSV.",
+    featured: true,
   },
 ]
 
@@ -54,14 +57,6 @@ export function FeaturesSection() {
     <section id="recursos" className="py-16 md:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="mb-16 text-center">
-          <div className="mb-4 flex justify-center">
-            <Badge
-              variant="outline"
-              className="border-foreground/10 font-semibold text-foreground/60"
-            >
-              Recursos
-            </Badge>
-          </div>
           <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             Tudo que você precisa
           </h2>
@@ -71,22 +66,55 @@ export function FeaturesSection() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map((feature, index) => {
             const Icon = feature.icon
             return (
-              <Reveal key={feature.title} delay={index * 60} className="h-full">
-                <div className="group h-full rounded-xl border border-foreground/5 bg-foreground/[0.03] p-6 transition-all hover:border-foreground/10 hover:bg-foreground/[0.05]">
-                  <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                    <Icon className="h-5 w-5 text-primary" />
+              <Reveal
+                key={feature.title}
+                delay={index * 60}
+                className={cn("h-full", feature.featured && "lg:col-span-2")}
+              >
+                <GlowCard
+                  className={cn(
+                    "group flex h-full flex-col rounded-xl border p-6 transition-all",
+                    feature.featured
+                      ? "border-primary/20 bg-primary-subtle"
+                      : "border-foreground/5 bg-foreground/[0.03] hover:border-foreground/10 hover:bg-foreground/[0.05]",
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "mb-4 inline-flex items-center justify-center rounded-lg",
+                      feature.featured
+                        ? "h-12 w-12 bg-primary/15"
+                        : "h-10 w-10 bg-primary/10",
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        "text-primary",
+                        feature.featured ? "h-6 w-6" : "h-5 w-5",
+                      )}
+                    />
                   </div>
-                  <h3 className="mb-2 text-base font-semibold text-foreground">
+                  <h3
+                    className={cn(
+                      "mb-2 font-semibold text-foreground",
+                      feature.featured ? "text-xl" : "text-base",
+                    )}
+                  >
                     {feature.title}
                   </h3>
-                  <p className="text-sm leading-relaxed text-foreground/50">
+                  <p
+                    className={cn(
+                      "leading-relaxed text-foreground/50",
+                      feature.featured ? "text-base" : "text-sm",
+                    )}
+                  >
                     {feature.description}
                   </p>
-                </div>
+                </GlowCard>
               </Reveal>
             )
           })}

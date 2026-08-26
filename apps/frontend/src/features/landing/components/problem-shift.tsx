@@ -1,6 +1,6 @@
 import * as React from "react"
 import { X, Check } from "lucide-react"
-import { Badge } from "@/shared/components/ui/badge"
+import { Reveal } from "./reveal"
 
 const BEFORE_ITEMS = [
   "Agenda no WhatsApp, confirmação que ninguém lembra de pedir",
@@ -23,22 +23,14 @@ export function ProblemShift() {
     <section className="py-16 md:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="mb-16 text-center">
-          <div className="mb-4 flex justify-center">
-            <Badge
-              variant="outline"
-              className="border-foreground/10 font-semibold text-foreground/60"
-            >
-              O problema
-            </Badge>
-          </div>
           <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             Sua rotina, antes e depois
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-          <div>
-            <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-foreground/40">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <Reveal className="rounded-2xl border border-foreground/5 bg-foreground/[0.02] p-8">
+            <h3 className="mb-6 text-sm font-medium uppercase tracking-wider text-foreground/40">
               Hoje
             </h3>
             <ul className="space-y-4">
@@ -51,10 +43,13 @@ export function ProblemShift() {
                 </li>
               ))}
             </ul>
-          </div>
+          </Reveal>
 
-          <div>
-            <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-primary/70">
+          <Reveal
+            delay={100}
+            className="rounded-2xl border border-primary/20 bg-primary-subtle p-8"
+          >
+            <h3 className="mb-6 text-sm font-medium uppercase tracking-wider text-primary">
               Com o ASO
             </h3>
             <ul className="space-y-4">
@@ -67,7 +62,7 @@ export function ProblemShift() {
                 </li>
               ))}
             </ul>
-          </div>
+          </Reveal>
         </div>
       </div>
     </section>

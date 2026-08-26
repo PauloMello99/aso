@@ -126,9 +126,9 @@ export function Pricing({ plans }: PricingProps) {
                   <div
                     key={plan.key}
                     className={cn(
-                      "relative flex flex-col rounded-2xl border border-foreground/5 bg-foreground/[0.03] p-8 transition-all",
+                      "relative flex flex-col rounded-2xl border border-foreground/5 bg-foreground/[0.03] p-8 transition-all hover:-translate-y-1 hover:border-foreground/10",
                       isHighlighted &&
-                        "border-primary/40 ring-1 ring-primary/20",
+                        "border-primary/40 ring-1 ring-primary/20 hover:border-primary/50",
                     )}
                   >
                     {isHighlighted && (
@@ -181,9 +181,9 @@ export function Pricing({ plans }: PricingProps) {
 
                     <Button
                       asChild
-                      className="w-full border border-foreground/10 bg-transparent text-foreground hover:bg-foreground/5"
+                      className="w-full border border-foreground/10 bg-transparent text-foreground transition-transform duration-150 hover:bg-foreground/5 active:scale-[0.98]"
                     >
-                      <Link href="/auth/signup">Começar agora</Link>
+                      <Link href="/auth/signup">Testar 60 dias grátis</Link>
                     </Button>
 
                     {price && (

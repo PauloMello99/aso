@@ -72,7 +72,7 @@ export function LandingPage({ plans }: LandingPageProps) {
               "Link público por cliente, sem precisar imprimir nada",
               "Assinatura manuscrita direto na tela do cliente",
               "PDF com termo de consentimento anexado automaticamente",
-              "Nova versão do formulário obriga refazer a ficha — nunca fica desatualizada",
+              "Nova versão do formulário obriga refazer a ficha, nunca fica desatualizada",
             ]}
             imageSrc="/screenshots/anamnesis.webp"
             imageAlt="Ficha de anamnese respondida e assinada digitalmente pelo cliente"
@@ -80,11 +80,11 @@ export function LandingPage({ plans }: LandingPageProps) {
             imageHeight={900}
           />
           <ModuleSpotlight
-            reverse
+            layout="stacked"
             eyebrow="Caixa & margem"
             title="Caixa que mostra a margem real"
             bullets={[
-              "Lançamentos imutáveis — correção sempre por errata rastreável",
+              "Lançamentos imutáveis, correção sempre por errata rastreável",
               "Taxa de cada método de pagamento já descontada no líquido",
               "Custo do material consumido vs. receita, por serviço",
               "Filtros por período, método e categoria + exportação em CSV",
@@ -95,11 +95,12 @@ export function LandingPage({ plans }: LandingPageProps) {
             imageHeight={900}
           />
           <ModuleSpotlight
+            reverse
             eyebrow="Estoque"
             title="Estoque que se atualiza sozinho"
             bullets={[
               "Material consumível ou compartilhável, cada um com sua regra",
-              "Baixa automática a cada serviço lançado — sem contagem manual",
+              "Baixa automática a cada serviço lançado, sem contagem manual",
               "Alerta quando um item bate o mínimo configurado",
               "Valor estimado para repor tudo que está em falta",
             ]}

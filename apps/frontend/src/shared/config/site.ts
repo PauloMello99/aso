@@ -10,7 +10,7 @@ export const SITE_URL =
 
 export const SITE_NAME = "ASO"
 
-export const SITE_DEFAULT_TITLE = "ASO — Gestão para estúdios de tatuagem"
+export const SITE_DEFAULT_TITLE = "ASO - Gestão para estúdios de tatuagem"
 
 export const SITE_DEFAULT_DESCRIPTION =
   "Agendamentos, clientes, anamnese, estoque e caixa em um único lugar. Gestão completa para estúdios de tatuagem."
