@@ -42,8 +42,59 @@ caminho do membro comum e sem alterar os ~12 use-cases da org. Fonte única:
 ## Consequências
 
 - Poder destrutivo real liberado ao super_admin; o **banner é a salvaguarda de UX**.
-- **Auditoria das ações fica para PLAT-3** (pendente) — sem trilha de quem/o quê/quando ainda.
+- **Auditoria do FATO de ter sido síntese de super_admin (PLAT-3, fatia inicial) implementada
+  em 2026-08-24** — ver addendum abaixo. A trilha genérica de "quem/o quê/quando" pra toda
+  mutação do sistema (não só as via síntese) continua fora do escopo deste ADR.
 - O helper roda só no miss path → custo zero no fluxo do membro comum.
+
+## Addendum (2026-08-24): PLAT-3 fatia inicial — marcar auditoria quando a autorização vem da síntese
+
+**Decisão**: quando uma ação é autorizada pelo caminho de miss deste ADR (não por membership
+qualificante), os `audit_logs` gravam `metadata.viaSuperAdmin: true`. Semântica exata: "esta
+ação foi autorizada por `isSuperAdmin()`", não "o ator não é membro" — um super_admin que É
+membro real como employee e aciona a síntese em `isOwner()` (linha de owner ausente) também é
+marcado, e isso é intencional (a autorização efetivamente veio da síntese, não da membership
+qualificante que ele tem).
+
+**Onde a marcação acontece** (arquitetura escolhida: sinal de ambiente via
+`AsyncLocalStorage`, não parâmetro passado por controllers/use-cases — os ~12 use-cases da org
+e seus controllers continuam com diff zero):
+- `apps/backend/src/common/request-context/acting-context.ts` — `AsyncLocalStorage` PRÓPRIO
+  (não reaproveita o `rlsStorage` de `database.module.ts`, que hospeda o proxy de SAVEPOINT da
+  transação de request). Exporta `runWithActingContext`, `markActingAsSuperAdmin`,
+  `isActingAsSuperAdmin`.
+- Escrita: nos 4 pontos de síntese em repositório (`DrizzleOrgRepository.findByIdAndAuthId`/
+  `findBySlugAndAuthId`/`isOwner`, `DrizzleMemberRepository.findByAuthId`) — é onde a
+  autorização das mutações de org REALMENTE acontece (confirmado por leitura direta:
+  `OrgsController` só tem `AuthGuard` de classe, as mutações autorizam dentro do use-case via
+  `orgRepo.isOwner()`) — e, redundantemente, nos 3 guards (`OrgOwnerGuard`,
+  `OrgMembershipGuard`, `OrgModuleGuard`) que escrevem `request.actingAsSuperAdmin = true` (só
+  eles conseguem, porque guards rodam ANTES de interceptors no ciclo do Nest, fora do ALS).
+- Leitura: só em `AuditService.log()`, capturada SINCRONAMENTE antes de `registerPostCommit`
+  (o hook pós-commit roda DEPOIS do `COMMIT` real, fora da janela em que o contexto síncrono
+  de uma chamada comum ainda é garantido — capturar antes é a garantia robusta).
+- Ponte guard → ALS: `RlsInterceptor` envolve `RlsContext.runWithClaims(...)` POR FORA com
+  `runWithActingContext(request.actingAsSuperAdmin === true, ...)` — crítico que seja por
+  fora, porque os hooks pós-commit do `AuditService` rodam dentro do corpo de `runWithClaims`,
+  depois do `COMMIT`.
+
+**Sem migration**: `audit_logs.metadata` já é jsonb; a chave nova é aditiva, sem coluna/índice
+novo nesta fatia. Se um filtro por esse campo no painel de auditoria for necessário no futuro,
+promover a coluna dedicada + índice é o próximo passo natural (não feito aqui).
+
+**Frontend**: `apps/frontend/src/features/admin/components/admin-audit-logs.tsx` mostra um
+badge "via super_admin" na célula do ator quando `metadata.viaSuperAdmin === true`.
+
+**Exclusão conhecida e deliberada**: `OrgMembershipGuard` tem um segundo bypass de super_admin
+que NÃO passa por `isSuperAdmin()` nem é marcado — quando o super_admin já É membro real
+(owner ou employee) de uma org **suspensa**, o guard libera pelo campo `membership.
+platformRole === "super_admin"` direto na query (não pelo caminho de miss deste ADR). Só o
+caso super_admin-owner-real-de-org-suspensa fica sem `viaSuperAdmin` (o caso employee é
+recapturado depois em `isOwner()`, que sintetiza owner por não achar linha com role="owner").
+Decisão: não marcar esse ramo — ele não é síntese de owner (a membership É real), é um bypass
+de suspensão diferente; misturar as duas semânticas no mesmo campo confundiria mais do que
+ajudaria. Registro aqui para que o campo `viaSuperAdmin` nunca seja lido como "toda ação de
+super_admin fica marcada" — só marca o caminho de miss deste ADR.
 
 ## Relacionado
 

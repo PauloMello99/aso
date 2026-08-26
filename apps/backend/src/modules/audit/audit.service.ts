@@ -9,6 +9,7 @@ import {
   USER_REPOSITORY,
 } from "../user/domain/user.repository.interface";
 import * as schema from "../../database/schema";
+import { isActingAsSuperAdmin } from "../../common/request-context/acting-context";
 
 export type AuditAction =
   | "create"
@@ -23,7 +24,10 @@ export type AuditAction =
   | "customer_update_invite_sent"
   | "customer_self_updated"
   | "anamnesis_invite_resent"
-  | "anamnesis_copy_sent";
+  | "anamnesis_copy_sent"
+  | "cashier_transaction_created"
+  | "cashier_fees_updated"
+  | "cashier_commissions_updated";
 
 export interface AuditEntry {
   actorId: string | null;
@@ -32,6 +36,7 @@ export interface AuditEntry {
   entityType: string;
   entityId?: string | null;
   metadata?: Record<string, unknown>;
+  actingAsSuperAdmin?: boolean;
 }
 
 @Injectable()
@@ -50,6 +55,15 @@ export class AuditService {
     // depois (ver GOTCHA em .memory/domain-rules.md, secao RLS). Fora de um
     // request, registerPostCommit executa imediatamente (mesmo comportamento
     // de sempre).
+    //
+    // Captura sincrona e obrigatoria aqui, fora do hook: o hook so roda DEPOIS
+    // do COMMIT real, quando o AsyncLocalStorage do acting-context ja pode ter
+    // saido de escopo (ex.: request ja respondeu). Ler isActingAsSuperAdmin()
+    // dentro do callback assinaria a acao com o contexto errado.
+    const viaSuperAdmin = entry.actingAsSuperAdmin ?? isActingAsSuperAdmin();
+    const metadata: Record<string, unknown> | null = viaSuperAdmin
+      ? { ...(entry.metadata ?? {}), viaSuperAdmin: true }
+      : (entry.metadata ?? null);
     registerPostCommit(async () => {
       try {
         await this.db.insert(schema.auditLogs).values({
@@ -58,7 +72,7 @@ export class AuditService {
           action: entry.action,
           entityType: entry.entityType,
           entityId: entry.entityId ?? null,
-          metadata: (entry.metadata ?? null) as Record<string, unknown> | null,
+          metadata,
         });
       } catch (err) {
         this.logger.error(

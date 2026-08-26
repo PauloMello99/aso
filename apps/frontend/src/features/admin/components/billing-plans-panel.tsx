@@ -109,6 +109,9 @@ export function BillingPlansPanel() {
   const [expandedPlanIds, setExpandedPlanIds] = React.useState<Set<string>>(
     new Set(),
   );
+  const [expandedHistoryPlanIds, setExpandedHistoryPlanIds] = React.useState<
+    Set<string>
+  >(new Set());
   const [activatingKey, setActivatingKey] = React.useState<string | null>(null);
 
   const {
@@ -129,8 +132,20 @@ export function BillingPlansPanel() {
     });
   }
 
+  function toggleHistoryExpanded(planId: string) {
+    setExpandedHistoryPlanIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(planId)) {
+        next.delete(planId);
+      } else {
+        next.add(planId);
+      }
+      return next;
+    });
+  }
+
   async function handleEnable(plan: BillingPlan, price: BillingPlanPrice) {
-    const key = `${plan.key}:${price.interval}`;
+    const key = price.id;
     setActivatingKey(key);
     try {
       await setActive({
@@ -198,7 +213,18 @@ export function BillingPlansPanel() {
               <TableBody>
                 {plans.map((plan) => {
                   const expanded = expandedPlanIds.has(plan.id);
-                  const canAddInterval = plan.prices.length < 3;
+                  const occupiedIntervals = new Set(
+                    plan.prices.map((p) => p.interval),
+                  );
+                  const canAddInterval =
+                    occupiedIntervals.size < ALL_INTERVALS.length;
+                  const activePrices = plan.prices.filter((p) => p.active);
+                  const inactivePrices = plan.prices.filter(
+                    (p) => !p.active,
+                  );
+                  const historyExpanded = expandedHistoryPlanIds.has(
+                    plan.id,
+                  );
 
                   return (
                     <React.Fragment key={plan.id}>
@@ -216,8 +242,8 @@ export function BillingPlansPanel() {
                             )}
                             <span>{plan.name}</span>
                             <span className="hidden text-xs font-normal text-foreground/40 sm:inline">
-                              ({plan.prices.length}{" "}
-                              {plan.prices.length === 1 ? "preço" : "preços"})
+                              ({activePrices.length}{" "}
+                              {activePrices.length === 1 ? "preço" : "preços"})
                             </span>
                           </button>
                         </TableCell>
@@ -257,80 +283,128 @@ export function BillingPlansPanel() {
                                 </p>
                               )}
 
-                              {plan.prices.map((price) => {
-                                const isActivating =
-                                  activatingKey ===
-                                    `${plan.key}:${price.interval}` &&
-                                  settingActive;
+                              {plan.prices.length > 0 &&
+                                activePrices.length === 0 && (
+                                  <p className="text-sm text-destructive">
+                                    Nenhum preço vigente — o checkout deste
+                                    plano está indisponível neste momento.
+                                  </p>
+                                )}
 
-                                return (
-                                  <div
-                                    key={price.id}
-                                    className="flex flex-col gap-2 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3 sm:flex-row sm:items-center sm:justify-between"
-                                  >
-                                    <div className="flex flex-wrap items-center gap-3">
-                                      <span className="text-sm font-medium text-foreground">
-                                        {INTERVAL_LABELS[price.interval]}
-                                      </span>
-                                      <span className="text-sm tabular-nums text-foreground/70">
-                                        {formatBRL(price.amountCents)}
-                                      </span>
-                                      {price.active ? (
-                                        <Badge className="bg-success/15 text-success">
-                                          Ativo
-                                        </Badge>
-                                      ) : (
-                                        <Badge className="bg-foreground/10 text-foreground/50">
-                                          Inativo
-                                        </Badge>
-                                      )}
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                      {price.active && (
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          disabled={settingActive}
-                                          onClick={() =>
-                                            setRotateTarget({ plan, price })
-                                          }
-                                        >
-                                          Rotacionar preço
-                                        </Button>
-                                      )}
-                                      {price.active ? (
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          disabled={settingActive}
-                                          onClick={() =>
-                                            setDisableTarget({ plan, price })
-                                          }
-                                        >
-                                          Desabilitar
-                                        </Button>
-                                      ) : (
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          disabled={settingActive}
-                                          onClick={() =>
-                                            void handleEnable(plan, price)
-                                          }
-                                        >
-                                          {isActivating && (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                          )}
-                                          Habilitar
-                                        </Button>
-                                      )}
-                                    </div>
+                              {activePrices.map((price) => (
+                                <div
+                                  key={price.id}
+                                  className="flex flex-col gap-2 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3 sm:flex-row sm:items-center sm:justify-between"
+                                >
+                                  <div className="flex flex-wrap items-center gap-3">
+                                    <span className="text-sm font-medium text-foreground">
+                                      {INTERVAL_LABELS[price.interval]}
+                                    </span>
+                                    <span className="text-sm tabular-nums text-foreground/70">
+                                      {formatBRL(price.amountCents)}
+                                    </span>
+                                    <Badge className="bg-success/15 text-success">
+                                      Ativo
+                                    </Badge>
                                   </div>
-                                );
-                              })}
+                                  <div className="flex flex-wrap gap-2">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      disabled={settingActive}
+                                      onClick={() =>
+                                        setRotateTarget({ plan, price })
+                                      }
+                                    >
+                                      Editar preço
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      disabled={settingActive}
+                                      onClick={() =>
+                                        setDisableTarget({ plan, price })
+                                      }
+                                    >
+                                      Desabilitar
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+
+                              {inactivePrices.length > 0 && (
+                                <div className="space-y-2">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      toggleHistoryExpanded(plan.id)
+                                    }
+                                    className="flex items-center gap-1 text-xs text-foreground/50 hover:text-foreground/70"
+                                  >
+                                    {historyExpanded ? (
+                                      <ChevronDown className="h-3.5 w-3.5" />
+                                    ) : (
+                                      <ChevronRight className="h-3.5 w-3.5" />
+                                    )}
+                                    {historyExpanded
+                                      ? "Ocultar preços desativados"
+                                      : `Ver preços desativados (${inactivePrices.length})`}
+                                  </button>
+
+                                  {historyExpanded &&
+                                    inactivePrices.map((price) => {
+                                      const isActivating =
+                                        activatingKey === price.id &&
+                                        settingActive;
+                                      const hasActiveSibling =
+                                        activePrices.some(
+                                          (a) => a.interval === price.interval,
+                                        );
+
+                                      return (
+                                        <div
+                                          key={price.id}
+                                          className="flex flex-col gap-2 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3 sm:flex-row sm:items-center sm:justify-between"
+                                        >
+                                          <div className="flex flex-wrap items-center gap-3">
+                                            <span className="text-sm font-medium text-foreground">
+                                              {INTERVAL_LABELS[price.interval]}
+                                            </span>
+                                            <span className="text-sm tabular-nums text-foreground/70">
+                                              {formatBRL(price.amountCents)}
+                                            </span>
+                                            <Badge className="bg-foreground/10 text-foreground/50">
+                                              Inativo
+                                            </Badge>
+                                          </div>
+                                          {!hasActiveSibling && (
+                                            <div className="flex flex-wrap gap-2">
+                                              <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                disabled={settingActive}
+                                                onClick={() =>
+                                                  void handleEnable(
+                                                    plan,
+                                                    price,
+                                                  )
+                                                }
+                                              >
+                                                {isActivating && (
+                                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                                )}
+                                                Habilitar
+                                              </Button>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                </div>
+                              )}
 
                               {canAddInterval && (
                                 <Button
@@ -737,7 +811,7 @@ function RotatePriceFlow({
       <Dialog open={formOpen} onOpenChange={(o) => !o && handleClose()}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Rotacionar preço</DialogTitle>
+            <DialogTitle>Editar preço</DialogTitle>
             <DialogDescription>
               Define o novo valor do intervalo
               {target
@@ -776,7 +850,7 @@ function RotatePriceFlow({
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={(o) => !o && !isPending && setConfirming(false)}
-        title="Confirmar rotação de preço"
+        title="Confirmar edição de preço"
         description={
           target && amountCents !== null ? (
             <>
@@ -794,7 +868,7 @@ function RotatePriceFlow({
             </>
           ) : undefined
         }
-        confirmLabel="Rotacionar preço"
+        confirmLabel="Salvar novo preço"
         destructive
         loading={isPending}
         error={error}
@@ -804,7 +878,7 @@ function RotatePriceFlow({
       <Dialog open={resultOpen} onOpenChange={(o) => !o && handleClose()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Resultado da rotação</DialogTitle>
+            <DialogTitle>Resultado da edição de preço</DialogTitle>
             <DialogDescription>
               {migratedCount} migrado(s), {skippedCount} já migrado(s),{" "}
               {failedCount} falhou(aram).

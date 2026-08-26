@@ -21,10 +21,19 @@ export function Nav() {
   const closeMenu = () => setMobileOpen(false)
 
   React.useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 80)
-    handleScroll()
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
+    const sentinel = document.createElement("div")
+    sentinel.style.cssText = "position:absolute;top:80px;height:1px;width:1px;pointer-events:none;"
+    document.body.prepend(sentinel)
+
+    const observer = new IntersectionObserver(([entry]) =>
+      setScrolled(entry ? !entry.isIntersecting : false),
+    )
+    observer.observe(sentinel)
+
+    return () => {
+      observer.disconnect()
+      sentinel.remove()
+    }
   }, [])
 
   return (

@@ -89,6 +89,9 @@ export type AuditAction =
   | "invite_sent"
   | "invite_accepted"
   | "subscription_changed"
+  | "cashier_transaction_created"
+  | "cashier_fees_updated"
+  | "cashier_commissions_updated"
 
 export interface AuditLogEntry {
   id: string

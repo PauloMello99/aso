@@ -400,6 +400,13 @@
       "when": 1782004600000,
       "tag": "0056_anamnesis_responses_org_customer_status_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1782004700000,
+      "tag": "0057_audit_action_cashier",
+      "breakpoints": true
     }
   ]
 }

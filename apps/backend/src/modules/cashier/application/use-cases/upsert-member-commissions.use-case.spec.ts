@@ -6,6 +6,7 @@ import { IMemberRepository } from "../../../organizations/domain/member.reposito
 import { MemberEntity } from "../../../organizations/domain/member.entity";
 import { CashierForbiddenException } from "../../domain/exceptions/cashier-forbidden.exception";
 import { CommissionMemberNotFoundException } from "../../domain/exceptions/commission-member-not-found.exception";
+import { AuditService } from "../../../audit/audit.service";
 
 function buildCommission(
   overrides: Partial<Parameters<typeof MemberCommissionEntity.create>[0]> = {},
@@ -91,6 +92,16 @@ function buildFakeMemberRepo(
   } as unknown as jest.Mocked<IMemberRepository>;
 }
 
+function buildFakeAuditService(
+  overrides: Partial<jest.Mocked<AuditService>> = {},
+): jest.Mocked<AuditService> {
+  return {
+    log: jest.fn(),
+    logByAuthId: jest.fn(),
+    ...overrides,
+  } as unknown as jest.Mocked<AuditService>;
+}
+
 describe("UpsertMemberCommissionsUseCase", () => {
   it("lança CashierForbiddenException quando o autor não é owner e nunca chama supersede", async () => {
     const commissionRepo = buildFakeCommissionRepo();
@@ -98,10 +109,12 @@ describe("UpsertMemberCommissionsUseCase", () => {
       isOwner: jest.fn().mockResolvedValue(false),
     });
     const memberRepo = buildFakeMemberRepo();
+    const auditService = buildFakeAuditService();
     const useCase = new UpsertMemberCommissionsUseCase(
       commissionRepo,
       orgRepo,
       memberRepo,
+      auditService,
     );
 
     await expect(
@@ -123,10 +136,12 @@ describe("UpsertMemberCommissionsUseCase", () => {
     });
     const orgRepo = buildFakeOrgRepo();
     const memberRepo = buildFakeMemberRepo();
+    const auditService = buildFakeAuditService();
     const useCase = new UpsertMemberCommissionsUseCase(
       commissionRepo,
       orgRepo,
       memberRepo,
+      auditService,
     );
 
     await useCase.execute({
@@ -143,6 +158,24 @@ describe("UpsertMemberCommissionsUseCase", () => {
       mode: "gross",
       createdBy: "owner-1",
     });
+    expect(auditService.logByAuthId).toHaveBeenCalledTimes(1);
+    expect(auditService.logByAuthId).toHaveBeenCalledWith("owner-1", {
+      orgId: "org-1",
+      action: "cashier_commissions_updated",
+      entityType: "member_commissions",
+      entityId: "org-1",
+      metadata: {
+        changes: [
+          {
+            userId: "user-1",
+            previousPercent: "10.00",
+            previousMode: "gross",
+            percent: "20.00",
+            mode: "gross",
+          },
+        ],
+      },
+    });
   });
 
   it("não chama supersede quando os valores enviados são idênticos aos vigentes", async () => {
@@ -151,10 +184,12 @@ describe("UpsertMemberCommissionsUseCase", () => {
     });
     const orgRepo = buildFakeOrgRepo();
     const memberRepo = buildFakeMemberRepo();
+    const auditService = buildFakeAuditService();
     const useCase = new UpsertMemberCommissionsUseCase(
       commissionRepo,
       orgRepo,
       memberRepo,
+      auditService,
     );
 
     await useCase.execute({
@@ -164,6 +199,7 @@ describe("UpsertMemberCommissionsUseCase", () => {
     });
 
     expect(commissionRepo.supersede).not.toHaveBeenCalled();
+    expect(auditService.logByAuthId).not.toHaveBeenCalled();
   });
 
   it("lança CommissionMemberNotFoundException quando userId não pertence à organização, sem chamar supersede para nenhum item do payload", async () => {
@@ -174,10 +210,12 @@ describe("UpsertMemberCommissionsUseCase", () => {
         .fn()
         .mockResolvedValue([buildMember({ userId: "user-1" })]),
     });
+    const auditService = buildFakeAuditService();
     const useCase = new UpsertMemberCommissionsUseCase(
       commissionRepo,
       orgRepo,
       memberRepo,
+      auditService,
     );
 
     await expect(
@@ -202,10 +240,12 @@ describe("UpsertMemberCommissionsUseCase", () => {
         .fn()
         .mockResolvedValue([buildMember({ userId: "user-1", enabled: false })]),
     });
+    const auditService = buildFakeAuditService();
     const useCase = new UpsertMemberCommissionsUseCase(
       commissionRepo,
       orgRepo,
       memberRepo,
+      auditService,
     );
 
     await expect(
@@ -217,6 +257,7 @@ describe("UpsertMemberCommissionsUseCase", () => {
     ).rejects.toBeInstanceOf(CommissionMemberNotFoundException);
     expect(commissionRepo.findActiveByOrgAndUser).not.toHaveBeenCalled();
     expect(commissionRepo.supersede).not.toHaveBeenCalled();
+    expect(auditService.logByAuthId).not.toHaveBeenCalled();
   });
 
   it('não chama supersede quando o percent enviado difere apenas em formatação decimal do vigente ("50" vs "50.00")', async () => {
@@ -227,10 +268,12 @@ describe("UpsertMemberCommissionsUseCase", () => {
     });
     const orgRepo = buildFakeOrgRepo();
     const memberRepo = buildFakeMemberRepo();
+    const auditService = buildFakeAuditService();
     const useCase = new UpsertMemberCommissionsUseCase(
       commissionRepo,
       orgRepo,
       memberRepo,
+      auditService,
     );
 
     await useCase.execute({
@@ -240,5 +283,6 @@ describe("UpsertMemberCommissionsUseCase", () => {
     });
 
     expect(commissionRepo.supersede).not.toHaveBeenCalled();
+    expect(auditService.logByAuthId).not.toHaveBeenCalled();
   });
 });
