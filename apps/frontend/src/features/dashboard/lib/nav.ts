@@ -8,6 +8,7 @@ import {
   Settings,
   CreditCard,
   ClipboardList,
+  LifeBuoy,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
@@ -67,6 +68,9 @@ export const ORG_NAV_SECTIONS: NavSection[] = [
     label: "Configurações",
     items: [{ label: "Configurações", href: "settings", icon: Settings }],
   },
+  {
+    items: [{ label: "Suporte", href: "support", icon: LifeBuoy }],
+  },
 ]
 
 export const SETTINGS_NAV: NavItem[] = [
@@ -113,4 +117,5 @@ export const PAGE_LABELS: Record<string, string> = {
   anamnesis: "Anamnese",
   subscription: "Assinatura",
   organizations: "Organizações",
+  support: "Suporte",
 }
