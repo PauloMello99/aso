@@ -33,7 +33,8 @@ componente, hook, schema). Full-stack ⇒ ambos, na ordem backend → frontend. 
 `<implementer>` = o do domínio.
 
 - **Simples**: `<implementer>` → você roda `pnpm check-types` + `pnpm lint` (filtrados no
-  app afetado quando possível) → resposta. **Não** acione locator/planner/tester/reviewer.
+  app afetado quando possível) → **se a mudança for observável no navegador, verifique no
+  preview** (ver §4) → resposta. **Não** acione locator/planner/tester/reviewer.
 - **Intermediária**: `locator` → `<implementer>` → `tester` → resposta.
 - **Complexa**: `locator` → `planner` → (aprovação do usuário se a mudança for grande ou
   destrutiva) → `<implementer>` (um passo do plano por vez) → `tester` →
@@ -67,11 +68,19 @@ essencial antes de repassar.
 ## 4. Validar
 
 Tarefas simples: você mesmo valida (`pnpm check-types`, `pnpm lint`). Demais: o `tester`
-decide a menor validação. **Realidade atual do ink-ops**: não há suíte automatizada
-(`test`/`test:e2e`) configurada, então a validação padrão é `check-types` → `lint` →
-`build` (direcionados por app; `build` completo e `db:status` só quando o risco pedir).
-Falha do tester classificada como regressão volta ao `implementer` com apenas o trecho
-essencial; falha preexistente é reportada ao usuário, não corrigida em silêncio.
+decide a menor validação. O ink-ops tem suíte automatizada (Jest no backend, Vitest no
+frontend); a validação padrão é suíte direcionada → `check-types` → `lint` → `build`
+(direcionados por app; `build` completo e `db:status` só quando o risco pedir). Falha
+classificada como regressão volta ao `implementer` com apenas o trecho essencial; falha
+preexistente é reportada ao usuário, não corrigida em silêncio.
+
+**Verificação no preview — obrigatória para toda mudança observável no navegador** (algo
+que o dev server renderiza, serve ou loga). Não é opcional e não substitui os checks
+acima; complementa. Subir o preview (`.claude/launch.json`: `frontend` :3000 / `backend`
+:3001), recarregar, checar console + logs + network, exercitar o fluxo alterado e anexar
+prova na resposta (screenshot / log de request / log de servidor). Só pula quando a
+mudança não é exercitável no preview (tipos, tooling, lib, teste, trabalho ainda não
+integrável). Detalhe operacional: `docs/ai/agentic-workflow.md` §Validação, passo 8.
 
 ## 5. Quando parar / escalar
 

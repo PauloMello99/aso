@@ -76,7 +76,9 @@ Supabase local: `pnpm db:start` (`npx supabase start`); tipos: `pnpm db:gen-type
 - Há suíte automatizada em ambas as apps: backend usa Jest (`apps/backend`, `ts-jest`,
   jest 30; `.spec.ts` por use-case, `jest.Mocked<Interface>` + builders `buildFake*`);
   frontend usa Vitest (`.spec.ts` junto de lib/schemas). `pnpm test` (turbo) roda as duas —
-  validar mudanças com `pnpm check-types` + `pnpm lint` + `pnpm test` + `pnpm build`
+  validar mudanças com `pnpm check-types` + `pnpm lint` + `pnpm test` + `pnpm build`, e
+  **verificar no preview toda mudança observável no navegador** (dev server via
+  `.claude/launch.json`; ver `docs/ai/agentic-workflow.md` §Validação, passo 8)
 
 ## Workflow de agentes
 
