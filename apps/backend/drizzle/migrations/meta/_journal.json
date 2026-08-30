@@ -407,6 +407,13 @@
       "when": 1782004700000,
       "tag": "0057_audit_action_cashier",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1782004800000,
+      "tag": "0058_audit_action_org_admin_access",
+      "breakpoints": true
     }
   ]
 }

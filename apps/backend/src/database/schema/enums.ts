@@ -103,6 +103,7 @@ export const auditActionEnum = pgEnum("audit_action", [
   "cashier_transaction_created",
   "cashier_fees_updated",
   "cashier_commissions_updated",
+  "org_admin_access",
 ]);
 
 export const anamnesisResponseStatusEnum = pgEnum(

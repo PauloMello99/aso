@@ -89,9 +89,17 @@ export type AuditAction =
   | "invite_sent"
   | "invite_accepted"
   | "subscription_changed"
+  | "anamnesis_invite_sent"
+  | "customer_self_registration_invite_sent"
+  | "customer_self_registered"
+  | "customer_update_invite_sent"
+  | "customer_self_updated"
+  | "anamnesis_invite_resent"
+  | "anamnesis_copy_sent"
   | "cashier_transaction_created"
   | "cashier_fees_updated"
   | "cashier_commissions_updated"
+  | "org_admin_access"
 
 export interface AuditLogEntry {
   id: string
