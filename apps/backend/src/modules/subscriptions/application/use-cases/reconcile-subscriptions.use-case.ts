@@ -84,6 +84,9 @@ export class ReconcileSubscriptionsUseCase {
         status: "canceled",
         type: "free",
         canceledAt: new Date(),
+        // The subscription is gone from Stripe: a leftover cancelAtPeriodEnd=true
+        // would be an unfaithful mirror (nothing left to cancel).
+        cancelAtPeriodEnd: false,
       });
       return true;
     }
@@ -125,6 +128,7 @@ export class ReconcileSubscriptionsUseCase {
       subscription.currentPeriodEnd?.getTime() !==
         normalized.currentPeriodEnd?.getTime() ||
       subscription.canceledAt?.getTime() !== normalized.canceledAt?.getTime() ||
+      subscription.cancelAtPeriodEnd !== normalized.cancelAtPeriodEnd ||
       markTrialConsumed;
 
     if (!hasDrift) return false;
@@ -143,6 +147,7 @@ export class ReconcileSubscriptionsUseCase {
       currentPeriodStart: normalized.currentPeriodStart,
       currentPeriodEnd: normalized.currentPeriodEnd,
       canceledAt: normalized.canceledAt,
+      cancelAtPeriodEnd: normalized.cancelAtPeriodEnd,
       ...(markTrialConsumed ? { trialConsumed: true } : {}),
     });
     return true;

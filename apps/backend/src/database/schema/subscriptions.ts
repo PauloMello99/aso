@@ -44,6 +44,7 @@ export const subscriptions = pgTable("subscriptions", {
   }),
   compExpiresAt: timestamp("comp_expires_at", { withTimezone: true }),
   trialConsumed: boolean("trial_consumed").notNull().default(false),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

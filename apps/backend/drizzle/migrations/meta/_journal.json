@@ -414,6 +414,13 @@
       "when": 1782004800000,
       "tag": "0058_audit_action_org_admin_access",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1782004900000,
+      "tag": "0059_subscriptions_cancel_at_period_end",
+      "breakpoints": true
     }
   ]
 }

@@ -26,6 +26,7 @@ function buildSubscription(
     compGrantedBy: null,
     compExpiresAt: null,
     canceledAt: null,
+    cancelAtPeriodEnd: false,
     trialConsumed: false,
     createdAt: new Date("2026-01-01T00:00:00Z"),
     updatedAt: new Date("2026-01-01T00:00:00Z"),
@@ -96,6 +97,7 @@ describe("ReconcileSubscriptionsUseCase", () => {
       currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
       currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
       canceledAt: null,
+      cancelAtPeriodEnd: false,
     };
     const paymentGateway = buildFakePaymentGateway({
       getSubscription: jest.fn().mockResolvedValue(normalized),
@@ -117,8 +119,11 @@ describe("ReconcileSubscriptionsUseCase", () => {
     expect(result).toEqual({ checked: 1, updated: 1, errors: 0 });
   });
 
-  it("treats a subscription deleted in Stripe (getSubscription returns null) as canceled", async () => {
-    const current = buildSubscription({ status: "active" });
+  it("treats a subscription deleted in Stripe (getSubscription returns null) as canceled and clears cancelAtPeriodEnd", async () => {
+    const current = buildSubscription({
+      status: "active",
+      cancelAtPeriodEnd: true,
+    });
     const paymentGateway = buildFakePaymentGateway({
       getSubscription: jest.fn().mockResolvedValue(null),
     });
@@ -134,7 +139,11 @@ describe("ReconcileSubscriptionsUseCase", () => {
 
     expect(subscriptionRepo.update).toHaveBeenCalledWith(
       "org-1",
-      expect.objectContaining({ status: "canceled", type: "free" }),
+      expect.objectContaining({
+        status: "canceled",
+        type: "free",
+        cancelAtPeriodEnd: false,
+      }),
     );
     expect(result.updated).toBe(1);
   });
@@ -179,6 +188,7 @@ describe("ReconcileSubscriptionsUseCase", () => {
       currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
       currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
       canceledAt: null,
+      cancelAtPeriodEnd: false,
     };
     const paymentGateway = buildFakePaymentGateway({
       getSubscription: jest.fn().mockResolvedValue(normalized),
@@ -215,6 +225,7 @@ describe("ReconcileSubscriptionsUseCase", () => {
       currentPeriodStart: new Date("2026-03-01T00:00:00Z"),
       currentPeriodEnd: new Date("2026-04-01T00:00:00Z"),
       canceledAt: null,
+      cancelAtPeriodEnd: false,
     };
     const paymentGateway = buildFakePaymentGateway({
       getSubscription: jest.fn().mockResolvedValue(normalized),
@@ -255,6 +266,7 @@ describe("ReconcileSubscriptionsUseCase", () => {
       currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
       currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
       canceledAt: null,
+      cancelAtPeriodEnd: false,
     };
     const paymentGateway = buildFakePaymentGateway({
       getSubscription: jest.fn().mockResolvedValue(normalized),
@@ -295,6 +307,115 @@ describe("ReconcileSubscriptionsUseCase", () => {
       currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
       currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
       canceledAt: null,
+      cancelAtPeriodEnd: false,
+    };
+    const paymentGateway = buildFakePaymentGateway({
+      getSubscription: jest.fn().mockResolvedValue(normalized),
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findAllStripeLinked: jest.fn().mockResolvedValue([current]),
+    });
+
+    const useCase = new ReconcileSubscriptionsUseCase(
+      subscriptionRepo,
+      paymentGateway,
+    );
+    const result = await useCase.execute();
+
+    expect(subscriptionRepo.update).not.toHaveBeenCalled();
+    expect(result).toEqual({ checked: 1, updated: 0, errors: 0 });
+  });
+
+  it("corrects drift when Stripe flips cancelAtPeriodEnd to true", async () => {
+    const current = buildSubscription({ cancelAtPeriodEnd: false });
+    const normalized = {
+      stripeSubscriptionId: "sub_stripe_1",
+      stripeCustomerId: "cus_1",
+      status: "active" as const,
+      billingInterval: "monthly" as const,
+      priceCents: 4990,
+      stripePriceId: "price_1",
+      stripeCouponId: null,
+      discountPercent: null,
+      trialEndsAt: null,
+      currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
+      currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
+      canceledAt: null,
+      cancelAtPeriodEnd: true,
+    };
+    const paymentGateway = buildFakePaymentGateway({
+      getSubscription: jest.fn().mockResolvedValue(normalized),
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findAllStripeLinked: jest.fn().mockResolvedValue([current]),
+    });
+
+    const useCase = new ReconcileSubscriptionsUseCase(
+      subscriptionRepo,
+      paymentGateway,
+    );
+    const result = await useCase.execute();
+
+    expect(subscriptionRepo.update).toHaveBeenCalledWith(
+      "org-1",
+      expect.objectContaining({ cancelAtPeriodEnd: true }),
+    );
+    expect(result.updated).toBe(1);
+  });
+
+  it("corrects drift when Stripe flips cancelAtPeriodEnd back to false", async () => {
+    const current = buildSubscription({ cancelAtPeriodEnd: true });
+    const normalized = {
+      stripeSubscriptionId: "sub_stripe_1",
+      stripeCustomerId: "cus_1",
+      status: "active" as const,
+      billingInterval: "monthly" as const,
+      priceCents: 4990,
+      stripePriceId: "price_1",
+      stripeCouponId: null,
+      discountPercent: null,
+      trialEndsAt: null,
+      currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
+      currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
+      canceledAt: null,
+      cancelAtPeriodEnd: false,
+    };
+    const paymentGateway = buildFakePaymentGateway({
+      getSubscription: jest.fn().mockResolvedValue(normalized),
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findAllStripeLinked: jest.fn().mockResolvedValue([current]),
+    });
+
+    const useCase = new ReconcileSubscriptionsUseCase(
+      subscriptionRepo,
+      paymentGateway,
+    );
+    const result = await useCase.execute();
+
+    expect(subscriptionRepo.update).toHaveBeenCalledWith(
+      "org-1",
+      expect.objectContaining({ cancelAtPeriodEnd: false }),
+    );
+    expect(result.updated).toBe(1);
+  });
+
+  it("does not write when cancelAtPeriodEnd matches and there is no other drift", async () => {
+    const current = buildSubscription({ cancelAtPeriodEnd: true });
+    const normalized = {
+      stripeSubscriptionId: "sub_stripe_1",
+      stripeCustomerId: "cus_1",
+      status: "active" as const,
+      billingInterval: "monthly" as const,
+      priceCents: 4990,
+      stripePriceId: "price_1",
+      stripeCouponId: null,
+      discountPercent: null,
+      trialEndsAt: null,
+      currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
+      currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
+      canceledAt: null,
+      cancelAtPeriodEnd: true,
     };
     const paymentGateway = buildFakePaymentGateway({
       getSubscription: jest.fn().mockResolvedValue(normalized),
@@ -342,6 +463,7 @@ describe("ReconcileSubscriptionsUseCase", () => {
           currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
           currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
           canceledAt: null,
+          cancelAtPeriodEnd: false,
         });
       }),
     });

@@ -28,6 +28,7 @@ export interface Subscription {
   compGrantedBy: string | null;
   compExpiresAt: string | null;
   canceledAt: string | null;
+  cancelAtPeriodEnd: boolean;
   trialConsumed: boolean;
   createdAt: string;
   updatedAt: string;

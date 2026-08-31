@@ -52,6 +52,8 @@ export class GrantCompUseCase {
       compGrantedBy: actor?.id ?? null,
       compExpiresAt: expiresAt ?? null,
       stripeSubscriptionId: null,
+      // type='custom' blocks shouldApplyStripeSync: nothing reconverges the mirror, so a leftover cancelAtPeriodEnd=true would stay frozen
+      cancelAtPeriodEnd: false,
       stripeCouponId: null,
       discountPercent: null,
     });

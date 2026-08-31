@@ -30,6 +30,7 @@ function buildSubscription(
     compGrantedBy: null,
     compExpiresAt: null,
     canceledAt: null,
+    cancelAtPeriodEnd: false,
     trialConsumed: false,
     createdAt: new Date("2026-01-01T00:00:00Z"),
     updatedAt: new Date("2026-01-01T00:00:00Z"),
@@ -205,6 +206,35 @@ describe("GrantCompUseCase", () => {
     expect(subscriptionRepo.update).toHaveBeenCalledWith(
       "org-1",
       expect.objectContaining({ type: "custom", compReason: "Parceria" }),
+    );
+  });
+
+  it("clears a stale cancelAtPeriodEnd flag when converting the org to a comp", async () => {
+    const subscription = buildSubscription({ cancelAtPeriodEnd: true });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findByOrgId: jest.fn().mockResolvedValue(subscription),
+      update: jest.fn().mockResolvedValue(
+        buildSubscription({ type: "custom", status: "active", priceCents: 0 }),
+      ),
+    });
+    const paymentGateway = buildFakePaymentGateway();
+    const userRepo = buildFakeUserRepo({
+      findByAuthId: jest.fn().mockResolvedValue(buildUser()),
+    });
+    const auditService = buildFakeAuditService();
+
+    const useCase = new GrantCompUseCase(
+      subscriptionRepo,
+      paymentGateway,
+      userRepo,
+      auditService,
+    );
+
+    await useCase.execute("org-1", "Cortesia", "auth-1", null);
+
+    expect(subscriptionRepo.update).toHaveBeenCalledWith(
+      "org-1",
+      expect.objectContaining({ cancelAtPeriodEnd: false }),
     );
   });
 

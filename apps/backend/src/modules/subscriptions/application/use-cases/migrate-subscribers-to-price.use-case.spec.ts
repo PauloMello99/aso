@@ -30,6 +30,7 @@ function buildSubscription(
     compGrantedBy: null,
     compExpiresAt: null,
     canceledAt: null,
+    cancelAtPeriodEnd: false,
     trialConsumed: false,
     createdAt: new Date("2026-01-01T00:00:00Z"),
     updatedAt: new Date("2026-01-01T00:00:00Z"),
@@ -53,6 +54,7 @@ function buildNormalizedSubscription(
     currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
     currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
     canceledAt: null,
+    cancelAtPeriodEnd: false,
     ...overrides,
   };
 }

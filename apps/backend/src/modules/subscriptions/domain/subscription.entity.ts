@@ -28,6 +28,7 @@ export interface SubscriptionEntityProps {
   compGrantedBy: string | null;
   compExpiresAt: Date | null;
   canceledAt: Date | null;
+  cancelAtPeriodEnd: boolean;
   trialConsumed: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -53,6 +54,7 @@ export class SubscriptionEntity {
   readonly compGrantedBy: string | null;
   readonly compExpiresAt: Date | null;
   readonly canceledAt: Date | null;
+  readonly cancelAtPeriodEnd: boolean;
   readonly trialConsumed: boolean;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -77,6 +79,7 @@ export class SubscriptionEntity {
     this.compGrantedBy = props.compGrantedBy;
     this.compExpiresAt = props.compExpiresAt;
     this.canceledAt = props.canceledAt;
+    this.cancelAtPeriodEnd = props.cancelAtPeriodEnd;
     this.trialConsumed = props.trialConsumed;
     this.createdAt = props.createdAt;
     this.updatedAt = props.updatedAt;
@@ -119,6 +122,7 @@ export interface NormalizedSubscription {
   currentPeriodStart: Date | null;
   currentPeriodEnd: Date | null;
   canceledAt: Date | null;
+  cancelAtPeriodEnd: boolean;
 }
 
 export interface NormalizedInvoice {

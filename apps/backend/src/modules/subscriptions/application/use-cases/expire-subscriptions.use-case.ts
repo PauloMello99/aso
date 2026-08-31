@@ -51,6 +51,9 @@ export class ExpireSubscriptionsUseCase {
           compReason: null,
           compGrantedBy: null,
           compExpiresAt: null,
+          // The subscription has ended: a leftover cancelAtPeriodEnd=true would
+          // be an unfaithful mirror (there is no pending "will cancel" anymore).
+          cancelAtPeriodEnd: false,
         });
         await this.auditService.log({
           actorId: null,
@@ -81,6 +84,9 @@ export class ExpireSubscriptionsUseCase {
         await this.subscriptionRepo.update(subscription.orgId, {
           status: "canceled",
           type: "free",
+          // The subscription is locked/ended: a leftover cancelAtPeriodEnd=true
+          // would be an unfaithful mirror (there is no pending "will cancel").
+          cancelAtPeriodEnd: false,
         });
         await this.auditService.log({
           actorId: null,

@@ -1,0 +1,19 @@
+-- 0059 — subscriptions: espelho fiel do cancel_at_period_end do Stripe (boolean na
+-- raiz de Stripe.Subscription). Registra localmente que a assinatura está marcada
+-- para NÃO renovar ao fim do período vigente; o "quando" do corte já é
+-- current_period_end, então nenhuma coluna de data nova é necessária.
+--
+-- default false é semanticamente correto para toda linha existente: nenhuma org
+-- tinha cancelamento agendado registrado localmente até aqui. Nas linhas
+-- Stripe-linked um valor divergente reconverge no próximo webhook
+-- (customer.subscription.updated) ou no tick de reconciliação; nas linhas comp
+-- (type='custom') e sem stripe_subscription_id o sync é bloqueado por
+-- shouldApplyStripeSync/findAllStripeLinked e false é correto por construção
+-- (não são cobradas pelo Stripe).
+--
+-- Ordenação de deploy (T4-F1): a coluna é lida por
+-- DrizzleSubscriptionRepository.toDomain e escrita por handle-stripe-webhook /
+-- reconcile-subscriptions / grant-comp. Drizzle emite lista EXPLÍCITA de colunas
+-- em .select(), então esta migration DEVE ser aplicada ANTES do deploy da app, e
+-- o rollback só é seguro DEPOIS de reverter a app.
+ALTER TABLE "subscriptions" ADD COLUMN "cancel_at_period_end" boolean DEFAULT false NOT NULL;

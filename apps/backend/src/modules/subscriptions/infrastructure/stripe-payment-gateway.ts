@@ -129,6 +129,9 @@ function toNormalizedSubscription(
       : null,
     currentPeriodEnd: item ? fromUnixSeconds(item.current_period_end) : null,
     canceledAt: fromUnixSeconds(subscription.canceled_at),
+    // stripe@22.3.2 keeps `cancel_at_period_end: boolean` on the Subscription
+    // root (unlike `current_period_start/end`, which moved to `items.data[0]`).
+    cancelAtPeriodEnd: subscription.cancel_at_period_end,
   };
 }
 

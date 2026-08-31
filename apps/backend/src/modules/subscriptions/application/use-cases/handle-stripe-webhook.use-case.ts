@@ -219,6 +219,9 @@ export class HandleStripeWebhookUseCase {
       status: "canceled",
       type: "free",
       canceledAt: new Date(),
+      // The subscription has ended: a leftover cancelAtPeriodEnd=true would be
+      // an unfaithful mirror (there is no pending "will cancel" anymore).
+      cancelAtPeriodEnd: false,
       ...(markTrialConsumed ? { trialConsumed: true, trialEndsAt } : {}),
     });
   }
@@ -610,6 +613,10 @@ export class HandleStripeWebhookUseCase {
       currentPeriodStart: normalized.currentPeriodStart,
       currentPeriodEnd: normalized.currentPeriodEnd,
       canceledAt: normalized.canceledAt,
+      // Write-ALWAYS (unlike `trialConsumed` below, which is write-once): if the
+      // user clears the pending cancellation in Stripe, the mirror must go back
+      // to false, so this is never wrapped in a conditional spread.
+      cancelAtPeriodEnd: normalized.cancelAtPeriodEnd,
       ...(markTrialConsumed ? { trialConsumed: true } : {}),
     });
   }

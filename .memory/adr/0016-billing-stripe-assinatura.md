@@ -199,6 +199,56 @@ linha, não tentar criar um novo). Vale conferir sempre, ao trocar `STRIPE_SECRE
 localmente, se o `stripe config --list` do Stripe CLI (`acct_id`) bate com a conta da nova
 chave — divergência silenciosa aqui custou a maior parte do tempo de debug desta sessão.
 
+## Addendum (2026-08-30): T4-F1 — espelhar `cancel_at_period_end` do Stripe
+
+**Contexto**: o cancelamento agendado do Stripe (`cancel_at_period_end`) não era refletido
+no espelho local — marcar "cancelar ao fim do período" no dashboard do Stripe (ou, no
+futuro, via feature self-service) não chegava ao banco nem à UI da org.
+
+**Decisão**:
+
+1. **Coluna booleana** `subscriptions.cancel_at_period_end boolean NOT NULL DEFAULT false`
+   (migration `0059`), espelho fiel do campo do Stripe — que é `boolean` na raiz de
+   `Stripe.Subscription` em `stripe@22.3.2` (ao contrário de `current_period_start/end`, que
+   a v22 moveu para `items.data[0]`). O "quando" do corte já é `current_period_end`; nenhuma
+   coluna de data nova. `cancel_at` (data de cancelamento arbitrária) fica **fora de escopo**
+   até uma feature exigir — entra como coluna adicional, sem migrar a booleana.
+
+2. **Write-ALWAYS** no sync, em contraste explícito com o write-once de `trialConsumed` (ver
+   addendum de 2026-08-17). Tanto `HandleStripeWebhookUseCase.syncNormalizedSubscription`
+   quanto `ReconcileSubscriptionsUseCase.reconcileOne` gravam `cancelAtPeriodEnd` de forma
+   incondicional (não num spread condicional): se o usuário **desmarca** o cancelamento no
+   Stripe, o espelho volta a `false`. `reconcileOne` inclui o campo na comparação de drift
+   (`!==` direto, sem `.getTime()` — é boolean).
+
+3. **Zerar ao encerrar localmente**: `grant-comp` (converte em cortesia),
+   `handleSubscriptionDeleted`, o branch de "subscription sumiu do Stripe" da reconciliação,
+   e `ExpireSubscriptionsUseCase` (`expireComps` + `lockExpiredPastDue`) gravam
+   `cancelAtPeriodEnd: false` no payload de encerramento — uma assinatura já encerrada com
+   `cancel_at_period_end=true` seria espelho infiel.
+
+4. **Exposição**: a `SubscriptionEntity` ganha `cancelAtPeriodEnd` como **readonly prop**
+   (não getter — o controller serializa a entity direto e getters de classe não sobrevivem
+   ao `JSON.stringify`). `GET /orgs/:orgId/subscription` passa a incluir o campo sem
+   alteração de use-case/controller/DTO. No frontend, `ActiveSection` troca o rótulo
+   "Próxima cobrança" por "Encerra em <data>" e mostra um aviso (`text-warning`) quando
+   `cancelAtPeriodEnd && currentPeriodEnd`.
+
+**Edge case aceito e documentado**: para orgs cortesia (`type === 'custom'`),
+`shouldApplyStripeSync` retorna `false` e `findAllStripeLinked` exige `stripe_subscription_id`
+não-nulo — então um cancelamento agendado feito no dashboard do Stripe **nunca reflete
+localmente** para elas. É desejado (proteger a cortesia de webhook fora de ordem), não bug;
+`grant-comp` já força `false` ao converter.
+
+**Ordenação de deploy**: `DrizzleSubscriptionRepository` usa `.select()` sem argumentos →
+Drizzle emite lista **explícita** de colunas incluindo `cancel_at_period_end`. A migration
+`0059` DEVE ser aplicada **antes** do deploy da app; o rollback só é seguro **depois** de
+reverter a app. Vale para todo valor de coluna novo lido pelo repo.
+
+**Dívida técnica registrada**: `apps/backend/src/database/types_db.ts` (gerado pelo Supabase
+CLI) fica defasado até `pnpm db:gen-types` — sem impacto funcional (a persistência tipa por
+`$inferSelect` do Drizzle, não pelos tipos Supabase).
+
 ## Relacionado
 
 - Larmony `.memory/adr/0026-billing-stripe-entitlements.md` — mecanismo original

@@ -167,6 +167,8 @@ function ActiveSection({
 }) {
   const { createPortalSession, isPending, error } = useCreatePortalSession(orgId)
 
+  const periodEndLabel = formatDate(subscription.currentPeriodEnd) ?? "—"
+
   return (
     <SectionShell icon={CreditCard} title="Assinatura ativa">
       {subscription.priceCents !== null && (
@@ -180,9 +182,17 @@ function ActiveSection({
         />
       )}
       <InfoRow
-        label="Próxima cobrança"
-        value={formatDate(subscription.currentPeriodEnd) ?? "—"}
+        label={
+          subscription.cancelAtPeriodEnd ? "Encerra em" : "Próxima cobrança"
+        }
+        value={periodEndLabel}
       />
+      {subscription.cancelAtPeriodEnd && subscription.currentPeriodEnd && (
+        <p className="text-sm text-warning">
+          Sua assinatura será encerrada em {periodEndLabel} e não haverá nova
+          cobrança.
+        </p>
+      )}
       {error && <p className="text-sm text-destructive">{error}</p>}
       {isOwner && (
         <Button

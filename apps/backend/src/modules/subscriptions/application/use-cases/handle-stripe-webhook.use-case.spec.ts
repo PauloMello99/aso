@@ -44,6 +44,7 @@ function buildSubscription(
     compGrantedBy: null,
     compExpiresAt: null,
     canceledAt: null,
+    cancelAtPeriodEnd: false,
     trialConsumed: false,
     createdAt: new Date("2026-01-01T00:00:00Z"),
     updatedAt: new Date("2026-01-01T00:00:00Z"),
@@ -330,6 +331,7 @@ describe("HandleStripeWebhookUseCase", () => {
       currentPeriodStart: new Date("2026-02-01T00:00:00Z"),
       currentPeriodEnd: new Date("2026-03-01T00:00:00Z"),
       canceledAt: null,
+      cancelAtPeriodEnd: false,
     };
     const paymentGateway = buildFakePaymentGateway({
       constructWebhookEvent: jest.fn().mockReturnValue(event),
@@ -377,6 +379,7 @@ describe("HandleStripeWebhookUseCase", () => {
       currentPeriodStart: null,
       currentPeriodEnd: null,
       canceledAt: new Date("2026-02-01T00:00:00Z"),
+      cancelAtPeriodEnd: false,
     };
     const paymentGateway = buildFakePaymentGateway({
       constructWebhookEvent: jest.fn().mockReturnValue(event),
@@ -424,6 +427,7 @@ describe("HandleStripeWebhookUseCase", () => {
       currentPeriodStart: new Date("2026-02-01T00:00:00Z"),
       currentPeriodEnd: new Date("2026-03-01T00:00:00Z"),
       canceledAt: null,
+      cancelAtPeriodEnd: false,
     };
     const paymentGateway = buildFakePaymentGateway({
       constructWebhookEvent: jest.fn().mockReturnValue(event),
@@ -471,6 +475,7 @@ describe("HandleStripeWebhookUseCase", () => {
       currentPeriodStart: new Date("2026-02-01T00:00:00Z"),
       currentPeriodEnd: new Date("2026-03-01T00:00:00Z"),
       canceledAt: null,
+      cancelAtPeriodEnd: false,
     };
     const paymentGateway = buildFakePaymentGateway({
       constructWebhookEvent: jest.fn().mockReturnValue(event),
@@ -517,6 +522,7 @@ describe("HandleStripeWebhookUseCase", () => {
       currentPeriodStart: new Date("2026-02-01T00:00:00Z"),
       currentPeriodEnd: new Date("2026-03-01T00:00:00Z"),
       canceledAt: null,
+      cancelAtPeriodEnd: false,
     };
     const paymentGateway = buildFakePaymentGateway({
       constructWebhookEvent: jest.fn().mockReturnValue(event),
@@ -544,6 +550,100 @@ describe("HandleStripeWebhookUseCase", () => {
     expect(subscriptionRepo.update).toHaveBeenCalledTimes(1);
     expect(subscriptionRepo.update.mock.calls[0][1]).not.toHaveProperty(
       "trialConsumed",
+    );
+  });
+
+  it("writes cancelAtPeriodEnd: true when Stripe reports a pending cancellation", async () => {
+    const event = buildEvent({ type: "customer.subscription.updated" });
+    const current = buildSubscription({ cancelAtPeriodEnd: false });
+    const normalized = {
+      stripeSubscriptionId: "sub_stripe_1",
+      stripeCustomerId: "cus_1",
+      status: "active" as const,
+      billingInterval: "monthly" as const,
+      priceCents: 4990,
+      stripePriceId: "price_1",
+      stripeCouponId: null,
+      discountPercent: null,
+      trialEndsAt: null,
+      currentPeriodStart: new Date("2026-02-01T00:00:00Z"),
+      currentPeriodEnd: new Date("2026-03-01T00:00:00Z"),
+      canceledAt: null,
+      cancelAtPeriodEnd: true,
+    };
+    const paymentGateway = buildFakePaymentGateway({
+      constructWebhookEvent: jest.fn().mockReturnValue(event),
+      getSubscription: jest.fn().mockResolvedValue(normalized),
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findByStripeSubscriptionId: jest.fn().mockResolvedValue(current),
+    });
+    const webhookEventRepo = buildFakeWebhookEventRepo();
+
+    const useCase = new HandleStripeWebhookUseCase(
+      paymentGateway,
+      subscriptionRepo,
+      webhookEventRepo,
+      buildFakeInvoiceEventRepo(),
+      buildFakeBillingPlanRepo(),
+      buildFakeBillingCouponRepo(),
+      buildFakeBillingPlanPriceRepo(),
+      buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
+    );
+
+    await useCase.execute("raw", "sig");
+
+    expect(subscriptionRepo.update).toHaveBeenCalledWith(
+      "org-1",
+      expect.objectContaining({ cancelAtPeriodEnd: true }),
+    );
+  });
+
+  it("clears cancelAtPeriodEnd back to false when the user undoes the cancellation in Stripe (write-always, not write-once)", async () => {
+    const event = buildEvent({ type: "customer.subscription.updated" });
+    const current = buildSubscription({ cancelAtPeriodEnd: true });
+    const normalized = {
+      stripeSubscriptionId: "sub_stripe_1",
+      stripeCustomerId: "cus_1",
+      status: "active" as const,
+      billingInterval: "monthly" as const,
+      priceCents: 4990,
+      stripePriceId: "price_1",
+      stripeCouponId: null,
+      discountPercent: null,
+      trialEndsAt: null,
+      currentPeriodStart: new Date("2026-02-01T00:00:00Z"),
+      currentPeriodEnd: new Date("2026-03-01T00:00:00Z"),
+      canceledAt: null,
+      cancelAtPeriodEnd: false,
+    };
+    const paymentGateway = buildFakePaymentGateway({
+      constructWebhookEvent: jest.fn().mockReturnValue(event),
+      getSubscription: jest.fn().mockResolvedValue(normalized),
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findByStripeSubscriptionId: jest.fn().mockResolvedValue(current),
+    });
+    const webhookEventRepo = buildFakeWebhookEventRepo();
+
+    const useCase = new HandleStripeWebhookUseCase(
+      paymentGateway,
+      subscriptionRepo,
+      webhookEventRepo,
+      buildFakeInvoiceEventRepo(),
+      buildFakeBillingPlanRepo(),
+      buildFakeBillingCouponRepo(),
+      buildFakeBillingPlanPriceRepo(),
+      buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
+    );
+
+    await useCase.execute("raw", "sig");
+
+    expect(subscriptionRepo.update).toHaveBeenCalledWith(
+      "org-1",
+      expect.objectContaining({ cancelAtPeriodEnd: false }),
     );
   });
 
@@ -598,7 +698,10 @@ describe("HandleStripeWebhookUseCase", () => {
           },
         },
       });
-      const current = buildSubscription({ trialConsumed: false });
+      const current = buildSubscription({
+        trialConsumed: false,
+        cancelAtPeriodEnd: true,
+      });
       const paymentGateway = buildFakePaymentGateway({
         constructWebhookEvent: jest.fn().mockReturnValue(event),
       });
@@ -626,6 +729,7 @@ describe("HandleStripeWebhookUseCase", () => {
         expect.objectContaining({
           status: "canceled",
           type: "free",
+          cancelAtPeriodEnd: false,
           trialConsumed: true,
           trialEndsAt: new Date(1772928000 * 1000),
         }),
@@ -643,7 +747,10 @@ describe("HandleStripeWebhookUseCase", () => {
           },
         },
       });
-      const current = buildSubscription({ trialConsumed: false });
+      const current = buildSubscription({
+        trialConsumed: false,
+        cancelAtPeriodEnd: true,
+      });
       const paymentGateway = buildFakePaymentGateway({
         constructWebhookEvent: jest.fn().mockReturnValue(event),
       });
@@ -670,7 +777,11 @@ describe("HandleStripeWebhookUseCase", () => {
       const payload = subscriptionRepo.update.mock.calls[0][1];
       expect(payload).not.toHaveProperty("trialConsumed");
       expect(payload).not.toHaveProperty("trialEndsAt");
-      expect(payload).toMatchObject({ status: "canceled", type: "free" });
+      expect(payload).toMatchObject({
+        status: "canceled",
+        type: "free",
+        cancelAtPeriodEnd: false,
+      });
     });
   });
 
