@@ -249,6 +249,62 @@ reverter a app. Vale para todo valor de coluna novo lido pelo repo.
 CLI) fica defasado até `pnpm db:gen-types` — sem impacto funcional (a persistência tipa por
 `$inferSelect` do Drizzle, não pelos tipos Supabase).
 
+## Addendum (2026-08-31): T4-F2 — cancelamento agendado self-service pelo dono
+
+**Contexto**: com a F1 espelhando `cancel_at_period_end`, o dono da org passa a poder
+**agendar o cancelamento** da própria assinatura e **desfazer** de dentro da plataforma, sem
+ir ao portal do Stripe.
+
+**Decisão**:
+
+1. **Dois endpoints owner-only, sem body**: `POST /orgs/:orgId/subscription/schedule-cancellation`
+   e `POST /orgs/:orgId/subscription/resume`, atrás de `OrgOwnerGuard`. Um use-case por
+   operação (`ScheduleSubscriptionCancellationUseCase` / `ResumeSubscriptionUseCase`), sem
+   DTO — evita o controller ramificar num boolean do cliente.
+
+2. **Boolean-only.** `cancel_at` (data arbitrária de cancelamento) permanece **fora de
+   escopo** — a feature self-service é "cancelar (efetivo no fim do período)", que é
+   exatamente `cancel_at_period_end`. A frase "fica para F2" da nota de sessão de 30/08 era
+   imprecisa e fica corrigida aqui. `cancel_at` entra como coluna adicional se/quando uma
+   feature exigir cancelamento em data marcada.
+
+3. **Sem `idempotencyKey`** na chamada `stripe.subscriptions.update` do toggle — diferente de
+   `updateSubscriptionPrice`, onde a chave protege contra rateio duplicado (efeito
+   financeiro). Aqui é set de um boolean para valor fixo; uma chave determinística faria um
+   ciclo schedule→resume→schedule dentro da janela de 24h do Stripe reproduzir o body
+   cacheado do primeiro request, gravando no espelho um estado que o Stripe não tem.
+
+4. **Payload de escrita estreito** — `subscriptionRepo.update` recebe **só**
+   `{ cancelAtPeriodEnd, canceledAt, currentPeriodEnd, status }` do normalizado, não o bloco
+   largo de `migrate-subscribers-to-price`. Motivo: consistência com o padrão local de
+   descontos — `stripeCouponId`/`discountPercent` são geridos só por `apply-discount`/
+   `remove-discount`, e `toNormalizedSubscription` os fixa em `null`. **Nota**: isso NÃO
+   impede o webhook (`syncNormalizedSubscription`, que grava o bloco largo) de zerar o
+   desconto no espelho no próximo `customer.subscription.updated` — esse é um defeito
+   pré-existente do webhook, rastreado em follow-up separado (não introduzido por T4-F2).
+
+5. **Guard** `isActiveLike` (`active` | `trialing`) `&& isStripeLinked`. `past_due` e
+   cortesia (`type='custom'`, nunca `isStripeLinked`) ficam fora — o caminho para `past_due`
+   segue sendo o portal do Stripe (regularizar pagamento antes de cancelar). Assimetria
+   deliberada: agendar 2x é no-op idempotente (clique duplo num fluxo destrutivo não vira
+   erro); `resume` com a flag já `false` é 409 (`SUBSCRIPTION_NOT_SCHEDULED_FOR_CANCELLATION`).
+   Códigos novos: `SUBSCRIPTION_NOT_CANCELABLE`, `SUBSCRIPTION_NOT_SCHEDULED_FOR_CANCELLATION`,
+   `SUBSCRIPTION_NOT_RESUMABLE`, `SUBSCRIPTION_STRIPE_MISSING` (todos 409). `resource_missing`
+   do Stripe é traduzido para `SUBSCRIPTION_STRIPE_MISSING` no gateway em vez de vazar 500.
+
+6. **Auditoria** no padrão `grant-comp`: `action: 'subscription_changed'`,
+   `metadata.operation: 'schedule_cancellation' | 'resume'`, sem PII.
+
+7. **UI** em `ActiveSection` e `TrialingSection` (o dono pediu nos dois; o use-case aceita
+   `trialing`): botão "Cancelar assinatura" (com `ConfirmDialog` destrutivo) quando a flag é
+   `false`, "Reativar assinatura" (sem dialog, é reversão) quando `true`. Botões gateados por
+   `canManageStripe` (`stripeCustomerId && stripeSubscriptionId`), alinhado ao guard do
+   backend. O aviso "vai encerrar em <data>" agora vale para as duas seções.
+
+**Por que não é redundante com o portal do Stripe**: reflexo imediato no espelho local (sem
+esperar o webhook) e UX in-app; o portal continua como caminho único para forma de pagamento
+e para `past_due`.
+
 ## Relacionado
 
 - Larmony `.memory/adr/0026-billing-stripe-entitlements.md` — mecanismo original

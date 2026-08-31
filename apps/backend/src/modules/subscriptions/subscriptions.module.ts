@@ -13,6 +13,8 @@ import { ReconcileSubscriptionsUseCase } from "./application/use-cases/reconcile
 import { ExpireSubscriptionsUseCase } from "./application/use-cases/expire-subscriptions.use-case";
 import { ReconcilePlanCatalogUseCase } from "./application/use-cases/reconcile-plan-catalog.use-case";
 import { GrantCompUseCase } from "./application/use-cases/grant-comp.use-case";
+import { ScheduleSubscriptionCancellationUseCase } from "./application/use-cases/schedule-subscription-cancellation.use-case";
+import { ResumeSubscriptionUseCase } from "./application/use-cases/resume-subscription.use-case";
 import { RevokeCompUseCase } from "./application/use-cases/revoke-comp.use-case";
 import { ApplyDiscountUseCase } from "./application/use-cases/apply-discount.use-case";
 import { RemoveDiscountUseCase } from "./application/use-cases/remove-discount.use-case";
@@ -62,6 +64,8 @@ import { PublicBillingFeatureFlagGuard } from "./interface/public-billing-featur
     ExpireSubscriptionsUseCase,
     ReconcilePlanCatalogUseCase,
     GrantCompUseCase,
+    ScheduleSubscriptionCancellationUseCase,
+    ResumeSubscriptionUseCase,
     RevokeCompUseCase,
     ApplyDiscountUseCase,
     RemoveDiscountUseCase,

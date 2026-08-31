@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
+import { ConfirmDialog } from "@/shared/components/ui/confirm-dialog"
 import { cn } from "@/shared/lib/utils"
 import { useCurrentOrg } from "@/features/dashboard/components/org-context"
 import { formatBRL } from "@/features/cashier/lib/money"
@@ -21,6 +22,8 @@ import { usePublicBillingPlans } from "../hooks/use-public-billing-plans"
 import {
   useCreateCheckoutSession,
   useCreatePortalSession,
+  useResumeSubscription,
+  useScheduleSubscriptionCancellation,
 } from "../hooks/use-billing-mutations"
 import type { BillingInterval, Subscription } from "../types"
 
@@ -107,6 +110,111 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   )
 }
 
+// Compartilhado por ActiveSection e TrialingSection: botão de portal
+// (mantido de cada seção), botão "Cancelar assinatura" (abre o dialog) ou
+// "Reativar assinatura" (chama o resume direto, é reversão não destrutiva).
+// Os 3 hooks vivem no mesmo escopo, com desestruturações renomeadas para
+// evitar colisão de isPending/error.
+function ManageSubscriptionActions({
+  subscription,
+  orgId,
+  portalLabel,
+  showPortal,
+  accessUntilDate,
+}: {
+  subscription: Subscription
+  orgId: string
+  portalLabel: string
+  showPortal: boolean
+  accessUntilDate: string | null
+}) {
+  const [cancelOpen, setCancelOpen] = useState(false)
+  const {
+    createPortalSession,
+    isPending: isPortalPending,
+    error: portalError,
+  } = useCreatePortalSession(orgId)
+  const {
+    scheduleCancellation,
+    isPending: isSchedulePending,
+    error: scheduleError,
+  } = useScheduleSubscriptionCancellation(orgId)
+  const {
+    resumeSubscription,
+    isPending: isResumePending,
+    error: resumeError,
+  } = useResumeSubscription(orgId)
+
+  const anyPending = isPortalPending || isSchedulePending || isResumePending
+  const canManageStripe =
+    Boolean(subscription.stripeCustomerId) &&
+    Boolean(subscription.stripeSubscriptionId)
+  const cancelDescription = accessUntilDate
+    ? `O acesso continua até ${accessUntilDate} e não haverá nova cobrança. Você pode reativar antes dessa data.`
+    : "O acesso continua até o fim do período atual e não haverá nova cobrança. Você pode reativar antes dessa data."
+
+  return (
+    <>
+      {portalError && <p className="text-sm text-destructive">{portalError}</p>}
+      {resumeError && <p className="text-sm text-destructive">{resumeError}</p>}
+      {subscription.cancelAtPeriodEnd && accessUntilDate && (
+        <p className="text-sm text-warning">
+          Sua assinatura será encerrada em {accessUntilDate} e não haverá nova
+          cobrança.
+        </p>
+      )}
+      {(showPortal || canManageStripe) && (
+        <div className={cn("flex flex-col gap-2 sm:flex-row")}>
+          {showPortal && (
+            <Button
+              type="button"
+              disabled={anyPending}
+              onClick={() => createPortalSession()}
+            >
+              {isPortalPending ? "Abrindo…" : portalLabel}
+            </Button>
+          )}
+          {canManageStripe &&
+            (subscription.cancelAtPeriodEnd ? (
+              <Button
+                type="button"
+                disabled={anyPending}
+                onClick={() => resumeSubscription()}
+              >
+                {isResumePending ? "Reativando…" : "Reativar assinatura"}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={anyPending}
+                onClick={() => setCancelOpen(true)}
+              >
+                Cancelar assinatura
+              </Button>
+            ))}
+        </div>
+      )}
+      <ConfirmDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        destructive
+        title="Cancelar assinatura"
+        description={cancelDescription}
+        confirmLabel="Cancelar assinatura"
+        cancelLabel="Manter assinatura"
+        loading={isSchedulePending}
+        error={scheduleError}
+        onConfirm={() =>
+          scheduleCancellation(undefined, {
+            onSuccess: () => setCancelOpen(false),
+          })
+        }
+      />
+    </>
+  )
+}
+
 function CompSection({ subscription }: { subscription: Subscription }) {
   return (
     <SectionShell icon={ShieldCheck} title="Acesso cortesia">
@@ -133,8 +241,6 @@ function TrialingSection({
   isOwner: boolean
   orgId: string
 }) {
-  const { createPortalSession, isPending, error } = useCreatePortalSession(orgId)
-
   return (
     <SectionShell icon={CreditCard} title="Período de teste">
       <p>Sua organização está em período de teste gratuito.</p>
@@ -142,15 +248,14 @@ function TrialingSection({
         label="Teste termina em"
         value={formatDate(subscription.trialEndsAt) ?? "—"}
       />
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      {isOwner && subscription.stripeCustomerId && (
-        <Button
-          type="button"
-          disabled={isPending}
-          onClick={() => createPortalSession()}
-        >
-          {isPending ? "Abrindo…" : "Gerenciar forma de pagamento"}
-        </Button>
+      {isOwner && (
+        <ManageSubscriptionActions
+          subscription={subscription}
+          orgId={orgId}
+          portalLabel="Gerenciar forma de pagamento"
+          showPortal={!!subscription.stripeCustomerId}
+          accessUntilDate={formatDate(subscription.trialEndsAt)}
+        />
       )}
     </SectionShell>
   )
@@ -165,8 +270,6 @@ function ActiveSection({
   isOwner: boolean
   orgId: string
 }) {
-  const { createPortalSession, isPending, error } = useCreatePortalSession(orgId)
-
   const periodEndLabel = formatDate(subscription.currentPeriodEnd) ?? "—"
 
   return (
@@ -187,21 +290,14 @@ function ActiveSection({
         }
         value={periodEndLabel}
       />
-      {subscription.cancelAtPeriodEnd && subscription.currentPeriodEnd && (
-        <p className="text-sm text-warning">
-          Sua assinatura será encerrada em {periodEndLabel} e não haverá nova
-          cobrança.
-        </p>
-      )}
-      {error && <p className="text-sm text-destructive">{error}</p>}
       {isOwner && (
-        <Button
-          type="button"
-          disabled={isPending}
-          onClick={() => createPortalSession()}
-        >
-          {isPending ? "Abrindo…" : "Gerenciar assinatura"}
-        </Button>
+        <ManageSubscriptionActions
+          subscription={subscription}
+          orgId={orgId}
+          portalLabel="Gerenciar assinatura"
+          showPortal
+          accessUntilDate={formatDate(subscription.currentPeriodEnd)}
+        />
       )}
     </SectionShell>
   )

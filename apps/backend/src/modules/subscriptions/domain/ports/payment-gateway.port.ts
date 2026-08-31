@@ -199,6 +199,11 @@ export interface IPaymentGateway {
     },
   ): Promise<NormalizedSubscription>;
 
+  updateSubscriptionCancelAtPeriodEnd(
+    stripeSubscriptionId: string,
+    cancelAtPeriodEnd: boolean,
+  ): Promise<NormalizedSubscription>;
+
   createCoupon(params: CreateCouponParams): Promise<{ couponId: string }>;
 
   applyCouponToSubscription(

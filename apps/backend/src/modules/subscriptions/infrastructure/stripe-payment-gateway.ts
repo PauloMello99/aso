@@ -25,6 +25,7 @@ import type {
   UpdatedGatewayPromotionCode,
 } from "../domain/ports/payment-gateway.port";
 import { mapStripeStatus } from "../domain/subscription-sync";
+import { SubscriptionStripeMissingException } from "../domain/exceptions/subscription-stripe-missing.exception";
 
 /**
  * `2026-06-24.dahlia` is the exact literal value of the SDK's own
@@ -373,6 +374,35 @@ export class StripePaymentGateway implements IPaymentGateway {
       },
       { idempotencyKey: options.idempotencyKey },
     );
+
+    return toNormalizedSubscription(updated);
+  }
+
+  async updateSubscriptionCancelAtPeriodEnd(
+    stripeSubscriptionId: string,
+    cancelAtPeriodEnd: boolean,
+  ): Promise<NormalizedSubscription> {
+    // No `idempotencyKey` here, unlike `updateSubscriptionPrice`: there the
+    // key guards against a duplicated proration (a real financial effect);
+    // here we only set a boolean to a fixed value, and a deterministic key
+    // would let a schedule→resume→schedule cycle inside Stripe's 24h window
+    // replay the first request's cached body, writing a state into the mirror
+    // that Stripe itself no longer holds.
+    let updated: Stripe.Subscription;
+    try {
+      updated = await this.stripe.subscriptions.update(stripeSubscriptionId, {
+        cancel_at_period_end: cancelAtPeriodEnd,
+        expand: ["items.data.price"],
+      });
+    } catch (error) {
+      // The subscription was deleted directly in Stripe (outside the platform):
+      // surface a domain 409 instead of letting the raw error become an opaque
+      // 500 on the owner's button.
+      if (isResourceMissing(error)) {
+        throw new SubscriptionStripeMissingException();
+      }
+      throw error;
+    }
 
     return toNormalizedSubscription(updated);
   }
