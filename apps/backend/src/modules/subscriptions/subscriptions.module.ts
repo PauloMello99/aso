@@ -19,6 +19,7 @@ import { RevokeCompUseCase } from "./application/use-cases/revoke-comp.use-case"
 import { ApplyDiscountUseCase } from "./application/use-cases/apply-discount.use-case";
 import { RemoveDiscountUseCase } from "./application/use-cases/remove-discount.use-case";
 import { ListSubscriptionInvoicesUseCase } from "./application/use-cases/list-subscription-invoices.use-case";
+import { ListSubscriptionRefundsUseCase } from "./application/use-cases/list-subscription-refunds.use-case";
 import { ListBillingPlansUseCase } from "./application/use-cases/list-billing-plans.use-case";
 import { ListPublicBillingPlansUseCase } from "./application/use-cases/list-public-billing-plans.use-case";
 import { UpdateBillingPlanProductUseCase } from "./application/use-cases/update-billing-plan-product.use-case";
@@ -70,6 +71,7 @@ import { PublicBillingFeatureFlagGuard } from "./interface/public-billing-featur
     ApplyDiscountUseCase,
     RemoveDiscountUseCase,
     ListSubscriptionInvoicesUseCase,
+    ListSubscriptionRefundsUseCase,
     ListBillingPlansUseCase,
     ListPublicBillingPlansUseCase,
     UpdateBillingPlanProductUseCase,

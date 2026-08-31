@@ -116,6 +116,11 @@ export const billingInvoiceEventTypeEnum = pgEnum(
   ["paid", "payment_failed"],
 );
 
+export const billingRefundEventStatusEnum = pgEnum(
+  "billing_refund_event_status",
+  ["pending", "requires_action", "succeeded", "failed", "canceled"],
+);
+
 export const ticketStatusEnum = pgEnum("ticket_status", [
   "open",
   "in_progress",

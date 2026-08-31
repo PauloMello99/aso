@@ -305,6 +305,79 @@ ir ao portal do Stripe.
 esperar o webhook) e UX in-app; o portal continua como caminho único para forma de pagamento
 e para `past_due`.
 
+## Addendum (2026-08-31): T4-F3 — espelho de reembolsos do Stripe
+
+**Contexto**: o sistema rastreava invoices (`billing_invoice_events`: paid/payment_failed)
+mas **nenhum reembolso** — `charge.refunded` / `refund.*` não eram consumidos, e um refund
+feito no dashboard do Stripe ficava invisível ao sistema. Escopo de F3: **só espelhar**
+(tabela + webhook + endpoint read-only). **Não** inclui ação de emitir reembolso (T4-F4),
+**não** inclui UI (F4/F5), **não** inclui reconciliação de refunds (F5).
+
+**Decisão**:
+
+1. **Tabela `billing_refund_events` (migration `0060`) append-only, com unique
+   `(stripe_refund_id, status)` + `onConflictDoNothing`** — **uma linha por status distinto
+   alcançado** por um refund; reentrada no mesmo status é deduplicada por design. Nunca
+   UPDATE/DELETE (append-only por analogia ao ADR-0010; espelha `billing_invoice_events`).
+   O dedupe primário de evento continua sendo `stripe_webhook_events` (PK = `event.id`).
+   Colunas: `stripe_refund_id`, `stripe_charge_id`, `org_id` (nullable, **sem FK**),
+   `status` (enum `billing_refund_event_status`: pending/requires_action/succeeded/failed/
+   canceled), `amount_cents` (integer; `Stripe.Refund.amount` já vem na menor unidade),
+   `currency`, `reason`, `occurred_at`, `created_at`. RLS habilitada sem policy +
+   `REVOKE ALL FROM anon, authenticated` (só `DRIZZLE_ADMIN` acessa).
+
+2. **`occurred_at` vem do `event.created` do envelope do webhook** (quando observamos a
+   transição), **não** de `refund.created` — senão as linhas do mesmo refund empatam e a
+   linha do tempo fica não-ordenável (o writer de `billing_invoice_events` usa
+   `entity.created`, que aqui daria empate total). O read-path ordena por
+   `(occurred_at DESC, created_at DESC)`.
+
+3. **Read-path é a tabela LOCAL** (`GET /admin/orgs/:orgId/subscription/refunds` →
+   `ListSubscriptionRefundsUseCase` → `refundEventRepo.listByOrgId`, **teto de 100 linhas
+   sem paginação nem marcador de truncamento** — como é 1 linha por status, isso é ~30-50
+   refunds reais; paginação/marcador ficam para F4/F5). Diferente de `GET /invoices`, que lê
+   **live** do Stripe — a API do Stripe **não tem list-by-customer de refunds**, então a
+   tabela é a única fonte. O endpoint devolve `BillingRefundEventEntity[]` cru (com o PK
+   interno `id` + `org_id`), não um shape normalizado como o `invoices` — mapear para um
+   response shape explícito quando F4/F5 criar a UI consumidora. `orgId` vem do path +
+   `PlatformAdminGuard` (super_admin only); com `DRIZZLE_ADMIN` bypassa RLS, então o
+   `WHERE org_id = $1` é a única fronteira de tenant — o `orgId` **nunca** pode vir do body.
+
+4. **F3 escuta só `charge.refunded`** (o event traz `Stripe.Charge` com `customer` inline +
+   `charge.refunds.data[]`; cobre o caso comum de refund de cartão instantâneo, org mapeada
+   via `charge.customer` → `subscriptions.stripe_customer_id`). Fica para **F5**:
+   `refund.updated` (transições assíncronas), reconciliação de refunds, `charge.refunds.
+   has_more` truncado.
+
+5. **Status desconhecido/`null` do Stripe é DESCARTADO** com `logger.warn` +
+   `telemetry.captureMessage("warn", { code: "BILLING_REFUND_EVENT_UNKNOWN_STATUS", ... })`
+   e `continue` (os demais refunds do mesmo charge são inseridos). Sem esse guard, um valor
+   novo do Stripe (`Refund.status` é `string | null` nas typings) viraria
+   `invalid input value for enum` → 500 em loop de retry. `has_more` truncado emite
+   `BILLING_REFUND_EVENT_LIST_TRUNCATED`. Os dois são dívida coberta por F5. Se o volume de
+   descartes aparecer na telemetria, a saída sancionada é trocar a coluna `status` para
+   `text` numa migration futura.
+
+6. **Sem novo valor de `audit_action`** (espelho puro webhook→tabela, sem ação manual) e
+   **sem código novo em `DOMAIN_CODE_TO_STATUS`** (reusa `SubscriptionNotFoundException`).
+   Refunds cujo `charge.customer` não mapeia entram com `org_id NULL` e ficam invisíveis ao
+   endpoint por-org — deliberado, mesma semântica de `billing_invoice_events`; re-resolver o
+   `org_id` (por linha nova, nunca UPDATE) é trabalho de F5.
+
+**Pré-requisito de deploy (checklist, não código)**: `charge.refunded` precisa estar na
+lista de eventos do endpoint de webhook do Stripe (**test E live**) — hoje essa lista é
+gerenciada no dashboard do Stripe, não há config no repo. Sem esse passo o webhook nunca
+chega e a fatia fica inerte, sem erro visível. Um `charge.refunded` que chega mas vem sem a
+chave `refunds` no payload emite `telemetry.captureMessage(...,
+{ code: "BILLING_REFUND_EVENT_PAYLOAD_MISSING_REFUNDS" })` — esse sinal é o instrumento de
+verificação que substitui o round-trip ao vivo bloqueado.
+
+**Sem verificação no preview**: F3 não tem superfície observável no navegador (endpoint
+admin-only sem UI; query key `queryKeys.adminSubscription.refunds` sem consumidor até F4/F5).
+O round-trip `charge.refunded` ao vivo não foi exercitável nesta entrega — a chave do
+`stripe` CLI local está expirada; cobertura por unit tests do webhook com payload assinado
+(incl. o caso ponta a ponta no controller spec) + roteiro em `docs/billing-local-testing.md`.
+
 ## Relacionado
 
 - Larmony `.memory/adr/0026-billing-stripe-entitlements.md` — mecanismo original

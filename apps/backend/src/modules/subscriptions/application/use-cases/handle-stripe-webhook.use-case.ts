@@ -13,6 +13,11 @@ import {
   BILLING_INVOICE_EVENT_REPOSITORY,
 } from "../../domain/billing-invoice-event.repository.interface";
 import {
+  IBillingRefundEventRepository,
+  BILLING_REFUND_EVENT_REPOSITORY,
+  BillingRefundEventStatus,
+} from "../../domain/billing-refund-event.repository.interface";
+import {
   IBillingPlanRepository,
   BILLING_PLAN_REPOSITORY,
 } from "../../domain/billing-plan.repository.interface";
@@ -62,6 +67,25 @@ function trialEndsAtFromUnixSeconds(
   return seconds ? new Date(seconds * 1000) : null;
 }
 
+const REFUND_EVENT_STATUSES: readonly BillingRefundEventStatus[] = [
+  "pending",
+  "requires_action",
+  "succeeded",
+  "failed",
+  "canceled",
+];
+
+// Stripe types `refund.status` as an open string: a value outside the five
+// we persist (the `billing_refund_events.status` enum) must be dropped, not
+// written — an unknown enum value would fail the INSERT and 500 the webhook
+// in a retry loop (precedent: `handleCouponUpserted` on a fractional
+// `percent_off`).
+function toRefundEventStatus(
+  status: string | null,
+): BillingRefundEventStatus | null {
+  return REFUND_EVENT_STATUSES.find((candidate) => candidate === status) ?? null;
+}
+
 @Injectable()
 export class HandleStripeWebhookUseCase {
   private readonly logger = new Logger(HandleStripeWebhookUseCase.name);
@@ -83,6 +107,8 @@ export class HandleStripeWebhookUseCase {
     private readonly billingPlanPriceRepo: IBillingPlanPriceRepository,
     private readonly telemetry: TelemetryService,
     private readonly revalidationClient: FrontendRevalidationClient,
+    @Inject(BILLING_REFUND_EVENT_REPOSITORY)
+    private readonly refundEventRepo: IBillingRefundEventRepository,
   ) {}
 
   async execute(rawBody: string | Buffer, signature: string): Promise<void> {
@@ -139,6 +165,10 @@ export class HandleStripeWebhookUseCase {
           event.type,
           event.data.object as Stripe.Invoice,
         );
+        break;
+      }
+      case "charge.refunded": {
+        await this.handleRefundEvent(event);
         break;
       }
       case "coupon.created":
@@ -246,6 +276,101 @@ export class HandleStripeWebhookUseCase {
       currency: invoice.currency,
       occurredAt: fromUnixSeconds(invoice.created),
     });
+  }
+
+  /**
+   * Mirrors `charge.refunded` into `billing_refund_events` — a read-model
+   * MIRROR only (the platform never issues a refund itself), one row per
+   * `Stripe.Refund` carried on the charge.
+   *
+   * F3 handles `charge.refunded` only. Asynchronous refund state
+   * transitions (`refund.updated`), refund reconciliation, and recovering a
+   * truncated (`has_more`) refund list are deferred to F5.
+   */
+  private async handleRefundEvent(event: Stripe.Event): Promise<void> {
+    const charge = event.data.object as Stripe.Charge;
+
+    // Distinguish "no refunds key in the payload at all" (the one slice this
+    // handler depends on is missing — worth surfacing, like the sibling
+    // branches below) from a legitimate empty list (`data: []` — nothing to
+    // mirror, silence is fine).
+    if (charge.refunds == null) {
+      this.logger.warn(
+        `charge.refunded: charge ${charge.id} payload carries no refunds list — nothing to mirror`,
+      );
+      this.telemetry.captureMessage(
+        `Stripe charge ${charge.id} charge.refunded payload has no refunds list`,
+        "warn",
+        {
+          module: "subscriptions",
+          code: "BILLING_REFUND_EVENT_PAYLOAD_MISSING_REFUNDS",
+          stripeChargeId: charge.id,
+        },
+      );
+      return;
+    }
+
+    const refunds = charge.refunds.data;
+    if (refunds.length === 0) return;
+
+    // The webhook ENVELOPE's timestamp — the moment we observed this
+    // transition — not `refund.created`: sibling rows for the same refund
+    // must stay orderable on a single timeline (database-guardian finding).
+    const occurredAt = fromUnixSeconds(event.created);
+
+    // `org_id` is derived server-side from the charge's customer, never read
+    // from the payload — same resolution as `handleInvoiceEvent`.
+    const customerId = extractId(charge.customer);
+    const local = customerId
+      ? await this.subscriptionRepo.findByStripeCustomerId(customerId)
+      : null;
+    const orgId = local?.orgId ?? null;
+
+    for (const refund of refunds) {
+      const status = toRefundEventStatus(refund.status);
+      if (!status) {
+        this.logger.warn(
+          `charge.refunded: refund ${refund.id} has an unmapped status "${refund.status}" — skipping this refund`,
+        );
+        this.telemetry.captureMessage(
+          `Stripe refund ${refund.id} has a status not mapped by the reverse sync`,
+          "warn",
+          {
+            module: "subscriptions",
+            code: "BILLING_REFUND_EVENT_UNKNOWN_STATUS",
+            stripeRefundId: refund.id,
+            status: refund.status,
+          },
+        );
+        continue;
+      }
+
+      await this.refundEventRepo.create({
+        stripeRefundId: refund.id,
+        stripeChargeId: extractId(refund.charge) ?? charge.id,
+        orgId,
+        status,
+        amountCents: refund.amount,
+        currency: refund.currency,
+        reason: refund.reason ?? null,
+        occurredAt,
+      });
+    }
+
+    if (charge.refunds?.has_more === true) {
+      this.logger.warn(
+        `charge.refunded: charge ${charge.id} refund list is truncated (has_more) — trailing refunds not mirrored`,
+      );
+      this.telemetry.captureMessage(
+        `Stripe charge ${charge.id} refund list was truncated (has_more) on charge.refunded`,
+        "warn",
+        {
+          module: "subscriptions",
+          code: "BILLING_REFUND_EVENT_LIST_TRUNCATED",
+          stripeChargeId: charge.id,
+        },
+      );
+    }
   }
 
   /**

@@ -116,6 +116,7 @@ export const queryKeys = {
   adminSubscription: {
     detail: (orgId: string) => ["admin", orgId, "subscription"] as const,
     invoices: (orgId: string) => ["admin", orgId, "subscription", "invoices"] as const,
+    refunds: (orgId: string) => ["admin", orgId, "subscription", "refunds"] as const,
   },
 
   adminSupport: {

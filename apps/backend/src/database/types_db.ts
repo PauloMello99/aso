@@ -494,6 +494,45 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_refund_events: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          currency: string
+          id: string
+          occurred_at: string
+          org_id: string | null
+          reason: string | null
+          status: Database["public"]["Enums"]["billing_refund_event_status"]
+          stripe_charge_id: string | null
+          stripe_refund_id: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          currency: string
+          id?: string
+          occurred_at: string
+          org_id?: string | null
+          reason?: string | null
+          status: Database["public"]["Enums"]["billing_refund_event_status"]
+          stripe_charge_id?: string | null
+          stripe_refund_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          occurred_at?: string
+          org_id?: string | null
+          reason?: string | null
+          status?: Database["public"]["Enums"]["billing_refund_event_status"]
+          stripe_charge_id?: string | null
+          stripe_refund_id?: string
+        }
+        Relationships: []
+      }
       calendar_connections: {
         Row: {
           connected_at: string | null
@@ -1713,6 +1752,7 @@ export type Database = {
           billing_interval:
             | Database["public"]["Enums"]["billing_interval"]
             | null
+          cancel_at_period_end: boolean
           canceled_at: string | null
           comp_expires_at: string | null
           comp_granted_by: string | null
@@ -1739,6 +1779,7 @@ export type Database = {
           billing_interval?:
             | Database["public"]["Enums"]["billing_interval"]
             | null
+          cancel_at_period_end?: boolean
           canceled_at?: string | null
           comp_expires_at?: string | null
           comp_granted_by?: string | null
@@ -1765,6 +1806,7 @@ export type Database = {
           billing_interval?:
             | Database["public"]["Enums"]["billing_interval"]
             | null
+          cancel_at_period_end?: boolean
           canceled_at?: string | null
           comp_expires_at?: string | null
           comp_granted_by?: string | null
@@ -2299,8 +2341,15 @@ export type Database = {
         | "cashier_transaction_created"
         | "cashier_fees_updated"
         | "cashier_commissions_updated"
+        | "org_admin_access"
       billing_interval: "monthly" | "semiannual" | "annual"
       billing_invoice_event_type: "paid" | "payment_failed"
+      billing_refund_event_status:
+        | "pending"
+        | "requires_action"
+        | "succeeded"
+        | "failed"
+        | "canceled"
       calendar_attendee_status: "going" | "not_going"
       calendar_event_status: "scheduled" | "canceled"
       calendar_event_type: "appointment" | "unavailability"
@@ -2478,9 +2527,17 @@ export const Constants = {
         "cashier_transaction_created",
         "cashier_fees_updated",
         "cashier_commissions_updated",
+        "org_admin_access",
       ],
       billing_interval: ["monthly", "semiannual", "annual"],
       billing_invoice_event_type: ["paid", "payment_failed"],
+      billing_refund_event_status: [
+        "pending",
+        "requires_action",
+        "succeeded",
+        "failed",
+        "canceled",
+      ],
       calendar_attendee_status: ["going", "not_going"],
       calendar_event_status: ["scheduled", "canceled"],
       calendar_event_type: ["appointment", "unavailability"],

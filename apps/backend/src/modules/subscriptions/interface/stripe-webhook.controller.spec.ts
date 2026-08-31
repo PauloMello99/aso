@@ -8,11 +8,14 @@ import { StripePaymentGateway } from "../infrastructure/stripe-payment-gateway";
 import { ISubscriptionRepository } from "../domain/subscription.repository.interface";
 import { IStripeWebhookEventRepository } from "../domain/stripe-webhook-event.repository.interface";
 import { IBillingInvoiceEventRepository } from "../domain/billing-invoice-event.repository.interface";
+import { IBillingRefundEventRepository } from "../domain/billing-refund-event.repository.interface";
 import { IBillingPlanRepository } from "../domain/billing-plan.repository.interface";
+import { IBillingPlanPriceRepository } from "../domain/billing-plan-price.repository.interface";
 import { IBillingCouponRepository } from "../domain/billing-coupon.repository.interface";
 import { SubscriptionEntity } from "../domain/subscription.entity";
 import { WebhookSignatureInvalidException } from "../domain/exceptions/webhook-signature-invalid.exception";
 import { TelemetryService } from "../../../common/telemetry/telemetry.service";
+import { FrontendRevalidationClient } from "../infrastructure/frontend-revalidation.client";
 
 /**
  * Exercises the full webhooks/stripe path (controller -> use-case ->
@@ -116,6 +119,32 @@ function buildFakeInvoiceEventRepo(): jest.Mocked<IBillingInvoiceEventRepository
   } as unknown as jest.Mocked<IBillingInvoiceEventRepository>;
 }
 
+function buildFakeRefundEventRepo(): jest.Mocked<IBillingRefundEventRepository> {
+  return {
+    create: jest.fn(),
+    listByOrgId: jest.fn().mockResolvedValue([]),
+  } as unknown as jest.Mocked<IBillingRefundEventRepository>;
+}
+
+function buildFakeBillingPlanPriceRepo(): jest.Mocked<IBillingPlanPriceRepository> {
+  return {
+    findActiveByPlanId: jest.fn(),
+    findAllByPlanId: jest.fn().mockResolvedValue([]),
+    findActiveByPlanIdAndInterval: jest.fn().mockResolvedValue(null),
+    findByPlanIdAndInterval: jest.fn(),
+    findByStripePriceId: jest.fn().mockResolvedValue(null),
+    create: jest.fn(),
+    updateById: jest.fn(),
+    deactivateById: jest.fn(),
+  } as unknown as jest.Mocked<IBillingPlanPriceRepository>;
+}
+
+function buildFakeRevalidationClient(): jest.Mocked<FrontendRevalidationClient> {
+  return {
+    revalidate: jest.fn().mockResolvedValue(undefined),
+  } as unknown as jest.Mocked<FrontendRevalidationClient>;
+}
+
 function buildFakeBillingPlanRepo(): jest.Mocked<IBillingPlanRepository> {
   return {
     findByKey: jest.fn(),
@@ -159,7 +188,10 @@ describe("StripeWebhookController (webhooks/stripe, offline)", () => {
       buildFakeInvoiceEventRepo(),
       buildFakeBillingPlanRepo(),
       buildFakeBillingCouponRepo(),
+      buildFakeBillingPlanPriceRepo(),
       buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
+      buildFakeRefundEventRepo(),
     );
     const controller = new StripeWebhookController(useCase);
 
@@ -212,7 +244,10 @@ describe("StripeWebhookController (webhooks/stripe, offline)", () => {
       buildFakeInvoiceEventRepo(),
       buildFakeBillingPlanRepo(),
       buildFakeBillingCouponRepo(),
+      buildFakeBillingPlanPriceRepo(),
       buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
+      buildFakeRefundEventRepo(),
     );
     const controller = new StripeWebhookController(useCase);
 
@@ -251,7 +286,10 @@ describe("StripeWebhookController (webhooks/stripe, offline)", () => {
       buildFakeInvoiceEventRepo(),
       buildFakeBillingPlanRepo(),
       buildFakeBillingCouponRepo(),
+      buildFakeBillingPlanPriceRepo(),
       buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
+      buildFakeRefundEventRepo(),
     );
     const controller = new StripeWebhookController(useCase);
 
@@ -271,5 +309,76 @@ describe("StripeWebhookController (webhooks/stripe, offline)", () => {
     expect(getSubscriptionSpy).not.toHaveBeenCalled();
     expect(subscriptionRepo.update).not.toHaveBeenCalled();
     expect(webhookEventRepo.markProcessed).not.toHaveBeenCalled();
+  });
+
+  it("mirrors a validly signed charge.refunded event into billing_refund_events", async () => {
+    const paymentGateway = new StripePaymentGateway(buildConfig());
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findByStripeCustomerId: jest
+        .fn()
+        .mockResolvedValue(buildSubscription({ orgId: "org-1" })),
+    });
+    const refundEventRepo = buildFakeRefundEventRepo();
+    const webhookEventRepo = buildFakeWebhookEventRepo();
+    const useCase = new HandleStripeWebhookUseCase(
+      paymentGateway,
+      subscriptionRepo,
+      webhookEventRepo,
+      buildFakeInvoiceEventRepo(),
+      buildFakeBillingPlanRepo(),
+      buildFakeBillingCouponRepo(),
+      buildFakeBillingPlanPriceRepo(),
+      buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
+      refundEventRepo,
+    );
+    const controller = new StripeWebhookController(useCase);
+
+    const payload = JSON.stringify({
+      id: "evt_charge_refunded",
+      type: "charge.refunded",
+      created: 1_767_225_600,
+      data: {
+        object: {
+          id: "ch_1",
+          customer: "cus_1",
+          refunds: {
+            data: [
+              {
+                id: "re_1",
+                charge: "ch_1",
+                status: "succeeded",
+                amount: 500,
+                currency: "brl",
+                reason: "requested_by_customer",
+              },
+            ],
+            has_more: false,
+          },
+        },
+      },
+    });
+    const signature = signPayload(payload);
+
+    const result = await controller.handle(
+      buildRawBodyRequest(payload),
+      signature,
+    );
+
+    expect(result).toEqual({ received: true });
+    expect(refundEventRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stripeRefundId: "re_1",
+        stripeChargeId: "ch_1",
+        orgId: "org-1",
+        status: "succeeded",
+        amountCents: 500,
+        currency: "brl",
+        occurredAt: new Date(1_767_225_600 * 1000),
+      }),
+    );
+    expect(webhookEventRepo.markProcessed).toHaveBeenCalledWith(
+      "evt_charge_refunded",
+    );
   });
 });
