@@ -38,11 +38,29 @@ function buildSubscription(
   });
 }
 
+function buildRefundRow(
+  overrides: Partial<BillingRefundEventEntity> = {},
+): BillingRefundEventEntity {
+  return {
+    id: "rf-1",
+    stripeRefundId: "re_1",
+    stripeChargeId: "ch_1",
+    orgId: "org-1",
+    status: "succeeded",
+    amountCents: 4990,
+    currency: "brl",
+    reason: "requested_by_customer",
+    occurredAt: new Date("2026-02-01T00:00:00Z"),
+    createdAt: new Date("2026-02-01T00:00:01Z"),
+    ...overrides,
+  };
+}
+
 function buildFakeSubscriptionRepo(
   overrides: Partial<jest.Mocked<ISubscriptionRepository>> = {},
 ): jest.Mocked<ISubscriptionRepository> {
   return {
-    findByOrgId: jest.fn(),
+    findByOrgId: jest.fn().mockResolvedValue(buildSubscription()),
     findByStripeCustomerId: jest.fn(),
     findByStripeSubscriptionId: jest.fn(),
     findAllStripeLinked: jest.fn(),
@@ -57,7 +75,13 @@ function buildFakeRefundEventRepo(
 ): jest.Mocked<IBillingRefundEventRepository> {
   return {
     create: jest.fn(),
-    listByOrgId: jest.fn().mockResolvedValue([]),
+    listPageByOrgId: jest.fn().mockResolvedValue({ rows: [], total: 0 }),
+    findResolvedOrgIdByRefundId: jest.fn().mockResolvedValue(null),
+    findResolvedOrgIdByChargeId: jest.fn().mockResolvedValue(null),
+    listUnresolvedChargeIds: jest.fn().mockResolvedValue([]),
+    findStatusesByRefundIds: jest.fn().mockResolvedValue(new Map()),
+    resolveOrgIdWhereNull: jest.fn().mockResolvedValue(0),
+    backfillOrgIdFromResolvedSiblings: jest.fn().mockResolvedValue(0),
     ...overrides,
   } as unknown as jest.Mocked<IBillingRefundEventRepository>;
 }
@@ -74,32 +98,16 @@ describe("ListSubscriptionRefundsUseCase", () => {
       refundEventRepo,
     );
 
-    await expect(useCase.execute("org-1")).rejects.toThrow(
+    await expect(useCase.execute("org-1", {})).rejects.toThrow(
       SubscriptionNotFoundException,
     );
-    expect(refundEventRepo.listByOrgId).not.toHaveBeenCalled();
+    expect(refundEventRepo.listPageByOrgId).not.toHaveBeenCalled();
   });
 
-  it("returns the local refund events for the org when a subscription exists", async () => {
-    const rows: BillingRefundEventEntity[] = [
-      {
-        id: "rf-1",
-        stripeRefundId: "re_1",
-        stripeChargeId: "ch_1",
-        orgId: "org-1",
-        status: "succeeded",
-        amountCents: 4990,
-        currency: "brl",
-        reason: "requested_by_customer",
-        occurredAt: new Date("2026-02-01T00:00:00Z"),
-        createdAt: new Date("2026-02-01T00:00:01Z"),
-      },
-    ];
-    const subscriptionRepo = buildFakeSubscriptionRepo({
-      findByOrgId: jest.fn().mockResolvedValue(buildSubscription()),
-    });
+  it("applies defaults (page 1, limit 50, offset 0) when page/limit are absent", async () => {
+    const subscriptionRepo = buildFakeSubscriptionRepo();
     const refundEventRepo = buildFakeRefundEventRepo({
-      listByOrgId: jest.fn().mockResolvedValue(rows),
+      listPageByOrgId: jest.fn().mockResolvedValue({ rows: [], total: 0 }),
     });
 
     const useCase = new ListSubscriptionRefundsUseCase(
@@ -107,9 +115,110 @@ describe("ListSubscriptionRefundsUseCase", () => {
       refundEventRepo,
     );
 
-    const result = await useCase.execute("org-1");
+    const result = await useCase.execute("org-1", {});
 
-    expect(refundEventRepo.listByOrgId).toHaveBeenCalledWith("org-1");
-    expect(result).toBe(rows);
+    expect(refundEventRepo.listPageByOrgId).toHaveBeenCalledWith("org-1", {
+      limit: 50,
+      offset: 0,
+    });
+    expect(result.page).toBe(1);
+    expect(result.pages).toBe(1);
+    expect(result.total).toBe(0);
+    expect(result.data).toEqual([]);
+  });
+
+  it("returns pages: 1 (not 0) for an empty result — deliberate divergence from the AuditLogsPage mold", async () => {
+    // AuditLogsPage computes `pages` as a bare `Math.ceil(total / limit)`, so
+    // total 0 there yields pages 0. This envelope intentionally clamps with
+    // `Math.max(1, Math.ceil(0 / limit))` so an empty list is still page 1 of 1.
+    const subscriptionRepo = buildFakeSubscriptionRepo();
+    const refundEventRepo = buildFakeRefundEventRepo({
+      listPageByOrgId: jest.fn().mockResolvedValue({ rows: [], total: 0 }),
+    });
+
+    const useCase = new ListSubscriptionRefundsUseCase(
+      subscriptionRepo,
+      refundEventRepo,
+    );
+
+    const result = await useCase.execute("org-1", {});
+
+    expect(result.pages).toBe(1);
+    expect(result.total).toBe(0);
+    expect(result.data).toEqual([]);
+    expect(result.page).toBe(1);
+  });
+
+  it("clamps limit above the ceiling to 200", async () => {
+    const subscriptionRepo = buildFakeSubscriptionRepo();
+    const refundEventRepo = buildFakeRefundEventRepo();
+
+    const useCase = new ListSubscriptionRefundsUseCase(
+      subscriptionRepo,
+      refundEventRepo,
+    );
+
+    await useCase.execute("org-1", { limit: 5000 });
+
+    expect(refundEventRepo.listPageByOrgId).toHaveBeenCalledWith("org-1", {
+      limit: 200,
+      offset: 0,
+    });
+  });
+
+  it("maps rows to the public shape without id/orgId and serializes occurredAt as ISO", async () => {
+    const subscriptionRepo = buildFakeSubscriptionRepo();
+    const refundEventRepo = buildFakeRefundEventRepo({
+      listPageByOrgId: jest
+        .fn()
+        .mockResolvedValue({ rows: [buildRefundRow()], total: 7 }),
+    });
+
+    const useCase = new ListSubscriptionRefundsUseCase(
+      subscriptionRepo,
+      refundEventRepo,
+    );
+
+    const result = await useCase.execute("org-1", {});
+
+    expect(result.total).toBe(7);
+    expect(result.pages).toBe(1);
+    expect(result.data).toEqual([
+      {
+        stripeRefundId: "re_1",
+        stripeChargeId: "ch_1",
+        status: "succeeded",
+        amountCents: 4990,
+        currency: "brl",
+        reason: "requested_by_customer",
+        occurredAt: "2026-02-01T00:00:00.000Z",
+      },
+    ]);
+    for (const row of result.data) {
+      expect(row).not.toHaveProperty("id");
+      expect(row).not.toHaveProperty("orgId");
+    }
+  });
+
+  it("computes offset and pages for a later page", async () => {
+    const subscriptionRepo = buildFakeSubscriptionRepo();
+    const refundEventRepo = buildFakeRefundEventRepo({
+      listPageByOrgId: jest.fn().mockResolvedValue({ rows: [], total: 120 }),
+    });
+
+    const useCase = new ListSubscriptionRefundsUseCase(
+      subscriptionRepo,
+      refundEventRepo,
+    );
+
+    const result = await useCase.execute("org-1", { page: 2, limit: 50 });
+
+    expect(refundEventRepo.listPageByOrgId).toHaveBeenCalledWith("org-1", {
+      limit: 50,
+      offset: 50,
+    });
+    expect(result.page).toBe(2);
+    expect(result.pages).toBe(3);
+    expect(result.total).toBe(120);
   });
 });

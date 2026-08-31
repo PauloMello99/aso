@@ -521,6 +521,19 @@ interval)` e `lookup_key` — garantem só uma linha vigente por par; preços an
   entram no `set:` do `onConflictDoUpdate` de `DrizzleBillingPlanRepository.upsert` (usado
   por `SyncPlanCatalogUseCase` no boot) — se entrassem, todo boot resetaria a curadoria do
   super_admin para o default, já que `PLAN_CATALOG` (seed) não carrega esses campos.
+- **`billing_refund_events` e `billing_invoice_events` são append-only por analogia ao
+  ADR-0010** (espelho administrativo de eventos do Stripe; migration `0060` nota (a) e
+  `0033`) — nunca `UPDATE`/`DELETE` de linha, correção é sempre linha nova
+  (`billing_refund_events`: uma linha por `(stripe_refund_id, status)`, dedup via
+  `onConflictDoNothing`). **Única exceção, restrita a `billing_refund_events`**
+  (T4-F5 Bloco B, decisão D4, ADR-0016): a reconciliação de refunds pode dar `UPDATE`
+  **exclusivamente** na coluna de correlação `org_id` **quando `NULL`**
+  (`resolveOrgIdWhereNull` por charge, `backfillOrgIdFromResolvedSiblings` por refund),
+  derivada server-side de `charge.customer` → `subscriptions.stripe_customer_id`, nunca a
+  partir do cliente. **Jamais** toca `status` / `amount_cents` / `occurred_at` / `reason`
+  nem valor monetário. Sem migração; a correção do backfill depende de
+  `subscriptions.stripe_customer_id` ser UNIQUE. `billing_invoice_events` **não** tem
+  exceção — permanece estritamente append-only.
 
 ### Gaps de reunião aplicados (2026-06-20) — migrations 0011–0013
 

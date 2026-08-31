@@ -341,20 +341,23 @@ feito no dashboard do Stripe ficava invisível ao sistema. Escopo de F3: **só e
    transição), **não** de `refund.created` — senão as linhas do mesmo refund empatam e a
    linha do tempo fica não-ordenável (o writer de `billing_invoice_events` usa
    `entity.created`, que aqui daria empate total). O read-path ordena por
-   `(occurred_at DESC, created_at DESC)`.
+   `(occurred_at DESC, created_at DESC)`. **Exceção do caminho de reconciliação** (varredura
+   de cron, sem envelope de evento): usa `refund.created` como `occurred_at` aproximado —
+   ver Addendum "T4-F5 Bloco B" abaixo.
 
 3. **Read-path é a tabela LOCAL** (`GET /admin/orgs/:orgId/subscription/refunds` →
-   `ListSubscriptionRefundsUseCase` → `refundEventRepo.listByOrgId`, **teto de 100 linhas
-   sem paginação nem marcador de truncamento** — como é 1 linha por status, isso é ~30-50
-   refunds reais; paginação/marcador ficam para F4/F5). Diferente de `GET /invoices`, que lê
-   **live** do Stripe — a API do Stripe **não tem list-by-customer de refunds**, então a
-   tabela é a única fonte. O endpoint devolve `BillingRefundEventEntity[]` cru (com o PK
-   interno `id` + `org_id`), não um shape normalizado como o `invoices` — mapear para um
-   response shape explícito quando F4/F5 criar a UI consumidora. **Ainda aberto** (o Bloco A
-   de T4-F5 não tocou o read-path) → Bloco B: paginação + response shape explícito. `orgId`
-   vem do path + `PlatformAdminGuard` (super_admin only); com `DRIZZLE_ADMIN` bypassa RLS,
-   então o `WHERE org_id = $1` é a única fronteira de tenant — o `orgId` **nunca** pode vir
-   do body.
+   `ListSubscriptionRefundsUseCase` → `refundEventRepo.listPageByOrgId(orgId, { limit,
+   offset })`). Diferente de `GET /invoices`, que lê **live** do Stripe — a API do Stripe
+   **não tem list-by-customer de refunds**, então a tabela é a única fonte.
+   **Paginado desde o Bloco B de T4-F5** (ver Addendum abaixo): query DTO
+   `ListSubscriptionRefundsQueryDto` (`page`/`limit`, `@Min(1)` / `@Max(200)`, molde de
+   `AuditLogsQueryDto`), `DEFAULT_LIMIT = 50` / `MAX_LIMIT = 200`; a resposta passou a ser o
+   envelope explícito
+   `SubscriptionRefundsPage { data: SubscriptionRefundRow[]; total; page; pages }`, e
+   `SubscriptionRefundRow` **omite** o PK interno `id` e o `org_id` (`occurredAt` sai como
+   ISO string). Não é mais `BillingRefundEventEntity[]` cru. `orgId` vem do path +
+   `PlatformAdminGuard` (super_admin only); com `DRIZZLE_ADMIN` bypassa RLS, então o
+   `WHERE org_id = $1` é a única fronteira de tenant — o `orgId` **nunca** pode vir do body.
 
 4. **F3 escuta só `charge.refunded`** (o event traz `Stripe.Charge` com `customer` inline +
    `charge.refunds.data[]`; cobre o caso comum de refund de cartão instantâneo, org mapeada
@@ -362,7 +365,7 @@ feito no dashboard do Stripe ficava invisível ao sistema. Escopo de F3: **só e
    `refund.updated` (transições assíncronas), reconciliação de refunds, `charge.refunds.
    has_more` truncado. **Fechado no Bloco A de T4-F5** (ver Addendum abaixo): `refund.updated`
    consumido + `has_more` re-buscado por completo via `listRefundsByCharge`. A **reconciliação
-   de refunds** continua aberta → Bloco B.
+   de refunds** foi entregue no Bloco B de T4-F5 (ver Addendum abaixo).
 
 5. **Status desconhecido/`null` do Stripe é DESCARTADO** com `logger.warn` +
    `telemetry.captureMessage("warn", { code: "BILLING_REFUND_EVENT_UNKNOWN_STATUS", ... })`
@@ -380,11 +383,12 @@ feito no dashboard do Stripe ficava invisível ao sistema. Escopo de F3: **só e
    **sem código novo em `DOMAIN_CODE_TO_STATUS`** (reusa `SubscriptionNotFoundException`).
    Refunds cujo `charge.customer` não mapeia entram com `org_id NULL` e ficam invisíveis ao
    endpoint por-org — deliberado, mesma semântica de `billing_invoice_events`; re-resolver o
-   `org_id` é trabalho de F5. **Ainda aberto** → Bloco B: a decisão D4 do Addendum T4-F5
-   Bloco A revisou o "por linha nova, nunca UPDATE" — será um
-   `UPDATE ... SET org_id WHERE org_id IS NULL` estreito (exceção mínima ao append-only, sem
-   tocar valor monetário). O Bloco A já emite `BILLING_REFUND_EVENT_ORG_UNRESOLVED` para
-   tornar essas linhas rastreáveis.
+   `org_id` é trabalho de F5. **Entregue no Bloco B de T4-F5** (ver Addendum abaixo): a
+   decisão D4 revisou o "por linha nova, nunca UPDATE" e o Bloco B faz dois
+   `UPDATE ... SET org_id WHERE org_id IS NULL` estreitos (`resolveOrgIdWhereNull` por
+   charge, `backfillOrgIdFromResolvedSiblings` por refund) — exceção mínima ao append-only,
+   sem tocar `status`/`amount_cents`/`occurred_at`/`reason` nem valor monetário. O Bloco A
+   já emitia `BILLING_REFUND_EVENT_ORG_UNRESOLVED` para tornar essas linhas rastreáveis.
 
 **Pré-requisito de deploy (checklist, não código)**: `charge.refunded` precisa estar na
 lista de eventos do endpoint de webhook do Stripe (**test E live**) — hoje essa lista é
@@ -550,15 +554,20 @@ reconciliação de refunds via job de cron + paginação/response-shape do
   — **nunca** toca `status` / `amount_cents` / `occurred_at` nem qualquer valor monetário,
   e não exige migração.
 
+**Bloco B entregue** no Addendum "T4-F5 Bloco B — reconciliação de refunds" (abaixo); D3 e
+D4 saíram como descritas aqui.
+
 **Decisão (Bloco A)**:
 
 1. **Port + adapter para refunds** (`domain/ports/payment-gateway.port.ts`,
    `infrastructure/stripe-payment-gateway.ts`). Novo `GatewayRefund` (`refundId`,
    `chargeId: string | null`, `status: string | null` **cru** — a whitelist vive no
    consumidor —, `amountCents`, `currency`, `reason: string | null`, `createdAt: Date`). O
-   `createdAt` é `refund.created` e é **informacional / atualmente não lido**: nunca vira
-   `occurred_at` (a regra da migration `0060` nota (a) segue valendo — `occurred_at` é o
-   `event.created` do envelope do webhook; ver Addendum T4-F3). Dois métodos novos:
+   `createdAt` é `refund.created`. No Bloco A é **informacional / não lido** — o webhook
+   estampa `occurred_at` a partir do `event.created` do envelope (migration `0060` nota
+   (a); ver Addendum T4-F3). No Bloco B (ver Addendum abaixo) a reconciliação, que não tem
+   envelope de evento, passa a usá-lo como `occurred_at` **aproximado** — desvio consciente
+   da nota (a), documentado lá. Dois métodos novos:
    - `listRefundsByCharge(chargeId)` → `{ refunds, truncated }`: `for await` sobre
      `stripe.refunds.list({ charge, limit: 100 })` com teto
      `MAX_REFUNDS_PER_CHARGE_SCAN = 500` → `truncated: true` ao alcançá-lo (falso-positivo
@@ -667,18 +676,171 @@ resolução de org, descarte de status desconhecido) e `reconcile-subscriptions.
 **Dívida que permanece para o Bloco B**:
 
 - **Reconciliação de refunds** — job de cron, padrão ADR-0024, self-throttle via
-  `cron_job_state`; decisões D3/D4 acima.
+  `cron_job_state`; decisões D3/D4 acima. **Entregue** — ver Addendum abaixo.
 - **Paginação + response shape explícito** do `GET /admin/orgs/:orgId/subscription/refunds`
   — hoje devolve `BillingRefundEventEntity[]` cru (com `id` / `org_id` internos), teto de
-  100 sem marcador de truncamento.
+  100 sem marcador de truncamento. **Entregue** (`SubscriptionRefundsPage`) — ver Addendum
+  abaixo.
 - **Re-resolução de `org_id` das linhas órfãs** (`WHERE org_id IS NULL`) — D4, `UPDATE`
-  estreito.
+  estreito. **Entregue** (`resolveOrgIdWhereNull` por charge +
+  `backfillOrgIdFromResolvedSiblings` por refund) — ver Addendum abaixo.
 - **`payment_intent` como caminho alternativo de correlação** quando `refund.charge` é
   `null` (fora de escopo do Bloco A — sem `customer` nem `charge`, não há como resolver a
-  org no espelho atual).
+  org no espelho atual). **Permanece aberto** (fora do escopo do Bloco B).
 - **`listInvoices` sem paginação** (`limit: 100` fixo) — mesma classe de bug que o
   `has_more` de refunds, deixado fora de escopo deliberadamente: read path não relacionado,
-  sem evidência de truncamento. Registrado aqui como dívida explícita.
+  sem evidência de truncamento. Registrado aqui como dívida explícita. **Permanece aberto.**
+
+## Addendum (2026-08-31): T4-F5 Bloco B — reconciliação de refunds
+
+**Contexto**: fecha o Bloco B planejado no Addendum "T4-F5 Bloco A" — reconciliação de
+refunds por job de cron + paginação/response-shape do
+`GET /admin/orgs/:orgId/subscription/refunds`. As decisões D3/D4 já estavam tomadas lá;
+este addendum registra o estado entregue. Escopo: **sem migração** (as colunas de
+`billing_refund_events` da migration `0060` / Addendum T4-F3 já cobrem tudo), sem nova
+superfície de UI, sem ação manual nova.
+
+**Decisão (Bloco B)**:
+
+1. **Job de cron `billing-refund-reconciliation`**
+   (`CRON_JOBS.BILLING_REFUND_RECONCILIATION`, `ReconcileRefundsUseCase`, molde de
+   `ReconcilePlanCatalogUseCase`). Self-throttled via `cron_job_state`
+   (`ICronJobStateRepository.claimRun`, `MIN_INTERVAL_MS = 24h` — padrão ADR-0024), não um
+   `@Cron` do Nest; registrado no array `jobs` do `InternalCronController` + provider/export
+   em `subscriptions.module.ts`. Rodado em todo `POST /internal/cron/tick` como os demais
+   jobs, mas a esmagadora maioria das chamadas é um claim no-op barato.
+
+2. **Passe 1 — varredura GLOBAL de 7 dias** (D3). O Stripe **não tem** list-by-customer de
+   refunds, então `gateway.listRefundsCreatedSince(now − 7d)` faz `for await` sobre
+   `stripe.refunds.list({ created: { gte } })` com teto `MAX_REFUNDS_PER_GLOBAL_SCAN = 2000`
+   → `truncated: true` + `BILLING_REFUND_RECONCILE_SCAN_TRUNCATED` ao alcançá-lo. A janela
+   de 7d dá folga sobre o intervalo de 24h — alguns ticks perdidos ainda não deixam um
+   refund sair da janela sem espelho. Por refund: `toRefundEventStatus` (whitelist dos 5
+   valores do enum, extraída para `domain/refund-event-status.ts` e **reusada pelo webhook**
+   — os dois aplicam exatamente o mesmo mapa); status fora da whitelist →
+   `BILLING_REFUND_EVENT_UNKNOWN_STATUS` + skip; transição já espelhada para aquele refund
+   (`findStatusesByRefundIds`, uma query para o batch inteiro) → skip **antes** de resolver
+   a org (a escada pode gastar um `charges.retrieve`, e o teto é 2000).
+
+3. **Guarda de inserção OBRIGATÓRIA** (D3 — a conta Stripe pode ser compartilhada com
+   outros produtos). Um refund nunca visto localmente (`seen.length === 0`) só é gravado se
+   a org resolver para um `stripe_customer_id` conhecido; senão conta em `skippedForeign` e
+   **não grava** (não emite por-refund — seria ruído no teto de 2000). Um refund que já tem
+   linha local é nosso de qualquer jeito — a nova transição é espelhada mesmo sem org
+   resolvida (a reconciliação grava `orgId: null` e o Passe 2 re-resolve).
+
+4. **`RefundOrgResolver`** (`application/refund-org-resolver.service.ts`, `@Injectable`, em
+   `application/` flat — convenção do módulo). Escada de resolução da org de um refund,
+   barato primeiro: (a) `customerId` conhecido → subscription local; (b)
+   `findResolvedOrgIdByRefundId`; (c) `findResolvedOrgIdByChargeId`; (d) `charges.retrieve`
+   → subscription local; senão `null`. **Nunca lança** — falha do Stripe no passo (d) que
+   não seja `resource_missing` é engolida (`logger.warn`) para não jogar o webhook num loop
+   de retry. Extraída do `HandleStripeWebhookUseCase` (que tinha a mesma escada inline) para
+   ser compartilhada pelo job. Não emite telemetria — quem sabe que a linha vai sem org é o
+   chamador (`writeRefundRow` do webhook emite `BILLING_REFUND_EVENT_ORG_UNRESOLVED`). Na
+   reconciliação o resultado da escada é **memoizado por `chargeId` para o run** (não
+   persistente): N refunds do mesmo charge — rotina numa conta compartilhada — disparam um
+   único `resolve` (logo no máximo um `charges.retrieve`) em vez de N; refunds sem
+   `chargeId` não são memoizados e resolvem cada um por si. A guarda de inserção é
+   reavaliada por refund mesmo assim.
+
+5. **Passe 2 — re-resolução de órfãos** (linhas ainda em `org_id IS NULL`), decisão D4:
+   **exceção mínima e deliberada ao append-only** de `billing_refund_events` (append-only
+   por analogia ao ADR-0010, ver migration `0060` nota (a)). Dois `UPDATE` estreitos, ambos
+   `SET org_id WHERE org_id IS NULL` — jamais tocam
+   `status`/`amount_cents`/`occurred_at`/`reason` nem valor monetário; só preenchem uma
+   coluna de correlação derivada server-side de `charge.customer` →
+   `subscriptions.stripe_customer_id`, nunca a partir do cliente. Sem migração.
+
+   a. **`backfillOrgIdFromResolvedSiblings()` roda PRIMEIRO** — `UPDATE ... FROM` set-based
+      por `stripe_refund_id`: preenche o `org_id` de uma linha órfã a partir de uma linha
+      irmã do **mesmo refund** que já carrega `org_id`. É o fix do **HIGH do
+      `database-guardian`** (que rodou apesar de não haver migração, pelos caminhos de raw
+      SQL): sem ele, um refund cuja linha `pending` nasceu órfã e cuja linha `succeeded`
+      posterior resolveu a org ficaria `org_id NULL` para sempre — `listUnresolvedChargeIds`
+      **exclui de propósito** refunds com irmã já resolvida, então o passe por charge nunca
+      o alcançaria e a linha `pending` sumiria do endpoint permanentemente. É por isso que a
+      passada por `stripe_refund_id` vem **antes** da passada por charge.
+   b. **`resolveOrgIdWhereNull(stripeChargeId, orgId)`** — `UPDATE` por charge. Alvos:
+      `listUnresolvedChargeIds(200, now − 30d)` (charge ids distintos de linhas ainda
+      órfãs). A janela de 30d (múltiplo da janela de varredura) evita starvation: um órfão
+      mais velho que isso já teve ~4 janelas de tentativa e é quase certamente
+      irrecuperável (conta compartilhada, ou customer sem subscription local) — sem o corte
+      ocuparia a cabeça de todo batch para sempre. Para cada charge:
+      `retrieveChargeCustomerId` → `subscriptionRepo.findByStripeCustomerId` →
+      `resolveOrgIdWhereNull`.
+
+   Telemetria do Passe 2: `BILLING_REFUND_ORPHAN_SIBLING_BACKFILL`,
+   `BILLING_REFUND_ORPHAN_RESOLVED`.
+
+6. **`occurred_at` na reconciliação = `refund.created`** (`GatewayRefund.createdAt`),
+   **aproximado**. É um **desvio consciente da nota (a) da migration `0060`**, que manda
+   `occurred_at` ser o `event.created` do envelope do webhook: o job não tem envelope de
+   evento e `refund.created` é o mais próximo disponível. O `.sql` da `0060` **não é
+   editado** (o migrator custom valida sha256 — ADR-0003); a nota lá continua correta e
+   normativa para o caminho do webhook, que é o primário — esta é a exceção do caminho de
+   varredura, registrada aqui. O dedupe `(stripe_refund_id, status)` mantém a gravação
+   idempotente entre runs.
+
+7. **Telemetria de linha gravada**: `BILLING_REFUND_RECONCILE_ROW_WRITTEN` (`logger.warn` +
+   `captureMessage`) em toda linha nova — escrita monetária automática sem supervisão
+   humana nunca é silenciosa (exigência do ADR-0024, mesmo padrão de
+   `ReconcilePlanCatalogUseCase`). `BILLING_REFUND_RECONCILE_FAILED` num `try/catch` por
+   item (Passe 1 e Passe 2), sem derrubar o run.
+
+8. **Endpoint `GET /admin/orgs/:orgId/subscription/refunds` paginado** — fecha a dívida do
+   Addendum T4-F3 §3. Query DTO `ListSubscriptionRefundsQueryDto` (`page`/`limit`,
+   `@Type(() => Number)` + `@IsInt` + `@Min(1)`, `limit` também `@Max(200)` — molde de
+   `AuditLogsQueryDto`). `ListSubscriptionRefundsUseCase` clampa (`DEFAULT_LIMIT = 50`,
+   `MAX_LIMIT = 200`), calcula `offset = (page − 1) * limit` e chama
+   `refundEventRepo.listPageByOrgId(orgId, { limit, offset })` (`listByOrgId` de teto fixo
+   100 foi **removido** do repo). Resposta: envelope explícito
+   `SubscriptionRefundsPage { data: SubscriptionRefundRow[]; total; page; pages }`;
+   `SubscriptionRefundRow` **omite** o PK interno `id` e o `org_id` e serializa `occurredAt`
+   como ISO string. Contrato mudou de `BillingRefundEventEntity[]` cru para envelope —
+   **sem consumidor de UI hoje** (`queryKeys.adminSubscription.refunds` existe sem hook que
+   a consuma; `useAdminSubscription*` só usa `detail`/`invoices`), então não é breaking na
+   prática. **Divergência deliberada do `AuditLogsPage`**: `pages` é
+   `Math.max(1, Math.ceil(total / limit))`, então `total: 0` → `pages: 1` (o `AuditLogsPage`
+   faz `Math.ceil(0 / limit) = 0`) — travada em teste. `orgId` vem do path +
+   `PlatformAdminGuard`; `DRIZZLE_ADMIN` bypassa RLS, então `WHERE org_id = $1` é a única
+   fronteira de tenant — `orgId` nunca do body.
+
+**Pré-requisito de deploy (checklist, não código)**: a reconciliação **não** exige evento
+de webhook novo — `refund.updated` já foi coberto no Bloco A. Mas ela é **rede de
+segurança**, não a fonte primária: depende de `charge.refunded` / `refund.updated` estarem
+na lista de eventos do endpoint de webhook do Stripe (**test E live**, gerida no dashboard,
+sem config no repo — mesma nota dos addenda T4-F3 e Bloco A). Sem esses eventos
+configurados a varredura de 7d vira a única fonte — funciona, mas com latência de até um
+tick de cron e sujeita ao teto de 2000 e à janela de 7 dias.
+
+**Sem verificação ao vivo nem no preview**: nenhuma superfície observável no navegador — o
+endpoint de refunds segue sem consumidor de UI. O round-trip ao vivo (refund real no
+dashboard em modo teste → varredura global → espelho local) **não foi exercitado** — chave
+do `stripe` CLI local expirada, mesma limitação dos addenda T4-F3, "espelho fiel do
+desconto" e Bloco A. Cobertura por unit tests: `reconcile-refunds.use-case.spec.ts`,
+`refund-org-resolver.service.spec.ts`, `list-subscription-refunds.use-case.spec.ts` +
+suíte `subscriptions` verde (34 suites / 269 testes) e `pnpm check-types` + `pnpm lint` +
+`pnpm test` + `pnpm build` verdes. `database-guardian` `changes_required` → 1 high + 2
+medium aplicados (o high é a razão de `backfillOrgIdFromResolvedSiblings` existir);
+`reviewer` `approved_with_notes` → 1 medium (memoização por `chargeId`) aplicado.
+
+**Dívida que permanece**:
+
+- **Linha com `stripe_charge_id NULL` E sem irmã resolvida** — não recuperável
+  automaticamente (nenhum dos dois passes a alcança; documentado no doc-comment de
+  `listUnresolvedChargeIds`). Ocorre se um `refund.updated` chega como primeira linha do
+  refund com `refund.charge` null.
+- **Sem índice em `billing_refund_events.stripe_charge_id`** — `resolveOrgIdWhereNull` e
+  `findResolvedOrgIdByChargeId` fazem seq scan. Dívida **com gatilho**: reavaliar quando a
+  tabela passar de ~50k linhas (exigiria migração; D4 foi sem migração).
+- **`backfillOrgIdFromResolvedSiblings` é raw SQL sem teste de DB** e sua correção depende
+  da invariante `subscriptions.stripe_customer_id` **UNIQUE** (um charge → um customer → no
+  máx. uma subscription → uma org). Se esse unique cair, o backfill — e também
+  `resolveOrgIdWhereNull` — vira misatribuição de refund entre orgs.
+- **`payment_intent` como correlação alternativa** quando `refund.charge` é `null` — segue
+  aberto (herdado do Bloco A, fora do escopo do Bloco B).
+- **`listInvoices` sem paginação** (`limit: 100` fixo) — segue aberto (herdado do Bloco A).
 
 ## Relacionado
 

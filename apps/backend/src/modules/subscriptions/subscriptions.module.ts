@@ -12,6 +12,7 @@ import { HandleStripeWebhookUseCase } from "./application/use-cases/handle-strip
 import { ReconcileSubscriptionsUseCase } from "./application/use-cases/reconcile-subscriptions.use-case";
 import { ExpireSubscriptionsUseCase } from "./application/use-cases/expire-subscriptions.use-case";
 import { ReconcilePlanCatalogUseCase } from "./application/use-cases/reconcile-plan-catalog.use-case";
+import { ReconcileRefundsUseCase } from "./application/use-cases/reconcile-refunds.use-case";
 import { GrantCompUseCase } from "./application/use-cases/grant-comp.use-case";
 import { ScheduleSubscriptionCancellationUseCase } from "./application/use-cases/schedule-subscription-cancellation.use-case";
 import { ResumeSubscriptionUseCase } from "./application/use-cases/resume-subscription.use-case";
@@ -25,6 +26,7 @@ import { ListPublicBillingPlansUseCase } from "./application/use-cases/list-publ
 import { UpdateBillingPlanProductUseCase } from "./application/use-cases/update-billing-plan-product.use-case";
 import { RotatePlanIntervalPriceUseCase } from "./application/use-cases/rotate-plan-interval-price.use-case";
 import { PlanPriceLinkageService } from "./application/plan-price-linkage.service";
+import { RefundOrgResolver } from "./application/refund-org-resolver.service";
 import { UpsertPlanIntervalPriceUseCase } from "./application/use-cases/upsert-plan-interval-price.use-case";
 import { SetPlanIntervalActiveUseCase } from "./application/use-cases/set-plan-interval-active.use-case";
 import { MigrateSubscribersToPriceUseCase } from "./application/use-cases/migrate-subscribers-to-price.use-case";
@@ -61,9 +63,11 @@ import { PublicBillingFeatureFlagGuard } from "./interface/public-billing-featur
     CreatePortalSessionUseCase,
     GetSubscriptionUseCase,
     HandleStripeWebhookUseCase,
+    RefundOrgResolver,
     ReconcileSubscriptionsUseCase,
     ExpireSubscriptionsUseCase,
     ReconcilePlanCatalogUseCase,
+    ReconcileRefundsUseCase,
     GrantCompUseCase,
     ScheduleSubscriptionCancellationUseCase,
     ResumeSubscriptionUseCase,
@@ -93,6 +97,7 @@ import { PublicBillingFeatureFlagGuard } from "./interface/public-billing-featur
     ReconcileSubscriptionsUseCase,
     ExpireSubscriptionsUseCase,
     ReconcilePlanCatalogUseCase,
+    ReconcileRefundsUseCase,
   ],
 })
 export class SubscriptionsModule {}

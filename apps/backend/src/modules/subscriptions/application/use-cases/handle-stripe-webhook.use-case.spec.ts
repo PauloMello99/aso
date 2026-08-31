@@ -24,6 +24,7 @@ import { SubscriptionEntity } from "../../domain/subscription.entity";
 import { WebhookSignatureInvalidException } from "../../domain/exceptions/webhook-signature-invalid.exception";
 import { TelemetryService } from "../../../../common/telemetry/telemetry.service";
 import { FrontendRevalidationClient } from "../../infrastructure/frontend-revalidation.client";
+import { RefundOrgResolver } from "../refund-org-resolver.service";
 
 function buildSubscription(
   overrides: Partial<Parameters<typeof SubscriptionEntity.create>[0]> = {},
@@ -144,11 +145,31 @@ function buildFakeRefundEventRepo(
 ): jest.Mocked<IBillingRefundEventRepository> {
   return {
     create: jest.fn(),
-    listByOrgId: jest.fn().mockResolvedValue([]),
     findResolvedOrgIdByRefundId: jest.fn().mockResolvedValue(null),
     findResolvedOrgIdByChargeId: jest.fn().mockResolvedValue(null),
+    backfillOrgIdFromResolvedSiblings: jest.fn().mockResolvedValue(0),
     ...overrides,
   } as unknown as jest.Mocked<IBillingRefundEventRepository>;
+}
+
+/**
+ * Builds a REAL `RefundOrgResolver` wired to this file's repo/gateway fakes,
+ * so the resolution-ladder cases keep exercising the ladder unchanged. Pass
+ * the same fakes the test configures when the test asserts on them; omit for
+ * the (many) cases that never reach org resolution.
+ */
+function buildFakeRefundOrgResolver(
+  deps: {
+    subscriptionRepo?: jest.Mocked<ISubscriptionRepository>;
+    refundEventRepo?: jest.Mocked<IBillingRefundEventRepository>;
+    paymentGateway?: jest.Mocked<IPaymentGateway>;
+  } = {},
+): RefundOrgResolver {
+  return new RefundOrgResolver(
+    deps.subscriptionRepo ?? buildFakeSubscriptionRepo(),
+    deps.refundEventRepo ?? buildFakeRefundEventRepo(),
+    deps.paymentGateway ?? buildFakePaymentGateway(),
+  );
 }
 
 function buildFakeBillingPlanRepo(
@@ -315,6 +336,7 @@ describe("HandleStripeWebhookUseCase", () => {
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
       buildFakeRefundEventRepo(),
+      buildFakeRefundOrgResolver(),
     );
 
     await expect(useCase.execute("raw", "sig")).rejects.toThrow(
@@ -344,6 +366,7 @@ describe("HandleStripeWebhookUseCase", () => {
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
       buildFakeRefundEventRepo(),
+      buildFakeRefundOrgResolver(),
     );
 
     await useCase.execute("raw", "sig");
@@ -390,6 +413,7 @@ describe("HandleStripeWebhookUseCase", () => {
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
       buildFakeRefundEventRepo(),
+      buildFakeRefundOrgResolver(),
     );
 
     await useCase.execute("raw", "sig");
@@ -439,6 +463,7 @@ describe("HandleStripeWebhookUseCase", () => {
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
       buildFakeRefundEventRepo(),
+      buildFakeRefundOrgResolver(),
     );
 
     await useCase.execute("raw", "sig");
@@ -491,6 +516,7 @@ describe("HandleStripeWebhookUseCase", () => {
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
       buildFakeRefundEventRepo(),
+      buildFakeRefundOrgResolver(),
     );
 
     await useCase.execute("raw", "sig");
@@ -539,6 +565,7 @@ describe("HandleStripeWebhookUseCase", () => {
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
       buildFakeRefundEventRepo(),
+      buildFakeRefundOrgResolver(),
     );
 
     await useCase.execute("raw", "sig");
@@ -588,6 +615,7 @@ describe("HandleStripeWebhookUseCase", () => {
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
       buildFakeRefundEventRepo(),
+      buildFakeRefundOrgResolver(),
     );
 
     await useCase.execute("raw", "sig");
@@ -637,6 +665,7 @@ describe("HandleStripeWebhookUseCase", () => {
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
       buildFakeRefundEventRepo(),
+      buildFakeRefundOrgResolver(),
     );
 
     await useCase.execute("raw", "sig");
@@ -685,6 +714,7 @@ describe("HandleStripeWebhookUseCase", () => {
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
       buildFakeRefundEventRepo(),
+      buildFakeRefundOrgResolver(),
     );
 
     await useCase.execute("raw", "sig");
@@ -733,6 +763,7 @@ describe("HandleStripeWebhookUseCase", () => {
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
       buildFakeRefundEventRepo(),
+      buildFakeRefundOrgResolver(),
     );
 
     await useCase.execute("raw", "sig");
@@ -781,6 +812,7 @@ describe("HandleStripeWebhookUseCase", () => {
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
       buildFakeRefundEventRepo(),
+      buildFakeRefundOrgResolver(),
     );
 
     await useCase.execute("raw", "sig");
@@ -821,6 +853,7 @@ describe("HandleStripeWebhookUseCase", () => {
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
       buildFakeRefundEventRepo(),
+      buildFakeRefundOrgResolver(),
     );
 
     await expect(useCase.execute("raw", "sig")).rejects.toThrow(
@@ -866,6 +899,7 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         buildFakeRevalidationClient(),
         buildFakeRefundEventRepo(),
+        buildFakeRefundOrgResolver(),
       );
 
       await useCase.execute("raw", "sig");
@@ -916,6 +950,7 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         buildFakeRevalidationClient(),
         buildFakeRefundEventRepo(),
+        buildFakeRefundOrgResolver(),
       );
 
       await useCase.execute("raw", "sig");
@@ -967,6 +1002,7 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         revalidationClient,
         buildFakeRefundEventRepo(),
+        buildFakeRefundOrgResolver(),
       );
 
       await useCase.execute("raw", "sig");
@@ -1017,6 +1053,7 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         revalidationClient,
         buildFakeRefundEventRepo(),
+        buildFakeRefundOrgResolver(),
       );
 
       await useCase.execute("raw", "sig");
@@ -1087,6 +1124,7 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         revalidationClient,
         buildFakeRefundEventRepo(),
+        buildFakeRefundOrgResolver(),
       );
 
       await useCase.execute("raw", "sig");
@@ -1175,6 +1213,7 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         revalidationClient,
         buildFakeRefundEventRepo(),
+        buildFakeRefundOrgResolver(),
       );
 
       await useCase.execute("raw", "sig");
@@ -1240,6 +1279,7 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         revalidationClient,
         buildFakeRefundEventRepo(),
+        buildFakeRefundOrgResolver(),
       );
 
       await useCase.execute("raw", "sig");
@@ -1301,6 +1341,7 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         revalidationClient,
         buildFakeRefundEventRepo(),
+        buildFakeRefundOrgResolver(),
       );
 
       await useCase.execute("raw", "sig");
@@ -1362,6 +1403,7 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         buildFakeRevalidationClient(),
         buildFakeRefundEventRepo(),
+        buildFakeRefundOrgResolver(),
       );
 
       await useCase.execute("raw", "sig");
@@ -1402,6 +1444,7 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         buildFakeRevalidationClient(),
         buildFakeRefundEventRepo(),
+        buildFakeRefundOrgResolver(),
       );
 
       await useCase.execute("raw", "sig");
@@ -1439,6 +1482,7 @@ describe("HandleStripeWebhookUseCase", () => {
         telemetry,
         revalidationClient,
         buildFakeRefundEventRepo(),
+        buildFakeRefundOrgResolver(),
       );
 
       await useCase.execute("raw", "sig");
@@ -1488,6 +1532,7 @@ describe("HandleStripeWebhookUseCase", () => {
         telemetry,
         revalidationClient,
         buildFakeRefundEventRepo(),
+        buildFakeRefundOrgResolver(),
       );
 
       await useCase.execute("raw", "sig");
@@ -1537,6 +1582,7 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         buildFakeRevalidationClient(),
         buildFakeRefundEventRepo(),
+        buildFakeRefundOrgResolver(),
       );
 
       await useCase.execute("raw", "sig");
@@ -1591,6 +1637,7 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         buildFakeRevalidationClient(),
         buildFakeRefundEventRepo(),
+        buildFakeRefundOrgResolver(),
       );
 
       await useCase.execute("raw", "sig");
@@ -1643,6 +1690,7 @@ describe("HandleStripeWebhookUseCase", () => {
         telemetry,
         buildFakeRevalidationClient(),
         buildFakeRefundEventRepo(),
+        buildFakeRefundOrgResolver(),
       );
 
       await useCase.execute("raw", "sig");
@@ -1688,6 +1736,7 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         buildFakeRevalidationClient(),
         buildFakeRefundEventRepo(),
+        buildFakeRefundOrgResolver(),
       );
 
       await useCase.execute("raw", "sig");
@@ -1725,6 +1774,7 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         buildFakeRevalidationClient(),
         buildFakeRefundEventRepo(),
+        buildFakeRefundOrgResolver(),
       );
 
       await useCase.execute("raw", "sig");
@@ -1773,6 +1823,7 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         buildFakeRevalidationClient(),
         buildFakeRefundEventRepo(),
+        buildFakeRefundOrgResolver(),
       );
 
       await useCase.execute("raw", "sig");
@@ -1825,6 +1876,7 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         buildFakeRevalidationClient(),
         buildFakeRefundEventRepo(),
+        buildFakeRefundOrgResolver(),
       );
 
       await expect(useCase.execute("raw", "sig")).resolves.not.toThrow();
@@ -1896,6 +1948,11 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         buildFakeRevalidationClient(),
         refundEventRepo,
+        buildFakeRefundOrgResolver({
+          subscriptionRepo,
+          refundEventRepo,
+          paymentGateway,
+        }),
       );
 
       await useCase.execute("raw", "sig");
@@ -1969,6 +2026,11 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         buildFakeRevalidationClient(),
         refundEventRepo,
+        buildFakeRefundOrgResolver({
+          subscriptionRepo,
+          refundEventRepo,
+          paymentGateway,
+        }),
       );
 
       await useCase.execute("raw", "sig");
@@ -1999,6 +2061,7 @@ describe("HandleStripeWebhookUseCase", () => {
         telemetry,
         buildFakeRevalidationClient(),
         refundEventRepo,
+        buildFakeRefundOrgResolver({ refundEventRepo, paymentGateway }),
       );
 
       await expect(useCase.execute("raw", "sig")).resolves.not.toThrow();
@@ -2039,6 +2102,7 @@ describe("HandleStripeWebhookUseCase", () => {
         telemetry,
         buildFakeRevalidationClient(),
         refundEventRepo,
+        buildFakeRefundOrgResolver({ refundEventRepo, paymentGateway }),
       );
 
       await expect(useCase.execute("raw", "sig")).resolves.not.toThrow();
@@ -2096,6 +2160,11 @@ describe("HandleStripeWebhookUseCase", () => {
         telemetry,
         buildFakeRevalidationClient(),
         refundEventRepo,
+        buildFakeRefundOrgResolver({
+          subscriptionRepo,
+          refundEventRepo,
+          paymentGateway,
+        }),
       );
 
       await useCase.execute("raw", "sig");
@@ -2159,6 +2228,11 @@ describe("HandleStripeWebhookUseCase", () => {
         telemetry,
         buildFakeRevalidationClient(),
         refundEventRepo,
+        buildFakeRefundOrgResolver({
+          subscriptionRepo,
+          refundEventRepo,
+          paymentGateway,
+        }),
       );
 
       await useCase.execute("raw", "sig");
@@ -2222,6 +2296,11 @@ describe("HandleStripeWebhookUseCase", () => {
         telemetry,
         buildFakeRevalidationClient(),
         refundEventRepo,
+        buildFakeRefundOrgResolver({
+          subscriptionRepo,
+          refundEventRepo,
+          paymentGateway,
+        }),
       );
 
       await useCase.execute("raw", "sig");
@@ -2281,6 +2360,11 @@ describe("HandleStripeWebhookUseCase", () => {
         telemetry,
         buildFakeRevalidationClient(),
         refundEventRepo,
+        buildFakeRefundOrgResolver({
+          subscriptionRepo,
+          refundEventRepo,
+          paymentGateway,
+        }),
       );
 
       await expect(useCase.execute("raw", "sig")).resolves.not.toThrow();
@@ -2340,6 +2424,11 @@ describe("HandleStripeWebhookUseCase", () => {
         telemetry,
         buildFakeRevalidationClient(),
         refundEventRepo,
+        buildFakeRefundOrgResolver({
+          subscriptionRepo,
+          refundEventRepo,
+          paymentGateway,
+        }),
       );
 
       await expect(useCase.execute("raw", "sig")).resolves.not.toThrow();
@@ -2396,6 +2485,11 @@ describe("HandleStripeWebhookUseCase", () => {
         telemetry,
         buildFakeRevalidationClient(),
         refundEventRepo,
+        buildFakeRefundOrgResolver({
+          subscriptionRepo,
+          refundEventRepo,
+          paymentGateway,
+        }),
       );
 
       await useCase.execute("raw", "sig");
@@ -2459,6 +2553,11 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         buildFakeRevalidationClient(),
         refundEventRepo,
+        buildFakeRefundOrgResolver({
+          subscriptionRepo,
+          refundEventRepo,
+          paymentGateway,
+        }),
       );
 
       await useCase.execute("raw", "sig");
@@ -2507,6 +2606,11 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         buildFakeRevalidationClient(),
         refundEventRepo,
+        buildFakeRefundOrgResolver({
+          subscriptionRepo,
+          refundEventRepo,
+          paymentGateway,
+        }),
       );
 
       await useCase.execute("raw", "sig");
@@ -2541,6 +2645,7 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         buildFakeRevalidationClient(),
         refundEventRepo,
+        buildFakeRefundOrgResolver({ refundEventRepo, paymentGateway }),
       );
 
       await expect(useCase.execute("raw", "sig")).resolves.not.toThrow();
@@ -2570,6 +2675,7 @@ describe("HandleStripeWebhookUseCase", () => {
         telemetry,
         buildFakeRevalidationClient(),
         refundEventRepo,
+        buildFakeRefundOrgResolver({ refundEventRepo, paymentGateway }),
       );
 
       await useCase.execute("raw", "sig");
@@ -2610,6 +2716,7 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         buildFakeRevalidationClient(),
         refundEventRepo,
+        buildFakeRefundOrgResolver({ refundEventRepo, paymentGateway }),
       );
 
       await expect(useCase.execute("raw", "sig")).resolves.not.toThrow();
@@ -2644,6 +2751,7 @@ describe("HandleStripeWebhookUseCase", () => {
         telemetry,
         buildFakeRevalidationClient(),
         refundEventRepo,
+        buildFakeRefundOrgResolver({ refundEventRepo, paymentGateway }),
       );
 
       await useCase.execute("raw", "sig");
@@ -2676,6 +2784,7 @@ describe("HandleStripeWebhookUseCase", () => {
         buildFakeTelemetry(),
         buildFakeRevalidationClient(),
         refundEventRepo,
+        buildFakeRefundOrgResolver({ refundEventRepo, paymentGateway }),
       );
 
       await useCase.execute("raw", "sig");

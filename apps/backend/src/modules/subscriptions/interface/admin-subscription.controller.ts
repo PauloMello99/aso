@@ -6,6 +6,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   UseGuards,
 } from "@nestjs/common";
 import { AuthGuard } from "../../auth/guards/auth.guard";
@@ -21,6 +22,7 @@ import { ListSubscriptionRefundsUseCase } from "../application/use-cases/list-su
 import { GetSubscriptionUseCase } from "../application/use-cases/get-subscription.use-case";
 import { GrantCompDto } from "./dto/grant-comp.dto";
 import { ApplyDiscountDto } from "./dto/apply-discount.dto";
+import { ListSubscriptionRefundsQueryDto } from "./dto/list-subscription-refunds-query.dto";
 
 @Controller("admin/orgs/:orgId/subscription")
 @UseGuards(AuthGuard, PlatformAdminGuard)
@@ -89,7 +91,13 @@ export class AdminSubscriptionController {
   }
 
   @Get("refunds")
-  refunds(@Param("orgId", ParseUUIDPipe) orgId: string) {
-    return this.listRefunds.execute(orgId);
+  refunds(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Query() query: ListSubscriptionRefundsQueryDto,
+  ) {
+    return this.listRefunds.execute(orgId, {
+      page: query.page,
+      limit: query.limit,
+    });
   }
 }

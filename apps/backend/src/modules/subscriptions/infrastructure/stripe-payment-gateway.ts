@@ -209,6 +209,13 @@ export function toNormalizedSubscription(
  */
 const MAX_REFUNDS_PER_CHARGE_SCAN = 500;
 
+/**
+ * Hard ceiling on how many refunds `listRefundsCreatedSince` scans across the
+ * whole account before giving up and reporting `truncated: true`. Much higher
+ * than the per-charge ceiling because this is an account-wide sweep.
+ */
+const MAX_REFUNDS_PER_GLOBAL_SCAN = 2000;
+
 function refundChargeId(refund: Stripe.Refund): string | null {
   const charge = refund.charge;
   if (charge === null) return null;
@@ -815,6 +822,30 @@ export class StripePaymentGateway implements IPaymentGateway {
         // iterator had nothing more. The mirror is still complete in that
         // case; telling the two apart would need an iterator look-ahead,
         // which is not worth the complexity.
+        truncated = true;
+        break;
+      }
+    }
+    return { refunds, truncated };
+  }
+
+  async listRefundsCreatedSince(
+    since: Date,
+  ): Promise<{ refunds: GatewayRefund[]; truncated: boolean }> {
+    // No try/catch (mirrors `listRefundsByCharge`/`listInvoices`): a Stripe
+    // failure propagates so the caller can decide the fallback.
+    const refunds: GatewayRefund[] = [];
+    let truncated = false;
+    for await (const refund of this.stripe.refunds.list({
+      created: { gte: Math.floor(since.getTime() / 1000) },
+      limit: 100,
+    })) {
+      refunds.push(toGatewayRefund(refund));
+      if (refunds.length >= MAX_REFUNDS_PER_GLOBAL_SCAN) {
+        // False positive possible: an account with EXACTLY
+        // MAX_REFUNDS_PER_GLOBAL_SCAN refunds in the window trips this even
+        // though the iterator had nothing more. Telling the two apart would
+        // need an iterator look-ahead, which is not worth the complexity.
         truncated = true;
         break;
       }

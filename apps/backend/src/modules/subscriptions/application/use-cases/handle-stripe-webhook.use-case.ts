@@ -15,8 +15,8 @@ import {
 import {
   IBillingRefundEventRepository,
   BILLING_REFUND_EVENT_REPOSITORY,
-  BillingRefundEventStatus,
 } from "../../domain/billing-refund-event.repository.interface";
+import { toRefundEventStatus } from "../../domain/refund-event-status";
 import {
   IBillingPlanRepository,
   BILLING_PLAN_REPOSITORY,
@@ -47,6 +47,7 @@ import {
 import { WebhookSignatureInvalidException } from "../../domain/exceptions/webhook-signature-invalid.exception";
 import { TelemetryService } from "../../../../common/telemetry/telemetry.service";
 import { FrontendRevalidationClient } from "../../infrastructure/frontend-revalidation.client";
+import { RefundOrgResolver } from "../refund-org-resolver.service";
 
 function extractId(value: string | { id: string } | null | undefined): string | null {
   if (!value) return null;
@@ -66,25 +67,6 @@ function trialEndsAtFromUnixSeconds(
   seconds: number | null | undefined,
 ): Date | null {
   return seconds ? new Date(seconds * 1000) : null;
-}
-
-const REFUND_EVENT_STATUSES: readonly BillingRefundEventStatus[] = [
-  "pending",
-  "requires_action",
-  "succeeded",
-  "failed",
-  "canceled",
-];
-
-// Stripe types `refund.status` as an open string: a value outside the five
-// we persist (the `billing_refund_events.status` enum) must be dropped, not
-// written — an unknown enum value would fail the INSERT and 500 the webhook
-// in a retry loop (precedent: `handleCouponUpserted` on a fractional
-// `percent_off`).
-function toRefundEventStatus(
-  status: string | null,
-): BillingRefundEventStatus | null {
-  return REFUND_EVENT_STATUSES.find((candidate) => candidate === status) ?? null;
 }
 
 @Injectable()
@@ -110,6 +92,7 @@ export class HandleStripeWebhookUseCase {
     private readonly revalidationClient: FrontendRevalidationClient,
     @Inject(BILLING_REFUND_EVENT_REPOSITORY)
     private readonly refundEventRepo: IBillingRefundEventRepository,
+    private readonly refundOrgResolver: RefundOrgResolver,
   ) {}
 
   async execute(rawBody: string | Buffer, signature: string): Promise<void> {
@@ -329,7 +312,7 @@ export class HandleStripeWebhookUseCase {
     // `payloadRefunds[0]` is only a lookup hint for step (b) of the
     // resolution; step (c) keys off the charge and subsumes anything it
     // misses. Non-empty is guaranteed by the length check above.
-    const orgId = await this.resolveRefundOrgId({
+    const orgId = await this.refundOrgResolver.resolve({
       refundId: payloadRefunds[0]!.id,
       chargeId: charge.id,
       customerId: extractId(charge.customer),
@@ -438,7 +421,7 @@ export class HandleStripeWebhookUseCase {
 
     // A standalone `Stripe.Refund` has no `customer` — it only reaches an org
     // via its charge, so `customerId` is always null here.
-    const orgId = await this.resolveRefundOrgId({
+    const orgId = await this.refundOrgResolver.resolve({
       refundId: refund.id,
       chargeId,
       customerId: null,
@@ -496,7 +479,7 @@ export class HandleStripeWebhookUseCase {
       // onConflictDoNothing — a later retry will NOT backfill the org), so an
       // unresolved org must be surfaced now rather than left as a silent
       // `org_id: null`. This also covers the swallowed `charges.retrieve`
-      // failure in step (d) of `resolveRefundOrgId` (which only logs).
+      // failure in step (d) of `RefundOrgResolver.resolve` (which only logs).
       this.logger.warn(
         `refund ${input.refundId} is being mirrored without a resolved org (charge ${input.chargeId ?? "unknown"}) — the row is written unattributed`,
       );
@@ -522,60 +505,6 @@ export class HandleStripeWebhookUseCase {
       reason: input.reason,
       occurredAt: input.occurredAt,
     });
-  }
-
-  /**
-   * Resolves a refund's org, server-side only, cheapest source first:
-   * (a) the charge's customer (when known) -> local subscription;
-   * (b) an org already mirrored for this `stripe_refund_id`;
-   * (c) an org already mirrored for this `stripe_charge_id`;
-   * (d) a `charges.retrieve` round-trip for the customer -> local subscription.
-   * Returns `null` when every source comes up empty — never throws (a Stripe
-   * failure in step (d) is swallowed so the webhook is not driven into a
-   * retry loop by an unresolvable org).
-   */
-  private async resolveRefundOrgId(input: {
-    refundId: string;
-    chargeId: string | null;
-    customerId: string | null;
-  }): Promise<string | null> {
-    if (input.customerId !== null) {
-      const local = await this.subscriptionRepo.findByStripeCustomerId(
-        input.customerId,
-      );
-      if (local) return local.orgId;
-    }
-
-    const byRefund = await this.refundEventRepo.findResolvedOrgIdByRefundId(
-      input.refundId,
-    );
-    if (byRefund != null) return byRefund;
-
-    if (input.chargeId !== null) {
-      const byCharge = await this.refundEventRepo.findResolvedOrgIdByChargeId(
-        input.chargeId,
-      );
-      if (byCharge != null) return byCharge;
-
-      try {
-        const customerId = await this.paymentGateway.retrieveChargeCustomerId(
-          input.chargeId,
-        );
-        if (customerId != null) {
-          const local =
-            await this.subscriptionRepo.findByStripeCustomerId(customerId);
-          if (local) return local.orgId;
-        }
-      } catch (error) {
-        this.logger.warn(
-          `refund org resolution: charges.retrieve for ${input.chargeId} failed (${
-            error instanceof Error ? error.message : "unknown error"
-          }) — leaving the refund row unattributed`,
-        );
-      }
-    }
-
-    return null;
   }
 
   /**

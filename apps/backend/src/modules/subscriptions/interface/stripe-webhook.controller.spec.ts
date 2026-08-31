@@ -4,7 +4,9 @@ import { ConfigService } from "@nestjs/config";
 import type { Request } from "express";
 import { StripeWebhookController } from "./stripe-webhook.controller";
 import { HandleStripeWebhookUseCase } from "../application/use-cases/handle-stripe-webhook.use-case";
+import { RefundOrgResolver } from "../application/refund-org-resolver.service";
 import { StripePaymentGateway } from "../infrastructure/stripe-payment-gateway";
+import { IPaymentGateway } from "../domain/ports/payment-gateway.port";
 import { ISubscriptionRepository } from "../domain/subscription.repository.interface";
 import { IStripeWebhookEventRepository } from "../domain/stripe-webhook-event.repository.interface";
 import { IBillingInvoiceEventRepository } from "../domain/billing-invoice-event.repository.interface";
@@ -122,10 +124,27 @@ function buildFakeInvoiceEventRepo(): jest.Mocked<IBillingInvoiceEventRepository
 function buildFakeRefundEventRepo(): jest.Mocked<IBillingRefundEventRepository> {
   return {
     create: jest.fn(),
-    listByOrgId: jest.fn().mockResolvedValue([]),
     findResolvedOrgIdByRefundId: jest.fn().mockResolvedValue(null),
     findResolvedOrgIdByChargeId: jest.fn().mockResolvedValue(null),
+    backfillOrgIdFromResolvedSiblings: jest.fn().mockResolvedValue(0),
   } as unknown as jest.Mocked<IBillingRefundEventRepository>;
+}
+
+function buildFakeRefundOrgResolver(
+  deps: {
+    subscriptionRepo?: jest.Mocked<ISubscriptionRepository>;
+    refundEventRepo?: jest.Mocked<IBillingRefundEventRepository>;
+    paymentGateway?: IPaymentGateway;
+  } = {},
+): RefundOrgResolver {
+  return new RefundOrgResolver(
+    deps.subscriptionRepo ?? buildFakeSubscriptionRepo(),
+    deps.refundEventRepo ?? buildFakeRefundEventRepo(),
+    deps.paymentGateway ??
+      ({
+        retrieveChargeCustomerId: jest.fn().mockResolvedValue(null),
+      } as unknown as IPaymentGateway),
+  );
 }
 
 function buildFakeBillingPlanPriceRepo(): jest.Mocked<IBillingPlanPriceRepository> {
@@ -197,6 +216,7 @@ describe("StripeWebhookController (webhooks/stripe, offline)", () => {
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
       buildFakeRefundEventRepo(),
+      buildFakeRefundOrgResolver(),
     );
     const controller = new StripeWebhookController(useCase);
 
@@ -256,6 +276,7 @@ describe("StripeWebhookController (webhooks/stripe, offline)", () => {
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
       buildFakeRefundEventRepo(),
+      buildFakeRefundOrgResolver(),
     );
     const controller = new StripeWebhookController(useCase);
 
@@ -301,6 +322,7 @@ describe("StripeWebhookController (webhooks/stripe, offline)", () => {
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
       buildFakeRefundEventRepo(),
+      buildFakeRefundOrgResolver(),
     );
     const controller = new StripeWebhookController(useCase);
 
@@ -345,6 +367,11 @@ describe("StripeWebhookController (webhooks/stripe, offline)", () => {
       buildFakeTelemetry(),
       buildFakeRevalidationClient(),
       refundEventRepo,
+      buildFakeRefundOrgResolver({
+        subscriptionRepo,
+        refundEventRepo,
+        paymentGateway,
+      }),
     );
     const controller = new StripeWebhookController(useCase);
 

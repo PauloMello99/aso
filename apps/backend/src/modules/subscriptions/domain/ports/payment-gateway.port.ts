@@ -145,12 +145,13 @@ export interface GatewayRefund {
   currency: string;
   reason: string | null;
   /**
-   * `refund.created` from Stripe — informational only, and currently unread.
-   * NEVER use this as a row's `occurred_at`: migration 0060 note (a) requires
-   * `occurred_at` to be the webhook envelope's `event.created` (a single
-   * orderable timeline for the sibling rows of one refund), and
-   * `HandleStripeWebhookUseCase.writeRefundRow` stamps it from there. Kept for
-   * a future consumer (Bloco B); do not remove.
+   * `refund.created` from Stripe. On the webhook path this is NOT a row's
+   * `occurred_at`: migration 0060 note (a) requires `occurred_at` to be the
+   * webhook envelope's `event.created` (a single orderable timeline for the
+   * sibling rows of one refund), and `HandleStripeWebhookUseCase.writeRefundRow`
+   * stamps it from there. `ReconcileRefundsUseCase` (the global scan) has no
+   * event envelope, so it falls back to this value as an approximate
+   * `occurred_at` — the only sanctioned use.
    */
   createdAt: Date;
 }
@@ -253,6 +254,16 @@ export interface IPaymentGateway {
 
   listRefundsByCharge(
     chargeId: string,
+  ): Promise<{ refunds: GatewayRefund[]; truncated: boolean }>;
+
+  /**
+   * Every refund created at or after `since`, newest-first per Stripe's list
+   * order, across the whole account (not scoped to one charge). `truncated` is
+   * `true` when the scan hit its hard ceiling before exhausting the list — the
+   * caller then knows the oldest refunds in the window were not returned.
+   */
+  listRefundsCreatedSince(
+    since: Date,
   ): Promise<{ refunds: GatewayRefund[]; truncated: boolean }>;
 
   /** Resolves the charge's customer id; `null` when the charge does not exist. */
