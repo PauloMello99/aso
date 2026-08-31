@@ -377,6 +377,58 @@ describe("HandleStripeWebhookUseCase", () => {
     expect(webhookEventRepo.markProcessed).toHaveBeenCalledWith("evt_1");
   });
 
+  it("persists the discount reported by the gateway on a subscription sync", async () => {
+    const event = buildEvent({ type: "customer.subscription.updated" });
+    const current = buildSubscription();
+    const normalized = {
+      stripeSubscriptionId: "sub_stripe_1",
+      stripeCustomerId: "cus_1",
+      status: "active" as const,
+      billingInterval: "monthly" as const,
+      priceCents: 4990,
+      stripePriceId: "price_1",
+      stripeCouponId: "coupon_1",
+      discountPercent: 20,
+      trialEndsAt: null,
+      currentPeriodStart: new Date("2026-02-01T00:00:00Z"),
+      currentPeriodEnd: new Date("2026-03-01T00:00:00Z"),
+      canceledAt: null,
+      cancelAtPeriodEnd: false,
+    };
+    const paymentGateway = buildFakePaymentGateway({
+      constructWebhookEvent: jest.fn().mockReturnValue(event),
+      getSubscription: jest.fn().mockResolvedValue(normalized),
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findByStripeSubscriptionId: jest.fn().mockResolvedValue(current),
+    });
+    const webhookEventRepo = buildFakeWebhookEventRepo();
+
+    const useCase = new HandleStripeWebhookUseCase(
+      paymentGateway,
+      subscriptionRepo,
+      webhookEventRepo,
+      buildFakeInvoiceEventRepo(),
+      buildFakeBillingPlanRepo(),
+      buildFakeBillingCouponRepo(),
+      buildFakeBillingPlanPriceRepo(),
+      buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
+      buildFakeRefundEventRepo(),
+    );
+
+    await useCase.execute("raw", "sig");
+
+    expect(subscriptionRepo.update).toHaveBeenCalledWith(
+      "org-1",
+      expect.objectContaining({
+        stripeCouponId: "coupon_1",
+        discountPercent: 20,
+      }),
+    );
+    expect(webhookEventRepo.markProcessed).toHaveBeenCalledWith("evt_1");
+  });
+
   it("does not downgrade a comp (custom) subscription via a Stripe sync", async () => {
     const event = buildEvent({ type: "customer.subscription.updated" });
     const current = buildSubscription({ type: "custom", status: "active" });

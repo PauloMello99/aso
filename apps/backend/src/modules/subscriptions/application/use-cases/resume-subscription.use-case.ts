@@ -62,13 +62,15 @@ export class ResumeSubscriptionUseCase {
       );
 
     // Narrow payload — write only the fields this toggle actually changes:
-    // cancelAtPeriodEnd, canceledAt, currentPeriodEnd, status. This matches the
-    // local discount convention: stripeCouponId/discountPercent are owned solely
-    // by applyCouponToSubscription/removeSubscriptionDiscount and are never
-    // written from other paths, so they stay out of this payload.
-    // billingInterval/priceCents/trialEndsAt/currentPeriodStart are left out too
-    // because the toggle does not affect them. Resume clears canceledAt (Stripe
-    // nulls it alongside the flag), which is why it MUST be in the payload.
+    // cancelAtPeriodEnd, canceledAt, currentPeriodEnd, status. Toggling
+    // cancel_at_period_end does not touch the discount, so stripeCouponId/
+    // discountPercent are deliberately left out of this payload — the webhook
+    // (syncNormalizedSubscription) and ReconcileSubscriptionsUseCase own the
+    // discount mirror from the normalized Stripe block (ADR-0016, Addendum
+    // 2026-08-31). billingInterval/priceCents/trialEndsAt/currentPeriodStart are
+    // left out too because the toggle does not affect them. Resume clears
+    // canceledAt (Stripe nulls it alongside the flag), which is why it MUST be in
+    // the payload.
     const persisted = await this.subscriptionRepo.update(orgId, {
       cancelAtPeriodEnd: updated.cancelAtPeriodEnd,
       canceledAt: updated.canceledAt,

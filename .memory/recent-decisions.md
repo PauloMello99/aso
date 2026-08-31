@@ -144,3 +144,14 @@
   (104/104 suites backend, 628 testes; 36/36 frontend, 292 testes) + build, tudo verde.
   Branch `features/continuar-progresso-de1de1`, sem commit ainda (aguardando pedido do
   usuário).
+- **2026-08-31 — Espelho local do desconto do Stripe passa a ser fiel** (revisão 30-08,
+  módulo `subscriptions`): `toNormalizedSubscription` hard-codeava `stripeCouponId`/
+  `discountPercent` como `null`, causando drift eterno + write thrash no reconcile e
+  zeragem do cache pelo webhook/`MigrateSubscribersToPriceUseCase`. Opção A: o gateway
+  resolve o desconto real do Stripe (`expand: ["discounts"]` + `coupons.retrieve`
+  condicional; helpers `extractSubscriptionDiscountRef`/`mapCouponToDiscount`/
+  `resolveSubscriptionDiscount`), com telemetria nova
+  (`BILLING_SUBSCRIPTION_DISCOUNT_DRIFT_OVERWRITTEN` a cada sobrescrita no reconcile, por
+  ADR-0024). Sem ADR novo — detalhe completo no ADR-0016
+  (`.memory/adr/0016-billing-stripe-assinatura.md`), Addendum 2026-08-31 "espelho fiel do
+  desconto do Stripe", que substitui o item 4 do Addendum T4-F2 (2026-08-31).

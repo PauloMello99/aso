@@ -179,7 +179,10 @@ function buildFakeTelemetry(): jest.Mocked<TelemetryService> {
 
 describe("StripeWebhookController (webhooks/stripe, offline)", () => {
   it("rejects a payload signed with the wrong secret with WebhookSignatureInvalidException", async () => {
-    const paymentGateway = new StripePaymentGateway(buildConfig());
+    const paymentGateway = new StripePaymentGateway(
+      buildConfig(),
+      buildFakeTelemetry(),
+    );
     const webhookEventRepo = buildFakeWebhookEventRepo();
     const useCase = new HandleStripeWebhookUseCase(
       paymentGateway,
@@ -212,7 +215,10 @@ describe("StripeWebhookController (webhooks/stripe, offline)", () => {
   });
 
   it("processes a validly signed customer.subscription.updated event and returns {received:true}", async () => {
-    const paymentGateway = new StripePaymentGateway(buildConfig());
+    const paymentGateway = new StripePaymentGateway(
+      buildConfig(),
+      buildFakeTelemetry(),
+    );
     const normalized = {
       stripeSubscriptionId: "sub_stripe_1",
       stripeCustomerId: "cus_1",
@@ -272,7 +278,10 @@ describe("StripeWebhookController (webhooks/stripe, offline)", () => {
   });
 
   it("does not reprocess a replayed event.id (claim returns false)", async () => {
-    const paymentGateway = new StripePaymentGateway(buildConfig());
+    const paymentGateway = new StripePaymentGateway(
+      buildConfig(),
+      buildFakeTelemetry(),
+    );
     const getSubscriptionSpy = jest.spyOn(paymentGateway, "getSubscription");
 
     const subscriptionRepo = buildFakeSubscriptionRepo();
@@ -312,7 +321,10 @@ describe("StripeWebhookController (webhooks/stripe, offline)", () => {
   });
 
   it("mirrors a validly signed charge.refunded event into billing_refund_events", async () => {
-    const paymentGateway = new StripePaymentGateway(buildConfig());
+    const paymentGateway = new StripePaymentGateway(
+      buildConfig(),
+      buildFakeTelemetry(),
+    );
     const subscriptionRepo = buildFakeSubscriptionRepo({
       findByStripeCustomerId: jest
         .fn()

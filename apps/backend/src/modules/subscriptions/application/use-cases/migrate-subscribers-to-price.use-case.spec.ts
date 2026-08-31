@@ -373,4 +373,52 @@ describe("MigrateSubscribersToPriceUseCase", () => {
     expect(report.results).toHaveLength(1);
     expect(report.results[0]?.status).toBe("migrated");
   });
+
+  it("preserves the discount returned by the gateway when persisting the migration", async () => {
+    const sub = buildSubscription({
+      id: "sub-1",
+      orgId: "org-1",
+      stripeSubscriptionId: "sub_stripe_1",
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findMigratableByStripePriceId: jest.fn().mockResolvedValue([sub]),
+      update: jest.fn().mockResolvedValue(buildSubscription()),
+    });
+    const paymentGateway = buildFakePaymentGateway({
+      updateSubscriptionPrice: jest.fn().mockResolvedValue(
+        buildNormalizedSubscription({
+          stripeCouponId: "coupon_1",
+          discountPercent: 20,
+        }),
+      ),
+    });
+    const telemetry = buildFakeTelemetry();
+
+    const useCase = new MigrateSubscribersToPriceUseCase(
+      subscriptionRepo,
+      paymentGateway,
+      telemetry,
+    );
+
+    const report = await useCase.execute({
+      oldPriceId: "price_old",
+      newPriceId: "price_new",
+    });
+
+    expect(report.results).toEqual([
+      {
+        orgId: "org-1",
+        stripeSubscriptionId: "sub_stripe_1",
+        status: "migrated",
+      },
+    ]);
+    expect(subscriptionRepo.update).toHaveBeenCalledWith(
+      "org-1",
+      expect.objectContaining({
+        stripeCouponId: "coupon_1",
+        discountPercent: 20,
+      }),
+    );
+    expect(telemetry.captureMessage).not.toHaveBeenCalled();
+  });
 });

@@ -12,6 +12,7 @@ import {
   shouldApplyStripeSync,
   shouldMarkTrialConsumed,
 } from "../../domain/subscription-sync";
+import { TelemetryService } from "../../../../common/telemetry/telemetry.service";
 
 export interface ReconcileSubscriptionsResult {
   checked: number;
@@ -33,6 +34,7 @@ export class ReconcileSubscriptionsUseCase {
     private readonly subscriptionRepo: ISubscriptionRepository,
     @Inject(PAYMENT_GATEWAY)
     private readonly paymentGateway: IPaymentGateway,
+    private readonly telemetry: TelemetryService,
   ) {}
 
   async execute(): Promise<ReconcileSubscriptionsResult> {
@@ -132,6 +134,33 @@ export class ReconcileSubscriptionsUseCase {
       markTrialConsumed;
 
     if (!hasDrift) return false;
+
+    // ADR-0024: an automatic monetary overwrite is never silent. Now that
+    // toNormalizedSubscription mirrors the real Stripe coupon/discount (no
+    // longer hard-coded null), reconcile can overwrite the local discount —
+    // surface it for manual review before writing.
+    if (
+      subscription.stripeCouponId !== normalized.stripeCouponId ||
+      subscription.discountPercent !== normalized.discountPercent
+    ) {
+      this.logger.warn(
+        `Overwriting local discount for org ${subscription.orgId} (subscription ${subscription.stripeSubscriptionId}) with Stripe state: coupon ${subscription.stripeCouponId} -> ${normalized.stripeCouponId}, percent ${subscription.discountPercent} -> ${normalized.discountPercent}`,
+      );
+      this.telemetry.captureMessage(
+        `Reconcile is overwriting local subscription discount to match Stripe for org ${subscription.orgId}`,
+        "warn",
+        {
+          module: "subscriptions",
+          code: "BILLING_SUBSCRIPTION_DISCOUNT_DRIFT_OVERWRITTEN",
+          orgId: subscription.orgId,
+          stripeSubscriptionId: subscription.stripeSubscriptionId,
+          fromCouponId: subscription.stripeCouponId,
+          toCouponId: normalized.stripeCouponId,
+          fromDiscountPercent: subscription.discountPercent,
+          toDiscountPercent: normalized.discountPercent,
+        },
+      );
+    }
 
     await this.subscriptionRepo.update(subscription.orgId, {
       stripeCustomerId: normalized.stripeCustomerId,

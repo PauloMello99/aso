@@ -48,7 +48,11 @@ decisão de produto própria dele; o ink-ops não tem esse requisito).
 4. **Desconto parcial é o único caso real que usa a Coupon API do Stripe** — o valor
    efetivamente cobrado tem que continuar sendo resolvido pelo Stripe (é quem emite fatura e
    cobra o cartão); replicar isso localmente duplicaria lógica de faturamento sem necessidade.
-   Cache local (`discountPercent`/coupon id) é só para exibição no admin.
+   O cache local (`discountPercent`/`stripeCouponId`) é um **espelho** do desconto no Stripe:
+   preenchido tanto por `apply-discount`/`remove-discount` quanto pelo webhook/reconcile a
+   partir de `subscription.discounts`, e usado para exibição no admin. O Stripe segue como
+   autoridade sobre o valor efetivamente cobrado (ver Addendum 2026-08-31 — espelho fiel do
+   desconto do Stripe).
 
 5. **Nova tabela `stripe_webhook_events` para idempotência**: `INSERT ... ON CONFLICT DO
    NOTHING RETURNING` usado como *claim* do evento — se a query não retorna linha, o evento
@@ -88,7 +92,13 @@ decisão de produto própria dele; o ink-ops não tem esse requisito).
 11. **Gotcha de API Stripe (SDK v22+, confirmado também no Larmony)**: no objeto
     `Subscription`, `current_period_start`/`current_period_end` e `price` **não estão no
     nível raiz** — vivem em `sub.items.data[0]`. Qualquer normalização de subscription
-    (webhook, reconciliação) precisa ler dali, não do topo do objeto.
+    (webhook, reconciliação) precisa ler dali, não do topo do objeto. O **cupom** de uma
+    subscription também não fica no raiz: vive em `subscription.discounts[].source.coupon`
+    (`string | Stripe.Coupon | null`), e `subscription.discounts` é
+    `Array<string | Stripe.Discount>`. Em `stripe@22.3.2` / `apiVersion 2026-06-24.dahlia`
+    **não existem** `Stripe.Discount.coupon` nem `Subscription.discount` no nível raiz; a
+    expansão do Stripe não desce recursivamente em `discounts[].source.coupon` (ver
+    Addendum 2026-08-31 — espelho fiel do desconto do Stripe).
 
 ## Consequências
 
@@ -281,7 +291,8 @@ ir ao portal do Stripe.
    `remove-discount`, e `toNormalizedSubscription` os fixa em `null`. **Nota**: isso NÃO
    impede o webhook (`syncNormalizedSubscription`, que grava o bloco largo) de zerar o
    desconto no espelho no próximo `customer.subscription.updated` — esse é um defeito
-   pré-existente do webhook, rastreado em follow-up separado (não introduzido por T4-F2).
+   pré-existente do webhook, rastreado em follow-up separado (não introduzido por T4-F2)
+   → resolvido no Addendum 2026-08-31 — espelho fiel do desconto do Stripe (mais abaixo).
 
 5. **Guard** `isActiveLike` (`active` | `trialing`) `&& isStripeLinked`. `past_due` e
    cortesia (`type='custom'`, nunca `isStripeLinked`) ficam fora — o caminho para `past_due`
@@ -377,6 +388,131 @@ admin-only sem UI; query key `queryKeys.adminSubscription.refunds` sem consumido
 O round-trip `charge.refunded` ao vivo não foi exercitável nesta entrega — a chave do
 `stripe` CLI local está expirada; cobertura por unit tests do webhook com payload assinado
 (incl. o caso ponta a ponta no controller spec) + roteiro em `docs/billing-local-testing.md`.
+
+## Addendum (2026-08-31): espelho fiel do desconto do Stripe
+
+**Contexto**: `toNormalizedSubscription` (`infrastructure/stripe-payment-gateway.ts`)
+hard-codeava `stripeCouponId: null` e `discountPercent: null` em toda subscription
+normalizada. Consequências para qualquer org com desconto ativo no Stripe:
+
+- **Drift eterno + write thrash no `ReconcileSubscriptionsUseCase`**: a comparação de drift
+  em `stripeCouponId`/`discountPercent` sempre via `null` "vindo do Stripe", divergente do
+  valor local gravado por `apply-discount` — cada tick do cron reescrevia a linha.
+- **Zeragem do cache**: `HandleStripeWebhookUseCase.syncNormalizedSubscription` (a cada
+  `customer.subscription.updated`) e `MigrateSubscribersToPriceUseCase` gravam o bloco
+  normalizado inteiro — com o `null` hard-coded, apagavam `stripeCouponId`/`discountPercent`
+  do espelho logo após `apply-discount` os ter gravado.
+
+Este addendum **substitui o item 4 do Addendum de 2026-08-31 (T4-F2 — cancelamento agendado
+self-service pelo dono)**, que registrava a zeragem pelo webhook como "defeito pré-existente
+do webhook, rastreado em follow-up separado" — o follow-up é este trabalho e fica encerrado
+aqui. O item 4 daquele addendum permanece como registro histórico.
+
+**Decisão (Opção A — o espelho local passa a ser FIEL ao Stripe)**, aprovada pelo
+responsável:
+
+1. **`toNormalizedSubscription(subscription, discount)` recebe o desconto já resolvido pelo
+   chamador.** Helpers puros novos, exportados no gateway: `extractSubscriptionDiscountRef`
+   (`none` / `unexpanded` / `coupon_id` / `coupon`) e `mapCouponToDiscount`. O método novo
+   `resolveSubscriptionDiscount` resolve o desconto e é invocado por `normalizeSubscription`
+   nos **3 call sites normalizados**: `getSubscription`, o `update` de
+   `updateSubscriptionPrice` e o `update` de `updateSubscriptionCancelAtPeriodEnd`. A
+   interface `NormalizedSubscription` e os use-cases `apply-discount`/`remove-discount`
+   **não mudaram**.
+
+2. **Expansão + `coupons.retrieve` condicional.** Os 3 call sites passam
+   `expand: ["items.data.price", "discounts"]`. A expansão do Stripe **não é recursiva**:
+   `discounts[0].source.coupon` volta como `string` (id) no caso comum, então
+   `resolveSubscriptionDiscount` faz um `coupons.retrieve` extra **só** quando
+   `extractSubscriptionDiscountRef` devolve `kind: "coupon_id"`. O caminho aninhado
+   `expand: ["discounts.source.coupon"]` (1 chamada em vez de 2) foi **rejeitado nesta
+   entrega**: não verificável (chave do Stripe CLI expirada; `source` é campo novo nessa
+   `apiVersion`) e, se o path fosse inválido, o Stripe responderia 400 e quebraria todo
+   `getSubscription` — reconcile pararia para todas as orgs, o webhook entraria em loop de
+   retry 500 e o botão de cancelar/reativar do dono quebraria. Fica como otimização futura
+   condicionada a teste ao vivo em modo teste. (A rejeição do "desconto 100% local" segue
+   em _Alternativas rejeitadas_; aqui a rejeição é só do atalho de expansão.)
+
+3. **Regra de mapeamento** (`mapCouponToDiscount` + `resolveSubscriptionDiscount`) —
+   DECISÃO D1, confirmada pelo responsável. `subscriptions.discount_percent` é `INTEGER`,
+   então qualquer caso não-inteiro grava o id real do cupom com percentual `null` (o admin
+   ainda vê que há desconto e qual cupom):
+
+   | Situação no Stripe | `stripe_coupon_id` | `discount_percent` |
+   |---|---|---|
+   | `percent_off` inteiro | id real do cupom | `percent_off` |
+   | `percent_off` fracionário | id real do cupom | `null` (+ telemetria) |
+   | cupom `amount_off` | id real do cupom | `null` |
+   | cupom irresolvível (`coupons.retrieve` → `null`, ex. deletado no Stripe) | id real do cupom | `null` |
+   | sem desconto (`discounts` vazio) | `null` | `null` |
+   | múltiplos descontos (`discounts.length > 1`) | usa `discounts[0]` (regra acima) | idem (+ telemetria) |
+
+4. **Telemetria** (`captureMessage("warn", ...)`, `module: "subscriptions"`):
+   - `BILLING_SUBSCRIPTION_DISCOUNT_NOT_EXPANDED` — `discounts[0]` veio como id nu (a
+     expansão não aplicou). Sinal **defensivo / de regressão**: os 3 call sites
+     normalizados já passam `expand: ["discounts"]`, então na prática só dispara se alguém
+     remover o `expand` ou adicionar um call site normalizado sem ele.
+   - `BILLING_COUPON_FRACTIONAL_PERCENT_OFF_UNSUPPORTED` — reusado de
+     `handleCouponUpserted`; `percent_off` fracionário.
+   - `BILLING_SUBSCRIPTION_MULTIPLE_DISCOUNTS_UNSUPPORTED` — `discounts.length > 1`.
+   - `BILLING_COUPON_RESOLUTION_FAILED` — guarda `try/catch` na branch `coupon_id` de
+     `resolveSubscriptionDiscount`: quando `coupons.retrieve` falha por erro que **não** é
+     `resource_missing` (429/5xx/rede) já depois de o chamador ter feito seu write no
+     Stripe, o espelho grava `{ stripeCouponId: <id real>, discountPercent: null }` e o
+     reconcile seguinte preenche o percentual. Cupom deletado (`resource_missing`) não
+     passa por aqui — `retrieveCoupon` já o mapeia para `null` (linha "cupom irresolvível"
+     da tabela do item 3).
+   - `BILLING_SUBSCRIPTION_DISCOUNT_DRIFT_OVERWRITTEN` (em `ReconcileSubscriptionsUseCase`)
+     — emitido a **cada** sobrescrita automática de `stripeCouponId`/`discountPercent` para
+     bater com o Stripe (exigência do ADR-0024: sobrescrita monetária automática nunca é
+     silenciosa).
+
+5. **Rajada única de telemetria no primeiro tick pós-deploy** (consequência aceita — D3).
+   As linhas hoje estão com `stripe_coupon_id`/`discount_percent` `null` por causa do bug;
+   no primeiro `billing-reconciliation` após o deploy, cada org com desconto real no Stripe
+   dispara um `BILLING_SUBSCRIPTION_DISCOUNT_DRIFT_OVERWRITTEN` ao ter o espelho corrigido.
+   É desejável — registro auditável da correção — e não se repete nos ticks seguintes.
+
+**Cadência das demais emissões de telemetria**: ao contrário da rajada descrita no item 5
+(única, no primeiro tick pós-deploy), os códigos
+`BILLING_SUBSCRIPTION_MULTIPLE_DISCOUNTS_UNSUPPORTED`,
+`BILLING_COUPON_FRACTIONAL_PERCENT_OFF_UNSUPPORTED`,
+`BILLING_SUBSCRIPTION_DISCOUNT_NOT_EXPANDED` e `BILLING_COUPON_RESOLUTION_FAILED` são
+emitidos a **cada** `getSubscription` — ou seja, a cada tick de reconcile e a cada
+`customer.subscription.updated` — enquanto a condição persistir. São sinais de condição
+persistente, não incidentes novos a cada emissão; quem configurar alerta deve tratá-los
+como **estado, não como evento**. `BILLING_COUPON_RESOLUTION_FAILED` é o único cuja
+condição normalmente se resolve no tick seguinte (ver item 4).
+
+**Consequência observável nova**: um cupom `repeating` (com `duration_in_months`) que
+expira no Stripe deixa `subscription.discounts` vazio; no próximo sync (webhook ou
+reconcile) `resolveSubscriptionDiscount` devolve `{ stripeCouponId: null, discountPercent:
+null }` e o espelho local **limpa o desconto sozinho**, sem ação do admin. Antes, com o
+`null` hard-coded, o espelho nunca refletia nem a aplicação nem a expiração de um cupom
+vindo do Stripe.
+
+**Limitação conhecida**: um desconto aplicado no **nível do item** da subscription (via
+Dashboard do Stripe, não no nível da subscription) não aparece em `subscription.discounts`
+e mapeia para os dois campos `null`. `applyCouponToSubscription` da plataforma sempre grava
+no nível da subscription, então isso só ocorre por ação manual fora da plataforma.
+
+**Gotcha de API** (`stripe@22.3.2` / `apiVersion 2026-06-24.dahlia`): **não existem**
+`Stripe.Discount.coupon` nem `Subscription.discount` no nível raiz. O cupom fica em
+`Discount.source.coupon: string | Stripe.Coupon | null`; `Subscription.discounts` é
+`Array<string | Stripe.Discount>`. A expansão do Stripe não desce recursivamente em
+`discounts[].source.coupon`.
+
+**Sem verificação ao vivo**: o round-trip `aplicar cupom no Dashboard (modo teste) →
+webhook/reconcile → espelho local` não foi exercitado nesta entrega (chave do `stripe` CLI
+local expirada). Cobertura por unit test: `stripe-payment-gateway.spec.ts`
+(`extractSubscriptionDiscountRef`, `mapCouponToDiscount` — inteiro / fracionário /
+`amount_off`, `toNormalizedSubscription` com e sem desconto) e
+`reconcile-subscriptions.use-case.spec.ts` ("does not report drift when the local discount
+already matches Stripe", "restores a divergent discount and emits telemetry", "zeroes the
+cached discount when a repeating coupon expired in Stripe"). O self-clear do cupom
+`repeating` expirado está exercido por esse último teste; a limitação do desconto por item
+é **inferida do código** (`subscription.discounts` não carrega descontos de item), não
+observada ao vivo. Roteiro manual em `docs/billing-local-testing.md`.
 
 ## Relacionado
 
