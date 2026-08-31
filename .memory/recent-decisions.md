@@ -166,3 +166,20 @@
   ADR-0024). Sem ADR novo — detalhe completo no ADR-0016
   (`.memory/adr/0016-billing-stripe-assinatura.md`), Addendum 2026-08-31 "espelho fiel do
   desconto do Stripe", que substitui o item 4 do Addendum T4-F2 (2026-08-31).
+- **2026-08-31 — T4-F5: fluxo Stripe endurecido (fecha o T4)** (revisão 30-08, módulo
+  `subscriptions`). **Bloco A** (`d7f7c49`): `refund.updated` consumido, `has_more` paginado
+  de verdade, `ReconcileSubscriptionsUseCase` ganha `diffs[]` por campo + `captureMessage`
+  só para campos monetários (novo `BILLING_SUBSCRIPTION_PRICE_DRIFT_OVERWRITTEN`) + detecção
+  de `stripe_price_id` órfão, guard anti-flap `shouldSkipStripeStatusOverride` simétrico
+  webhook↔cron. **Bloco B** (`8244632`): `ReconcileRefundsUseCase` (job de cron
+  self-throttled, molde ADR-0024) — varredura global `refunds.list({created:{gte:now-7d}})`
+  com **guarda de inserção** (não ingere refund alheio — conta Stripe pode ser
+  compartilhada) + passe de re-resolução de `org_id` órfão. **Exceção D4 ao append-only de
+  `billing_refund_events`**: `resolveOrgIdWhereNull` (por charge) e
+  `backfillOrgIdFromResolvedSiblings` (por refund, raw `UPDATE ... FROM`) preenchem `org_id`
+  quando NULL, nunca `status`/`amount_cents`/`occurred_at`/`reason` — registrada em
+  `domain-rules.md`. `GET /admin/orgs/:orgId/subscription/refunds` paginado
+  (`SubscriptionRefundsPage`, sem `id`/`org_id` internos). Sem ADR novo — ADR-0016 addenda
+  "T4-F5 Bloco A" e "T4-F5 Bloco B". Dependência load-bearing: `subscriptions.stripe_customer_id`
+  UNIQUE ancora o backfill contra misatribuição entre orgs. T4-F4 (cancelamento pelo
+  super_admin) segue bloqueado (converge com T3).
