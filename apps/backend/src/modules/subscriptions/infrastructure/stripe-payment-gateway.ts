@@ -19,6 +19,7 @@ import type {
   GatewayPrice,
   GatewayProduct,
   GatewayPromotionCode,
+  GatewayRefund,
   IPaymentGateway,
   UpdatePromotionCodeParams,
   UpdateProductParams,
@@ -199,6 +200,30 @@ export function toNormalizedSubscription(
     // stripe@22.3.2 keeps `cancel_at_period_end: boolean` on the Subscription
     // root (unlike `current_period_start/end`, which moved to `items.data[0]`).
     cancelAtPeriodEnd: subscription.cancel_at_period_end,
+  };
+}
+
+/**
+ * Hard ceiling on how many refunds `listRefundsByCharge` scans for a single
+ * charge before giving up and reporting `truncated: true`.
+ */
+const MAX_REFUNDS_PER_CHARGE_SCAN = 500;
+
+function refundChargeId(refund: Stripe.Refund): string | null {
+  const charge = refund.charge;
+  if (charge === null) return null;
+  return typeof charge === "string" ? charge : charge.id;
+}
+
+function toGatewayRefund(refund: Stripe.Refund): GatewayRefund {
+  return {
+    refundId: refund.id,
+    chargeId: refundChargeId(refund),
+    status: refund.status,
+    amountCents: refund.amount,
+    currency: refund.currency,
+    reason: refund.reason,
+    createdAt: new Date(refund.created * 1000),
   };
 }
 
@@ -770,6 +795,43 @@ export class StripePaymentGateway implements IPaymentGateway {
       // failed collection attempt.
     }
     return events;
+  }
+
+  async listRefundsByCharge(
+    chargeId: string,
+  ): Promise<{ refunds: GatewayRefund[]; truncated: boolean }> {
+    // No try/catch (mirrors `listInvoices`): a Stripe failure propagates so the
+    // caller can decide the fallback — it is never swallowed here.
+    const refunds: GatewayRefund[] = [];
+    let truncated = false;
+    for await (const refund of this.stripe.refunds.list({
+      charge: chargeId,
+      limit: 100,
+    })) {
+      refunds.push(toGatewayRefund(refund));
+      if (refunds.length >= MAX_REFUNDS_PER_CHARGE_SCAN) {
+        // False positive possible: a charge with EXACTLY
+        // MAX_REFUNDS_PER_CHARGE_SCAN refunds trips this even though the
+        // iterator had nothing more. The mirror is still complete in that
+        // case; telling the two apart would need an iterator look-ahead,
+        // which is not worth the complexity.
+        truncated = true;
+        break;
+      }
+    }
+    return { refunds, truncated };
+  }
+
+  async retrieveChargeCustomerId(chargeId: string): Promise<string | null> {
+    try {
+      const charge = await this.stripe.charges.retrieve(chargeId);
+      const customer = charge.customer;
+      if (customer === null) return null;
+      return typeof customer === "string" ? customer : customer.id;
+    } catch (error) {
+      if (isResourceMissing(error)) return null;
+      throw error;
+    }
   }
 }
 

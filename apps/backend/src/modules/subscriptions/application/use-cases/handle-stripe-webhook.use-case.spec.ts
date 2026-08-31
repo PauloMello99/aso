@@ -1,6 +1,9 @@
 import type Stripe from "stripe";
 import { HandleStripeWebhookUseCase } from "./handle-stripe-webhook.use-case";
-import { IPaymentGateway } from "../../domain/ports/payment-gateway.port";
+import {
+  GatewayRefund,
+  IPaymentGateway,
+} from "../../domain/ports/payment-gateway.port";
 import { ISubscriptionRepository } from "../../domain/subscription.repository.interface";
 import { IStripeWebhookEventRepository } from "../../domain/stripe-webhook-event.repository.interface";
 import { IBillingInvoiceEventRepository } from "../../domain/billing-invoice-event.repository.interface";
@@ -80,8 +83,27 @@ function buildFakePaymentGateway(
     updatePromotionCode: jest.fn(),
     retrievePromotionCode: jest.fn(),
     listInvoices: jest.fn(),
+    listRefundsByCharge: jest
+      .fn()
+      .mockResolvedValue({ refunds: [], truncated: false }),
+    retrieveChargeCustomerId: jest.fn().mockResolvedValue(null),
     ...overrides,
   } as unknown as jest.Mocked<IPaymentGateway>;
+}
+
+function buildGatewayRefund(
+  overrides: Partial<GatewayRefund> = {},
+): GatewayRefund {
+  return {
+    refundId: "re_gw_1",
+    chargeId: "ch_1",
+    status: "succeeded",
+    amountCents: 500,
+    currency: "brl",
+    reason: "requested_by_customer",
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    ...overrides,
+  };
 }
 
 function buildFakeSubscriptionRepo(
@@ -123,6 +145,8 @@ function buildFakeRefundEventRepo(
   return {
     create: jest.fn(),
     listByOrgId: jest.fn().mockResolvedValue([]),
+    findResolvedOrgIdByRefundId: jest.fn().mockResolvedValue(null),
+    findResolvedOrgIdByChargeId: jest.fn().mockResolvedValue(null),
     ...overrides,
   } as unknown as jest.Mocked<IBillingRefundEventRepository>;
 }
@@ -445,6 +469,54 @@ describe("HandleStripeWebhookUseCase", () => {
       currentPeriodStart: null,
       currentPeriodEnd: null,
       canceledAt: new Date("2026-02-01T00:00:00Z"),
+      cancelAtPeriodEnd: false,
+    };
+    const paymentGateway = buildFakePaymentGateway({
+      constructWebhookEvent: jest.fn().mockReturnValue(event),
+      getSubscription: jest.fn().mockResolvedValue(normalized),
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findByStripeSubscriptionId: jest.fn().mockResolvedValue(current),
+    });
+    const webhookEventRepo = buildFakeWebhookEventRepo();
+
+    const useCase = new HandleStripeWebhookUseCase(
+      paymentGateway,
+      subscriptionRepo,
+      webhookEventRepo,
+      buildFakeInvoiceEventRepo(),
+      buildFakeBillingPlanRepo(),
+      buildFakeBillingCouponRepo(),
+      buildFakeBillingPlanPriceRepo(),
+      buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
+      buildFakeRefundEventRepo(),
+    );
+
+    await useCase.execute("raw", "sig");
+
+    expect(subscriptionRepo.update).not.toHaveBeenCalled();
+    expect(webhookEventRepo.markProcessed).toHaveBeenCalledWith("evt_1");
+  });
+
+  it("does not resurrect a subscription locked locally by the expiry sweep on a past_due Stripe update (anti-flap guard)", async () => {
+    const event = buildEvent({ type: "customer.subscription.updated" });
+    // ExpireSubscriptionsUseCase locked this org locally (status: canceled,
+    // type: free) for a grace-period breach, without touching Stripe.
+    const current = buildSubscription({ status: "canceled", type: "free" });
+    const normalized = {
+      stripeSubscriptionId: "sub_stripe_1",
+      stripeCustomerId: "cus_1",
+      status: "past_due" as const,
+      billingInterval: "monthly" as const,
+      priceCents: 4990,
+      stripePriceId: "price_1",
+      stripeCouponId: null,
+      discountPercent: null,
+      trialEndsAt: null,
+      currentPeriodStart: new Date("2026-02-01T00:00:00Z"),
+      currentPeriodEnd: new Date("2026-03-01T00:00:00Z"),
+      canceledAt: null,
       cancelAtPeriodEnd: false,
     };
     const paymentGateway = buildFakePaymentGateway({
@@ -1854,6 +1926,8 @@ describe("HandleStripeWebhookUseCase", () => {
           occurredAt: new Date(CREATED_UNIX * 1000),
         }),
       );
+      // has_more is false -> the gateway is never consulted.
+      expect(paymentGateway.listRefundsByCharge).not.toHaveBeenCalled();
       expect(webhookEventRepo.markProcessed).toHaveBeenCalledWith(
         "evt_charge_refunded",
       );
@@ -2039,12 +2113,12 @@ describe("HandleStripeWebhookUseCase", () => {
       );
     });
 
-    it("inserts the carried refund but warns via telemetry when the refund list is truncated (has_more)", async () => {
+    it("re-fetches the full refund list from Stripe and mirrors it (not the partial payload slice) when has_more is set", async () => {
       const event = buildChargeRefundedEvent({
         refunds: {
           data: [
             {
-              id: "re_1",
+              id: "re_payload_only",
               charge: "ch_1",
               status: "succeeded",
               amount: 500,
@@ -2057,6 +2131,77 @@ describe("HandleStripeWebhookUseCase", () => {
       });
       const paymentGateway = buildFakePaymentGateway({
         constructWebhookEvent: jest.fn().mockReturnValue(event),
+        listRefundsByCharge: jest.fn().mockResolvedValue({
+          refunds: [
+            buildGatewayRefund({ refundId: "re_a", amountCents: 100 }),
+            buildGatewayRefund({ refundId: "re_b", amountCents: 200 }),
+            buildGatewayRefund({ refundId: "re_c", amountCents: 300 }),
+          ],
+          truncated: false,
+        }),
+      });
+      const subscriptionRepo = buildFakeSubscriptionRepo({
+        findByStripeCustomerId: jest
+          .fn()
+          .mockResolvedValue(buildSubscription({ orgId: "org-9" })),
+      });
+      const refundEventRepo = buildFakeRefundEventRepo();
+      const telemetry = buildFakeTelemetry();
+
+      const useCase = new HandleStripeWebhookUseCase(
+        paymentGateway,
+        subscriptionRepo,
+        buildFakeWebhookEventRepo(),
+        buildFakeInvoiceEventRepo(),
+        buildFakeBillingPlanRepo(),
+        buildFakeBillingCouponRepo(),
+        buildFakeBillingPlanPriceRepo(),
+        telemetry,
+        buildFakeRevalidationClient(),
+        refundEventRepo,
+      );
+
+      await useCase.execute("raw", "sig");
+
+      expect(paymentGateway.listRefundsByCharge).toHaveBeenCalledWith("ch_1");
+      expect(refundEventRepo.create).toHaveBeenCalledTimes(3);
+      expect(refundEventRepo.create).not.toHaveBeenCalledWith(
+        expect.objectContaining({ stripeRefundId: "re_payload_only" }),
+      );
+      expect(refundEventRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ stripeRefundId: "re_a", orgId: "org-9" }),
+      );
+      expect(refundEventRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ stripeRefundId: "re_b", orgId: "org-9" }),
+      );
+      expect(refundEventRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ stripeRefundId: "re_c", orgId: "org-9" }),
+      );
+      expect(telemetry.captureMessage).not.toHaveBeenCalled();
+    });
+
+    it("still emits BILLING_REFUND_EVENT_LIST_TRUNCATED when the re-fetched list hits the scan ceiling", async () => {
+      const event = buildChargeRefundedEvent({
+        refunds: {
+          data: [
+            {
+              id: "re_payload_only",
+              charge: "ch_1",
+              status: "succeeded",
+              amount: 500,
+              currency: "brl",
+              reason: null,
+            },
+          ],
+          has_more: true,
+        },
+      });
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest.fn().mockReturnValue(event),
+        listRefundsByCharge: jest.fn().mockResolvedValue({
+          refunds: [buildGatewayRefund({ refundId: "re_a" })],
+          truncated: true,
+        }),
       });
       const subscriptionRepo = buildFakeSubscriptionRepo({
         findByStripeCustomerId: jest
@@ -2083,7 +2228,7 @@ describe("HandleStripeWebhookUseCase", () => {
 
       expect(refundEventRepo.create).toHaveBeenCalledTimes(1);
       expect(refundEventRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ stripeRefundId: "re_1", status: "succeeded" }),
+        expect.objectContaining({ stripeRefundId: "re_a" }),
       );
       expect(telemetry.captureMessage).toHaveBeenCalledWith(
         expect.stringContaining("ch_1"),
@@ -2092,6 +2237,453 @@ describe("HandleStripeWebhookUseCase", () => {
           code: "BILLING_REFUND_EVENT_LIST_TRUNCATED",
           stripeChargeId: "ch_1",
         }),
+      );
+    });
+
+    it("warns BILLING_REFUND_EVENT_BACKFILL_FAILED and falls back to the partial payload slice when the Stripe re-fetch throws", async () => {
+      const event = buildChargeRefundedEvent({
+        refunds: {
+          data: [
+            {
+              id: "re_1",
+              charge: "ch_1",
+              status: "succeeded",
+              amount: 500,
+              currency: "brl",
+              reason: null,
+            },
+          ],
+          has_more: true,
+        },
+      });
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest.fn().mockReturnValue(event),
+        listRefundsByCharge: jest
+          .fn()
+          .mockRejectedValue(new Error("stripe unavailable")),
+      });
+      const subscriptionRepo = buildFakeSubscriptionRepo({
+        findByStripeCustomerId: jest
+          .fn()
+          .mockResolvedValue(buildSubscription({ orgId: "org-9" })),
+      });
+      const refundEventRepo = buildFakeRefundEventRepo();
+      const telemetry = buildFakeTelemetry();
+
+      const useCase = new HandleStripeWebhookUseCase(
+        paymentGateway,
+        subscriptionRepo,
+        buildFakeWebhookEventRepo(),
+        buildFakeInvoiceEventRepo(),
+        buildFakeBillingPlanRepo(),
+        buildFakeBillingCouponRepo(),
+        buildFakeBillingPlanPriceRepo(),
+        telemetry,
+        buildFakeRevalidationClient(),
+        refundEventRepo,
+      );
+
+      await expect(useCase.execute("raw", "sig")).resolves.not.toThrow();
+
+      expect(refundEventRepo.create).toHaveBeenCalledTimes(1);
+      expect(refundEventRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ stripeRefundId: "re_1", orgId: "org-9" }),
+      );
+      expect(telemetry.captureMessage).toHaveBeenCalledWith(
+        expect.stringContaining("ch_1"),
+        "warn",
+        expect.objectContaining({
+          code: "BILLING_REFUND_EVENT_BACKFILL_FAILED",
+          stripeChargeId: "ch_1",
+        }),
+      );
+    });
+
+    it("warns BILLING_REFUND_EVENT_BACKFILL_EMPTY and mirrors the partial payload slice when the Stripe re-fetch returns an empty list", async () => {
+      const event = buildChargeRefundedEvent({
+        refunds: {
+          data: [
+            {
+              id: "re_1",
+              charge: "ch_1",
+              status: "succeeded",
+              amount: 500,
+              currency: "brl",
+              reason: null,
+            },
+          ],
+          has_more: true,
+        },
+      });
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest.fn().mockReturnValue(event),
+        listRefundsByCharge: jest
+          .fn()
+          .mockResolvedValue({ refunds: [], truncated: false }),
+      });
+      const subscriptionRepo = buildFakeSubscriptionRepo({
+        findByStripeCustomerId: jest
+          .fn()
+          .mockResolvedValue(buildSubscription({ orgId: "org-9" })),
+      });
+      const refundEventRepo = buildFakeRefundEventRepo();
+      const telemetry = buildFakeTelemetry();
+
+      const useCase = new HandleStripeWebhookUseCase(
+        paymentGateway,
+        subscriptionRepo,
+        buildFakeWebhookEventRepo(),
+        buildFakeInvoiceEventRepo(),
+        buildFakeBillingPlanRepo(),
+        buildFakeBillingCouponRepo(),
+        buildFakeBillingPlanPriceRepo(),
+        telemetry,
+        buildFakeRevalidationClient(),
+        refundEventRepo,
+      );
+
+      await expect(useCase.execute("raw", "sig")).resolves.not.toThrow();
+
+      expect(refundEventRepo.create).toHaveBeenCalledTimes(1);
+      expect(refundEventRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ stripeRefundId: "re_1", orgId: "org-9" }),
+      );
+      expect(telemetry.captureMessage).toHaveBeenCalledWith(
+        expect.stringContaining("ch_1"),
+        "warn",
+        expect.objectContaining({
+          code: "BILLING_REFUND_EVENT_BACKFILL_EMPTY",
+          stripeChargeId: "ch_1",
+        }),
+      );
+    });
+
+    it("does NOT emit BILLING_REFUND_EVENT_ORG_UNRESOLVED on the happy path (org resolved, no has_more)", async () => {
+      const event = buildChargeRefundedEvent({
+        refunds: {
+          data: [
+            {
+              id: "re_1",
+              charge: "ch_1",
+              status: "succeeded",
+              amount: 500,
+              currency: "brl",
+              reason: null,
+            },
+          ],
+          has_more: false,
+        },
+      });
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest.fn().mockReturnValue(event),
+      });
+      const subscriptionRepo = buildFakeSubscriptionRepo({
+        findByStripeCustomerId: jest
+          .fn()
+          .mockResolvedValue(buildSubscription({ orgId: "org-9" })),
+      });
+      const refundEventRepo = buildFakeRefundEventRepo();
+      const telemetry = buildFakeTelemetry();
+
+      const useCase = new HandleStripeWebhookUseCase(
+        paymentGateway,
+        subscriptionRepo,
+        buildFakeWebhookEventRepo(),
+        buildFakeInvoiceEventRepo(),
+        buildFakeBillingPlanRepo(),
+        buildFakeBillingCouponRepo(),
+        buildFakeBillingPlanPriceRepo(),
+        telemetry,
+        buildFakeRevalidationClient(),
+        refundEventRepo,
+      );
+
+      await useCase.execute("raw", "sig");
+
+      expect(refundEventRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ stripeRefundId: "re_1", orgId: "org-9" }),
+      );
+      expect(telemetry.captureMessage).not.toHaveBeenCalledWith(
+        expect.anything(),
+        "warn",
+        expect.objectContaining({
+          code: "BILLING_REFUND_EVENT_ORG_UNRESOLVED",
+        }),
+      );
+    });
+  });
+
+  describe("refund.updated", () => {
+    const CREATED_UNIX = 1_767_225_600; // 2026-01-01T00:00:00.000Z
+
+    function buildRefundUpdatedEvent(
+      refund: Record<string, unknown> = {},
+    ): Stripe.Event {
+      return buildEvent({
+        id: "evt_refund_updated",
+        type: "refund.updated",
+        created: CREATED_UNIX,
+        data: {
+          object: {
+            id: "re_1",
+            charge: "ch_1",
+            status: "succeeded",
+            amount: 500,
+            currency: "brl",
+            reason: "requested_by_customer",
+            ...refund,
+          },
+        },
+      } as unknown as Partial<Stripe.Event>);
+    }
+
+    it("mirrors the refund, resolving orgId from a row already mirrored for the refund id, without calling charges.retrieve", async () => {
+      const event = buildRefundUpdatedEvent();
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest.fn().mockReturnValue(event),
+      });
+      const subscriptionRepo = buildFakeSubscriptionRepo();
+      const refundEventRepo = buildFakeRefundEventRepo({
+        findResolvedOrgIdByRefundId: jest.fn().mockResolvedValue("org-7"),
+      });
+      const webhookEventRepo = buildFakeWebhookEventRepo();
+
+      const useCase = new HandleStripeWebhookUseCase(
+        paymentGateway,
+        subscriptionRepo,
+        webhookEventRepo,
+        buildFakeInvoiceEventRepo(),
+        buildFakeBillingPlanRepo(),
+        buildFakeBillingCouponRepo(),
+        buildFakeBillingPlanPriceRepo(),
+        buildFakeTelemetry(),
+        buildFakeRevalidationClient(),
+        refundEventRepo,
+      );
+
+      await useCase.execute("raw", "sig");
+
+      expect(refundEventRepo.create).toHaveBeenCalledTimes(1);
+      expect(refundEventRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stripeRefundId: "re_1",
+          stripeChargeId: "ch_1",
+          orgId: "org-7",
+          status: "succeeded",
+          amountCents: 500,
+          currency: "brl",
+          reason: "requested_by_customer",
+          occurredAt: new Date(CREATED_UNIX * 1000),
+        }),
+      );
+      expect(subscriptionRepo.findByStripeCustomerId).not.toHaveBeenCalled();
+      expect(paymentGateway.retrieveChargeCustomerId).not.toHaveBeenCalled();
+      expect(webhookEventRepo.markProcessed).toHaveBeenCalledWith(
+        "evt_refund_updated",
+      );
+    });
+
+    it("resolves orgId via charges.retrieve when neither the refund nor the charge is already mirrored", async () => {
+      const event = buildRefundUpdatedEvent();
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest.fn().mockReturnValue(event),
+        retrieveChargeCustomerId: jest.fn().mockResolvedValue("cus_5"),
+      });
+      const subscriptionRepo = buildFakeSubscriptionRepo({
+        findByStripeCustomerId: jest
+          .fn()
+          .mockResolvedValue(buildSubscription({ orgId: "org-5" })),
+      });
+      const refundEventRepo = buildFakeRefundEventRepo();
+
+      const useCase = new HandleStripeWebhookUseCase(
+        paymentGateway,
+        subscriptionRepo,
+        buildFakeWebhookEventRepo(),
+        buildFakeInvoiceEventRepo(),
+        buildFakeBillingPlanRepo(),
+        buildFakeBillingCouponRepo(),
+        buildFakeBillingPlanPriceRepo(),
+        buildFakeTelemetry(),
+        buildFakeRevalidationClient(),
+        refundEventRepo,
+      );
+
+      await useCase.execute("raw", "sig");
+
+      expect(paymentGateway.retrieveChargeCustomerId).toHaveBeenCalledTimes(1);
+      expect(paymentGateway.retrieveChargeCustomerId).toHaveBeenCalledWith(
+        "ch_1",
+      );
+      expect(subscriptionRepo.findByStripeCustomerId).toHaveBeenCalledWith(
+        "cus_5",
+      );
+      expect(refundEventRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ stripeRefundId: "re_1", orgId: "org-5" }),
+      );
+    });
+
+    it("writes orgId: null (no throw) when every resolution step comes up empty", async () => {
+      const event = buildRefundUpdatedEvent();
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest.fn().mockReturnValue(event),
+      });
+      const refundEventRepo = buildFakeRefundEventRepo();
+
+      const useCase = new HandleStripeWebhookUseCase(
+        paymentGateway,
+        buildFakeSubscriptionRepo(),
+        buildFakeWebhookEventRepo(),
+        buildFakeInvoiceEventRepo(),
+        buildFakeBillingPlanRepo(),
+        buildFakeBillingCouponRepo(),
+        buildFakeBillingPlanPriceRepo(),
+        buildFakeTelemetry(),
+        buildFakeRevalidationClient(),
+        refundEventRepo,
+      );
+
+      await expect(useCase.execute("raw", "sig")).resolves.not.toThrow();
+
+      expect(refundEventRepo.create).toHaveBeenCalledTimes(1);
+      expect(refundEventRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ stripeRefundId: "re_1", orgId: null }),
+      );
+    });
+
+    it("emits BILLING_REFUND_EVENT_ORG_UNRESOLVED when the row is written without a resolved org", async () => {
+      const event = buildRefundUpdatedEvent();
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest.fn().mockReturnValue(event),
+      });
+      const refundEventRepo = buildFakeRefundEventRepo();
+      const telemetry = buildFakeTelemetry();
+
+      const useCase = new HandleStripeWebhookUseCase(
+        paymentGateway,
+        buildFakeSubscriptionRepo(),
+        buildFakeWebhookEventRepo(),
+        buildFakeInvoiceEventRepo(),
+        buildFakeBillingPlanRepo(),
+        buildFakeBillingCouponRepo(),
+        buildFakeBillingPlanPriceRepo(),
+        telemetry,
+        buildFakeRevalidationClient(),
+        refundEventRepo,
+      );
+
+      await useCase.execute("raw", "sig");
+
+      expect(refundEventRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ stripeRefundId: "re_1", orgId: null }),
+      );
+      expect(telemetry.captureMessage).toHaveBeenCalledWith(
+        expect.stringContaining("re_1"),
+        "warn",
+        expect.objectContaining({
+          code: "BILLING_REFUND_EVENT_ORG_UNRESOLVED",
+          stripeRefundId: "re_1",
+          stripeChargeId: "ch_1",
+        }),
+      );
+    });
+
+    it("swallows a charges.retrieve failure and still writes the row with orgId: null", async () => {
+      const event = buildRefundUpdatedEvent();
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest.fn().mockReturnValue(event),
+        retrieveChargeCustomerId: jest
+          .fn()
+          .mockRejectedValue(new Error("stripe timeout")),
+      });
+      const refundEventRepo = buildFakeRefundEventRepo();
+      const webhookEventRepo = buildFakeWebhookEventRepo();
+
+      const useCase = new HandleStripeWebhookUseCase(
+        paymentGateway,
+        buildFakeSubscriptionRepo(),
+        webhookEventRepo,
+        buildFakeInvoiceEventRepo(),
+        buildFakeBillingPlanRepo(),
+        buildFakeBillingCouponRepo(),
+        buildFakeBillingPlanPriceRepo(),
+        buildFakeTelemetry(),
+        buildFakeRevalidationClient(),
+        refundEventRepo,
+      );
+
+      await expect(useCase.execute("raw", "sig")).resolves.not.toThrow();
+
+      expect(refundEventRepo.create).toHaveBeenCalledTimes(1);
+      expect(refundEventRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ stripeRefundId: "re_1", orgId: null }),
+      );
+      expect(webhookEventRepo.markProcessed).toHaveBeenCalledWith(
+        "evt_refund_updated",
+      );
+    });
+
+    it("drops a refund whose status is outside the persisted whitelist (telemetry, no create)", async () => {
+      const event = buildRefundUpdatedEvent({ status: "some_future_status" });
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest.fn().mockReturnValue(event),
+      });
+      const refundEventRepo = buildFakeRefundEventRepo({
+        findResolvedOrgIdByRefundId: jest.fn().mockResolvedValue("org-7"),
+      });
+      const telemetry = buildFakeTelemetry();
+
+      const useCase = new HandleStripeWebhookUseCase(
+        paymentGateway,
+        buildFakeSubscriptionRepo(),
+        buildFakeWebhookEventRepo(),
+        buildFakeInvoiceEventRepo(),
+        buildFakeBillingPlanRepo(),
+        buildFakeBillingCouponRepo(),
+        buildFakeBillingPlanPriceRepo(),
+        telemetry,
+        buildFakeRevalidationClient(),
+        refundEventRepo,
+      );
+
+      await useCase.execute("raw", "sig");
+
+      expect(refundEventRepo.create).not.toHaveBeenCalled();
+      expect(telemetry.captureMessage).toHaveBeenCalledWith(
+        expect.stringContaining("re_1"),
+        "warn",
+        expect.objectContaining({
+          code: "BILLING_REFUND_EVENT_UNKNOWN_STATUS",
+        }),
+      );
+    });
+
+    it("keeps chargeId null when the refund carries no charge", async () => {
+      const event = buildRefundUpdatedEvent({ charge: null });
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest.fn().mockReturnValue(event),
+      });
+      const refundEventRepo = buildFakeRefundEventRepo();
+
+      const useCase = new HandleStripeWebhookUseCase(
+        paymentGateway,
+        buildFakeSubscriptionRepo(),
+        buildFakeWebhookEventRepo(),
+        buildFakeInvoiceEventRepo(),
+        buildFakeBillingPlanRepo(),
+        buildFakeBillingCouponRepo(),
+        buildFakeBillingPlanPriceRepo(),
+        buildFakeTelemetry(),
+        buildFakeRevalidationClient(),
+        refundEventRepo,
+      );
+
+      await useCase.execute("raw", "sig");
+
+      expect(paymentGateway.retrieveChargeCustomerId).not.toHaveBeenCalled();
+      expect(refundEventRepo.findResolvedOrgIdByChargeId).not.toHaveBeenCalled();
+      expect(refundEventRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ stripeRefundId: "re_1", stripeChargeId: null }),
       );
     });
   });

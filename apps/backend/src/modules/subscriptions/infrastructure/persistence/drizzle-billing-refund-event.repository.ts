@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull } from "drizzle-orm";
 import {
   DRIZZLE_ADMIN,
   type DrizzleDB,
@@ -69,5 +69,40 @@ export class DrizzleBillingRefundEventRepository
       )
       .limit(100);
     return rows.map(toDomain);
+  }
+
+  // The two reads below exist to correlate a refund to an org without calling
+  // `charges.retrieve` per event; a `null` result is normal (refund of a charge
+  // we never mirrored).
+  async findResolvedOrgIdByRefundId(
+    stripeRefundId: string,
+  ): Promise<string | null> {
+    const rows = await this.db
+      .select({ orgId: schema.billingRefundEvents.orgId })
+      .from(schema.billingRefundEvents)
+      .where(
+        and(
+          eq(schema.billingRefundEvents.stripeRefundId, stripeRefundId),
+          isNotNull(schema.billingRefundEvents.orgId),
+        ),
+      )
+      .limit(1);
+    return rows[0]?.orgId ?? null;
+  }
+
+  async findResolvedOrgIdByChargeId(
+    stripeChargeId: string,
+  ): Promise<string | null> {
+    const rows = await this.db
+      .select({ orgId: schema.billingRefundEvents.orgId })
+      .from(schema.billingRefundEvents)
+      .where(
+        and(
+          eq(schema.billingRefundEvents.stripeChargeId, stripeChargeId),
+          isNotNull(schema.billingRefundEvents.orgId),
+        ),
+      )
+      .limit(1);
+    return rows[0]?.orgId ?? null;
   }
 }

@@ -15,7 +15,11 @@ export interface ExpireSubscriptionsResult {
  * compExpiresAt, and locks (cancels) past_due subscriptions whose grace
  * period has elapsed. Trial expiry is not handled here: Stripe itself
  * transitions trialing -> active/past_due/canceled via webhook when a trial
- * ends, so ReconcileSubscriptionsUseCase already catches trial drift.
+ * ends, so ReconcileSubscriptionsUseCase already catches trial drift — except
+ * for rows this sweep has locked in `canceled`, which the symmetric anti-flap
+ * guard (`shouldSkipStripeStatusOverride`, in both the cron and the webhook)
+ * keeps out of any Stripe status override unless Stripe reports the org paying
+ * again (active/trialing).
  */
 @Injectable()
 export class ExpireSubscriptionsUseCase {

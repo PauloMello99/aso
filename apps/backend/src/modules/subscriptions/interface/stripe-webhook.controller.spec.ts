@@ -123,6 +123,8 @@ function buildFakeRefundEventRepo(): jest.Mocked<IBillingRefundEventRepository> 
   return {
     create: jest.fn(),
     listByOrgId: jest.fn().mockResolvedValue([]),
+    findResolvedOrgIdByRefundId: jest.fn().mockResolvedValue(null),
+    findResolvedOrgIdByChargeId: jest.fn().mockResolvedValue(null),
   } as unknown as jest.Mocked<IBillingRefundEventRepository>;
 }
 

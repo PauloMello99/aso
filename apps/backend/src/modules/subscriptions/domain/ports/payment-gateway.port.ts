@@ -136,6 +136,25 @@ export interface GatewayPrice {
   active: boolean;
 }
 
+export interface GatewayRefund {
+  refundId: string;
+  chargeId: string | null;
+  /** Raw Stripe status; the whitelist lives in the consumer. */
+  status: string | null;
+  amountCents: number;
+  currency: string;
+  reason: string | null;
+  /**
+   * `refund.created` from Stripe — informational only, and currently unread.
+   * NEVER use this as a row's `occurred_at`: migration 0060 note (a) requires
+   * `occurred_at` to be the webhook envelope's `event.created` (a single
+   * orderable timeline for the sibling rows of one refund), and
+   * `HandleStripeWebhookUseCase.writeRefundRow` stamps it from there. Kept for
+   * a future consumer (Bloco B); do not remove.
+   */
+  createdAt: Date;
+}
+
 /**
  * Port for the payment gateway (Stripe). Use-cases depend only on this
  * interface, never on the Stripe SDK directly.
@@ -231,4 +250,11 @@ export interface IPaymentGateway {
   ): Promise<GatewayPromotionCode | null>;
 
   listInvoices(customerId: string): Promise<NormalizedInvoice[]>;
+
+  listRefundsByCharge(
+    chargeId: string,
+  ): Promise<{ refunds: GatewayRefund[]; truncated: boolean }>;
+
+  /** Resolves the charge's customer id; `null` when the charge does not exist. */
+  retrieveChargeCustomerId(chargeId: string): Promise<string | null>;
 }
