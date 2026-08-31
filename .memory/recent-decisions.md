@@ -122,6 +122,17 @@
   `image-compression.ts`), fix de `jest.config.js rootDir` no Windows com worktree em path
   com segmento `.claude`. Validado pós-merge: check-types + lint + test (102/102 suites
   backend, 610 testes; 34/34 frontend, 279 testes) + build, tudo verde. Sem push.
+- **2026-08-30 — Token efficiency do Claude Code documentado** (`docs/ai/token-efficiency.md`):
+  `caveman` (`JuliusBrussee/caveman`) já instalado e ativo (marketplace no `~/.claude/settings.json`,
+  `enabledPlugins.caveman: true` no `.claude/settings.json`); default do repo fixado em
+  `lite` via `.caveman.json` na raiz (`/caveman full` por sessão em discussão longa).
+  Engajamento por sessão ainda não confirmado — checar com `/caveman-stats`. `caveman`
+  reduz **só output** (~14–21% de sessão em workload verboso, net-negativo em Q&A curto,
+  custa ~1–1.5k input/turno). `rtk` (Rust Token Killer) **não instalado** — exige baixar
+  binário Windows + `rtk init -g` pessoal (não escopo de projeto: quebraria Bash de quem
+  não tem o binário); só cobre `git`/`grep`/`find`, não `pnpm`/`turbo`/`vitest`. Alavancas
+  maiores registradas mas não alteradas: podar `enabledMcpjsonServers` (10 servidores, 4
+  quebrados), `opus[1m]`, `alwaysThinkingEnabled`.
 - **2026-08-22/23 — M10d: gate de versão vigente + reenvio inteligente + envio de cópia por
   e-mail da ficha de anamnese** (feature nova, via skill `development-workflow`, classificada
   complexa). Migration `0055_audit_action_anamnesis_resend_copy` (2 valores novos de
