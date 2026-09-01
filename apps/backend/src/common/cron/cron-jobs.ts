@@ -14,6 +14,7 @@ export const CRON_JOBS = {
   TICKET_SLA_SWEEP: "ticket-sla-sweep",
   BILLING_CATALOG_RECONCILIATION: "billing-catalog-reconciliation",
   BILLING_REFUND_RECONCILIATION: "billing-refund-reconciliation",
+  CAMPAIGN_TRIGGERS: "campaign-triggers",
 } as const;
 
 export type CronJobName = (typeof CRON_JOBS)[keyof typeof CRON_JOBS];

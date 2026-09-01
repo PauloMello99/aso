@@ -8,8 +8,8 @@ Architecture) e `apps/frontend` (Next.js pages router, feature-based) são as ap
 concretas; `packages/` tem as libs reutilizáveis. Domínio coberto pelos módulos de
 backend: caixa (`cashier`), clientes (`customers`), materiais/estoque (`materials`),
 serviços (`services`), `calendar`, `overview`, `notifications`, `support` (canal de
-suporte B2B, ADR-0021), além de `auth`, `organizations`, `admin`, `audit`, `mail`,
-`internal-cron`, `health`, `user`.
+suporte B2B, ADR-0021), `campaigns` (campanhas de e-mail por gatilho, ADR-0025), além de
+`auth`, `organizations`, `admin`, `audit`, `mail`, `internal-cron`, `health`, `user`.
 
 Arquitetura e decisões: `.memory/architecture.md`, `.memory/domain-rules.md` e os ADRs
 em `.memory/adr/` (fonte de verdade). Roadmap: `.memory/roadmap.md`.

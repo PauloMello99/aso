@@ -1140,6 +1140,77 @@ anamnesis_response_id IS NOT NULL`): `assertAnamnesisResponseLinkable` faz o
 - **Feature flags completas (ADR-0009) adiadas**: por ora e-mail é gateado por env; in-app sempre ligado.
 - Frontend: `features/notifications/` (`useNotifications` polling 30s + `NotificationBell` portaled no `top-header`).
 
+### Campanhas de e-mail por gatilho — backend (T6 Bloco A, 2026-09-01, ADR-0025)
+
+- **Módulo `modules/campaigns/`** (não reusa `NotificationService`, que é keyed em
+  `users.id`; campanhas alvejam `customers` sem conta). 3 gatilhos: `post_service`
+  (janela rolante `[now-48h, now-24h)` sobre `services.performed_at`), `birthday`
+  (mês/dia de `birth_date`), `inactivity` (`MAX(performed_at)` além de
+  `org_campaign_settings.inactivity_months`). `RunCampaignTriggersUseCase` roda no tick
+  único de cron (`CRON_JOBS.CAMPAIGN_TRIGGERS`), self-throttled 20h via
+  `cron_job_state.claimRun` (molde ADR-0024).
+- **Gate = env `CAMPAIGNS_ENABLED` (global, super_admin) + flags `*_enabled` por gatilho
+  por org em `org_campaign_settings` (migration `0062`) — NÃO usa o módulo de Feature
+  Flags (ADR-0009)** (decisão de escopo). Todos nascem `false`. Ordem dos gates no
+  use-case: `CAMPAIGNS_ENABLED` → canal de e-mail (`NOTIFICATIONS_EMAIL_ENABLED` +
+  `RESEND_API_KEY`, espelha `ResendEmailSender`) → `claimRun`. Nenhuma escrita em
+  `campaign_sends` se algum gate falhar. Org sem linha em `org_campaign_settings` = campanha
+  desligada (as queries fazem `INNER JOIN`, nunca `LEFT`); org com `suspended_at` não
+  dispara.
+- **Todo e-mail de campanha carrega link de descadastro** — rodapé **fixo**, não editável
+  pela org, via a prop aditiva `footerOverride` do `base-layout.tsx` (transacionais
+  seguem byte-idênticos). O e-mail de campanha não afirma "possui uma conta no ASO".
+- **Opt-out (`customer_email_preferences`, migration `0061`)**: 1 linha por
+  `(customer_id, org_id)`, flags por gatilho (default `true`) + `unsubscribed_all_at`
+  (opt-out global). **Ausência de linha = não optou por sair** (estado inicial; o cron
+  materializa a linha para embutir o token). `unsubscribe_token`
+  (`encode(gen_random_bytes(32),'hex')`) **NÃO expira e NUNCA rotaciona** — viaja em links
+  de e-mails já entregues; invalidá-lo quebraria o unsubscribe (LGPD). FK COMPOSTA
+  `(customer_id, org_id) → customers(id, org_id)`. RLS só de SELECT; escrita só via
+  `DRIZZLE_ADMIN` (cron + endpoint público). `updated_at` sem trigger — setado no código.
+- **TODA query de gatilho E o `findRetriable` filtram opt-out em SQL**
+  (`p.id IS NULL OR (p.unsubscribed_all_at IS NULL AND p.<trigger>_enabled)`) — cliente
+  que se descadastra entre a 1ª tentativa e o retry é respeitado. O `*_enabled` da **org**
+  (config, não consentimento) não é re-checado no retry.
+- **`campaign_sends` (migration `0063`) é append-only** (espírito ADR-0010): **uma linha
+  terminal por tentativa** (`sent | failed | bounced`, sem `pending`), inserida DEPOIS do
+  sender; nunca `UPDATE`/`DELETE`. `UNIQUE (dedupe_key, attempt, status)`. `dedupe_key`
+  (`post_service:<service_id>` / `birthday:<customer_id>:<YYYY>` /
+  `inactivity:<customer_id>:<YYYY-MM>`) DEVE embutir UUID globalmente único. **Sem FK e
+  sem RLS** (só `DRIZZLE_ADMIN`): a integridade de `(org_id, customer_id)` é
+  responsabilidade da query de gatilho, que projeta ambos da MESMA linha de
+  `customers`/`services`. `bounced` ainda não é escrito (falta webhook Resend). Retry só
+  quando a última linha do `dedupe_key` é `failed` e `attempt < 3`.
+- **Copy custom (D5)**: 6 colunas de texto NULLABLE em `org_campaign_settings`
+  (`{gatilho}_{subject,body}`), NULL = default autoral (`domain/campaign-copy.ts`),
+  fallback por campo. Corpo é **texto puro** renderizado como `<Text>` do React Email
+  (escape por padrão); `dangerouslySetInnerHTML` proibido nos templates de campanha.
+  Interpolação só de `{{customerName}}`/`{{orgName}}`, passe único por regex allowlist.
+  Assunto: CR/LF removidos + cap 200 no código antes do provider (o escape do React Email
+  não alcança o campo `subject`). `org_campaign_settings` **tem** policy de INSERT/UPDATE
+  para `is_org_owner` (owner escreve via RLS), mas nenhum use-case exercita ainda — upsert
+  é Bloco B.
+- **Endpoint público** `GET/POST /public/campaigns/{preferences,unsubscribe}/:token` (sem
+  `AuthGuard`, `@Throttle` assimétrico 30/60s vs 10/600s, `DRIZZLE_ADMIN` via repo).
+  Token é hex de 64 chars (não UUID). `GET` devolve payload minimizado (`orgName` + 4
+  toggles, sem `orgId`). Token inválido → `CAMPAIGN_PREFERENCES_NOT_FOUND` (404, genérico).
+  `POST` idempotente. **Não tem gate de `CAMPAIGNS_ENABLED`** — o kill-switch para só o
+  envio, nunca o descadastro (links já entregues continuam vivos).
+- **Fuso (D8)**: data de referência de `birthday`/`inactivity` = dia-calendário em
+  **`America/Sao_Paulo`**, calculado no use-case via
+  `Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" })` → `Date` à meia-noite
+  UTC, consumido pelos helpers como texto `YYYY-MM-DD` (`toUtcDateString`), nunca `::date`
+  sobre `timestamptz`. Primeira decisão de fuso explícita em lógica de negócio do repo
+  (antes: só o gerador de PDF de anamnese, e para formatação). 29/02 não dispara em ano
+  não-bissexto (limitação aceita no MVP).
+- **Bloco B é pré-requisito de ativação**: as 2 telas (config do dono + página de
+  preferências do cliente em `/preferencias-email/:token`) devem existir antes de
+  `CAMPAIGNS_ENABLED=true` — link de descadastro sem destino vivo = falha de LGPD.
+- **Débito**: round-trip Resend não exercitado (no-op sem API key); predicados de opt-out
+  em SQL cru sem teste de integração; `MAX_TARGETS_PER_TRIGGER=200` global cross-org por
+  gatilho por tick (ao atingir o teto o excedente sai da janela e não é reprocessado — só
+  `logger.warn`); sem índice dedicado a `campaign_sends.customer_id`.
+
 ### Relatórios segmentados (reunião 11/06)
 
 - Não é uma única tela — **múltiplos relatórios especializados**: Serviços, Funcionários, Clientes, Financeiros

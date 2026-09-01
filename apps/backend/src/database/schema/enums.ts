@@ -141,3 +141,15 @@ export const ticketAuthorTypeEnum = pgEnum("ticket_author_type", [
   "agent",
   "system",
 ]);
+
+export const campaignTriggerTypeEnum = pgEnum("campaign_trigger_type", [
+  "post_service",
+  "birthday",
+  "inactivity",
+]);
+
+export const campaignSendStatusEnum = pgEnum("campaign_send_status", [
+  "sent",
+  "failed",
+  "bounced",
+]);

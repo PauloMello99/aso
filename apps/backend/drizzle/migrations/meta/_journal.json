@@ -428,6 +428,27 @@
       "when": 1782005000000,
       "tag": "0060_billing_refund_events",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1782005100000,
+      "tag": "0061_customer_email_preferences",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1782005200000,
+      "tag": "0062_org_campaign_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1782005300000,
+      "tag": "0063_campaign_sends",
+      "breakpoints": true
     }
   ]
 }

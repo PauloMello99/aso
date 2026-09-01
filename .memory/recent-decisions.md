@@ -28,6 +28,7 @@
 | ADR-0022 | Support (Fatia C): tickets órfãos (`org_id` nullable, RLS ramificada explicitamente, INSERT exclusivo de `DRIZZLE_ADMIN`) + e-mail-to-ticket via Resend Inbound (dedupe por `email_id` UNIQUE claim+escrita na mesma transação, threading por plus-address sempre confirmado contra `requesterEmail`, vínculo a org sempre manual pelo super_admin) — Turnstile fail-closed no formulário público, Svix sem bypass no webhook                                                                                                                           | 2026-08-15 | Aceito                                        |
 | ADR-0023 | Billing (catálogo Stripe, super_admin): `billing_plans` no banco vira fonte de verdade (sync não rotaciona mais preço automaticamente, só reporta `drift`); Price/Coupon são imutáveis no Stripe pós-criação — "editar" é sempre criar novo + `transfer_lookup_key` + arquivar separado (Price) ou editar só o Promotion Code (Coupon); discriminador anti-corrida no webhook evita persistir o Price arquivado de uma rotação                                                                                                                          | 2026-08-15 | Aceito (parcialmente superseded por ADR-0024) |
 | ADR-0024 | Billing multi-preço por intervalo (`billing_plan_prices`, migration 0048, índices únicos parciais `WHERE active`), migração automática de assinantes na rotação (`RotatePlanIntervalPriceUseCase`, sem transação cross-repository), reconciliação periódica via cron invertendo a direção do ADR-0023 (Stripe manda, `ReconcilePlanCatalogUseCase` self-throttled a cada 3 dias via `cron_job_state`), endpoint público `GET /public/billing/plans` (feature-flag `PUBLIC_PRICING_ENABLED`), landing com ISR (`numReplicas=1` do ADR-0011 torna seguro) | 2026-08-16 | Aceito                                        |
+| ADR-0025 | Campanhas de e-mail por gatilho (T6 Bloco A): módulo `campaigns` próprio (não reusa `NotificationService`), opt-out por cliente em `customer_email_preferences` (migration 0061, `unsubscribe_token` que nunca rotaciona), `org_campaign_settings` (migration 0062) + env `CAMPAIGNS_ENABLED` como gate — sem o módulo de Feature Flags (ADR-0009), `campaign_sends` (migration 0063) append-only sem FK nem RLS, copy custom texto-puro com allowlist de tokens, rodapé fixo via `footerOverride`, fuso `America/Sao_Paulo` nos gatilhos de data (D8) | 2026-09-01 | Aceito                                        |
 
 ## Decisões/registros recentes (sem ADR)
 
@@ -183,3 +184,25 @@
   "T4-F5 Bloco A" e "T4-F5 Bloco B". Dependência load-bearing: `subscriptions.stripe_customer_id`
   UNIQUE ancora o backfill contra misatribuição entre orgs. T4-F4 (cancelamento pelo
   super_admin) segue bloqueado (converge com T3).
+- **2026-09-01 — T6 Bloco A: backend do MVP de campanhas de e-mail por gatilho**
+  (`ADR-0025`). Módulo novo `apps/backend/src/modules/campaigns/` (Clean Architecture),
+  disparo via `RunCampaignTriggersUseCase` no tick único de cron, self-throttled 20h por
+  `cron_job_state`. 3 gatilhos: `post_service`/`birthday`/`inactivity`. Migrations
+  `0061_customer_email_preferences` (opt-out por cliente, `unsubscribe_token` que não
+  expira nem rotaciona, RLS só SELECT), `0062_org_campaign_settings` (flags `*_enabled` +
+  copy custom por gatilho, default `false`), `0063_campaign_sends` (enums
+  `campaign_trigger_type`/`campaign_send_status`, log append-only sem FK nem RLS — uma
+  linha terminal por tentativa). Gate = env `CAMPAIGNS_ENABLED` + flags por org — **não**
+  puxa o módulo de Feature Flags (ADR-0009, decisão de escopo). Copy custom é texto puro
+  (`<Text>` do React Email, `dangerouslySetInnerHTML` proibido) com allowlist de 2 tokens
+  em passe único; rodapé de descadastro fixo via `footerOverride` do `base-layout`.
+  Endpoint público `GET/POST /public/campaigns/{preferences,unsubscribe}/:token` (sem
+  gate de `CAMPAIGNS_ENABLED` — o kill-switch para só o envio, nunca o descadastro).
+  Primeira decisão de fuso explícita em lógica de negócio do repo: `America/Sao_Paulo`
+  nos gatilhos de data (D8). Validado: check-types + lint + test (817 testes backend, 37
+  suites frontend) + build verdes; migration round-trip ×2; `database-guardian`
+  (`changes_required` → aplicado) e `reviewer` (`approved_with_notes` → 3 medium + 4 low
+  aplicados). **Pré-requisito de ativação**: Bloco B (telas de config do dono + página de
+  preferências do cliente em `/preferencias-email/:token`) antes de `CAMPAIGNS_ENABLED=true`
+  — link de descadastro precisa de destino vivo (LGPD). Commits pendentes (aguardando
+  pedido do usuário).

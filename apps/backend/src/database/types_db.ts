@@ -702,6 +702,45 @@ export type Database = {
           },
         ]
       }
+      campaign_sends: {
+        Row: {
+          attempt: number
+          created_at: string
+          customer_id: string
+          dedupe_key: string
+          error: string | null
+          id: string
+          org_id: string
+          sent_at: string | null
+          status: Database["public"]["Enums"]["campaign_send_status"]
+          trigger: Database["public"]["Enums"]["campaign_trigger_type"]
+        }
+        Insert: {
+          attempt?: number
+          created_at?: string
+          customer_id: string
+          dedupe_key: string
+          error?: string | null
+          id?: string
+          org_id: string
+          sent_at?: string | null
+          status: Database["public"]["Enums"]["campaign_send_status"]
+          trigger: Database["public"]["Enums"]["campaign_trigger_type"]
+        }
+        Update: {
+          attempt?: number
+          created_at?: string
+          customer_id?: string
+          dedupe_key?: string
+          error?: string | null
+          id?: string
+          org_id?: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["campaign_send_status"]
+          trigger?: Database["public"]["Enums"]["campaign_trigger_type"]
+        }
+        Relationships: []
+      }
       cron_job_state: {
         Row: {
           job_name: string
@@ -761,6 +800,60 @@ export type Database = {
           },
           {
             foreignKeyName: "customer_attachments_org_id_organizations_id_fk"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_email_preferences: {
+        Row: {
+          birthday_enabled: boolean
+          created_at: string
+          customer_id: string
+          id: string
+          inactivity_enabled: boolean
+          org_id: string
+          post_service_enabled: boolean
+          unsubscribe_token: string
+          unsubscribed_all_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          birthday_enabled?: boolean
+          created_at?: string
+          customer_id: string
+          id?: string
+          inactivity_enabled?: boolean
+          org_id: string
+          post_service_enabled?: boolean
+          unsubscribe_token?: string
+          unsubscribed_all_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          birthday_enabled?: boolean
+          created_at?: string
+          customer_id?: string
+          id?: string
+          inactivity_enabled?: boolean
+          org_id?: string
+          post_service_enabled?: boolean
+          unsubscribe_token?: string
+          unsubscribed_all_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_email_preferences_customer_org_fk"
+            columns: ["customer_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id", "org_id"]
+          },
+          {
+            foreignKeyName: "customer_email_preferences_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1159,6 +1252,62 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_campaign_settings: {
+        Row: {
+          birthday_body: string | null
+          birthday_enabled: boolean
+          birthday_subject: string | null
+          created_at: string
+          inactivity_body: string | null
+          inactivity_enabled: boolean
+          inactivity_months: number
+          inactivity_subject: string | null
+          org_id: string
+          post_service_body: string | null
+          post_service_enabled: boolean
+          post_service_subject: string | null
+          updated_at: string
+        }
+        Insert: {
+          birthday_body?: string | null
+          birthday_enabled?: boolean
+          birthday_subject?: string | null
+          created_at?: string
+          inactivity_body?: string | null
+          inactivity_enabled?: boolean
+          inactivity_months?: number
+          inactivity_subject?: string | null
+          org_id: string
+          post_service_body?: string | null
+          post_service_enabled?: boolean
+          post_service_subject?: string | null
+          updated_at?: string
+        }
+        Update: {
+          birthday_body?: string | null
+          birthday_enabled?: boolean
+          birthday_subject?: string | null
+          created_at?: string
+          inactivity_body?: string | null
+          inactivity_enabled?: boolean
+          inactivity_months?: number
+          inactivity_subject?: string | null
+          org_id?: string
+          post_service_body?: string | null
+          post_service_enabled?: boolean
+          post_service_subject?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_campaign_settings_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -2355,6 +2504,8 @@ export type Database = {
       calendar_event_type: "appointment" | "unavailability"
       calendar_event_visibility: "private" | "shared"
       calendar_provider: "google" | "outlook" | "apple"
+      campaign_send_status: "sent" | "failed" | "bounced"
+      campaign_trigger_type: "post_service" | "birthday" | "inactivity"
       gender: "male" | "female" | "other"
       invitation_status: "pending" | "accepted" | "expired" | "cancelled"
       notification_type:
@@ -2543,6 +2694,8 @@ export const Constants = {
       calendar_event_type: ["appointment", "unavailability"],
       calendar_event_visibility: ["private", "shared"],
       calendar_provider: ["google", "outlook", "apple"],
+      campaign_send_status: ["sent", "failed", "bounced"],
+      campaign_trigger_type: ["post_service", "birthday", "inactivity"],
       gender: ["male", "female", "other"],
       invitation_status: ["pending", "accepted", "expired", "cancelled"],
       notification_type: [
