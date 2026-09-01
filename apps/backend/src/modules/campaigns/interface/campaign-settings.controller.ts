@@ -17,7 +17,6 @@ import {
   type OrgCampaignSettingsResponse,
 } from "../application/use-cases/get-org-campaign-settings.use-case";
 import { UpsertOrgCampaignSettingsUseCase } from "../application/use-cases/upsert-org-campaign-settings.use-case";
-import { CAMPAIGN_DEFAULT_COPY } from "../domain/campaign-copy";
 import { UpsertOrgCampaignSettingsDto } from "./dto/upsert-org-campaign-settings.dto";
 
 /**
@@ -26,9 +25,10 @@ import { UpsertOrgCampaignSettingsDto } from "./dto/upsert-org-campaign-settings
  * Leitura: qualquer membro (RLS SELECT = `is_org_member`). Escrita: só o dono
  * (`OrgOwnerGuard` + RLS INSERT/UPDATE = `is_org_owner`; `super_admin` age como
  * dono, ADR-0013). O `GET` sempre devolve um objeto completo — os defaults do
- * banco quando a org ainda não configurou nada. `GET` e `PUT` devolvem também
- * `defaults`: a copy autoral imutável por gatilho, que o frontend usa como
- * placeholder/hint dos textos custom.
+ * banco quando a org ainda não configurou nada. `GET` e `PUT` devolvem o mesmo
+ * shape — o `PUT` delega a leitura ao `GetOrgCampaignSettingsUseCase` após gravar:
+ * os campos da view + `defaults` (a copy autoral imutável por gatilho, usada como
+ * placeholder/hint dos textos custom) + `campaignsEnabled` (kill-switch global).
  */
 @Controller("orgs/:orgId/campaign-settings")
 @UseGuards(AuthGuard, OrgMembershipGuard)
@@ -52,7 +52,7 @@ export class CampaignSettingsController {
     @Body() dto: UpsertOrgCampaignSettingsDto,
     @CurrentUser() user: AuthUser,
   ): Promise<OrgCampaignSettingsResponse> {
-    const settings = await this.upsertOrgCampaignSettings.execute({
+    await this.upsertOrgCampaignSettings.execute({
       orgId,
       authId: user.id,
       postServiceEnabled: dto.postServiceEnabled,
@@ -66,6 +66,8 @@ export class CampaignSettingsController {
       inactivitySubject: dto.inactivitySubject ?? null,
       inactivityBody: dto.inactivityBody ?? null,
     });
-    return { ...settings, defaults: CAMPAIGN_DEFAULT_COPY };
+    // Mesma leitura do GET (mesma conexão DRIZZLE/RLS no request) para o PUT
+    // devolver um shape idêntico, incluindo `campaignsEnabled`.
+    return this.getOrgCampaignSettings.execute(orgId);
   }
 }

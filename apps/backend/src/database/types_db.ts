@@ -2491,6 +2491,7 @@ export type Database = {
         | "cashier_fees_updated"
         | "cashier_commissions_updated"
         | "org_admin_access"
+        | "campaign_settings_updated"
       billing_interval: "monthly" | "semiannual" | "annual"
       billing_invoice_event_type: "paid" | "payment_failed"
       billing_refund_event_status:
@@ -2679,6 +2680,7 @@ export const Constants = {
         "cashier_fees_updated",
         "cashier_commissions_updated",
         "org_admin_access",
+        "campaign_settings_updated",
       ],
       billing_interval: ["monthly", "semiannual", "annual"],
       billing_invoice_event_type: ["paid", "payment_failed"],

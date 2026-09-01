@@ -13,9 +13,16 @@ describe("audit-labels", () => {
     expect(AUDIT_ACTION_VARIANTS.org_admin_access).toBe("secondary")
   })
 
-  it("cobre os 17 valores de auditActionEnum nos dois mapas", () => {
-    expect(Object.keys(AUDIT_ACTION_LABELS)).toHaveLength(17)
-    expect(Object.keys(AUDIT_ACTION_VARIANTS)).toHaveLength(17)
+  it("rotula a ação campaign_settings_updated emitida ao salvar a config de campanhas", () => {
+    expect(AUDIT_ACTION_LABELS.campaign_settings_updated).toBe(
+      "Configuração de campanhas atualizada",
+    )
+    expect(AUDIT_ACTION_VARIANTS.campaign_settings_updated).toBe("secondary")
+  })
+
+  it("cobre os 18 valores de auditActionEnum nos dois mapas", () => {
+    expect(Object.keys(AUDIT_ACTION_LABELS)).toHaveLength(18)
+    expect(Object.keys(AUDIT_ACTION_VARIANTS)).toHaveLength(18)
     for (const action of AUDIT_ACTION_OPTIONS) {
       expect(AUDIT_ACTION_LABELS[action]).toBeTruthy()
       expect(AUDIT_ACTION_VARIANTS[action]).toBeTruthy()

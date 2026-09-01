@@ -66,6 +66,7 @@ function buildFakePaymentGateway(
 ): jest.Mocked<IPaymentGateway> {
   return {
     retrieveChargeCustomerId: jest.fn().mockResolvedValue(null),
+    retrievePaymentIntentCustomerId: jest.fn().mockResolvedValue(null),
     ...overrides,
   } as unknown as jest.Mocked<IPaymentGateway>;
 }
@@ -236,5 +237,91 @@ describe("RefundOrgResolver", () => {
     );
     expect(refundEventRepo.findResolvedOrgIdByChargeId).not.toHaveBeenCalled();
     expect(paymentGateway.retrieveChargeCustomerId).not.toHaveBeenCalled();
+  });
+
+  it("(e) resolves via paymentIntents.retrieve -> local subscription when the charge is null", async () => {
+    const { resolver, subscriptionRepo, paymentGateway } = buildResolver({
+      subscriptionRepo: buildFakeSubscriptionRepo({
+        findByStripeCustomerId: jest
+          .fn()
+          .mockResolvedValue(buildSubscription({ orgId: "org-2" })),
+      }),
+      paymentGateway: buildFakePaymentGateway({
+        retrievePaymentIntentCustomerId: jest.fn().mockResolvedValue("cus_x"),
+      }),
+    });
+
+    const orgId = await resolver.resolve({
+      refundId: "re_1",
+      chargeId: null,
+      customerId: null,
+      paymentIntentId: "pi_1",
+    });
+
+    expect(orgId).toBe("org-2");
+    expect(paymentGateway.retrievePaymentIntentCustomerId).toHaveBeenCalledWith(
+      "pi_1",
+    );
+    expect(subscriptionRepo.findByStripeCustomerId).toHaveBeenCalledWith("cus_x");
+  });
+
+  it("(e) is skipped when paymentIntentId is null", async () => {
+    const { resolver, paymentGateway } = buildResolver();
+
+    const orgId = await resolver.resolve({
+      refundId: "re_1",
+      chargeId: null,
+      customerId: null,
+      paymentIntentId: null,
+    });
+
+    expect(orgId).toBeNull();
+    expect(
+      paymentGateway.retrievePaymentIntentCustomerId,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("(e) swallows a paymentIntents.retrieve failure and returns null", async () => {
+    const { resolver, paymentGateway } = buildResolver({
+      paymentGateway: buildFakePaymentGateway({
+        retrievePaymentIntentCustomerId: jest
+          .fn()
+          .mockRejectedValue(new Error("stripe timeout")),
+      }),
+    });
+
+    const orgId = await resolver.resolve({
+      refundId: "re_1",
+      chargeId: null,
+      customerId: null,
+      paymentIntentId: "pi_1",
+    });
+
+    expect(orgId).toBeNull();
+    expect(
+      paymentGateway.retrievePaymentIntentCustomerId,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  it("(e) is skipped when step (d) already yielded a customer", async () => {
+    const { resolver, paymentGateway } = buildResolver({
+      paymentGateway: buildFakePaymentGateway({
+        retrieveChargeCustomerId: jest.fn().mockResolvedValue("cus_5"),
+        retrievePaymentIntentCustomerId: jest.fn().mockResolvedValue("cus_x"),
+      }),
+    });
+
+    const orgId = await resolver.resolve({
+      refundId: "re_1",
+      chargeId: "ch_1",
+      customerId: null,
+      paymentIntentId: "pi_1",
+    });
+
+    expect(orgId).toBeNull();
+    expect(paymentGateway.retrieveChargeCustomerId).toHaveBeenCalledWith("ch_1");
+    expect(
+      paymentGateway.retrievePaymentIntentCustomerId,
+    ).not.toHaveBeenCalled();
   });
 });

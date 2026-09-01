@@ -216,6 +216,16 @@ const MAX_REFUNDS_PER_CHARGE_SCAN = 500;
  */
 const MAX_REFUNDS_PER_GLOBAL_SCAN = 2000;
 
+/**
+ * Hard ceiling on how many invoices `listInvoices` scans (Stripe list
+ * round-trips) for a single customer before it stops paginating. This bounds
+ * INVOICES ITERATED, not events returned — the method drops `draft`/`void`
+ * invoices, so a counter on the returned array would never trip. `listInvoices`
+ * keeps its `NormalizedInvoice[]` signature (no `truncated` flag): hitting this
+ * ceiling is a `logger.warn` only.
+ */
+const MAX_INVOICES_PER_CUSTOMER = 500;
+
 function refundChargeId(refund: Stripe.Refund): string | null {
   const charge = refund.charge;
   if (charge === null) return null;
@@ -771,13 +781,17 @@ export class StripePaymentGateway implements IPaymentGateway {
   }
 
   async listInvoices(customerId: string): Promise<NormalizedInvoice[]> {
-    const result = await this.stripe.invoices.list({
+    // Auto-paginates (same pattern as `listRefundsByCharge`) instead of a
+    // single `limit: 100` page, which truncated at 100 silently. `scanned`
+    // counts invoices ITERATED, not pushed — `draft`/`void` are dropped below,
+    // so a ceiling on `events.length` would never trip.
+    const events: NormalizedInvoice[] = [];
+    let scanned = 0;
+    for await (const invoice of this.stripe.invoices.list({
       customer: customerId,
       limit: 100,
-    });
-
-    const events: NormalizedInvoice[] = [];
-    for (const invoice of result.data) {
+    })) {
+      scanned += 1;
       if (invoice.status === "paid") {
         events.push({
           stripeInvoiceId: invoice.id,
@@ -800,6 +814,13 @@ export class StripePaymentGateway implements IPaymentGateway {
       // `draft`, `void`, and untouched `open` invoices are intentionally
       // skipped: they don't represent a completed payment or a genuine
       // failed collection attempt.
+
+      if (scanned >= MAX_INVOICES_PER_CUSTOMER) {
+        this.logger.warn(
+          `listInvoices: customer ${customerId} has more than ${MAX_INVOICES_PER_CUSTOMER} invoices — stopping the scan, trailing invoices not returned`,
+        );
+        break;
+      }
     }
     return events;
   }
@@ -857,6 +878,23 @@ export class StripePaymentGateway implements IPaymentGateway {
     try {
       const charge = await this.stripe.charges.retrieve(chargeId);
       const customer = charge.customer;
+      if (customer === null) return null;
+      return typeof customer === "string" ? customer : customer.id;
+    } catch (error) {
+      if (isResourceMissing(error)) return null;
+      throw error;
+    }
+  }
+
+  async retrievePaymentIntentCustomerId(
+    paymentIntentId: string,
+  ): Promise<string | null> {
+    // Mirrors `retrieveChargeCustomerId`: a missing resource is a `null`, any
+    // other Stripe failure propagates.
+    try {
+      const paymentIntent =
+        await this.stripe.paymentIntents.retrieve(paymentIntentId);
+      const customer = paymentIntent.customer;
       if (customer === null) return null;
       return typeof customer === "string" ? customer : customer.id;
     } catch (error) {

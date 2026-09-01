@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { CAMPAIGN_DEFAULT_COPY } from "../../domain/campaign-copy";
 import {
   IOrgCampaignSettingsWriteRepository,
@@ -12,9 +13,14 @@ import {
  * imutável de cada gatilho, chaveada pelos nomes snake_case do enum de banco
  * (`post_service` | `birthday` | `inactivity`), para o frontend exibir como
  * placeholder/hint quando o texto custom está `null`.
+ *
+ * `campaignsEnabled`: estado do kill-switch global `CAMPAIGNS_ENABLED` (mesmo
+ * gate do `RunCampaignTriggersUseCase`) — o frontend usa para decidir se mostra
+ * o aviso "em preparação" ou a UI ativa.
  */
 export interface OrgCampaignSettingsResponse extends OrgCampaignSettingsView {
   defaults: typeof CAMPAIGN_DEFAULT_COPY;
+  campaignsEnabled: boolean;
 }
 
 /**
@@ -31,11 +37,18 @@ export class GetOrgCampaignSettingsUseCase {
   constructor(
     @Inject(ORG_CAMPAIGN_SETTINGS_WRITE_REPOSITORY)
     private readonly repo: IOrgCampaignSettingsWriteRepository,
+    private readonly config: ConfigService,
   ) {}
 
   async execute(orgId: string): Promise<OrgCampaignSettingsResponse> {
+    // Mesmo gate do `RunCampaignTriggersUseCase` (kill-switch global).
+    const campaignsEnabled =
+      this.config.get<string>("CAMPAIGNS_ENABLED") === "true";
+
     const existing = await this.repo.findByOrgId(orgId);
-    if (existing) return { ...existing, defaults: CAMPAIGN_DEFAULT_COPY };
+    if (existing) {
+      return { ...existing, defaults: CAMPAIGN_DEFAULT_COPY, campaignsEnabled };
+    }
 
     return {
       orgId,
@@ -50,6 +63,7 @@ export class GetOrgCampaignSettingsUseCase {
       inactivitySubject: null,
       inactivityBody: null,
       defaults: CAMPAIGN_DEFAULT_COPY,
+      campaignsEnabled,
     };
   }
 }

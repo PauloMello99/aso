@@ -28,7 +28,8 @@ export type AuditAction =
   | "cashier_transaction_created"
   | "cashier_fees_updated"
   | "cashier_commissions_updated"
-  | "org_admin_access";
+  | "org_admin_access"
+  | "campaign_settings_updated";
 
 export interface AuditEntry {
   actorId: string | null;

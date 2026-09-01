@@ -316,6 +316,7 @@ export class HandleStripeWebhookUseCase {
       refundId: payloadRefunds[0]!.id,
       chargeId: charge.id,
       customerId: extractId(charge.customer),
+      paymentIntentId: extractId(charge.payment_intent),
     });
 
     if (charge.refunds.has_more === true) {
@@ -420,11 +421,13 @@ export class HandleStripeWebhookUseCase {
     const occurredAt = fromUnixSeconds(event.created);
 
     // A standalone `Stripe.Refund` has no `customer` — it only reaches an org
-    // via its charge, so `customerId` is always null here.
+    // via its charge, so `customerId` is always null here. When `charge` is
+    // null in the payload, `payment_intent` is the fallback correlation path.
     const orgId = await this.refundOrgResolver.resolve({
       refundId: refund.id,
       chargeId,
       customerId: null,
+      paymentIntentId: extractId(refund.payment_intent),
     });
 
     await this.writeRefundRow({

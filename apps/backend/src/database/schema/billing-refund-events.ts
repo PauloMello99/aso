@@ -34,6 +34,9 @@ export const billingRefundEvents = pgTable(
       t.orgId,
       t.occurredAt.desc(),
     ),
+    // Backs the charge-keyed reads (findResolvedOrgIdByChargeId,
+    // resolveOrgIdWhereNull); added out-of-band in migration 0064.
+    index("billing_refund_events_charge_idx").on(t.stripeChargeId),
   ],
 );
 

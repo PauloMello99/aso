@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { AuditService } from "../../../audit/audit.service";
 import {
   IOrganizationRepository,
   ORGANIZATION_REPOSITORY,
@@ -8,10 +9,29 @@ import {
   IOrgCampaignSettingsWriteRepository,
   ORG_CAMPAIGN_SETTINGS_WRITE_REPOSITORY,
   type OrgCampaignSettingsView,
+  type UpsertOrgCampaignSettingsData,
 } from "../../domain/org-campaign-settings.repository.interface";
 
 const INACTIVITY_MONTHS_MIN = 1;
 const INACTIVITY_MONTHS_MAX = 36;
+
+/**
+ * Baseline para o diff do audit log quando a org ainda não tem linha em
+ * `org_campaign_settings` (primeiro save). Espelha os defaults do banco que o
+ * `GetOrgCampaignSettingsUseCase` também devolve.
+ */
+const CAMPAIGN_SETTINGS_BASELINE: UpsertOrgCampaignSettingsData = {
+  postServiceEnabled: false,
+  birthdayEnabled: false,
+  inactivityEnabled: false,
+  inactivityMonths: 6,
+  postServiceSubject: null,
+  postServiceBody: null,
+  birthdaySubject: null,
+  birthdayBody: null,
+  inactivitySubject: null,
+  inactivityBody: null,
+};
 
 export interface UpsertOrgCampaignSettingsInput {
   orgId: string;
@@ -45,6 +65,11 @@ function normalizeText(value: string | null): string | null {
  * Double-check de owner no use-case espelhando `UpsertPaymentFeesUseCase` do
  * caixa: o `OrgOwnerGuard` já barra no controller, mas o use-case revalida via
  * `orgRepo.isOwner` (que também trata `super_admin` como owner, ADR-0013).
+ *
+ * Auditoria: após a escrita, grava um `campaign_settings_updated` via
+ * `AuditService.logByAuthId` (mesmo molde do caixa). O `metadata` registra
+ * QUAIS campos mudaram + o estado dos toggles/janela — NUNCA o conteúdo de
+ * assunto/corpo (PII/verbosidade).
  */
 @Injectable()
 export class UpsertOrgCampaignSettingsUseCase {
@@ -53,6 +78,7 @@ export class UpsertOrgCampaignSettingsUseCase {
     private readonly repo: IOrgCampaignSettingsWriteRepository,
     @Inject(ORGANIZATION_REPOSITORY)
     private readonly orgRepo: IOrganizationRepository,
+    private readonly auditService: AuditService,
   ) {}
 
   async execute(
@@ -68,7 +94,7 @@ export class UpsertOrgCampaignSettingsUseCase {
       Math.max(INACTIVITY_MONTHS_MIN, Math.trunc(input.inactivityMonths)),
     );
 
-    return this.repo.upsert(input.orgId, {
+    const data: UpsertOrgCampaignSettingsData = {
       postServiceEnabled: input.postServiceEnabled,
       birthdayEnabled: input.birthdayEnabled,
       inactivityEnabled: input.inactivityEnabled,
@@ -79,6 +105,33 @@ export class UpsertOrgCampaignSettingsUseCase {
       birthdayBody: normalizeText(input.birthdayBody),
       inactivitySubject: normalizeText(input.inactivitySubject),
       inactivityBody: normalizeText(input.inactivityBody),
+    };
+
+    // Diff contra o estado anterior (ou os defaults, no primeiro save) para o
+    // audit log — só nomes de campo, nunca valores de texto.
+    const previous = await this.repo.findByOrgId(input.orgId);
+    const baseline: UpsertOrgCampaignSettingsData =
+      previous ?? CAMPAIGN_SETTINGS_BASELINE;
+    const changed = (
+      Object.keys(data) as Array<keyof UpsertOrgCampaignSettingsData>
+    ).filter((key) => data[key] !== baseline[key]);
+
+    const result = await this.repo.upsert(input.orgId, data);
+
+    await this.auditService.logByAuthId(input.authId, {
+      orgId: input.orgId,
+      action: "campaign_settings_updated",
+      entityType: "org_campaign_settings",
+      entityId: input.orgId,
+      metadata: {
+        changed,
+        postServiceEnabled: data.postServiceEnabled,
+        birthdayEnabled: data.birthdayEnabled,
+        inactivityEnabled: data.inactivityEnabled,
+        inactivityMonths: data.inactivityMonths,
+      },
     });
+
+    return result;
   }
 }

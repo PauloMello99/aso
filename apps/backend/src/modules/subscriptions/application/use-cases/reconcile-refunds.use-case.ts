@@ -280,6 +280,10 @@ export class ReconcileRefundsUseCase {
         refundId: refund.refundId,
         chargeId: refund.chargeId,
         customerId: null,
+        // `GatewayRefund` carries no payment intent (not extended for this
+        // hardening pass); an orphan with a null charge is re-resolved by
+        // charge on a later tick once one appears.
+        paymentIntentId: null,
       });
       if (refund.chargeId !== null) {
         orgByCharge.set(refund.chargeId, orgId);

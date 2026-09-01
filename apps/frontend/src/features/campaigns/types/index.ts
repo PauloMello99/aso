@@ -28,6 +28,7 @@ export interface CampaignSettings {
   birthdayBody: string | null
   inactivitySubject: string | null
   inactivityBody: string | null
+  campaignsEnabled: boolean
   defaults: CampaignSettingsDefaults
 }
 

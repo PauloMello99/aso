@@ -268,4 +268,13 @@ export interface IPaymentGateway {
 
   /** Resolves the charge's customer id; `null` when the charge does not exist. */
   retrieveChargeCustomerId(chargeId: string): Promise<string | null>;
+
+  /**
+   * Resolves the payment intent's customer id; `null` when the payment intent
+   * does not exist. Alternate correlation path for a refund whose `charge` is
+   * `null` in the webhook payload but which still carries a `payment_intent`.
+   */
+  retrievePaymentIntentCustomerId(
+    paymentIntentId: string,
+  ): Promise<string | null>;
 }

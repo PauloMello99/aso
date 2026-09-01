@@ -22,6 +22,7 @@ const AUDIT_ACTIONS: AuditAction[] = [
   "cashier_fees_updated",
   "cashier_commissions_updated",
   "org_admin_access",
+  "campaign_settings_updated",
 ];
 
 export class AuditLogsQueryDto {

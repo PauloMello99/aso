@@ -143,6 +143,7 @@ function buildFakeRefundOrgResolver(
     deps.paymentGateway ??
       ({
         retrieveChargeCustomerId: jest.fn().mockResolvedValue(null),
+        retrievePaymentIntentCustomerId: jest.fn().mockResolvedValue(null),
       } as unknown as IPaymentGateway),
   );
 }

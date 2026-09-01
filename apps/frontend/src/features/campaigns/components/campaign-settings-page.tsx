@@ -120,9 +120,11 @@ export function CampaignSettingsPage() {
         </p>
       </div>
 
-      <Alert>
-        <AlertDescription>{PREPARING_NOTICE}</AlertDescription>
-      </Alert>
+      {settings?.campaignsEnabled === false && (
+        <Alert>
+          <AlertDescription>{PREPARING_NOTICE}</AlertDescription>
+        </Alert>
+      )}
 
       {!isOwner ? (
         <div className="flex items-center gap-2 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-4 text-sm text-foreground/50">

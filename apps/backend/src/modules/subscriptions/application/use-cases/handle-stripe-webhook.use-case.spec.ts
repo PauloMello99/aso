@@ -88,6 +88,7 @@ function buildFakePaymentGateway(
       .fn()
       .mockResolvedValue({ refunds: [], truncated: false }),
     retrieveChargeCustomerId: jest.fn().mockResolvedValue(null),
+    retrievePaymentIntentCustomerId: jest.fn().mockResolvedValue(null),
     ...overrides,
   } as unknown as jest.Mocked<IPaymentGateway>;
 }
