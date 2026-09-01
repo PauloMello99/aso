@@ -148,6 +148,16 @@ export const queryKeys = {
       ["customer-self-service", "update", token] as const,
   },
 
+  campaigns: {
+    all: (orgId: string) => ["campaigns", orgId] as const,
+    settings: (orgId: string) => ["campaigns", orgId, "settings"] as const,
+  },
+
+  publicCampaigns: {
+    preferences: (token: string) =>
+      ["public-campaigns", "preferences", token] as const,
+  },
+
   publicBilling: {
     plans: () => ["public-billing", "plans"] as const,
   },
