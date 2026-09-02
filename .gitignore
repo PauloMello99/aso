@@ -48,6 +48,9 @@ packages/*/src/*.ts.map
 .rag/
 .memory/sessions/
 
+# Agentic workflow scratch (ledger, handoffs) - transient, per-session
+.claude/scratch/
+
 # Python
 **/__pycache__/
 **/.venv/

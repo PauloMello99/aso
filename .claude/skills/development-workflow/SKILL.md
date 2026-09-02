@@ -9,6 +9,34 @@ Você (thread principal) é o coordenador. Subagentes não spawnam subagentes, e
 roteamento é seu. Referências: fluxos e critérios em `docs/ai/agentic-workflow.md`;
 regras de estilo em `docs/ai/development-style-profile.md`; agentes em `.claude/agents/`.
 
+## 0. Higiene de contexto (obrigatória em fluxo intermediário/complexo)
+
+Sessões longas degradam a qualidade muito antes do limite da janela (medido:
+`caveman learn` — dumbzone). O coordenador acumula relatório de agente + saída de
+comando e é quem estoura primeiro. Regras:
+
+- **Ledger.** Mantenha `.claude/scratch/workflow-ledger.md` (gitignored). Após CADA
+  passo do plano, escreva UMA linha: `passo N | status | arquivos | resultado do gate`.
+  Depois de registrar, **descarte da sua resposta o YAML verboso do agente** — guarde só
+  `status` + `deviations` + `risks`. O ledger é a memória durável; o transcript não é.
+- **Ler uma vez.** Cada arquivo é lido no máximo UMA vez pelo coordenador. Re-checagem
+  ⇒ `Read` com `offset`/`limit` estreito, nunca o arquivo inteiro de novo. Molde já lido
+  por um agente ⇒ confie no YAML dele, não releia. (medido: `reread_waste`.)
+- **Validação é do `tester`.** Em fluxo intermediário/complexo, o coordenador **não roda
+  `pnpm test`/`build`/`db:*`** — delega ao `tester` e lê só o veredito. Isso mantém a
+  saída de teste (verbosa) e os erros de terminal fora do seu contexto. Exceção: um
+  `check-types`/`lint` rápido e único num passo simples.
+- **Checkpoint em plano longo.** Plano com > 6 passos: a cada 4 passos concluídos,
+  ofereça ao usuário `/compact` (instruindo a preservar o ledger + as decisões abertas)
+  OU sessão nova retomando pelo ledger. Não arraste 15 passos numa sessão só.
+- **Handoff em mudança de contexto.** Se o usuário pedir algo **não relacionado ao
+  domínio do fluxo em andamento**, NÃO continue no mesmo contexto: finalize/registre o
+  passo corrente, escreva `.claude/scratch/handoff-<topico>.md` (estado + próxima ação +
+  prompt sugerido) e recomende ao usuário `/clear` + retomar o fluxo antigo depois. Um
+  fluxo de rework de migração e um "ajusta esse CSS" não moram na mesma sessão.
+- **Compactação.** Se a sessão compactar no meio de um fluxo: releia SÓ o ledger e o
+  `.memory/` relevante; reconstrua o estado a partir deles, não re-explorando código.
+
 ## 1. Classificar
 
 Aplique nesta ordem:
@@ -65,14 +93,24 @@ importa, documentação inteira. Os formatos de saída de cada agente estão nos
 arquivos em `.claude/agents/` — exija-os; se um agente devolver prosa, extraia só o
 essencial antes de repassar.
 
+Para não re-explicar contexto a cada passo: o `locator` (ou o primeiro implementer)
+grava um "context pack" em `.claude/scratch/context-pack.md` — lista de arquivos, paths
+de molde com 1 linha de propósito, as regras de estilo pertinentes. Os agentes seguintes
+recebem o **path** do pack, não a re-explicação.
+
 ## 4. Validar
 
-Tarefas simples: você mesmo valida (`pnpm check-types`, `pnpm lint`). Demais: o `tester`
-decide a menor validação. O ink-ops tem suíte automatizada (Jest no backend, Vitest no
-frontend); a validação padrão é suíte direcionada → `check-types` → `lint` → `build`
-(direcionados por app; `build` completo e `db:status` só quando o risco pedir). Falha
-classificada como regressão volta ao `implementer` com apenas o trecho essencial; falha
-preexistente é reportada ao usuário, não corrigida em silêncio.
+Tarefas simples: você mesmo valida (`pnpm check-types`, `pnpm lint`). **Intermediária/
+complexa: TODA validação é do `tester`** (§0) — inclusive round-trip de migração e
+`db:*`; o coordenador não roda `pnpm test`/`build` para não puxar a saída verbosa e os
+erros de terminal para o próprio contexto. O `tester` decide a menor validação. O ink-ops
+tem suíte automatizada (Jest no backend, Vitest no frontend); a validação padrão é suíte
+direcionada → `check-types` → `lint` → `build` (direcionados por app; `build` completo e
+`db:status` só quando o risco pedir). Na abertura de um fluxo complexo, o `tester` roda
+UM baseline e registra flaky/red conhecidos — a validação final compara contra o
+baseline, não contra zero. Falha classificada como regressão volta ao `implementer` com
+apenas o trecho essencial; falha preexistente é reportada ao usuário, não corrigida em
+silêncio.
 
 **Verificação no preview — obrigatória para toda mudança observável no navegador** (algo
 que o dev server renderiza, serve ou loga). Não é opcional e não substitui os checks

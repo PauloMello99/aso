@@ -48,11 +48,14 @@ pnpm lint          # lint com cache (--max-warnings 0)
 pnpm check-types   # type-check com cache
 pnpm format        # prettier em todo o repo
 
-pnpm --filter backend db:generate   # drizzle-kit generate (migration)
 pnpm --filter backend db:migrate    # aplica migrations (migrator custom, ADR-0003)
 pnpm --filter backend db:rollback   # reverte última migration (usa .down.sql)
 pnpm --filter backend db:status     # estado das migrations
 ```
+
+> **NÃO use `db:generate` (drizzle-kit generate).** Quebrado desde a 0011; todas as
+> migrations 0003+ são escritas À MÃO (`.sql` + `.down.sql` + entrada manual em
+> `drizzle/migrations/meta/_journal.json`). Ver `.memory/domain-rules.md`.
 
 Supabase local: `pnpm db:start` (`npx supabase start`); tipos: `pnpm db:gen-types`.
 
