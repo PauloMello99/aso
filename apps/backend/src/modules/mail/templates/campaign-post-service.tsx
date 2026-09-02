@@ -1,26 +1,27 @@
 import { Heading, Link, Text } from "@react-email/components";
+import type { ReactNode } from "react";
 import { BaseLayout, sharedStyles } from "./base-layout";
 
 export interface CampaignPostServiceEmailProps {
   subject: string;
-  bodyParagraphs: string[];
+  body: ReactNode;
   orgName: string;
   unsubscribeUrl: string;
 }
 
 /**
  * Template de campanha do gatilho `post_service` (T6 Bloco A). Apenas emoldura:
- * o texto autoral chega pronto em `subject` + `bodyParagraphs` (resolvido/
- * interpolado no use-case). Cada `<Text>` é escapado pelo React Email, então
- * HTML colado no corpo custom vira texto visível, nunca markup — por isso
- * `dangerouslySetInnerHTML` é proibido aqui. O rodapé de descadastro é fixo
- * (LGPD/ADR-0018 + CAN-SPAM) e substitui o rodapé padrão do `BaseLayout`
- * ("possui uma conta no ASO") via `footerOverride`, pois o destinatário é
- * cliente da org e não tem conta no ASO.
+ * `subject` chega resolvido/interpolado e `body` é um `ReactNode` já renderizado
+ * por `renderCampaignBody`. O escape é garantido pelo React, então HTML colado
+ * no corpo custom vira texto visível, nunca markup — `dangerouslySetInnerHTML`
+ * segue proibido aqui. O rodapé de descadastro é fixo (LGPD/ADR-0018 +
+ * CAN-SPAM) e substitui o rodapé padrão do `BaseLayout` ("possui uma conta no
+ * ASO") via `footerOverride`, pois o destinatário é cliente da org e não tem
+ * conta no ASO.
  */
 export function CampaignPostServiceEmail({
   subject,
-  bodyParagraphs,
+  body,
   orgName,
   unsubscribeUrl,
 }: CampaignPostServiceEmailProps) {
@@ -41,11 +42,7 @@ export function CampaignPostServiceEmail({
       }
     >
       <Heading style={sharedStyles.heading}>{subject}</Heading>
-      {bodyParagraphs.map((paragraph, index) => (
-        <Text key={index} style={sharedStyles.paragraph}>
-          {paragraph}
-        </Text>
-      ))}
+      {body}
     </BaseLayout>
   );
 }
@@ -54,7 +51,7 @@ export default function CampaignPostServiceEmailPreview() {
   return (
     <CampaignPostServiceEmail
       subject="Como foi seu atendimento na Helena's Ink?"
-      bodyParagraphs={["Olá <b>teste</b> & cia", "Segundo parágrafo"]}
+      body={<Text style={sharedStyles.paragraph}>Parágrafo de preview</Text>}
       orgName="Helena's Ink"
       unsubscribeUrl="https://assessorink-so.com/preferencias-email/preview-token"
     />

@@ -1,3 +1,5 @@
+import type { TiptapDoc } from "./campaign-body";
+
 export const CAMPAIGN_TARGET_REPOSITORY = Symbol("CAMPAIGN_TARGET_REPOSITORY");
 
 /**
@@ -6,9 +8,9 @@ export const CAMPAIGN_TARGET_REPOSITORY = Symbol("CAMPAIGN_TARGET_REPOSITORY");
  * da MESMA linha de `customers` que originou o gatilho — `campaign_sends` não
  * tem FK que valide o par depois.
  *
- * `subjectOverride`/`bodyOverride` vêm das colunas de texto de
- * `org_campaign_settings` (D5): `null` = usar o default autoral do produto (a
- * Fatia 3 resolve custom vs default). São OBRIGATÓRIAS (`string | null`, não
+ * `subjectOverride` vem de `campaigns.subject` e `body` de `campaigns.body`
+ * (jsonb): `null` = usar o default autoral do produto (`resolveCampaignCopy`
+ * resolve custom vs default). São OBRIGATÓRIAS na struct (`| null`, não
  * opcionais) — o SELECT sempre as projeta.
  */
 export interface CampaignTarget {
@@ -20,7 +22,7 @@ export interface CampaignTarget {
   dedupeKey: string;
   serviceId: string | null;
   subjectOverride: string | null;
-  bodyOverride: string | null;
+  body: TiptapDoc | null;
 }
 
 export interface ICampaignTargetRepository {
@@ -43,7 +45,8 @@ export interface ICampaignTargetRepository {
   }): Promise<CampaignTarget[]>;
   /**
    * Clientes cujo último serviço não cancelado é mais antigo que a janela de
-   * inatividade da PRÓPRIA org (`org_campaign_settings.inactivity_months`).
+   * inatividade da campanha do gatilho da PRÓPRIA org
+   * (`campaigns.inactivity_months`).
    */
   findInactivityTargets(input: {
     referenceDate: Date;

@@ -1,9 +1,10 @@
 // Injeta DRIZZLE_ADMIN (não DRIZZLE) de propósito: estes query helpers rodam no
 // cron cross-org de campanhas, SEM contexto de request e SEM `orgId` de entrada —
-// varrem todas as orgs com a flag do gatilho ligada. Sob ADR-0005 o pool DRIZZLE
-// resolveria zero linhas SEM erro (bug silencioso). `campaign_sends` não tem FK
-// nem RLS: `orgId`/`customerId` do resultado são projetados da MESMA linha de
-// `customers` (`c.org_id`/`c.id`) que originou o gatilho, nunca de `ocs`.
+// varrem todas as orgs com uma campanha do gatilho habilitada (`cp.enabled`). Sob
+// ADR-0005 o pool DRIZZLE resolveria zero linhas SEM erro (bug silencioso).
+// `campaign_sends` não tem FK nem RLS: `orgId`/`customerId` do resultado são
+// projetados da MESMA linha de `customers` (`c.org_id`/`c.id`) que originou o
+// gatilho, nunca de `cp`.
 //
 // O JOIN em `organizations` (só para `o.name`) filtra `o.suspended_at IS NULL`
 // nos 3 helpers: uma org suspensa pelo super_admin NÃO dispara campanha.
@@ -13,6 +14,7 @@ import {
   DRIZZLE_ADMIN,
   type DrizzleDB,
 } from "../../../../database/database.module";
+import type { TiptapDoc } from "../../domain/campaign-body";
 import { toUtcDateString } from "../../domain/campaign-trigger";
 import type {
   CampaignTarget,
@@ -30,7 +32,7 @@ type CampaignTargetRow = {
   dedupe_key: string;
   service_id: string | null;
   subject_override: string | null;
-  body_override: string | null;
+  body: TiptapDoc | null;
 };
 
 function toTarget(row: CampaignTargetRow): CampaignTarget {
@@ -43,7 +45,7 @@ function toTarget(row: CampaignTargetRow): CampaignTarget {
     dedupeKey: row.dedupe_key,
     serviceId: row.service_id,
     subjectOverride: row.subject_override,
-    bodyOverride: row.body_override,
+    body: row.body,
   };
 }
 
@@ -60,9 +62,10 @@ export class DrizzleCampaignTargetRepository
   }): Promise<CampaignTarget[]> {
     const { since, until, limit } = input;
     // Uma linha por serviço na janela [since, until): dedupe = 'post_service:' ||
-    // s.id. INNER JOIN em services (janela) e org_campaign_settings (flag),
-    // nunca LEFT. `services` tem `org_id` (FK notNull) -> join por (customer_id,
-    // org_id). Anti-join: QUALQUER linha de campaign_sends com o dedupe_key.
+    // s.id. INNER JOIN em services (janela) e campaigns (linha por gatilho:
+    // `cp.enabled`), nunca LEFT. `services` tem `org_id` (FK notNull) -> join por
+    // (customer_id, org_id). Anti-join: QUALQUER linha de campaign_sends com o
+    // dedupe_key.
     const dedupeKeyExpr = sql`'post_service:' || s.id`;
     const { rows } = await this.db.execute<CampaignTargetRow>(sql`
       SELECT
@@ -73,11 +76,11 @@ export class DrizzleCampaignTargetRepository
         c.email AS customer_email,
         ${dedupeKeyExpr} AS dedupe_key,
         s.id AS service_id,
-        ocs.post_service_subject AS subject_override,
-        ocs.post_service_body AS body_override
+        cp.subject AS subject_override,
+        cp.body AS body
       FROM customers c
-      INNER JOIN org_campaign_settings ocs
-        ON ocs.org_id = c.org_id AND ocs.post_service_enabled = true
+      INNER JOIN campaigns cp
+        ON cp.org_id = c.org_id AND cp.trigger = 'post_service' AND cp.enabled = true
       INNER JOIN organizations o ON o.id = c.org_id AND o.suspended_at IS NULL
       INNER JOIN services s
         ON s.customer_id = c.id
@@ -123,11 +126,11 @@ export class DrizzleCampaignTargetRepository
         c.email AS customer_email,
         ${dedupeKeyExpr} AS dedupe_key,
         NULL::uuid AS service_id,
-        ocs.birthday_subject AS subject_override,
-        ocs.birthday_body AS body_override
+        cp.subject AS subject_override,
+        cp.body AS body
       FROM customers c
-      INNER JOIN org_campaign_settings ocs
-        ON ocs.org_id = c.org_id AND ocs.birthday_enabled = true
+      INNER JOIN campaigns cp
+        ON cp.org_id = c.org_id AND cp.trigger = 'birthday' AND cp.enabled = true
       INNER JOIN organizations o ON o.id = c.org_id AND o.suspended_at IS NULL
       LEFT JOIN customer_email_preferences p
         ON p.customer_id = c.id AND p.org_id = c.org_id
@@ -153,7 +156,7 @@ export class DrizzleCampaignTargetRepository
     limit: number;
   }): Promise<CampaignTarget[]> {
     const { referenceDate, limit } = input;
-    // Janela vem da linha de settings da PRÓPRIA org (ocs.inactivity_months),
+    // Janela vem da campanha de inatividade da PRÓPRIA org (cp.inactivity_months),
     // não é constante. INNER JOIN services + agregação => cliente com ZERO
     // serviços NÃO entra. dedupe = 'inactivity:' || c.id || ':' || <YYYY-MM UTC>.
     // A comparação do HAVING roda `MAX(s.performed_at) AT TIME ZONE 'UTC'` (->
@@ -173,11 +176,11 @@ export class DrizzleCampaignTargetRepository
         c.email AS customer_email,
         ${dedupeKeyExpr} AS dedupe_key,
         NULL::uuid AS service_id,
-        ocs.inactivity_subject AS subject_override,
-        ocs.inactivity_body AS body_override
+        cp.subject AS subject_override,
+        cp.body AS body
       FROM customers c
-      INNER JOIN org_campaign_settings ocs
-        ON ocs.org_id = c.org_id AND ocs.inactivity_enabled = true
+      INNER JOIN campaigns cp
+        ON cp.org_id = c.org_id AND cp.trigger = 'inactivity' AND cp.enabled = true
       INNER JOIN organizations o ON o.id = c.org_id AND o.suspended_at IS NULL
       INNER JOIN services s
         ON s.customer_id = c.id AND s.org_id = c.org_id AND s.canceled_at IS NULL
@@ -194,9 +197,9 @@ export class DrizzleCampaignTargetRepository
         )
       GROUP BY
         c.org_id, o.name, c.id, c.name, c.email,
-        ocs.inactivity_subject, ocs.inactivity_body, ocs.inactivity_months
+        cp.id, cp.subject, cp.inactivity_months
       HAVING (MAX(s.performed_at) AT TIME ZONE 'UTC') < (
-        ${refDate}::date - (ocs.inactivity_months || ' months')::interval
+        ${refDate}::date - (cp.inactivity_months || ' months')::interval
       )
       ORDER BY MAX(s.performed_at) ASC, c.id ASC
       LIMIT ${limit}

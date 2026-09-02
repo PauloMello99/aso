@@ -24,6 +24,7 @@ import {
   TicketSlaAlertEmail,
   TicketSlaAlertType,
 } from "../templates/ticket-sla-alert";
+import { renderCampaignBody, type TiptapDoc } from "./render-campaign-body";
 
 export interface SendOrgInviteInput {
   to: string;
@@ -123,7 +124,8 @@ export interface SendCampaignByTriggerInput {
   to: string;
   trigger: CampaignTriggerName;
   subject: string;
-  bodyParagraphs: string[];
+  body: TiptapDoc;
+  customerName: string;
   orgName: string;
   unsubscribeUrl: string;
 }
@@ -315,7 +317,9 @@ export class MailService {
    * (`CAMPAIGNS_ENABLED`) vive no `RunCampaignTriggersUseCase`; o gate de canal
    * (`NOTIFICATIONS_EMAIL_ENABLED` + `RESEND_API_KEY`) vive no
    * `ResendEmailSender`. `input.subject` já vem resolvido/interpolado e vai
-   * direto ao provider, sem prefixo.
+   * direto ao provider, sem prefixo. `input.body` é um `TiptapDoc` validado;
+   * `renderCampaignBody` interpola os tokens nos nós de texto e emite React
+   * Email (escape garantido pelo React).
    */
   async sendCampaignByTrigger(
     input: SendCampaignByTriggerInput,
@@ -332,7 +336,10 @@ export class MailService {
   ): ReactElement {
     const props = {
       subject: input.subject,
-      bodyParagraphs: input.bodyParagraphs,
+      body: renderCampaignBody(input.body, {
+        customerName: input.customerName,
+        orgName: input.orgName,
+      }),
       orgName: input.orgName,
       unsubscribeUrl: input.unsubscribeUrl,
     };

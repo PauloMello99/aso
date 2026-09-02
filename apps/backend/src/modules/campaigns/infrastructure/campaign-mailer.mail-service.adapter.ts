@@ -23,7 +23,8 @@ export class CampaignMailerMailServiceAdapter implements ICampaignMailer {
       to: input.to,
       trigger: input.trigger,
       subject: input.subject,
-      bodyParagraphs: input.bodyParagraphs,
+      body: input.body,
+      customerName: input.customerName,
       orgName: input.orgName,
       unsubscribeUrl: input.unsubscribeUrl,
     });

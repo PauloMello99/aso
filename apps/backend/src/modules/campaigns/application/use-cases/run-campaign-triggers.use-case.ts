@@ -183,10 +183,10 @@ export class RunCampaignTriggersUseCase {
           row.orgId,
         );
         const unsubscribeUrl = `${frontendUrl}/preferencias-email/${unsubscribeToken}`;
-        const { subject, bodyParagraphs } = resolveCampaignCopy({
+        const { subject, body } = resolveCampaignCopy({
           trigger: row.trigger,
           subjectOverride: row.subjectOverride,
-          bodyOverride: row.bodyOverride,
+          body: row.body,
           customerName: row.customerName,
           orgName: row.orgName,
         });
@@ -195,7 +195,8 @@ export class RunCampaignTriggersUseCase {
           to: row.customerEmail,
           trigger: row.trigger,
           subject,
-          bodyParagraphs,
+          body,
+          customerName: row.customerName,
           orgName: row.orgName,
           unsubscribeUrl,
         });
@@ -267,10 +268,10 @@ export class RunCampaignTriggersUseCase {
             target.orgId,
           );
           const unsubscribeUrl = `${frontendUrl}/preferencias-email/${unsubscribeToken}`;
-          const { subject, bodyParagraphs } = resolveCampaignCopy({
+          const { subject, body } = resolveCampaignCopy({
             trigger,
             subjectOverride: target.subjectOverride,
-            bodyOverride: target.bodyOverride,
+            body: target.body,
             customerName: target.customerName,
             orgName: target.orgName,
           });
@@ -279,7 +280,8 @@ export class RunCampaignTriggersUseCase {
             to: target.customerEmail,
             trigger,
             subject,
-            bodyParagraphs,
+            body,
+            customerName: target.customerName,
             orgName: target.orgName,
             unsubscribeUrl,
           });

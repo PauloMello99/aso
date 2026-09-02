@@ -28,7 +28,7 @@
 | ADR-0022 | Support (Fatia C): tickets órfãos (`org_id` nullable, RLS ramificada explicitamente, INSERT exclusivo de `DRIZZLE_ADMIN`) + e-mail-to-ticket via Resend Inbound (dedupe por `email_id` UNIQUE claim+escrita na mesma transação, threading por plus-address sempre confirmado contra `requesterEmail`, vínculo a org sempre manual pelo super_admin) — Turnstile fail-closed no formulário público, Svix sem bypass no webhook                                                                                                                           | 2026-08-15 | Aceito                                        |
 | ADR-0023 | Billing (catálogo Stripe, super_admin): `billing_plans` no banco vira fonte de verdade (sync não rotaciona mais preço automaticamente, só reporta `drift`); Price/Coupon são imutáveis no Stripe pós-criação — "editar" é sempre criar novo + `transfer_lookup_key` + arquivar separado (Price) ou editar só o Promotion Code (Coupon); discriminador anti-corrida no webhook evita persistir o Price arquivado de uma rotação                                                                                                                          | 2026-08-15 | Aceito (parcialmente superseded por ADR-0024) |
 | ADR-0024 | Billing multi-preço por intervalo (`billing_plan_prices`, migration 0048, índices únicos parciais `WHERE active`), migração automática de assinantes na rotação (`RotatePlanIntervalPriceUseCase`, sem transação cross-repository), reconciliação periódica via cron invertendo a direção do ADR-0023 (Stripe manda, `ReconcilePlanCatalogUseCase` self-throttled a cada 3 dias via `cron_job_state`), endpoint público `GET /public/billing/plans` (feature-flag `PUBLIC_PRICING_ENABLED`), landing com ISR (`numReplicas=1` do ADR-0011 torna seguro) | 2026-08-16 | Aceito                                        |
-| ADR-0025 | Campanhas de e-mail por gatilho (T6 Bloco A): módulo `campaigns` próprio (não reusa `NotificationService`), opt-out por cliente em `customer_email_preferences` (migration 0061, `unsubscribe_token` que nunca rotaciona), `org_campaign_settings` (migration 0062) + env `CAMPAIGNS_ENABLED` como gate — sem o módulo de Feature Flags (ADR-0009), `campaign_sends` (migration 0063) append-only sem FK nem RLS, copy custom texto-puro com allowlist de tokens, rodapé fixo via `footerOverride`, fuso `America/Sao_Paulo` nos gatilhos de data (D8) | 2026-09-01 | Aceito                                        |
+| ADR-0025 | Campanhas de e-mail por gatilho (T6 Bloco A): módulo `campaigns` próprio (não reusa `NotificationService`), opt-out por cliente em `customer_email_preferences` (migration 0061, `unsubscribe_token` que nunca rotaciona), `org_campaign_settings` (migration 0062) + env `CAMPAIGNS_ENABLED` como gate — sem o módulo de Feature Flags (ADR-0009), `campaign_sends` (migration 0063) append-only sem FK nem RLS, copy custom texto-puro com allowlist de tokens, rodapé fixo via `footerOverride`, fuso `America/Sao_Paulo` nos gatilhos de data (D8) | 2026-09-01 | Aceito (parcialmente superseded pelo Addendum 2026-09 — rework T6) |
 
 ## Decisões/registros recentes (sem ADR)
 
@@ -206,3 +206,23 @@
   preferências do cliente em `/preferencias-email/:token`) antes de `CAMPAIGNS_ENABLED=true`
   — link de descadastro precisa de destino vivo (LGPD). Commits pendentes (aguardando
   pedido do usuário).
+- **2026-09-01 — Rework T6 de campanhas de e-mail** (`ADR-0025`, **Addendum 2026-09** —
+  corpo original preservado como histórico; ver
+  `.memory/adr/0025-campanhas-email-por-gatilho.md`). A feature foi retrabalhada **antes de
+  ir live**: `org_campaign_settings` (0062, 1 linha/org) **dropada** pela migration `0067`
+  e substituída por `campaigns` (migration `0066`) — tabela CRUD com N linhas/org, UMA por
+  gatilho (`UNIQUE (org_id, trigger)`), nova policy de DELETE, sem backfill. **D5
+  revertida**: o corpo do e-mail deixa de ser texto puro e passa a **Tiptap-JSON**, com
+  duas barreiras — walker de allowlist fechada no servidor (`validateCampaignBody`, 400
+  `CAMPAIGN_INVALID_BODY`) + renderer React Email sem `dangerouslySetInnerHTML`
+  (`mail/application/render-campaign-body.tsx`); assunto (texto puro) e rodapé fixo
+  inalterados. Novo bucket **`campaign-images`** (migration `0068`, PÚBLICO — cliente de
+  e-mail não autentica) para upload de imagem do corpo (owner-only, não grava no banco; o
+  walker exige `src` com prefixo do bucket). `campaign_sends` (0063) e o opt-out (0061)
+  **inalterados** — recriar campanha do mesmo gatilho NÃO reenvia (dedupe herdado).
+  Auditoria reusa a action `campaign_settings_updated` (enum da migration `0065`, sem
+  migration nova) com `metadata.operation`. Frontend: aba top-level "Campanhas"
+  (owner-only), CRUD com editor Tiptap. **Em aberto**: serviço de moderação de conteúdo por
+  ML/LLM (não adotado — custo de manutenção); cleanup de imagens órfãs no DELETE (deixadas
+  de propósito). Migrations `0066`/`0067`/`0068` escritas à mão. Sem ADR novo — Addendum ao
+  ADR-0025. Commits pendentes (aguardando pedido do usuário).

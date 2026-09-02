@@ -91,7 +91,7 @@ function buildTarget(overrides: Partial<CampaignTarget> = {}): CampaignTarget {
     dedupeKey: "birthday:cus-1:2026",
     serviceId: null,
     subjectOverride: null,
-    bodyOverride: null,
+    body: null,
     ...overrides,
   };
 }
@@ -110,7 +110,7 @@ function buildRetriable(
     customerEmail: "bruno@example.com",
     orgName: "Studio X",
     subjectOverride: null,
-    bodyOverride: null,
+    body: null,
     ...overrides,
   };
 }
@@ -213,7 +213,11 @@ describe("RunCampaignTriggersUseCase", () => {
     expect(prefRepo.ensureForCustomer).toHaveBeenCalledTimes(2);
     expect(mailer.sendCampaign).toHaveBeenCalledTimes(2);
     expect(mailer.sendCampaign).toHaveBeenCalledWith(
-      expect.objectContaining({ orgName: "Studio X", trigger: "birthday" }),
+      expect.objectContaining({
+        orgName: "Studio X",
+        trigger: "birthday",
+        customerName: "Ana",
+      }),
     );
     expect(sendRepo.record).toHaveBeenCalledTimes(2);
     expect(sendRepo.record).toHaveBeenCalledWith(

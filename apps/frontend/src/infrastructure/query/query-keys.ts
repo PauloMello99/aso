@@ -150,7 +150,7 @@ export const queryKeys = {
 
   campaigns: {
     all: (orgId: string) => ["campaigns", orgId] as const,
-    settings: (orgId: string) => ["campaigns", orgId, "settings"] as const,
+    list: (orgId: string) => ["campaigns", orgId, "list"] as const,
   },
 
   publicCampaigns: {

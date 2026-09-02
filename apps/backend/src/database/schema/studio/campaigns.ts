@@ -4,6 +4,7 @@ import {
   text,
   integer,
   boolean,
+  jsonb,
   timestamp,
   unique,
   index,
@@ -13,17 +14,16 @@ import { relations, sql } from "drizzle-orm";
 import { campaignSendStatusEnum, campaignTriggerTypeEnum } from "../enums";
 import { organizations } from "../organizations";
 import { customers } from "./customers";
+import type { TiptapDoc } from "../../../modules/campaigns/domain/campaign-body";
 
 // Módulo de campanhas de e-mail por gatilho (T6 Bloco A). Invariantes vivem no
-// banco (migrations 0061/0062/0063), espelhadas aqui só para leitura — editar
-// este arquivo NÃO gera/altera as migrations já aplicadas.
+// banco (migrations 0061/0063 e, para "campaigns", a 0066), espelhadas aqui só
+// para leitura — editar este arquivo NÃO gera/altera as migrations já aplicadas.
+// A antiga "org_campaign_settings" (0062) foi dropada pela 0067.
 //
 //   - customer_email_preferences: opt-out por cliente. Ausência de linha = cliente
 //     não optou por sair de nada. "unsubscribe_token" é gerado só pelo DEFAULT do
 //     banco e NUNCA rotaciona (viaja em links de e-mails já entregues — LGPD).
-//   - org_campaign_settings: liga/desliga + copy custom por gatilho, por org.
-//     Ausência de linha = campanhas desligadas (queries de gatilho fazem INNER
-//     JOIN, nunca LEFT). Colunas de texto NULL = usa o default autoral do produto.
 //   - campaign_sends: log append-only PURO (D2, espírito do ADR-0010). UMA LINHA
 //     POR (tentativa, status terminal), nunca UPDATE/DELETE. "dedupe_key" é o
 //     contrato de idempotência. Sem FK para organizations/customers por decisão:
@@ -32,6 +32,11 @@ import { customers } from "./customers";
 //     apagar o cliente = pseudonimização (comportamento desejado). Sem FK nem RLS
 //     aqui, a integridade de (org_id, customer_id) é responsabilidade da query de
 //     gatilho — ver cabeçalho da migration 0063.
+//   - campaigns (T6 rework, migration 0066): N linhas por org, UMA por gatilho
+//     (UNIQUE org_id, trigger). Substituiu a antiga "org_campaign_settings" (0062,
+//     1 linha/org, colunas por gatilho), dropada pela 0067. "subject"/"body" NULL =
+//     usa o texto default autoral do produto; "body" é um doc rich-text em jsonb
+//     (shape/tamanho validados por CHECK no banco).
 
 export const customerEmailPreferences = pgTable(
   "customer_email_preferences",
@@ -68,61 +73,6 @@ export const customerEmailPreferences = pgTable(
       t.orgId,
     ),
     index("customer_email_preferences_org_idx").on(t.orgId),
-  ],
-);
-
-export const orgCampaignSettings = pgTable(
-  "org_campaign_settings",
-  {
-    orgId: uuid("org_id")
-      .primaryKey()
-      .references(() => organizations.id, { onDelete: "cascade" }),
-    postServiceEnabled: boolean("post_service_enabled").notNull().default(false),
-    birthdayEnabled: boolean("birthday_enabled").notNull().default(false),
-    inactivityEnabled: boolean("inactivity_enabled").notNull().default(false),
-    inactivityMonths: integer("inactivity_months").notNull().default(6),
-    postServiceSubject: text("post_service_subject"),
-    postServiceBody: text("post_service_body"),
-    birthdaySubject: text("birthday_subject"),
-    birthdayBody: text("birthday_body"),
-    inactivitySubject: text("inactivity_subject"),
-    inactivityBody: text("inactivity_body"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (t) => [
-    check(
-      "org_campaign_settings_inactivity_months_check",
-      sql`${t.inactivityMonths} BETWEEN 1 AND 36`,
-    ),
-    check(
-      "org_campaign_settings_post_service_subject_check",
-      sql`${t.postServiceSubject} IS NULL OR (char_length(btrim(${t.postServiceSubject}, E' \\t\\n\\r')) BETWEEN 1 AND 200 AND char_length(${t.postServiceSubject}) <= 200)`,
-    ),
-    check(
-      "org_campaign_settings_birthday_subject_check",
-      sql`${t.birthdaySubject} IS NULL OR (char_length(btrim(${t.birthdaySubject}, E' \\t\\n\\r')) BETWEEN 1 AND 200 AND char_length(${t.birthdaySubject}) <= 200)`,
-    ),
-    check(
-      "org_campaign_settings_inactivity_subject_check",
-      sql`${t.inactivitySubject} IS NULL OR (char_length(btrim(${t.inactivitySubject}, E' \\t\\n\\r')) BETWEEN 1 AND 200 AND char_length(${t.inactivitySubject}) <= 200)`,
-    ),
-    check(
-      "org_campaign_settings_post_service_body_check",
-      sql`${t.postServiceBody} IS NULL OR (char_length(btrim(${t.postServiceBody}, E' \\t\\n\\r')) BETWEEN 1 AND 5000 AND char_length(${t.postServiceBody}) <= 5000)`,
-    ),
-    check(
-      "org_campaign_settings_birthday_body_check",
-      sql`${t.birthdayBody} IS NULL OR (char_length(btrim(${t.birthdayBody}, E' \\t\\n\\r')) BETWEEN 1 AND 5000 AND char_length(${t.birthdayBody}) <= 5000)`,
-    ),
-    check(
-      "org_campaign_settings_inactivity_body_check",
-      sql`${t.inactivityBody} IS NULL OR (char_length(btrim(${t.inactivityBody}, E' \\t\\n\\r')) BETWEEN 1 AND 5000 AND char_length(${t.inactivityBody}) <= 5000)`,
-    ),
   ],
 );
 
@@ -166,6 +116,51 @@ export const campaignSends = pgTable(
   ],
 );
 
+export const campaigns = pgTable(
+  "campaigns",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    trigger: campaignTriggerTypeEnum("trigger").notNull(),
+    name: text("name").notNull(),
+    enabled: boolean("enabled").notNull().default(false),
+    subject: text("subject"),
+    body: jsonb("body").$type<TiptapDoc | null>(),
+    inactivityMonths: integer("inactivity_months"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    unique("campaigns_org_trigger_uq").on(t.orgId, t.trigger),
+    check(
+      "campaigns_name_check",
+      sql`char_length(btrim(${t.name}, E' \\t\\n\\r')) BETWEEN 1 AND 80 AND char_length(${t.name}) <= 80`,
+    ),
+    check(
+      "campaigns_subject_check",
+      sql`${t.subject} IS NULL OR (char_length(btrim(${t.subject}, E' \\t\\n\\r')) BETWEEN 1 AND 200 AND char_length(${t.subject}) <= 200)`,
+    ),
+    check(
+      "campaigns_body_size_check",
+      sql`${t.body} IS NULL OR octet_length(${t.body}::text) <= 65536`,
+    ),
+    check(
+      "campaigns_body_shape_check",
+      sql`${t.body} IS NULL OR jsonb_typeof(${t.body}) = 'object'`,
+    ),
+    check(
+      "campaigns_inactivity_months_check",
+      sql`CASE WHEN ${t.trigger} = 'inactivity' THEN ${t.inactivityMonths} BETWEEN 1 AND 36 ELSE ${t.inactivityMonths} IS NULL END`,
+    ),
+  ],
+);
+
 export const customerEmailPreferencesRelations = relations(
   customerEmailPreferences,
   ({ one }) => ({
@@ -180,21 +175,18 @@ export const customerEmailPreferencesRelations = relations(
   }),
 );
 
-export const orgCampaignSettingsRelations = relations(
-  orgCampaignSettings,
-  ({ one }) => ({
-    organization: one(organizations, {
-      fields: [orgCampaignSettings.orgId],
-      references: [organizations.id],
-    }),
+export const campaignsRelations = relations(campaigns, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [campaigns.orgId],
+    references: [organizations.id],
   }),
-);
+}));
 
 export type CustomerEmailPreference =
   typeof customerEmailPreferences.$inferSelect;
 export type NewCustomerEmailPreference =
   typeof customerEmailPreferences.$inferInsert;
-export type OrgCampaignSettings = typeof orgCampaignSettings.$inferSelect;
-export type NewOrgCampaignSettings = typeof orgCampaignSettings.$inferInsert;
 export type CampaignSend = typeof campaignSends.$inferSelect;
 export type NewCampaignSend = typeof campaignSends.$inferInsert;
+export type Campaign = typeof campaigns.$inferSelect;
+export type NewCampaign = typeof campaigns.$inferInsert;

@@ -10,6 +10,7 @@ import {
   type DrizzleDB,
 } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
+import type { TiptapDoc } from "../../domain/campaign-body";
 import type {
   ICampaignSendRepository,
   RecordCampaignSendInput,
@@ -29,7 +30,7 @@ type RetriableRow = {
   customer_email: string;
   org_name: string;
   subject_override: string | null;
-  body_override: string | null;
+  body: TiptapDoc | null;
 };
 
 @Injectable()
@@ -74,12 +75,14 @@ export class DrizzleCampaignSendRepository implements ICampaignSendRepository {
     // JOINs (mesma forma dos helpers de CampaignTarget): trazem o destinatário,
     // os nomes e a copy custom por gatilho para o cron reenviar sem 2ª ida ao
     // banco. INNER em customers/organizations — sem e-mail válido ou com a org
-    // suspensa pelo super_admin NÃO se reenvia. LEFT em org_campaign_settings:
-    // ausência de linha => overrides NULL => copy default (não descarta a
-    // linha). A allowlist de opt-out espelha os helpers: um cliente que se
-    // descadastrou entre a 1ª tentativa e o retry não recebe (LGPD). O flag
-    // `*_enabled` da ORG não é re-checado aqui (preferência de config, não
-    // consentimento — a linha já passou pelos gates na tentativa original).
+    // suspensa pelo super_admin NÃO se reenvia. LEFT em campaigns (casa por
+    // org_id + trigger): campanha do gatilho deletada entre a tentativa e o
+    // retry => cp.subject/cp.body NULL => o retry sai com o default autoral e a
+    // linha NÃO é descartada. A allowlist de opt-out espelha os helpers: um
+    // cliente que se descadastrou entre a 1ª tentativa e o retry não recebe
+    // (LGPD). Uma campanha desligada ou deletada depois da tentativa não impede
+    // o retry — a linha já passou pelos gates de flag/canal na tentativa
+    // original; o LEFT + fallback default cobre a deleção.
     const { rows } = await this.db.execute<RetriableRow>(sql`
       SELECT
         cs.id,
@@ -91,22 +94,14 @@ export class DrizzleCampaignSendRepository implements ICampaignSendRepository {
         c.name AS customer_name,
         c.email AS customer_email,
         o.name AS org_name,
-        CASE cs.trigger
-          WHEN 'post_service' THEN ocs.post_service_subject
-          WHEN 'birthday' THEN ocs.birthday_subject
-          WHEN 'inactivity' THEN ocs.inactivity_subject
-        END AS subject_override,
-        CASE cs.trigger
-          WHEN 'post_service' THEN ocs.post_service_body
-          WHEN 'birthday' THEN ocs.birthday_body
-          WHEN 'inactivity' THEN ocs.inactivity_body
-        END AS body_override
+        cp.subject AS subject_override,
+        cp.body AS body
       FROM campaign_sends cs
       INNER JOIN customers c
         ON c.id = cs.customer_id AND c.org_id = cs.org_id
       INNER JOIN organizations o
         ON o.id = cs.org_id AND o.suspended_at IS NULL
-      LEFT JOIN org_campaign_settings ocs ON ocs.org_id = cs.org_id
+      LEFT JOIN campaigns cp ON cp.org_id = cs.org_id AND cp.trigger = cs.trigger
       LEFT JOIN customer_email_preferences p
         ON p.customer_id = cs.customer_id AND p.org_id = cs.org_id
       WHERE cs.status = 'failed'
@@ -149,7 +144,7 @@ export class DrizzleCampaignSendRepository implements ICampaignSendRepository {
       customerEmail: r.customer_email,
       orgName: r.org_name,
       subjectOverride: r.subject_override,
-      bodyOverride: r.body_override,
+      body: r.body,
     }));
   }
 }

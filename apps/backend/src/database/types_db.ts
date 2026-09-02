@@ -741,6 +741,53 @@ export type Database = {
         }
         Relationships: []
       }
+      campaigns: {
+        Row: {
+          body: Json | null
+          created_at: string
+          enabled: boolean
+          id: string
+          inactivity_months: number | null
+          name: string
+          org_id: string
+          subject: string | null
+          trigger: Database["public"]["Enums"]["campaign_trigger_type"]
+          updated_at: string
+        }
+        Insert: {
+          body?: Json | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          inactivity_months?: number | null
+          name: string
+          org_id: string
+          subject?: string | null
+          trigger: Database["public"]["Enums"]["campaign_trigger_type"]
+          updated_at?: string
+        }
+        Update: {
+          body?: Json | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          inactivity_months?: number | null
+          name?: string
+          org_id?: string
+          subject?: string | null
+          trigger?: Database["public"]["Enums"]["campaign_trigger_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cron_job_state: {
         Row: {
           job_name: string
@@ -1252,62 +1299,6 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      org_campaign_settings: {
-        Row: {
-          birthday_body: string | null
-          birthday_enabled: boolean
-          birthday_subject: string | null
-          created_at: string
-          inactivity_body: string | null
-          inactivity_enabled: boolean
-          inactivity_months: number
-          inactivity_subject: string | null
-          org_id: string
-          post_service_body: string | null
-          post_service_enabled: boolean
-          post_service_subject: string | null
-          updated_at: string
-        }
-        Insert: {
-          birthday_body?: string | null
-          birthday_enabled?: boolean
-          birthday_subject?: string | null
-          created_at?: string
-          inactivity_body?: string | null
-          inactivity_enabled?: boolean
-          inactivity_months?: number
-          inactivity_subject?: string | null
-          org_id: string
-          post_service_body?: string | null
-          post_service_enabled?: boolean
-          post_service_subject?: string | null
-          updated_at?: string
-        }
-        Update: {
-          birthday_body?: string | null
-          birthday_enabled?: boolean
-          birthday_subject?: string | null
-          created_at?: string
-          inactivity_body?: string | null
-          inactivity_enabled?: boolean
-          inactivity_months?: number
-          inactivity_subject?: string | null
-          org_id?: string
-          post_service_body?: string | null
-          post_service_enabled?: boolean
-          post_service_subject?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "org_campaign_settings_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: true
-            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]

@@ -1,6 +1,9 @@
 import type { ConfigService } from "@nestjs/config";
 import { MailService } from "./mail.service";
-import type { CampaignTriggerName } from "./mail.service";
+import type {
+  CampaignTriggerName,
+  SendCampaignByTriggerInput,
+} from "./mail.service";
 import type {
   IEmailSender,
   SendEmailInput,
@@ -32,10 +35,23 @@ function firstSendArg(sender: jest.Mocked<IEmailSender>): SendEmailInput {
   return arg;
 }
 
-const baseInput = {
+const baseInput: Omit<SendCampaignByTriggerInput, "trigger"> = {
   to: "cliente@example.com",
   subject: "Assunto da campanha",
-  bodyParagraphs: ["Primeiro parágrafo", "Segundo parágrafo"],
+  body: {
+    type: "doc",
+    content: [
+      {
+        type: "paragraph",
+        content: [{ type: "text", text: "Primeiro parágrafo" }],
+      },
+      {
+        type: "paragraph",
+        content: [{ type: "text", text: "Segundo parágrafo" }],
+      },
+    ],
+  },
+  customerName: "Cliente Teste",
   orgName: "Studio Helena",
   unsubscribeUrl: "https://app.example.com/preferencias-email/tok-abc",
 };
@@ -58,7 +74,7 @@ describe("MailService.sendCampaignByTrigger", () => {
     }
   });
 
-  it("escapa HTML dos parágrafos do corpo nos 3 gatilhos (anti-injection / LGPD)", async () => {
+  it("escapa HTML do texto do corpo nos 3 gatilhos (anti-injection / LGPD)", async () => {
     for (const trigger of TRIGGERS) {
       const sender = buildSender();
       const service = new MailService(sender, buildConfig());
@@ -66,7 +82,15 @@ describe("MailService.sendCampaignByTrigger", () => {
       await service.sendCampaignByTrigger({
         ...baseInput,
         trigger,
-        bodyParagraphs: ["<script>alert(1)</script>"],
+        body: {
+          type: "doc",
+          content: [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: "<script>alert(1)</script>" }],
+            },
+          ],
+        },
       });
 
       const { html } = firstSendArg(sender);

@@ -1,3 +1,4 @@
+import type { TiptapDoc } from "./campaign-body";
 import type { CampaignTrigger } from "./campaign-trigger";
 
 export const CAMPAIGN_MAILER = Symbol("CAMPAIGN_MAILER");
@@ -21,7 +22,8 @@ export interface SendCampaignInput {
   to: string;
   trigger: CampaignTrigger;
   subject: string;
-  bodyParagraphs: string[];
+  body: TiptapDoc;
+  customerName: string;
   orgName: string;
   unsubscribeUrl: string;
 }

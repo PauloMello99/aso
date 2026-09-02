@@ -1120,6 +1120,12 @@ anamnesis_response_id IS NOT NULL`): `assertAnamnesisResponseLinkable` faz o
   sem entrada correspondente é **silenciosamente ignorada** por `db:migrate` (sem erro,
   simplesmente não aplica). Todo fluxo de migration manual (ver `env_migration_snapshot_gap`
   na memória de sessão) precisa desse passo extra antes de rodar `db:migrate`.
+- **`.claude/CLAUDE.md` está desatualizado ao listar `pnpm --filter backend db:generate`**
+  (`drizzle-kit generate`) no fluxo de migration: `drizzle-kit generate` **não é usado**
+  desde a migration `0003` — todas as migrations `0003+` são **escritas à mão** (`.sql` +
+  `.down.sql` + entrada manual em `meta/_journal.json`). As `0066` / `0067` / `0068`
+  (rework T6) seguiram esse fluxo manual. Editar os arquivos de `src/database/schema/` **não
+  gera nem altera** migration — o schema é espelho de leitura.
 - **Pendência dura fora do código**: `features/legal/constants/entity.ts` (`LEGAL_ENTITY`)
   tem placeholders `[PREENCHER: ...]` para razão social/CNPJ/endereço/encarregado — bloqueia
   o site de ir ao ar até serem preenchidos com dados reais (identificação do fornecedor,
@@ -1140,76 +1146,171 @@ anamnesis_response_id IS NOT NULL`): `assertAnamnesisResponseLinkable` faz o
 - **Feature flags completas (ADR-0009) adiadas**: por ora e-mail é gateado por env; in-app sempre ligado.
 - Frontend: `features/notifications/` (`useNotifications` polling 30s + `NotificationBell` portaled no `top-header`).
 
-### Campanhas de e-mail por gatilho — backend (T6 Bloco A, 2026-09-01, ADR-0025)
+### Campanhas de e-mail por gatilho — backend (T6 Bloco A 2026-09-01 + rework T6 2026-09-01, ADR-0025 corpo + Addendum 2026-09)
+
+> O rework T6 (revisão 30-08) retrabalhou esta feature **antes de ela ir live**. Esta
+> seção descreve o **estado atual**; o Addendum de 2026-09 do ADR-0025 tem o racional
+> completo (D5 revertida, `org_campaign_settings` dropada, bucket de imagens, moderação
+> ML/LLM em aberto). Migrations do rework: `0066_campaigns`, `0067_drop_org_campaign_settings`,
+> `0068_campaign_images_bucket` — todas **escritas à mão** (ver nota acima sobre
+> `db:generate`).
 
 - **Módulo `modules/campaigns/`** (não reusa `NotificationService`, que é keyed em
   `users.id`; campanhas alvejam `customers` sem conta). 3 gatilhos: `post_service`
   (janela rolante `[now-48h, now-24h)` sobre `services.performed_at`), `birthday`
   (mês/dia de `birth_date`), `inactivity` (`MAX(performed_at)` além de
-  `org_campaign_settings.inactivity_months`). `RunCampaignTriggersUseCase` roda no tick
+  `campaigns.inactivity_months` da própria org). `RunCampaignTriggersUseCase` roda no tick
   único de cron (`CRON_JOBS.CAMPAIGN_TRIGGERS`), self-throttled 20h via
   `cron_job_state.claimRun` (molde ADR-0024).
-- **Gate = env `CAMPAIGNS_ENABLED` (global, super_admin) + flags `*_enabled` por gatilho
-  por org em `org_campaign_settings` (migration `0062`) — NÃO usa o módulo de Feature
-  Flags (ADR-0009)** (decisão de escopo). Todos nascem `false`. Ordem dos gates no
-  use-case: `CAMPAIGNS_ENABLED` → canal de e-mail (`NOTIFICATIONS_EMAIL_ENABLED` +
-  `RESEND_API_KEY`, espelha `ResendEmailSender`) → `claimRun`. Nenhuma escrita em
-  `campaign_sends` se algum gate falhar. Org sem linha em `org_campaign_settings` = campanha
-  desligada (as queries fazem `INNER JOIN`, nunca `LEFT`); org com `suspended_at` não
-  dispara.
-- **Todo e-mail de campanha carrega link de descadastro** — rodapé **fixo**, não editável
-  pela org, via a prop aditiva `footerOverride` do `base-layout.tsx` (transacionais
-  seguem byte-idênticos). O e-mail de campanha não afirma "possui uma conta no ASO".
-- **Opt-out (`customer_email_preferences`, migration `0061`)**: 1 linha por
-  `(customer_id, org_id)`, flags por gatilho (default `true`) + `unsubscribed_all_at`
-  (opt-out global). **Ausência de linha = não optou por sair** (estado inicial; o cron
-  materializa a linha para embutir o token). `unsubscribe_token`
-  (`encode(gen_random_bytes(32),'hex')`) **NÃO expira e NUNCA rotaciona** — viaja em links
-  de e-mails já entregues; invalidá-lo quebraria o unsubscribe (LGPD). FK COMPOSTA
-  `(customer_id, org_id) → customers(id, org_id)`. RLS só de SELECT; escrita só via
-  `DRIZZLE_ADMIN` (cron + endpoint público). `updated_at` sem trigger — setado no código.
+- **`campaigns` (migration `0066`) é um CRUD: N linhas por org, UMA por gatilho**
+  (`UNIQUE (org_id, trigger)` = D1). Substituiu `org_campaign_settings` (0062, 1 linha/org,
+  flags + 6 colunas de copy), **dropada pela migration `0067`** (`.down.sql` recria só a
+  estrutura; **sem backfill** — copy custom eventual é descartada de propósito, feature
+  nunca esteve live). Colunas de `campaigns`: `id`, `org_id` (FK `organizations`
+  `ON DELETE CASCADE`), `trigger` (enum, **imutável** — não entra no `PATCH`), `name`
+  (`text NOT NULL`, CHECK `btrim` 1–80), `enabled` (`bool NOT NULL` default `false`),
+  `subject` (`text` NULLABLE, `NULL` = default autoral, CHECK `btrim` 1–200), `body`
+  (`jsonb` NULLABLE, `NULL` = default autoral, CHECK `octet_length(body::text) ≤ 65536` +
+  `jsonb_typeof = 'object'`), `inactivity_months` (`integer` NULLABLE, CHECK
+  **bidirecional**: `trigger='inactivity'` ⇒ 1–36, qualquer outro ⇒ `IS NULL`),
+  `created_at` / `updated_at` (`updated_at` **sem trigger**, setado no repo).
+- **RLS de `campaigns`**: `SELECT` = `is_super_admin() OR is_org_member(org_id)`;
+  `INSERT` / `UPDATE` / `DELETE` = `is_super_admin() OR is_org_owner(org_id)` (`UPDATE` com
+  `WITH CHECK` = `USING`, porque `org_id` é chave de tenancy). `REVOKE ALL FROM anon,
+  authenticated`. **Há policy de DELETE** (não havia na 0062, onde "desligar" era flag) — a
+  campanha é o objeto do CRUD, excluir é operação de primeira classe.
+- **CRUD**: `CampaignsController` (`orgs/:orgId/campaigns`, `AuthGuard` +
+  `OrgMembershipGuard`, **sem `ActiveSubscriptionGuard`**). `GET` = qualquer membro;
+  `POST` / `PATCH :id` / `DELETE :id` = `OrgOwnerGuard` no método + double-check
+  `orgRepo.isOwner` no use-case (`super_admin` age como owner, ADR-0013).
+  `CreateCampaignUseCase` faz pré-check de gatilho já usado **e** traduz o `23505` da
+  `campaigns_org_trigger_uq` para a mesma exception (corrida de POSTs). `GET` também
+  devolve `campaignsEnabled` (env), `availableTriggers` (gatilhos ainda não usados) e
+  `defaults` (copy autoral por gatilho, corpo em Tiptap-JSON, **sem** interpolar — para o
+  editor do frontend partir dela).
+- **Gate = env `CAMPAIGNS_ENABLED` (global, super_admin) + `campaigns.enabled` por gatilho
+  por org — NÃO usa o módulo de Feature Flags (ADR-0009)** (decisão de escopo). Ambos
+  nascem `false`. Ordem dos gates no use-case: `CAMPAIGNS_ENABLED` → canal de e-mail
+  (`NOTIFICATIONS_EMAIL_ENABLED` + `RESEND_API_KEY`, espelha `ResendEmailSender`) →
+  `claimRun`. Nenhuma escrita em `campaign_sends` se algum gate falhar. Org sem campanha do
+  gatilho (ou com `enabled = false`) = desligada (as queries fazem
+  `INNER JOIN campaigns cp ... AND cp.enabled = true`, nunca `LEFT`); org com `suspended_at`
+  não dispara.
+- **Corpo da campanha é rich-text Tiptap-JSON (D5 REVERTIDA no rework)** — duas barreiras
+  independentes:
+  1. **Walker de allowlist FECHADA no servidor** (`campaigns/domain/campaign-body.ts`,
+     `validateCampaignBody(input, opts?)`, roda antes de gravar, devolve cópia re-emitida).
+     Nós: `doc / paragraph / text / hardBreak / bulletList / orderedList / listItem /
+     heading (level 2|3 só) / image (attrs só `src` + `alt` opcional)`. Marcas só em `text`:
+     `bold / italic / link`. `link.href` e `image.src`: `normalizeUrl` **parseia com
+     `new URL()`**, aceita **só `http:` / `https:`** (rejeita `javascript:` / `data:` /
+     `vbscript:` / protocolo-relativo / relativo / não-parseável) e **re-emite
+     `toString()`** (dot-segments `..` resolvidos → o `startsWith` do prefixo do bucket é
+     à prova de traversal); `target` / `rel` do link **normalizados** (`_blank` / `noopener
+     noreferrer nofollow`), nunca aceitos do cliente. Surrogate UTF-16 solto em `text.text`
+     ou `image.alt` → **400** (evita 500 do jsonb no INSERT). Tetos: profundidade ≤ 5,
+     ≤ 10 nós `image`, ≤ 65536 bytes serializados (casa com o CHECK do banco). Fora da
+     allowlist → `CampaignInvalidBodyException` (**400 `CAMPAIGN_INVALID_BODY`**).
+  2. **Renderer Tiptap-JSON → React Email** (`mail/application/render-campaign-body.tsx`,
+     `renderCampaignBody`): mapeia para `<Text>/<Heading>/<ul>/<ol>/<li>/<br>/<Img>/
+     <strong>/<em>/<Link>`; **NUNCA `dangerouslySetInnerHTML`** (React escapa por
+     construção). Barreira **própria**: `safeHttpUrl()` re-parseia `image.src`/`link.href`
+     e descarta o nó `image` / renderiza o `link` sem `<Link>` se o esquema não for
+     http(s). Tipos `Tiptap*` **replicados** aqui (o módulo `mail` não pode depender de
+     `campaigns` — dep circular). A **interpolação de `{{customerName}}` / `{{orgName}}`**
+     roda **aqui** (saiu de `resolveCampaignCopy`), passe único por regex allowlist, **só
+     nos nós `text`**.
+- **Assunto continua texto puro**: `resolveCampaignCopy` interpola tokens, colapsa CR/LF em
+  espaço, `trim`, `slice(0, 200)` **antes** do provider (o escape do React Email não alcança
+  o campo `subject` — risco de header injection). **Rodapé fixo** (identificação do
+  remetente + link de descadastro via `footerOverride` do `base-layout.tsx`, transacionais
+  byte-idênticos), **não editável** pela org; o e-mail de campanha não afirma "possui uma
+  conta no ASO".
+- **Default autoral**: `CAMPAIGN_DEFAULT_COPY` (`campaigns/domain/campaign-copy.ts`) é
+  `Record<trigger, { subject: string; body: TiptapDoc }>` (o `body` foi convertido de
+  `string[]` para `TiptapDoc` no rework). `subject` / `body` `NULL` na linha ⇒ usa o
+  default; fallback **por campo e independente**. `campaignDefaultBodyDoc(trigger)` serve o
+  editor do frontend.
+- **Upload de imagem — bucket `campaign-images` (migration `0068`, PÚBLICO de propósito)**:
+  cliente de e-mail não autentica no Supabase, signed URL não renderiza → precisa de URL
+  pública direta (mesma escolha de `avatars`, 0010). 2 MB, `jpeg|png|webp|gif`, sem policy
+  de `storage.objects` (escrita só pelo backend com `service_role`).
+  **`POST /orgs/:orgId/campaigns/images`** (owner-only, `FileInterceptor("file")` +
+  `ParseFilePipe` `MaxFileSizeValidator` 2 MB + `FileTypeValidator`) → `{ url }` pública,
+  path `<org_id>/<uuid>.<ext>`. `UploadCampaignImageUseCase` **NÃO grava no banco** (a URL
+  vive no `body`). `content-type` inválido → `CampaignImageUnsupportedTypeException`
+  (**415 `CAMPAIGN_IMAGE_UNSUPPORTED_TYPE`**), mas o `ParseFilePipe` já barra com **400**
+  antes — o 415 é defesa interna praticamente inalcançável via HTTP. O walker recebe
+  `opts.imageSrcPrefix` (`SUPABASE_URL` +
+  `/storage/v1/object/public/campaign-images/`, via `campaignImageSrcPrefix()`) e **exige**
+  que todo `image.src` comece com esse prefixo — impede imagem de tracking de terceiro.
+  `SUPABASE_URL` ausente ⇒ vale só a regra http(s).
+- **Opt-out (`customer_email_preferences`, migration `0061`) — INTOCADO pelo rework**: 1
+  linha por `(customer_id, org_id)`, flags por gatilho (default `true`) +
+  `unsubscribed_all_at` (opt-out global). **Ausência de linha = não optou por sair**. O
+  cron materializa a linha (`ensureForCustomer`, `ON CONFLICT DO NOTHING`) para embutir o
+  token. `unsubscribe_token` (`encode(gen_random_bytes(32),'hex')`, hex de 64 chars, não
+  UUID) **NÃO expira e NUNCA rotaciona** — viaja em links de e-mails já entregues. FK
+  COMPOSTA `(customer_id, org_id) → customers(id, org_id)`. RLS só de SELECT; escrita só
+  via `DRIZZLE_ADMIN`. `updated_at` sem trigger.
 - **TODA query de gatilho E o `findRetriable` filtram opt-out em SQL**
-  (`p.id IS NULL OR (p.unsubscribed_all_at IS NULL AND p.<trigger>_enabled)`) — cliente
-  que se descadastra entre a 1ª tentativa e o retry é respeitado. O `*_enabled` da **org**
-  (config, não consentimento) não é re-checado no retry.
-- **`campaign_sends` (migration `0063`) é append-only** (espírito ADR-0010): **uma linha
-  terminal por tentativa** (`sent | failed | bounced`, sem `pending`), inserida DEPOIS do
-  sender; nunca `UPDATE`/`DELETE`. `UNIQUE (dedupe_key, attempt, status)`. `dedupe_key`
-  (`post_service:<service_id>` / `birthday:<customer_id>:<YYYY>` /
-  `inactivity:<customer_id>:<YYYY-MM>`) DEVE embutir UUID globalmente único. **Sem FK e
-  sem RLS** (só `DRIZZLE_ADMIN`): a integridade de `(org_id, customer_id)` é
-  responsabilidade da query de gatilho, que projeta ambos da MESMA linha de
-  `customers`/`services`. `bounced` ainda não é escrito (falta webhook Resend). Retry só
-  quando a última linha do `dedupe_key` é `failed` e `attempt < 3`.
-- **Copy custom (D5)**: 6 colunas de texto NULLABLE em `org_campaign_settings`
-  (`{gatilho}_{subject,body}`), NULL = default autoral (`domain/campaign-copy.ts`),
-  fallback por campo. Corpo é **texto puro** renderizado como `<Text>` do React Email
-  (escape por padrão); `dangerouslySetInnerHTML` proibido nos templates de campanha.
-  Interpolação só de `{{customerName}}`/`{{orgName}}`, passe único por regex allowlist.
-  Assunto: CR/LF removidos + cap 200 no código antes do provider (o escape do React Email
-  não alcança o campo `subject`). `org_campaign_settings` **tem** policy de INSERT/UPDATE
-  para `is_org_owner` (owner escreve via RLS), mas nenhum use-case exercita ainda — upsert
-  é Bloco B.
+  (`p.id IS NULL OR (p.unsubscribed_all_at IS NULL AND p.<trigger>_enabled)`) — cliente que
+  se descadastra entre a 1ª tentativa e o retry é respeitado. O `enabled` da **campanha**
+  (config, não consentimento) não é re-checado no retry. Os helpers de target fazem
+  **`INNER JOIN campaigns cp`** (`cp.trigger = '<gatilho>' AND cp.enabled = true`);
+  `findRetriable` faz **`LEFT JOIN campaigns cp`** (`cp.trigger = cs.trigger`) — campanha
+  **deletada** entre a tentativa e o retry ⇒ `cp.subject`/`cp.body` `NULL` ⇒ retry sai com
+  o default autoral, **sem descartar** a linha. `findInactivityTargets` inclui **`cp.id`**
+  no `GROUP BY` (jsonb `cp.body` não tem operador de igualdade); janela vem de
+  `cp.inactivity_months`. Todos os helpers usam `DRIZZLE_ADMIN` (cron cross-org).
+- **`campaign_sends` (migration `0063`) — INALTERADA pelo rework**, append-only (espírito
+  ADR-0010): **uma linha terminal por tentativa** (`sent | failed | bounced`, sem
+  `pending`), inserida DEPOIS do sender; nunca `UPDATE`/`DELETE`. `UNIQUE (dedupe_key,
+  attempt, status)`. `dedupe_key` (`post_service:<service_id>` /
+  `birthday:<customer_id>:<YYYY>` / `inactivity:<customer_id>:<YYYY-MM>`, UTC) DEVE embutir
+  UUID globalmente único; `NOT EXISTS` por **qualquer** linha com o `dedupe_key`. **Sem FK
+  e sem RLS** (só `DRIZZLE_ADMIN`). `bounced` ainda não é escrito (falta webhook Resend).
+  Retry só quando a última linha do `dedupe_key` é `failed` e `attempt < 3`.
+  **Consequência do CRUD**: apagar e **recriar** uma campanha do mesmo gatilho **NÃO
+  reenvia** para quem já recebeu (o `dedupe_key` não referencia a linha de `campaigns` —
+  histórico herdado); default seguro, comunicado no `ConfirmDialog` de exclusão.
+- **Auditoria**: create / update / delete de campanha **reusam a action
+  `campaign_settings_updated`** (enum `audit_action`, migration `0065` — **sem migration
+  nova**), `entityType: "campaign"`, `metadata = { operation: "created" | "updated" |
+  "deleted", trigger, campaignId, changed }` (`changed: string[]`, ausente no `delete`).
+  **Nunca grava conteúdo de `subject` / `body`** — só o literal `"body"` em `changed`
+  quando o corpo mudou (critério = presença da chave no patch, não diff de conteúdo).
 - **Endpoint público** `GET/POST /public/campaigns/{preferences,unsubscribe}/:token` (sem
   `AuthGuard`, `@Throttle` assimétrico 30/60s vs 10/600s, `DRIZZLE_ADMIN` via repo).
-  Token é hex de 64 chars (não UUID). `GET` devolve payload minimizado (`orgName` + 4
-  toggles, sem `orgId`). Token inválido → `CAMPAIGN_PREFERENCES_NOT_FOUND` (404, genérico).
-  `POST` idempotente. **Não tem gate de `CAMPAIGNS_ENABLED`** — o kill-switch para só o
-  envio, nunca o descadastro (links já entregues continuam vivos).
+  `GET` devolve payload minimizado (`orgName` + 4 toggles, sem `orgId`). Token inválido →
+  `CAMPAIGN_PREFERENCES_NOT_FOUND` (404, genérico). `POST` idempotente. **Não tem gate de
+  `CAMPAIGNS_ENABLED`** — o kill-switch para só o envio, nunca o descadastro.
 - **Fuso (D8)**: data de referência de `birthday`/`inactivity` = dia-calendário em
   **`America/Sao_Paulo`**, calculado no use-case via
   `Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" })` → `Date` à meia-noite
   UTC, consumido pelos helpers como texto `YYYY-MM-DD` (`toUtcDateString`), nunca `::date`
-  sobre `timestamptz`. Primeira decisão de fuso explícita em lógica de negócio do repo
-  (antes: só o gerador de PDF de anamnese, e para formatação). 29/02 não dispara em ano
-  não-bissexto (limitação aceita no MVP).
-- **Bloco B é pré-requisito de ativação**: as 2 telas (config do dono + página de
-  preferências do cliente em `/preferencias-email/:token`) devem existir antes de
-  `CAMPAIGNS_ENABLED=true` — link de descadastro sem destino vivo = falha de LGPD.
+  sobre `timestamptz`. 29/02 não dispara em ano não-bissexto (limitação aceita no MVP).
+- **Codes de domínio** em `DOMAIN_CODE_TO_STATUS` (`common/exceptions/domain-status.map.ts`):
+  `CAMPAIGN_INVALID_BODY` (400), `CAMPAIGN_NOT_FOUND` (404),
+  `CAMPAIGN_TRIGGER_ALREADY_USED` (409), `CAMPAIGN_INVALID_INACTIVITY_MONTHS` (400),
+  `CAMPAIGN_IMAGE_UNSUPPORTED_TYPE` (415); `CAMPAIGN_SETTINGS_FORBIDDEN` (403) e
+  `CAMPAIGN_PREFERENCES_NOT_FOUND` (404) mantidos.
+- **Frontend**: aba **top-level "Campanhas"** (`ORG_NAV_SECTIONS`, `href: "campaigns"`,
+  `roles: ["owner"]`, `/dashboard/org/[orgSlug]/campaigns`) — saiu de Configurações. CRUD:
+  lista com `Switch` de `enabled` + `Sheet` de criar/editar + `ConfirmDialog` de exclusão.
+  Editor rich-text **Tiptap** (`@tiptap/react` v3, `immediatelyRender: false` p/ o pages
+  router), toolbar limitada à allowlist do servidor. Tela antiga `/settings/campaigns`
+  **removida sem redirect** (feature não live).
+- **Bloco B / ativação**: as telas de config do dono + página de preferências do cliente em
+  `/preferencias-email/:token` devem existir antes de `CAMPAIGNS_ENABLED=true` — link de
+  descadastro sem destino vivo = falha de LGPD.
 - **Débito**: round-trip Resend não exercitado (no-op sem API key); predicados de opt-out
-  em SQL cru sem teste de integração; `MAX_TARGETS_PER_TRIGGER=200` global cross-org por
-  gatilho por tick (ao atingir o teto o excedente sai da janela e não é reprocessado — só
-  `logger.warn`); sem índice dedicado a `campaign_sends.customer_id`.
+  em SQL cru sem teste de integração (ver `docs/campaigns-local-testing.md`);
+  `MAX_TARGETS_PER_TRIGGER=200` global cross-org por gatilho por tick (excedente sai da
+  janela, só `logger.warn`); sem índice dedicado a `campaign_sends.customer_id`; **imagens
+  órfãs no bucket `campaign-images` NÃO são removidas no DELETE da campanha** (de propósito
+  — não quebrar e-mail já entregue; débito de cleanup de Storage); **moderação de conteúdo
+  por ML/LLM em aberto** (não adotada — custo de manutenção).
 
 ### Relatórios segmentados (reunião 11/06)
 

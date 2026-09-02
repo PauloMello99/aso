@@ -325,3 +325,196 @@ por org nascem `false`.
 - Migrations `apps/backend/drizzle/migrations/0061_customer_email_preferences.sql`,
   `0062_org_campaign_settings.sql`, `0063_campaign_sends.sql` (os cabeçalhos são fonte
   primária).
+
+---
+
+## Addendum — Rework 2026-09 (T6 revisão)
+
+**Data:** 2026-09-01
+**Escopo:** revisão 30-08, milestone T6. Retrabalho do MVP entregue no Bloco A. O **corpo
+acima é histórico** e não foi editado; onde este addendum e o corpo divergem, **vale o
+addendum**. Migrations novas: `0066_campaigns`, `0067_drop_org_campaign_settings`,
+`0068_campaign_images_bucket` (cabeçalhos são fonte primária). A feature **nunca esteve
+live** (gate `CAMPAIGNS_ENABLED` sempre `false` + Alert "em preparação" no frontend), então
+nenhum passo abaixo tem backfill nem migração de dado de produção.
+
+### (a) D5 revertida — o corpo passa a ser rich-text (Tiptap-JSON), com duas barreiras
+
+O corpo da campanha **deixa de ser texto puro** e passa a ser um documento
+**Tiptap/ProseMirror serializado** (`campaigns.body`, `jsonb`). O assunto **continua texto
+puro** (interpolado, CR/LF colapsado, `slice(0, 200)` antes do provider — inalterado) e o
+**rodapé continua fixo** (identificação do remetente + link de descadastro via
+`footerOverride`, não editável pela org). Duas barreiras de segurança **independentes**
+substituem o "texto puro em `<Text>`" do desenho original:
+
+1. **Walker de allowlist FECHADA no servidor** — `campaigns/domain/campaign-body.ts`,
+   `validateCampaignBody(input, opts?)`. Roda **antes de gravar** (nos use-cases de
+   create/update) e devolve uma **cópia re-emitida** contendo só os campos validados (o
+   caller grava o retorno, nunca o input cru). Nós aceitos:
+   `doc / paragraph / text / hardBreak / bulletList / orderedList / listItem /
+   heading (level 2 ou 3 só) / image (attrs só `src` + `alt` opcional)`. Marcas — **só em
+   `text`**: `bold / italic / link`. `link.href` e `image.src`: `normalizeUrl` **parseia com
+   `new URL()`** e aceita **só `http:` / `https:`** (rejeita `javascript:`, `data:`,
+   `vbscript:`, protocolo-relativo `//host`, caminho relativo/absoluto sem esquema, e
+   string não-parseável) — **re-emite `parsed.toString()`** (dot-segments `..` resolvidos,
+   chars de controle percent-encoded), então o `startsWith` do prefixo do bucket em
+   `image.src` é à prova de traversal. `target` / `rel` do link são **NORMALIZADOS**
+   (`_blank` / `noopener noreferrer nofollow`) — o que vier do cliente é descartado.
+   Surrogate UTF-16 solto em `text.text` ou `image.alt` → **400** (não deixa o jsonb
+   estourar 500 no INSERT). Tetos: profundidade de aninhamento ≤ `5`, ≤ `10` nós `image`,
+   ≤ `65536` bytes do doc re-emitido (`Buffer.byteLength(JSON.stringify(...))`). Qualquer
+   nó / marca / atributo fora da allowlist → `CampaignInvalidBodyException`
+   (**400 `CAMPAIGN_INVALID_BODY`**).
+2. **Renderer Tiptap-JSON → React Email** — `mail/application/render-campaign-body.tsx`,
+   `renderCampaignBody(doc, values)`. Só **saída**: recebe um doc já validado e emite
+   `<Text> / <Heading as h2|h3> / <ul>/<ol>/<li> / <br> / <Img> / <strong>/<em> / <Link>`.
+   **Nunca usa `dangerouslySetInnerHTML`** — o React escapa texto por construção. Barreira
+   **própria e independente do walker**: `safeHttpUrl()` re-parseia `image.src` / `link.href`
+   com `new URL()` e, se o esquema não for http(s), **descarta o nó `image`** / renderiza o
+   `link` **sem o wrapper `<Link>`** (só o texto). Os tipos
+   `Tiptap*` são **replicados** neste arquivo, não importados de `campaigns/` (o módulo
+   `mail` não pode depender de `campaigns` — mesma dep circular do §1 do corpo). A
+   **interpolação de `{{customerName}}` / `{{orgName}}`** saiu de `resolveCampaignCopy` e
+   agora roda **aqui**, em passe único por regex allowlist, **só nos nós `text`**.
+- **Teste de escape SUBSTITUÍDO (não removido)** em `mail.service.spec.ts`:
+  `<script>alert(1)</script>` dentro de um nó `text` sai como `&lt;script` no HTML, sem
+  `<script` executável.
+- **`CAMPAIGN_DEFAULT_COPY.body`** (`campaigns/domain/campaign-copy.ts`) foi convertido de
+  `string[]` com `\n` para `TiptapDoc`. `resolveCampaignCopy` agora devolve
+  `{ subject: string; body: TiptapDoc }` (era `bodyParagraphs: string[]`); fallback
+  continua **por campo** (`subject` custom + `body` default vale, e vice-versa). Novo
+  helper `campaignDefaultBodyDoc(trigger)` — usado pelo `ListCampaignsUseCase` para
+  pré-preencher o editor rich-text do frontend, **sem** interpolar tokens (placeholder
+  editável).
+
+### (b) D1 do rework — `org_campaign_settings` dropada, `campaigns` é um CRUD (migrations 0066/0067)
+
+`org_campaign_settings` (0062, PK `org_id`, 1 linha/org, flags `*_enabled` + 6 colunas de
+copy) foi **substituída** pela tabela `campaigns` (migration **0066**): **N linhas por org,
+UMA por gatilho** (`UNIQUE (org_id, trigger)` = D1 "no máx. 1 campanha por gatilho"; o
+índice também serve a query de lista da tela, `WHERE org_id = ...`). Colunas:
+
+| Coluna | Tipo | Regra |
+|---|---|---|
+| `id` | `uuid` PK | `gen_random_uuid()` |
+| `org_id` | `uuid NOT NULL` | FK `organizations(id) ON DELETE CASCADE` |
+| `trigger` | `campaign_trigger_type` | enum já existe desde a 0063 (nenhum `CREATE/ALTER TYPE` na 0066 → roda em 1 transação); **imutável** após criação (não entra no `PATCH`) |
+| `name` | `text NOT NULL` | CHECK `btrim` 1–80 **e** comprimento bruto ≤ 80 |
+| `enabled` | `boolean NOT NULL` | default `false` |
+| `subject` | `text` NULLABLE | `NULL` = default autoral; CHECK `NULL OR (btrim 1–200 e bruto ≤ 200)` |
+| `body` | `jsonb` NULLABLE | `NULL` = default autoral; CHECK `octet_length(body::text) ≤ 65536` **e** `jsonb_typeof = 'object'` |
+| `inactivity_months` | `integer` NULLABLE | CHECK **bidirecional**: `trigger='inactivity'` ⇒ `BETWEEN 1 AND 36`; qualquer outro gatilho ⇒ `IS NULL` |
+| `created_at` / `updated_at` | `timestamptz NOT NULL` | `now()`; `updated_at` **sem trigger** — setado no repositório |
+
+RLS: `SELECT` = `is_super_admin() OR is_org_member(org_id)`; `INSERT` / `UPDATE` / `DELETE`
+= `is_super_admin() OR is_org_owner(org_id)` (`UPDATE` com `WITH CHECK` idêntico ao `USING`
+porque `org_id` é a chave de tenancy — sem ele um owner da org A poderia
+`UPDATE ... SET org_id = <org B>`). `REVOKE ALL FROM anon, authenticated`.
+
+- **Nova policy de DELETE** — reverte explicitamente a decisão "SEM policy de DELETE
+  (intencional)" da 0062. Na 0062 "desligar" era setar `*_enabled = false`, nunca apagar a
+  linha; aqui **a campanha é o objeto do CRUD**, então excluir é operação de primeira
+  classe (owner-only, mesmo predicado do INSERT/UPDATE).
+- **Migration 0067** (`DROP TABLE org_campaign_settings`): **único ato irreversível em dado**
+  do rework — o `.down.sql` recria só a **estrutura**, nunca o conteúdo. **Sem backfill**:
+  qualquer copy custom que uma org tenha configurado é descartada **de propósito** (feature
+  nunca live). As 3 policies da 0062 caem junto com a tabela. `campaign_sends` (0063)
+  **não** tem FK para `org_campaign_settings` — o DROP não cascateia. O cabeçalho da 0067
+  traz uma **query de pré-flight de produção** (contar linhas com copy custom não-NULL
+  antes de aplicar — se `> 0`, parar e escalar).
+- **CRUD backend**: `CampaignsController` (`orgs/:orgId/campaigns`, `AuthGuard` +
+  `OrgMembershipGuard`; **sem `ActiveSubscriptionGuard`**, paridade com o antigo
+  `CampaignSettingsController`, removido). `GET` = qualquer membro; `POST` / `PATCH :id` /
+  `DELETE :id` = `OrgOwnerGuard` no método + double-check `orgRepo.isOwner` no use-case
+  (`super_admin` age como owner, ADR-0013). Use-cases:
+  `List / Create / Update / Delete / UploadCampaignImage`. `CreateCampaignUseCase` faz
+  pré-check de gatilho já usado (mensagem boa no caso comum) **e** traduz o `23505` da
+  `campaigns_org_trigger_uq` para a mesma exception (corrida de dois POSTs).
+- Novos codes de domínio em `DOMAIN_CODE_TO_STATUS`: `CAMPAIGN_INVALID_BODY` (400),
+  `CAMPAIGN_NOT_FOUND` (404), `CAMPAIGN_TRIGGER_ALREADY_USED` (409),
+  `CAMPAIGN_INVALID_INACTIVITY_MONTHS` (400), `CAMPAIGN_IMAGE_UNSUPPORTED_TYPE` (415).
+  `CAMPAIGN_SETTINGS_FORBIDDEN` (403) **mantido** — o CRUD reusa no double-check de owner.
+- **Query helpers do cron** (`drizzle-campaign-target.repository.ts`, 3 helpers +
+  `drizzle-campaign-send.repository.ts` `findRetriable`): trocaram
+  `INNER/LEFT JOIN org_campaign_settings` por **`campaigns cp`**
+  (`cp.trigger = '<gatilho>' AND cp.enabled = true` nos targets, **INNER**;
+  `cp.trigger = cs.trigger` no `findRetriable`, **LEFT**). `findInactivityTargets` passou a
+  incluir **`cp.id`** (PK) no `GROUP BY` porque `cp.body` (jsonb) não tem operador de
+  igualdade; a janela vem de `cp.inactivity_months`. Retry de campanha **deletada** entre a
+  tentativa e o retry sai com a copy default autoral (LEFT JOIN + `cp.subject`/`cp.body`
+  NULL → fallback), **sem descartar** a linha. Predicado de opt-out
+  (`customer_email_preferences`) e uso de `DRIZZLE_ADMIN` (cron cross-org) **intocados**.
+
+### (c) Allowlist do corpo, regra de URL, teto de imagens, bucket público (migration 0068)
+
+Detalhe da allowlist e das URLs http(s) está em (a). Pontos que valem recall:
+
+- **Teto de `10` nós `image`** por documento (`MAX_IMAGES`), profundidade ≤ `5`, doc
+  serializado ≤ `65536` bytes (casa com `campaigns_body_size_check` do banco).
+- **Bucket `campaign-images`** (migration **0068**), **PÚBLICO de propósito**: o
+  destinatário abre o e-mail num cliente que **não autentica no Supabase**, então signed
+  URL (expira + exige token) **não renderiza** — a imagem precisa de URL pública direta no
+  HTML. Mesma escolha do bucket `avatars` (0010). 2 MB, `image/jpeg|png|webp|gif`.
+  **Nenhuma policy de `storage.objects`** — escrita só pelo backend com `service_role`
+  (bypass de RLS), leitura de bucket público liberada pelo Supabase (padrão 0010).
+- **`POST /orgs/:orgId/campaigns/images`** (owner-only, `FileInterceptor("file")` +
+  `ParseFilePipe` com `MaxFileSizeValidator` 2 MB + `FileTypeValidator`
+  `png|jpeg|webp|gif`) → `{ url }` **pública**. Path `<org_id>/<uuid>.<ext>`.
+  `UploadCampaignImageUseCase` **NÃO grava no banco** — a URL vive dentro do `body` da
+  campanha. `content-type` fora do mapa interno → `CampaignImageUnsupportedTypeException`
+  (**415 `CAMPAIGN_IMAGE_UNSUPPORTED_TYPE`**), mas o `ParseFilePipe` já barra o mime com
+  **400** antes de o use-case rodar — o 415 é defesa interna praticamente inalcançável via
+  HTTP.
+- **Ancoragem anti-tracking-de-terceiro**: `validateCampaignBody` recebe
+  `opts.imageSrcPrefix` (montado de `SUPABASE_URL` +
+  `/storage/v1/object/public/campaign-images/`, via `campaignImageSrcPrefix()`) e **exige**
+  que todo `image.src` (após `normalizeUrl`) comece com esse prefixo — impede referência a
+  pixel/imagem de rastreio de terceiro. `SUPABASE_URL` ausente ⇒ `imageSrcPrefix`
+  `undefined` ⇒ vale só a regra http(s) (preserva testabilidade da função pura).
+
+### (d) `campaign_sends` INALTERADA — dedupe por gatilho, recriar não reenvia
+
+`campaign_sends` (0063), os enums `campaign_trigger_type` / `campaign_send_status`, o CHECK
+`campaign_sends_sent_at_check`, o índice parcial de retriable e a ausência de FK/RLS
+**não mudaram**. Dedupe por gatilho continua:
+`post_service:<service_id>` · `birthday:<customer_id>:<YYYY>` ·
+`inactivity:<customer_id>:<YYYY-MM>` (UTC), append-only, `NOT EXISTS` por **qualquer** linha
+com o `dedupe_key`. **Consequência do CRUD:** apagar uma campanha e **recriar** outra do
+**mesmo gatilho NÃO reenvia** para quem já recebeu — o `dedupe_key` não referencia a linha
+de `campaigns`, então o histórico de envio é herdado. Default seguro; comunicado no
+`ConfirmDialog` de exclusão no frontend.
+
+### (e) Auditoria — reusa `campaign_settings_updated` com `metadata.operation`
+
+Create / update / delete de campanha **reusam a action `campaign_settings_updated`** (enum
+`audit_action`, já criado na migration **0065** — **sem migration nova**), via
+`AuditService.logByAuthId`, `entityType: "campaign"`, `entityId` = id da campanha.
+`metadata = { operation: "created" | "updated" | "deleted", trigger, campaignId, changed }`
+— `changed` é `string[]` com os nomes dos campos que mudaram (ausente no `delete`). **Nunca
+grava conteúdo de `subject` / `body`** — só o literal `"body"` em `changed` quando o corpo
+foi definido/alterado (para `body`, o critério é presença da chave no patch, não diff de
+conteúdo: a ordem de chaves do jsonb não é estável no round-trip do Postgres).
+
+### (f) D-F — imagens órfãs não são removidas no DELETE da campanha (débito)
+
+`DeleteCampaignUseCase` **não remove** objetos do bucket `campaign-images`. Imagens órfãs
+são deixadas **de propósito** — mesmo racional do `unsubscribe_token` que nunca rotaciona:
+não quebrar e-mail **já entregue** que referencia a imagem por URL pública. **Débito
+registrado**: limpeza de Storage órfão de campanha (junto com os outros débitos de cleanup
+de Storage do Tier 2 LGPD).
+
+### (g) Moderação de conteúdo por ML/LLM — em aberto
+
+Um serviço de **moderação automática dos textos de campanha** (revisão por ML/LLM antes do
+envio) foi considerado e **NÃO adotado agora** — decisão baseada no custo de manutenção da
+ferramenta. As duas barreiras de (a) cobrem injeção/XSS estrutural; moderação seria sobre
+**conteúdo** (spam, abuso, promessa enganosa). Decisão futura em aberto.
+
+### Frontend (resumo — detalhe em `.memory/domain-rules.md`)
+
+A tela saiu de **Configurações** e virou **aba top-level "Campanhas"** (`ORG_NAV_SECTIONS`,
+`href: "campaigns"`, `roles: ["owner"]`, `/dashboard/org/[orgSlug]/campaigns`). É um CRUD:
+lista com `Switch` de `enabled` na linha + `Sheet` de criar/editar (padrão dos outros
+CRUDs) + `ConfirmDialog` de exclusão. Editor rich-text **Tiptap** (`@tiptap/react` v3,
+`immediatelyRender: false` para o pages router) com toolbar limitada à allowlist do
+servidor. Tela antiga `/settings/campaigns` **removida sem redirect** (feature não live).

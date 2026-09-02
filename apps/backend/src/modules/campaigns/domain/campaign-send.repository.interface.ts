@@ -1,3 +1,4 @@
+import type { TiptapDoc } from "./campaign-body";
 import type { CampaignTrigger } from "./campaign-trigger";
 
 export const CAMPAIGN_SEND_REPOSITORY = Symbol("CAMPAIGN_SEND_REPOSITORY");
@@ -21,8 +22,9 @@ export interface RecordCampaignSendInput {
  * Linha `failed` cuja tentativa é a ÚLTIMA daquele `dedupeKey` (nenhuma
  * `sent`/`bounced` e nenhuma `attempt` maior). Traz tudo que o cron precisa
  * para reconstruir o envio sem uma segunda ida ao banco: destinatário, nomes e
- * a copy custom da org (`null` = usar o default autoral). `findRetriable` já
- * aplica opt-out e org suspensa em SQL, como os helpers de `CampaignTarget`.
+ * a copy custom da campanha do gatilho (`campaigns.subject` / `campaigns.body`
+ * jsonb; `null` = usar o default autoral). `findRetriable` já aplica opt-out e
+ * org suspensa em SQL, como os helpers de `CampaignTarget`.
  */
 export interface RetriableCampaignSend {
   id: string;
@@ -35,7 +37,7 @@ export interface RetriableCampaignSend {
   customerEmail: string;
   orgName: string;
   subjectOverride: string | null;
-  bodyOverride: string | null;
+  body: TiptapDoc | null;
 }
 
 export interface ICampaignSendRepository {

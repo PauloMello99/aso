@@ -1,0 +1,24 @@
+-- 0067 — T6 rework (fatia 11): DROP "org_campaign_settings". Único ato IRREVERSÍVEL em
+-- dado do rework — a tabela sai; o .down.sql recria só a ESTRUTURA, nunca o conteúdo.
+--
+-- "org_campaign_settings" (0062, 1 linha/org, colunas de copy por gatilho) foi
+-- substituída por "campaigns" (0066, N linhas/org, UMA por gatilho, UNIQUE
+-- "org_id","trigger"). Os 4 predicados da query de gatilho do cron já leem de
+-- "campaigns" desde a fatia anterior do rework; nenhum outro código lê esta tabela.
+--
+--   (a) SEM backfill — decisão herdada da 0066 (b). A copy custom que uma org
+--       eventualmente tenha configurado é descartada DE PROPÓSITO: a feature nunca
+--       esteve live (gate "CAMPAIGNS_ENABLED" + Alert "em preparação" no frontend),
+--       então não há dado de produção a preservar.
+--   (b) As 3 policies (select/insert/update) da 0062 caem junto com a tabela — sem
+--       DROP POLICY explícito (a 0062 não tinha policy de DELETE).
+--   (c) "campaign_sends" (0063) NÃO tem FK para esta tabela (verificado): o DROP não
+--       cascateia para o log append-only de envios.
+--
+-- PRÉ-FLIGHT DE PRODUÇÃO (rodar ANTES de aplicar em ambiente com dado real; se o
+-- count for > 0 há copy custom que seria perdida — PARAR e escalar):
+--   SELECT count(*) FROM org_campaign_settings
+--   WHERE post_service_subject IS NOT NULL OR post_service_body IS NOT NULL
+--      OR birthday_subject   IS NOT NULL OR birthday_body   IS NOT NULL
+--      OR inactivity_subject IS NOT NULL OR inactivity_body IS NOT NULL;
+DROP TABLE IF EXISTS public.org_campaign_settings;

@@ -63,6 +63,12 @@ export const ORG_NAV_SECTIONS: NavSection[] = [
       { label: "Agenda", href: "schedule", icon: CalendarDays, module: "schedule" },
       { label: "Estoque", href: "stock", icon: Archive, module: "stock" },
       { label: "Caixa", href: "cashier", icon: Wallet, module: "cashier" },
+      {
+        label: "Campanhas",
+        href: "campaigns",
+        icon: Megaphone,
+        roles: ["owner"],
+      },
     ],
   },
   {
@@ -79,7 +85,6 @@ export const SETTINGS_NAV: NavItem[] = [
   { label: "Agenda", href: "settings/agenda", icon: CalendarDays },
   { label: "Estoque", href: "settings/stock", icon: Archive, roles: ["owner"] },
   { label: "Caixa", href: "settings/cashier", icon: Wallet, roles: ["owner"] },
-  { label: "Campanhas", href: "settings/campaigns", icon: Megaphone, roles: ["owner"] },
   { label: "Assinatura", href: "settings/subscription", icon: CreditCard, roles: ["owner"] },
 ]
 
