@@ -45,4 +45,6 @@ export interface MaterialsFilter {
   shareable?: boolean
   minCost?: string
   maxCost?: string
+  page?: number
+  limit?: number
 }
