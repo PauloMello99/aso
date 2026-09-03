@@ -1,5 +1,5 @@
 ﻿import { Inject, Injectable } from "@nestjs/common";
-import { and, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 import { DRIZZLE, DrizzleDB } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
 import {
@@ -37,6 +37,39 @@ export class DrizzleStockMovementRepository
       .offset(filter?.offset ?? 0);
 
     return rows.map(StockMovementMapper.toDomain);
+  }
+
+  async findPageByMaterial(
+    materialId: string,
+    orgId: string,
+    pagination: { limit: number; offset: number },
+  ): Promise<{ rows: StockMovementEntity[]; total: number }> {
+    const where = and(
+      eq(schema.stockMovements.materialId, materialId),
+      eq(schema.stockMovements.orgId, orgId),
+    );
+
+    const [rows, countRows] = await Promise.all([
+      this.db
+        .select()
+        .from(schema.stockMovements)
+        .where(where)
+        .orderBy(
+          desc(schema.stockMovements.createdAt),
+          desc(schema.stockMovements.id),
+        )
+        .limit(pagination.limit)
+        .offset(pagination.offset),
+      this.db
+        .select({ total: count() })
+        .from(schema.stockMovements)
+        .where(where),
+    ]);
+
+    return {
+      rows: rows.map(StockMovementMapper.toDomain),
+      total: Number(countRows[0]?.total ?? 0),
+    };
   }
 
   async create(data: CreateStockMovementData): Promise<StockMovementEntity> {

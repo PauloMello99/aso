@@ -16,6 +16,11 @@ export interface IStockMovementRepository {
     orgId: string,
     filter?: ListMovementsFilter,
   ): Promise<StockMovementEntity[]>;
+  findPageByMaterial(
+    materialId: string,
+    orgId: string,
+    pagination: { limit: number; offset: number },
+  ): Promise<{ rows: StockMovementEntity[]; total: number }>;
   create(data: CreateStockMovementData): Promise<StockMovementEntity>;
 }
 

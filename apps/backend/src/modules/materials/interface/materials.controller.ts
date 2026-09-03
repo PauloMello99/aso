@@ -299,13 +299,15 @@ export class MaterialsController {
   async movements(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
+    @Query("page") page?: string,
     @Query("limit") limit?: string,
-    @Query("offset") offset?: string,
   ) {
-    return this.listMovements.execute(id, orgId, {
-      limit: limit ? parseInt(limit, 10) : undefined,
-      offset: offset ? parseInt(offset, 10) : undefined,
-    });
+    return this.listMovements.execute(
+      id,
+      orgId,
+      parsePageParam(page),
+      parsePageParam(limit),
+    );
   }
 }
 
