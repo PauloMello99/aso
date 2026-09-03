@@ -1,5 +1,17 @@
 ﻿import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, eq, gte, ilike, isNotNull, isNull, lte, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  eq,
+  gte,
+  ilike,
+  isNotNull,
+  isNull,
+  lte,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import { DRIZZLE, DrizzleDB } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
 import {
@@ -28,11 +40,11 @@ export class DrizzleMaterialRepository implements IMaterialRepository {
     return row ? MaterialMapper.toDomain(row) : null;
   }
 
-  async findAllByOrg(
+  private buildListConditions(
     orgId: string,
     filter?: ListMaterialsFilter,
-  ): Promise<MaterialEntity[]> {
-    const conditions = [eq(schema.materials.orgId, orgId)];
+  ): SQL[] {
+    const conditions: SQL[] = [eq(schema.materials.orgId, orgId)];
 
     conditions.push(
       filter?.archived
@@ -70,19 +82,74 @@ export class DrizzleMaterialRepository implements IMaterialRepository {
       );
     }
 
-    const orderBy =
-      filter?.sortBy === "name"
-        ? [asc(schema.materials.name)]
-        : [
-            sql`${schema.materials.lastUsedAt} DESC NULLS LAST`,
-            asc(schema.materials.name),
-          ];
+    return conditions;
+  }
 
+  private listOrderBy(filter?: ListMaterialsFilter): SQL[] {
+    return filter?.sortBy === "name"
+      ? [asc(schema.materials.name), asc(schema.materials.id)]
+      : [
+          sql`${schema.materials.lastUsedAt} DESC NULLS LAST`,
+          asc(schema.materials.name),
+          asc(schema.materials.id),
+        ];
+  }
+
+  async findAllByOrg(
+    orgId: string,
+    filter?: ListMaterialsFilter,
+  ): Promise<MaterialEntity[]> {
     const rows = await this.db
       .select()
       .from(schema.materials)
-      .where(and(...conditions))
-      .orderBy(...orderBy);
+      .where(and(...this.buildListConditions(orgId, filter)))
+      .orderBy(...this.listOrderBy(filter));
+
+    return rows.map(MaterialMapper.toDomain);
+  }
+
+  async findPageByOrg(
+    orgId: string,
+    filter: ListMaterialsFilter | undefined,
+    pagination: { limit: number; offset: number },
+  ): Promise<{ rows: MaterialEntity[]; total: number }> {
+    const conditions = this.buildListConditions(orgId, filter);
+
+    const [rows, countRows] = await Promise.all([
+      this.db
+        .select()
+        .from(schema.materials)
+        .where(and(...conditions))
+        .orderBy(...this.listOrderBy(filter))
+        .limit(pagination.limit)
+        .offset(pagination.offset),
+      this.db
+        .select({ total: count() })
+        .from(schema.materials)
+        .where(and(...conditions)),
+    ]);
+
+    return {
+      rows: rows.map(MaterialMapper.toDomain),
+      total: Number(countRows[0]?.total ?? 0),
+    };
+  }
+
+  async findOptionsByOrg(
+    orgId: string,
+    params: { limit: number },
+  ): Promise<MaterialEntity[]> {
+    const rows = await this.db
+      .select()
+      .from(schema.materials)
+      .where(
+        and(
+          eq(schema.materials.orgId, orgId),
+          isNull(schema.materials.archivedAt),
+        ),
+      )
+      .orderBy(asc(schema.materials.name), asc(schema.materials.id))
+      .limit(params.limit + 1);
 
     return rows.map(MaterialMapper.toDomain);
   }

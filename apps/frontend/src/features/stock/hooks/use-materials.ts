@@ -1,14 +1,24 @@
 "use client"
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { apiRequest } from "@/infrastructure/api/client"
 import { queryKeys } from "@/infrastructure/query/query-keys"
+import type { Paginated } from "@/shared/types/pagination"
 import type { Material, MaterialsFilter } from "../types"
 
-export function useMaterials(orgId: string, filter?: MaterialsFilter) {
+export function useMaterials(
+  orgId: string,
+  filter?: MaterialsFilter,
+  options?: { enabled?: boolean },
+) {
   const queryClient = useQueryClient()
 
-  const { data = [], isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: queryKeys.materials.list(orgId, filter),
     queryFn: () => {
       const params = new URLSearchParams()
@@ -20,11 +30,19 @@ export function useMaterials(orgId: string, filter?: MaterialsFilter) {
         params.set("shareable", String(filter.shareable))
       if (filter?.minCost) params.set("minCost", filter.minCost)
       if (filter?.maxCost) params.set("maxCost", filter.maxCost)
+      if (filter?.page) params.set("page", String(filter.page))
+      if (filter?.limit) params.set("limit", String(filter.limit))
       const query = params.toString() ? `?${params.toString()}` : ""
-      return apiRequest<Material[]>(`/orgs/${orgId}/materials${query}`)
+      return apiRequest<Paginated<Material>>(`/orgs/${orgId}/materials${query}`)
     },
-    enabled: !!orgId,
+    enabled: !!orgId && (options?.enabled ?? true),
+    placeholderData: keepPreviousData,
   })
+
+  const materials = data?.data ?? []
+  const total = data?.total ?? 0
+  const page = data?.page ?? 1
+  const pages = data?.pages ?? 0
 
   type CreateBody = {
     name: string
@@ -145,7 +163,10 @@ export function useMaterials(orgId: string, filter?: MaterialsFilter) {
   }
 
   return {
-    materials: data,
+    materials,
+    total,
+    page,
+    pages,
     loading: isLoading,
     error: error instanceof Error ? error.message : null,
     refetch,

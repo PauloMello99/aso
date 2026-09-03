@@ -46,6 +46,45 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
 8. Registrar novo code em DomainExceptionFilter.CODE_TO_STATUS se necessário
 ```
 
+### Paginação — toda listagem nova de recurso org-scoped nasce paginada
+
+Decisão completa e rationale em `ADR-0026`. Receita canônica (offset-based, não
+cursor):
+
+1. **Repositório**: extrair `buildListConditions(orgId, filter)` e `listOrderBy()`
+   privados a partir do `findAllByOrg` existente (se houver); ORDER BY sempre com
+   `id` (ou outra coluna única) como último critério de desempate. Adicionar
+   `findPageByOrg(orgId, filter, { limit, offset }): Promise<{ rows, total }>` — um
+   `count()` e um `SELECT` com `.limit().offset()`, no mesmo `where`, em paralelo
+   (`Promise.all`). `findAllByOrg` original **não muda de assinatura/retorno**.
+2. **Use-case**: se `findAllByOrg` já é consumido por export/overview/agregação
+   (qualquer coisa que precise do conjunto completo), criar um use-case **irmão**
+   `List<Entity>PageUseCase` — nunca reaproveitar o original para a tela. Ele usa
+   `resolvePageRequest(req, bounds)` e `buildPaginated(data, total, page, limit)` de
+   `apps/backend/src/common/pagination/pagination.ts`; `defaultLimit`/`maxLimit` = 50/200
+   para listas de tela cheia, menor (ex.: 20/100) para painéis/sublistas. Se
+   `findAllByOrg` não tiver outro consumidor, migrar o use-case existente direto (sem
+   irmão) — caso de `stock_movements`.
+3. **Controller**: ler `page`/`limit` via `@Query()` + `parsePageParam(value)` (nunca
+   lança exceção para entrada inválida). Endpoint de export **nunca** recebe
+   page/limit — continua chamando o caminho não paginado.
+4. **Frontend**: hook envia `page`/`limit` no filtro/params, tipa a resposta como
+   `Paginated<T>` (`@/shared/types/pagination`), usa `placeholderData: keepPreviousData`
+   e retorna `{ items, total, page, pages, ... }` além das mutations existentes. Tela
+   usa `<PaginationBar>` (`@/shared/components/pagination-bar`) e **sempre** reseta
+   `page` para 1 em qualquer mudança de filtro/busca (via o mesmo `setFilter` acumulador
+   quando existir, ou um `useEffect` observando os estados de filtro quando o filtro é
+   montado a partir de múltiplos `useState`). Qualquer KPI/contador que hoje lê
+   `lista.length` do array completo precisa trocar para o `total` do envelope (ou uma
+   segunda chamada leve com `limit: 1` e o filtro do subconjunto, se o KPI for sobre um
+   recorte).
+5. **Selects/pickers de apoio** (um componente que só precisa de `{id, name}` — ou de
+   um subconjunto compatível com a entidade completa — para popular um `<Select>`, não
+   da listagem paginada): endpoint `GET .../options` dedicado, sem paginação, cap fixo
+   (1000) + `{ data, truncated }`; UI mostra aviso quando `truncated: true`. Só criar
+   este endpoint quando um consumidor real depender de "a lista inteira", não
+   preventivamente.
+
 ---
 
 ## Regras de UI — Frontend (mobile-first)

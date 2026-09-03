@@ -1,5 +1,17 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, eq, gte, ilike, lte, ne, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  eq,
+  gte,
+  ilike,
+  lte,
+  ne,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import { DRIZZLE, DrizzleDB } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
 import {
@@ -67,10 +79,10 @@ export class DrizzleCustomerRepository implements ICustomerRepository {
     return row ? CustomerMapper.toDomain(row) : null;
   }
 
-  async findAllByOrg(
+  private buildListConditions(
     orgId: string,
     filter?: ListCustomersFilter,
-  ): Promise<CustomerEntity[]> {
+  ): SQL[] {
     const conditions = [eq(schema.customers.orgId, orgId)];
 
     if (filter?.status === "active") {
@@ -120,13 +132,75 @@ export class DrizzleCustomerRepository implements ICustomerRepository {
       if (match) conditions.push(match);
     }
 
+    return conditions;
+  }
+
+  private listOrderBy(): SQL[] {
+    return [asc(schema.customers.name), asc(schema.customers.id)];
+  }
+
+  async findAllByOrg(
+    orgId: string,
+    filter?: ListCustomersFilter,
+  ): Promise<CustomerEntity[]> {
+    const conditions = this.buildListConditions(orgId, filter);
+
     const rows = await this.db
       .select()
       .from(schema.customers)
       .where(and(...conditions))
-      .orderBy(schema.customers.name);
+      .orderBy(...this.listOrderBy());
 
     return rows.map(CustomerMapper.toDomain);
+  }
+
+  async findPageByOrg(
+    orgId: string,
+    filter: ListCustomersFilter | undefined,
+    pagination: { limit: number; offset: number },
+  ): Promise<{ rows: CustomerEntity[]; total: number }> {
+    const conditions = this.buildListConditions(orgId, filter);
+    const whereClause = and(...conditions);
+
+    const [countRows, rows] = await Promise.all([
+      this.db
+        .select({ total: count() })
+        .from(schema.customers)
+        .where(whereClause),
+      this.db
+        .select()
+        .from(schema.customers)
+        .where(whereClause)
+        .orderBy(...this.listOrderBy())
+        .limit(pagination.limit)
+        .offset(pagination.offset),
+    ]);
+
+    return {
+      rows: rows.map(CustomerMapper.toDomain),
+      total: Number(countRows[0]?.total ?? 0),
+    };
+  }
+
+  async findOptionsByOrg(
+    orgId: string,
+    params: { enabledOnly?: boolean; limit: number },
+  ): Promise<{ id: string; name: string; birthDate: string }[]> {
+    return this.db
+      .select({
+        id: schema.customers.id,
+        name: schema.customers.name,
+        birthDate: schema.customers.birthDate,
+      })
+      .from(schema.customers)
+      .where(
+        and(
+          eq(schema.customers.orgId, orgId),
+          ...(params.enabledOnly ? [eq(schema.customers.enabled, true)] : []),
+        ),
+      )
+      .orderBy(asc(schema.customers.name), asc(schema.customers.id))
+      .limit(params.limit + 1);
   }
 
   async create(data: CreateCustomerData): Promise<CustomerEntity> {

@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
   and,
+  count,
   desc,
   eq,
   gte,
@@ -9,6 +10,7 @@ import {
   isNotNull,
   lte,
   sql,
+  type SQL,
 } from "drizzle-orm";
 import { DRIZZLE, DrizzleDB } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
@@ -74,10 +76,10 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
     return row ? TransactionMapper.toDomain(row) : null;
   }
 
-  async findAllByOrg(
+  private buildListConditions(
     orgId: string,
     filter?: ListTransactionsFilter,
-  ): Promise<TransactionEntity[]> {
+  ): SQL[] {
     const conditions = [eq(schema.transactions.orgId, orgId)];
 
     if (filter?.from) {
@@ -127,13 +129,58 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
       );
     }
 
+    return conditions;
+  }
+
+  private listOrderBy(): SQL[] {
+    return [
+      desc(schema.transactions.transactedAt),
+      desc(schema.transactions.createdAt),
+      desc(schema.transactions.id),
+    ];
+  }
+
+  async findAllByOrg(
+    orgId: string,
+    filter?: ListTransactionsFilter,
+  ): Promise<TransactionEntity[]> {
+    const conditions = this.buildListConditions(orgId, filter);
+
     const rows = await this.db
       .select()
       .from(schema.transactions)
       .where(and(...conditions))
-      .orderBy(desc(schema.transactions.transactedAt));
+      .orderBy(...this.listOrderBy());
 
     return rows.map(TransactionMapper.toDomain);
+  }
+
+  async findPageByOrg(
+    orgId: string,
+    filter: ListTransactionsFilter | undefined,
+    pagination: { limit: number; offset: number },
+  ): Promise<{ rows: TransactionEntity[]; total: number }> {
+    const conditions = this.buildListConditions(orgId, filter);
+    const whereClause = and(...conditions);
+
+    const [countRows, rows] = await Promise.all([
+      this.db
+        .select({ total: count() })
+        .from(schema.transactions)
+        .where(whereClause),
+      this.db
+        .select()
+        .from(schema.transactions)
+        .where(whereClause)
+        .orderBy(...this.listOrderBy())
+        .limit(pagination.limit)
+        .offset(pagination.offset),
+    ]);
+
+    return {
+      rows: rows.map(TransactionMapper.toDomain),
+      total: Number(countRows[0]?.total ?? 0),
+    };
   }
 
   async findReversalOf(originalId: string): Promise<TransactionEntity | null> {
@@ -155,6 +202,28 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
           isNotNull(schema.transactions.reversesTransactionId),
         ),
       );
+    return new Set(
+      rows
+        .map((r) => r.reverses)
+        .filter((id): id is string => id !== null),
+    );
+  }
+
+  async findReversedIdsIn(orgId: string, ids: string[]): Promise<Set<string>> {
+    if (ids.length === 0) {
+      return new Set();
+    }
+
+    const rows = await this.db
+      .select({ reverses: schema.transactions.reversesTransactionId })
+      .from(schema.transactions)
+      .where(
+        and(
+          eq(schema.transactions.orgId, orgId),
+          inArray(schema.transactions.reversesTransactionId, ids),
+        ),
+      );
+
     return new Set(
       rows
         .map((r) => r.reverses)

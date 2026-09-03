@@ -17,6 +17,7 @@ export interface ListServicesInput {
   filter?: ListServicesFilter;
 }
 
+// Caminho NÃO paginado (export/overview agregam TODOS os serviços do período) — para listagem use ListServicesPageUseCase.
 @Injectable()
 export class ListServicesUseCase {
   constructor(

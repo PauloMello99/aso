@@ -1,14 +1,24 @@
 "use client"
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { apiRequest } from "@/infrastructure/api/client"
 import { queryKeys } from "@/infrastructure/query/query-keys"
+import type { Paginated } from "@/shared/types/pagination"
 import type { Customer, CustomersFilter, Gender } from "../types"
 
-export function useCustomers(orgId: string, filter?: CustomersFilter) {
+export function useCustomers(
+  orgId: string,
+  filter?: CustomersFilter,
+  options?: { enabled?: boolean },
+) {
   const queryClient = useQueryClient()
 
-  const { data = [], isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: queryKeys.customers.list(orgId, filter),
     queryFn: () => {
       const params = new URLSearchParams()
@@ -22,11 +32,19 @@ export function useCustomers(orgId: string, filter?: CustomersFilter) {
       if (filter?.birthMonth) params.set("birthMonth", String(filter.birthMonth))
       if (filter?.city) params.set("city", filter.city)
       if (filter?.state) params.set("state", filter.state)
+      if (filter?.page) params.set("page", String(filter.page))
+      if (filter?.limit) params.set("limit", String(filter.limit))
       const query = params.toString() ? `?${params.toString()}` : ""
-      return apiRequest<Customer[]>(`/orgs/${orgId}/customers${query}`)
+      return apiRequest<Paginated<Customer>>(`/orgs/${orgId}/customers${query}`)
     },
-    enabled: !!orgId,
+    enabled: !!orgId && (options?.enabled ?? true),
+    placeholderData: keepPreviousData,
   })
+
+  const customers = data?.data ?? []
+  const total = data?.total ?? 0
+  const page = data?.page ?? 1
+  const pages = data?.pages ?? 0
 
   type CreateBody = {
     name: string
@@ -85,7 +103,10 @@ export function useCustomers(orgId: string, filter?: CustomersFilter) {
   }
 
   return {
-    customers: data,
+    customers,
+    total,
+    page,
+    pages,
     loading: isLoading,
     error: error instanceof Error ? error.message : null,
     refetch,

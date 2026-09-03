@@ -37,12 +37,14 @@ import {
 } from "./dto/stock-verification.dto";
 import { CreateMaterialUseCase } from "../application/use-cases/create-material.use-case";
 import { DeleteMaterialUseCase } from "../application/use-cases/delete-material.use-case";
-import { ListMaterialsUseCase } from "../application/use-cases/list-materials.use-case";
+import { ListMaterialsPageUseCase } from "../application/use-cases/list-materials-page.use-case";
+import { ListMaterialOptionsUseCase } from "../application/use-cases/list-material-options.use-case";
 import { ExportMaterialsUseCase } from "../application/use-cases/export-materials.use-case";
 import {
   parseFields,
   resolveExportFormat,
 } from "../../../common/csv/csv.util";
+import { parsePageParam } from "../../../common/pagination/pagination";
 import { ListStockMovementsUseCase } from "../application/use-cases/list-stock-movements.use-case";
 import { RestockMaterialUseCase } from "../application/use-cases/restock-material.use-case";
 import { UpdateMaterialUseCase } from "../application/use-cases/update-material.use-case";
@@ -56,7 +58,8 @@ import { UpdateMaterialDto } from "./dto/update-material.dto";
 @RequireModule("stock")
 export class MaterialsController {
   constructor(
-    private readonly listMaterials: ListMaterialsUseCase,
+    private readonly listMaterialsPage: ListMaterialsPageUseCase,
+    private readonly listMaterialOptions: ListMaterialOptionsUseCase,
     private readonly exportMaterials: ExportMaterialsUseCase,
     private readonly createMaterial: CreateMaterialUseCase,
     private readonly updateMaterial: UpdateMaterialUseCase,
@@ -107,6 +110,15 @@ export class MaterialsController {
     });
   }
 
+  @Get("options")
+  @AllowAnyOrgMember()
+  async options(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.listMaterialOptions.execute(orgId, user.id);
+  }
+
   @Get()
   @AllowAnyOrgMember()
   async list(
@@ -120,8 +132,10 @@ export class MaterialsController {
     @Query("minCost") minCost?: string,
     @Query("maxCost") maxCost?: string,
     @Query("sortBy") sortBy?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
   ) {
-    return this.listMaterials.execute(
+    return this.listMaterialsPage.execute(
       orgId,
       {
         categoryId,
@@ -139,6 +153,8 @@ export class MaterialsController {
         sortBy: sortBy === "name" ? "name" : "lastUsed",
       },
       user.id,
+      parsePageParam(page),
+      parsePageParam(limit),
     );
   }
 
@@ -283,13 +299,15 @@ export class MaterialsController {
   async movements(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Param("id", ParseUUIDPipe) id: string,
+    @Query("page") page?: string,
     @Query("limit") limit?: string,
-    @Query("offset") offset?: string,
   ) {
-    return this.listMovements.execute(id, orgId, {
-      limit: limit ? parseInt(limit, 10) : undefined,
-      offset: offset ? parseInt(offset, 10) : undefined,
-    });
+    return this.listMovements.execute(
+      id,
+      orgId,
+      parsePageParam(page),
+      parsePageParam(limit),
+    );
   }
 }
 

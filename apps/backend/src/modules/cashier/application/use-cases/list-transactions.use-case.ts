@@ -27,6 +27,9 @@ export interface ListTransactionsInput {
   filter?: ListTransactionsFilter;
 }
 
+// Caminho NÃO paginado — usado por ExportTransactionsUseCase e pelos use-cases de overview,
+// que precisam agregar TODAS as transações do período; a listagem paginada de tela usa
+// ListTransactionsPageUseCase.
 @Injectable()
 export class ListTransactionsUseCase {
   constructor(
