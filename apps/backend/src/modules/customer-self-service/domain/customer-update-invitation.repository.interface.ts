@@ -18,10 +18,11 @@ export type CustomerUpdateInvitationWithContext =
     customerPhone: string | null;
     customerBirthDate: string;
     customerAddress: string;
-    customerNumber: string;
+    // number/city/state podem ser NULL em clientes importados do legado Ink House (0071).
+    customerNumber: string | null;
     customerAddressLine2: string | null;
-    customerCity: string;
-    customerState: string;
+    customerCity: string | null;
+    customerState: string | null;
     customerPostalCode: string | null;
     customerCountry: string | null;
   };
