@@ -3,7 +3,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { apiRequest } from "@/infrastructure/api/client"
 import { queryKeys } from "@/infrastructure/query/query-keys"
-import type { Member, Invitation, InviteResult, OrgRole } from "../types"
+import type {
+  Member,
+  Invitation,
+  InviteResult,
+  MemberClassification,
+  OrgRole,
+} from "../types"
 
 export function useMembers(orgId: string) {
   const queryClient = useQueryClient()
@@ -63,6 +69,23 @@ export function useMembers(orgId: string) {
     },
   })
 
+  const updateMemberClassificationMutation = useMutation({
+    mutationFn: ({
+      memberId,
+      classification,
+    }: {
+      memberId: string
+      classification: MemberClassification | null
+    }) =>
+      apiRequest<Member>(`/orgs/${orgId}/members/${memberId}/classification`, {
+        method: "PATCH",
+        body: JSON.stringify({ classification }),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.members.list(orgId) })
+    },
+  })
+
   const setMemberStatusMutation = useMutation({
     mutationFn: ({ memberId, enabled }: { memberId: string; enabled: boolean }) =>
       apiRequest<Member>(`/orgs/${orgId}/members/${memberId}/status`, {
@@ -116,6 +139,16 @@ export function useMembers(orgId: string) {
     return updateMemberPermissionsMutation.mutateAsync({ memberId, permissions })
   }
 
+  async function updateMemberClassification(
+    memberId: string,
+    classification: MemberClassification | null,
+  ): Promise<Member> {
+    return updateMemberClassificationMutation.mutateAsync({
+      memberId,
+      classification,
+    })
+  }
+
   async function cancelInvitation(invitationId: string): Promise<void> {
     return cancelInvitationMutation.mutateAsync(invitationId)
   }
@@ -132,6 +165,7 @@ export function useMembers(orgId: string) {
     removeMember,
     setMemberStatus,
     updateMemberPermissions,
+    updateMemberClassification,
     cancelInvitation,
   }
 }

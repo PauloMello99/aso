@@ -1,7 +1,12 @@
 import { ReconcileSubscriptionsUseCase } from "./reconcile-subscriptions.use-case";
 import { IPaymentGateway } from "../../domain/ports/payment-gateway.port";
 import { ISubscriptionRepository } from "../../domain/subscription.repository.interface";
+import {
+  BillingPlanPriceEntity,
+  IBillingPlanPriceRepository,
+} from "../../domain/billing-plan-price.repository.interface";
 import { SubscriptionEntity } from "../../domain/subscription.entity";
+import { TelemetryService } from "../../../../common/telemetry/telemetry.service";
 
 function buildSubscription(
   overrides: Partial<Parameters<typeof SubscriptionEntity.create>[0]> = {},
@@ -26,6 +31,7 @@ function buildSubscription(
     compGrantedBy: null,
     compExpiresAt: null,
     canceledAt: null,
+    cancelAtPeriodEnd: false,
     trialConsumed: false,
     createdAt: new Date("2026-01-01T00:00:00Z"),
     updatedAt: new Date("2026-01-01T00:00:00Z"),
@@ -80,6 +86,42 @@ function buildFakeSubscriptionRepo(
   } as unknown as jest.Mocked<ISubscriptionRepository>;
 }
 
+function buildFakeBillingPlanPriceRepo(
+  overrides: Partial<jest.Mocked<IBillingPlanPriceRepository>> = {},
+): jest.Mocked<IBillingPlanPriceRepository> {
+  const catalogRow: BillingPlanPriceEntity = {
+    id: "plan-price-1",
+    planId: "plan-1",
+    interval: "monthly",
+    amountCents: 4990,
+    currency: "brl",
+    stripePriceId: "price_1",
+    lookupKey: null,
+    active: true,
+    lastSyncedAt: null,
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    updatedAt: new Date("2026-01-01T00:00:00Z"),
+  };
+  return {
+    findActiveByPlanId: jest.fn(),
+    findAllByPlanId: jest.fn(),
+    findActiveByPlanIdAndInterval: jest.fn(),
+    findByPlanIdAndInterval: jest.fn(),
+    findByStripePriceId: jest.fn().mockResolvedValue(catalogRow),
+    create: jest.fn(),
+    updateById: jest.fn(),
+    deactivateById: jest.fn(),
+    ...overrides,
+  } as unknown as jest.Mocked<IBillingPlanPriceRepository>;
+}
+
+function buildFakeTelemetry(): jest.Mocked<TelemetryService> {
+  return {
+    captureException: jest.fn(),
+    captureMessage: jest.fn(),
+  } as unknown as jest.Mocked<TelemetryService>;
+}
+
 describe("ReconcileSubscriptionsUseCase", () => {
   it("syncs a subscription that drifted from Stripe (e.g. missed webhook)", async () => {
     const current = buildSubscription({ status: "active" });
@@ -96,6 +138,7 @@ describe("ReconcileSubscriptionsUseCase", () => {
       currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
       currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
       canceledAt: null,
+      cancelAtPeriodEnd: false,
     };
     const paymentGateway = buildFakePaymentGateway({
       getSubscription: jest.fn().mockResolvedValue(normalized),
@@ -104,9 +147,12 @@ describe("ReconcileSubscriptionsUseCase", () => {
       findAllStripeLinked: jest.fn().mockResolvedValue([current]),
     });
 
+    const telemetry = buildFakeTelemetry();
     const useCase = new ReconcileSubscriptionsUseCase(
       subscriptionRepo,
       paymentGateway,
+      buildFakeBillingPlanPriceRepo(),
+      telemetry,
     );
     const result = await useCase.execute();
 
@@ -114,11 +160,26 @@ describe("ReconcileSubscriptionsUseCase", () => {
       "org-1",
       expect.objectContaining({ status: "past_due", type: "standard" }),
     );
-    expect(result).toEqual({ checked: 1, updated: 1, errors: 0 });
+    expect(result).toEqual({
+      checked: 1,
+      updated: 1,
+      errors: 0,
+      diffs: [
+        {
+          orgId: "org-1",
+          field: "status",
+          oldValue: "active",
+          newValue: "past_due",
+        },
+      ],
+    });
   });
 
-  it("treats a subscription deleted in Stripe (getSubscription returns null) as canceled", async () => {
-    const current = buildSubscription({ status: "active" });
+  it("treats a subscription deleted in Stripe (getSubscription returns null) as canceled and clears cancelAtPeriodEnd", async () => {
+    const current = buildSubscription({
+      status: "active",
+      cancelAtPeriodEnd: true,
+    });
     const paymentGateway = buildFakePaymentGateway({
       getSubscription: jest.fn().mockResolvedValue(null),
     });
@@ -126,15 +187,22 @@ describe("ReconcileSubscriptionsUseCase", () => {
       findAllStripeLinked: jest.fn().mockResolvedValue([current]),
     });
 
+    const telemetry = buildFakeTelemetry();
     const useCase = new ReconcileSubscriptionsUseCase(
       subscriptionRepo,
       paymentGateway,
+      buildFakeBillingPlanPriceRepo(),
+      telemetry,
     );
     const result = await useCase.execute();
 
     expect(subscriptionRepo.update).toHaveBeenCalledWith(
       "org-1",
-      expect.objectContaining({ status: "canceled", type: "free" }),
+      expect.objectContaining({
+        status: "canceled",
+        type: "free",
+        cancelAtPeriodEnd: false,
+      }),
     );
     expect(result.updated).toBe(1);
   });
@@ -148,14 +216,17 @@ describe("ReconcileSubscriptionsUseCase", () => {
       findAllStripeLinked: jest.fn().mockResolvedValue([current]),
     });
 
+    const telemetry = buildFakeTelemetry();
     const useCase = new ReconcileSubscriptionsUseCase(
       subscriptionRepo,
       paymentGateway,
+      buildFakeBillingPlanPriceRepo(),
+      telemetry,
     );
     const result = await useCase.execute();
 
     expect(subscriptionRepo.update).not.toHaveBeenCalled();
-    expect(result).toEqual({ checked: 1, updated: 0, errors: 0 });
+    expect(result).toEqual({ checked: 1, updated: 0, errors: 0, diffs: [] });
   });
 
   it("does not resurrect a subscription locked locally by the expiry sweep (anti-flap guard)", async () => {
@@ -179,6 +250,7 @@ describe("ReconcileSubscriptionsUseCase", () => {
       currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
       currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
       canceledAt: null,
+      cancelAtPeriodEnd: false,
     };
     const paymentGateway = buildFakePaymentGateway({
       getSubscription: jest.fn().mockResolvedValue(normalized),
@@ -187,14 +259,17 @@ describe("ReconcileSubscriptionsUseCase", () => {
       findAllStripeLinked: jest.fn().mockResolvedValue([lockedLocally]),
     });
 
+    const telemetry = buildFakeTelemetry();
     const useCase = new ReconcileSubscriptionsUseCase(
       subscriptionRepo,
       paymentGateway,
+      buildFakeBillingPlanPriceRepo(),
+      telemetry,
     );
     const result = await useCase.execute();
 
     expect(subscriptionRepo.update).not.toHaveBeenCalled();
-    expect(result).toEqual({ checked: 1, updated: 0, errors: 0 });
+    expect(result).toEqual({ checked: 1, updated: 0, errors: 0, diffs: [] });
   });
 
   it("re-activates a locally-canceled subscription once Stripe reports it paying again", async () => {
@@ -215,6 +290,7 @@ describe("ReconcileSubscriptionsUseCase", () => {
       currentPeriodStart: new Date("2026-03-01T00:00:00Z"),
       currentPeriodEnd: new Date("2026-04-01T00:00:00Z"),
       canceledAt: null,
+      cancelAtPeriodEnd: false,
     };
     const paymentGateway = buildFakePaymentGateway({
       getSubscription: jest.fn().mockResolvedValue(normalized),
@@ -223,9 +299,12 @@ describe("ReconcileSubscriptionsUseCase", () => {
       findAllStripeLinked: jest.fn().mockResolvedValue([lockedLocally]),
     });
 
+    const telemetry = buildFakeTelemetry();
     const useCase = new ReconcileSubscriptionsUseCase(
       subscriptionRepo,
       paymentGateway,
+      buildFakeBillingPlanPriceRepo(),
+      telemetry,
     );
     const result = await useCase.execute();
 
@@ -255,6 +334,7 @@ describe("ReconcileSubscriptionsUseCase", () => {
       currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
       currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
       canceledAt: null,
+      cancelAtPeriodEnd: false,
     };
     const paymentGateway = buildFakePaymentGateway({
       getSubscription: jest.fn().mockResolvedValue(normalized),
@@ -263,9 +343,12 @@ describe("ReconcileSubscriptionsUseCase", () => {
       findAllStripeLinked: jest.fn().mockResolvedValue([current]),
     });
 
+    const telemetry = buildFakeTelemetry();
     const useCase = new ReconcileSubscriptionsUseCase(
       subscriptionRepo,
       paymentGateway,
+      buildFakeBillingPlanPriceRepo(),
+      telemetry,
     );
     const result = await useCase.execute();
 
@@ -295,6 +378,7 @@ describe("ReconcileSubscriptionsUseCase", () => {
       currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
       currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
       canceledAt: null,
+      cancelAtPeriodEnd: false,
     };
     const paymentGateway = buildFakePaymentGateway({
       getSubscription: jest.fn().mockResolvedValue(normalized),
@@ -303,14 +387,281 @@ describe("ReconcileSubscriptionsUseCase", () => {
       findAllStripeLinked: jest.fn().mockResolvedValue([current]),
     });
 
+    const telemetry = buildFakeTelemetry();
     const useCase = new ReconcileSubscriptionsUseCase(
       subscriptionRepo,
       paymentGateway,
+      buildFakeBillingPlanPriceRepo(),
+      telemetry,
     );
     const result = await useCase.execute();
 
     expect(subscriptionRepo.update).not.toHaveBeenCalled();
-    expect(result).toEqual({ checked: 1, updated: 0, errors: 0 });
+    expect(result).toEqual({ checked: 1, updated: 0, errors: 0, diffs: [] });
+  });
+
+  it("corrects drift when Stripe flips cancelAtPeriodEnd to true", async () => {
+    const current = buildSubscription({ cancelAtPeriodEnd: false });
+    const normalized = {
+      stripeSubscriptionId: "sub_stripe_1",
+      stripeCustomerId: "cus_1",
+      status: "active" as const,
+      billingInterval: "monthly" as const,
+      priceCents: 4990,
+      stripePriceId: "price_1",
+      stripeCouponId: null,
+      discountPercent: null,
+      trialEndsAt: null,
+      currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
+      currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
+      canceledAt: null,
+      cancelAtPeriodEnd: true,
+    };
+    const paymentGateway = buildFakePaymentGateway({
+      getSubscription: jest.fn().mockResolvedValue(normalized),
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findAllStripeLinked: jest.fn().mockResolvedValue([current]),
+    });
+
+    const telemetry = buildFakeTelemetry();
+    const useCase = new ReconcileSubscriptionsUseCase(
+      subscriptionRepo,
+      paymentGateway,
+      buildFakeBillingPlanPriceRepo(),
+      telemetry,
+    );
+    const result = await useCase.execute();
+
+    expect(subscriptionRepo.update).toHaveBeenCalledWith(
+      "org-1",
+      expect.objectContaining({ cancelAtPeriodEnd: true }),
+    );
+    expect(result.updated).toBe(1);
+  });
+
+  it("corrects drift when Stripe flips cancelAtPeriodEnd back to false", async () => {
+    const current = buildSubscription({ cancelAtPeriodEnd: true });
+    const normalized = {
+      stripeSubscriptionId: "sub_stripe_1",
+      stripeCustomerId: "cus_1",
+      status: "active" as const,
+      billingInterval: "monthly" as const,
+      priceCents: 4990,
+      stripePriceId: "price_1",
+      stripeCouponId: null,
+      discountPercent: null,
+      trialEndsAt: null,
+      currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
+      currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
+      canceledAt: null,
+      cancelAtPeriodEnd: false,
+    };
+    const paymentGateway = buildFakePaymentGateway({
+      getSubscription: jest.fn().mockResolvedValue(normalized),
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findAllStripeLinked: jest.fn().mockResolvedValue([current]),
+    });
+
+    const telemetry = buildFakeTelemetry();
+    const useCase = new ReconcileSubscriptionsUseCase(
+      subscriptionRepo,
+      paymentGateway,
+      buildFakeBillingPlanPriceRepo(),
+      telemetry,
+    );
+    const result = await useCase.execute();
+
+    expect(subscriptionRepo.update).toHaveBeenCalledWith(
+      "org-1",
+      expect.objectContaining({ cancelAtPeriodEnd: false }),
+    );
+    expect(result.updated).toBe(1);
+  });
+
+  it("does not write when cancelAtPeriodEnd matches and there is no other drift", async () => {
+    const current = buildSubscription({ cancelAtPeriodEnd: true });
+    const normalized = {
+      stripeSubscriptionId: "sub_stripe_1",
+      stripeCustomerId: "cus_1",
+      status: "active" as const,
+      billingInterval: "monthly" as const,
+      priceCents: 4990,
+      stripePriceId: "price_1",
+      stripeCouponId: null,
+      discountPercent: null,
+      trialEndsAt: null,
+      currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
+      currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
+      canceledAt: null,
+      cancelAtPeriodEnd: true,
+    };
+    const paymentGateway = buildFakePaymentGateway({
+      getSubscription: jest.fn().mockResolvedValue(normalized),
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findAllStripeLinked: jest.fn().mockResolvedValue([current]),
+    });
+
+    const telemetry = buildFakeTelemetry();
+    const useCase = new ReconcileSubscriptionsUseCase(
+      subscriptionRepo,
+      paymentGateway,
+      buildFakeBillingPlanPriceRepo(),
+      telemetry,
+    );
+    const result = await useCase.execute();
+
+    expect(subscriptionRepo.update).not.toHaveBeenCalled();
+    expect(result).toEqual({ checked: 1, updated: 0, errors: 0, diffs: [] });
+  });
+
+  it("does not report drift when the local discount already matches Stripe", async () => {
+    const current = buildSubscription({
+      stripeCouponId: "coupon_1",
+      discountPercent: 20,
+    });
+    const normalized = {
+      stripeSubscriptionId: "sub_stripe_1",
+      stripeCustomerId: "cus_1",
+      status: "active" as const,
+      billingInterval: "monthly" as const,
+      priceCents: 4990,
+      stripePriceId: "price_1",
+      stripeCouponId: "coupon_1",
+      discountPercent: 20,
+      trialEndsAt: null,
+      currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
+      currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
+      canceledAt: null,
+      cancelAtPeriodEnd: false,
+    };
+    const paymentGateway = buildFakePaymentGateway({
+      getSubscription: jest.fn().mockResolvedValue(normalized),
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findAllStripeLinked: jest.fn().mockResolvedValue([current]),
+    });
+
+    const telemetry = buildFakeTelemetry();
+    const useCase = new ReconcileSubscriptionsUseCase(
+      subscriptionRepo,
+      paymentGateway,
+      buildFakeBillingPlanPriceRepo(),
+      telemetry,
+    );
+    const result = await useCase.execute();
+
+    expect(subscriptionRepo.update).not.toHaveBeenCalled();
+    expect(telemetry.captureMessage).not.toHaveBeenCalled();
+    expect(result).toEqual({ checked: 1, updated: 0, errors: 0, diffs: [] });
+  });
+
+  it("restores a divergent discount and emits telemetry", async () => {
+    const current = buildSubscription({
+      stripeCouponId: null,
+      discountPercent: null,
+    });
+    const normalized = {
+      stripeSubscriptionId: "sub_stripe_1",
+      stripeCustomerId: "cus_1",
+      status: "active" as const,
+      billingInterval: "monthly" as const,
+      priceCents: 4990,
+      stripePriceId: "price_1",
+      stripeCouponId: "coupon_1",
+      discountPercent: 20,
+      trialEndsAt: null,
+      currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
+      currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
+      canceledAt: null,
+      cancelAtPeriodEnd: false,
+    };
+    const paymentGateway = buildFakePaymentGateway({
+      getSubscription: jest.fn().mockResolvedValue(normalized),
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findAllStripeLinked: jest.fn().mockResolvedValue([current]),
+    });
+
+    const telemetry = buildFakeTelemetry();
+    const useCase = new ReconcileSubscriptionsUseCase(
+      subscriptionRepo,
+      paymentGateway,
+      buildFakeBillingPlanPriceRepo(),
+      telemetry,
+    );
+    const result = await useCase.execute();
+
+    expect(subscriptionRepo.update).toHaveBeenCalledWith(
+      "org-1",
+      expect.objectContaining({
+        stripeCouponId: "coupon_1",
+        discountPercent: 20,
+      }),
+    );
+    expect(telemetry.captureMessage).toHaveBeenCalledWith(
+      expect.stringContaining("org-1"),
+      "warn",
+      expect.objectContaining({
+        code: "BILLING_SUBSCRIPTION_DISCOUNT_DRIFT_OVERWRITTEN",
+      }),
+    );
+    expect(result.updated).toBe(1);
+  });
+
+  it("zeroes the cached discount when a repeating coupon expired in Stripe", async () => {
+    const current = buildSubscription({
+      stripeCouponId: "coupon_1",
+      discountPercent: 20,
+    });
+    const normalized = {
+      stripeSubscriptionId: "sub_stripe_1",
+      stripeCustomerId: "cus_1",
+      status: "active" as const,
+      billingInterval: "monthly" as const,
+      priceCents: 4990,
+      stripePriceId: "price_1",
+      stripeCouponId: null,
+      discountPercent: null,
+      trialEndsAt: null,
+      currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
+      currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
+      canceledAt: null,
+      cancelAtPeriodEnd: false,
+    };
+    const paymentGateway = buildFakePaymentGateway({
+      getSubscription: jest.fn().mockResolvedValue(normalized),
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findAllStripeLinked: jest.fn().mockResolvedValue([current]),
+    });
+
+    const telemetry = buildFakeTelemetry();
+    const useCase = new ReconcileSubscriptionsUseCase(
+      subscriptionRepo,
+      paymentGateway,
+      buildFakeBillingPlanPriceRepo(),
+      telemetry,
+    );
+    const result = await useCase.execute();
+
+    expect(subscriptionRepo.update).toHaveBeenCalledWith(
+      "org-1",
+      expect.objectContaining({
+        stripeCouponId: null,
+        discountPercent: null,
+      }),
+    );
+    expect(telemetry.captureMessage).toHaveBeenCalledWith(
+      expect.stringContaining("org-1"),
+      "warn",
+      expect.objectContaining({
+        code: "BILLING_SUBSCRIPTION_DISCOUNT_DRIFT_OVERWRITTEN",
+      }),
+    );
+    expect(result.updated).toBe(1);
   });
 
   it("continues processing other orgs after a failure on one", async () => {
@@ -342,6 +693,7 @@ describe("ReconcileSubscriptionsUseCase", () => {
           currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
           currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
           canceledAt: null,
+          cancelAtPeriodEnd: false,
         });
       }),
     });
@@ -349,16 +701,252 @@ describe("ReconcileSubscriptionsUseCase", () => {
       findAllStripeLinked: jest.fn().mockResolvedValue([failing, healthy]),
     });
 
+    const telemetry = buildFakeTelemetry();
     const useCase = new ReconcileSubscriptionsUseCase(
       subscriptionRepo,
       paymentGateway,
+      buildFakeBillingPlanPriceRepo(),
+      telemetry,
     );
     const result = await useCase.execute();
 
-    expect(result).toEqual({ checked: 2, updated: 1, errors: 1 });
+    expect(result).toEqual({
+      checked: 2,
+      updated: 1,
+      errors: 1,
+      diffs: [
+        {
+          orgId: "org-2",
+          field: "status",
+          oldValue: "active",
+          newValue: "past_due",
+        },
+      ],
+    });
     expect(subscriptionRepo.update).toHaveBeenCalledWith(
       "org-2",
       expect.objectContaining({ status: "past_due" }),
     );
+  });
+
+  it("records a per-field diff for a currentPeriodEnd-only drift without emitting telemetry", async () => {
+    const current = buildSubscription({
+      currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
+    });
+    const normalized = {
+      stripeSubscriptionId: "sub_stripe_1",
+      stripeCustomerId: "cus_1",
+      status: "active" as const,
+      billingInterval: "monthly" as const,
+      priceCents: 4990,
+      stripePriceId: "price_1",
+      stripeCouponId: null,
+      discountPercent: null,
+      trialEndsAt: null,
+      currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
+      currentPeriodEnd: new Date("2026-03-01T00:00:00Z"),
+      canceledAt: null,
+      cancelAtPeriodEnd: false,
+    };
+    const paymentGateway = buildFakePaymentGateway({
+      getSubscription: jest.fn().mockResolvedValue(normalized),
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findAllStripeLinked: jest.fn().mockResolvedValue([current]),
+    });
+
+    const telemetry = buildFakeTelemetry();
+    const useCase = new ReconcileSubscriptionsUseCase(
+      subscriptionRepo,
+      paymentGateway,
+      buildFakeBillingPlanPriceRepo(),
+      telemetry,
+    );
+    const result = await useCase.execute();
+
+    expect(result.diffs).toEqual([
+      {
+        orgId: "org-1",
+        field: "currentPeriodEnd",
+        oldValue: "2026-02-01T00:00:00.000Z",
+        newValue: "2026-03-01T00:00:00.000Z",
+      },
+    ]);
+    expect(telemetry.captureMessage).not.toHaveBeenCalled();
+    expect(subscriptionRepo.update).toHaveBeenCalledWith(
+      "org-1",
+      expect.objectContaining({
+        currentPeriodEnd: new Date("2026-03-01T00:00:00Z"),
+      }),
+    );
+  });
+
+  it("emits price-drift telemetry and records the diff when priceCents diverges", async () => {
+    const current = buildSubscription({ priceCents: 4990 });
+    const normalized = {
+      stripeSubscriptionId: "sub_stripe_1",
+      stripeCustomerId: "cus_1",
+      status: "active" as const,
+      billingInterval: "monthly" as const,
+      priceCents: 5990,
+      stripePriceId: "price_1",
+      stripeCouponId: null,
+      discountPercent: null,
+      trialEndsAt: null,
+      currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
+      currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
+      canceledAt: null,
+      cancelAtPeriodEnd: false,
+    };
+    const paymentGateway = buildFakePaymentGateway({
+      getSubscription: jest.fn().mockResolvedValue(normalized),
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findAllStripeLinked: jest.fn().mockResolvedValue([current]),
+    });
+
+    const telemetry = buildFakeTelemetry();
+    const useCase = new ReconcileSubscriptionsUseCase(
+      subscriptionRepo,
+      paymentGateway,
+      buildFakeBillingPlanPriceRepo(),
+      telemetry,
+    );
+    const result = await useCase.execute();
+
+    expect(result.diffs).toEqual([
+      {
+        orgId: "org-1",
+        field: "priceCents",
+        oldValue: "4990",
+        newValue: "5990",
+      },
+    ]);
+    expect(telemetry.captureMessage).toHaveBeenCalledTimes(1);
+    expect(telemetry.captureMessage).toHaveBeenCalledWith(
+      expect.stringContaining("org-1"),
+      "warn",
+      expect.objectContaining({
+        code: "BILLING_SUBSCRIPTION_PRICE_DRIFT_OVERWRITTEN",
+        fromPriceCents: 4990,
+        toPriceCents: 5990,
+      }),
+    );
+    expect(subscriptionRepo.update).toHaveBeenCalledWith(
+      "org-1",
+      expect.objectContaining({ priceCents: 5990 }),
+    );
+  });
+
+  it("flags a subscription on a Stripe price absent from the local catalog without blocking the sync", async () => {
+    const current = buildSubscription({ stripePriceId: "price_1" });
+    const normalized = {
+      stripeSubscriptionId: "sub_stripe_1",
+      stripeCustomerId: "cus_1",
+      status: "active" as const,
+      billingInterval: "monthly" as const,
+      priceCents: 4990,
+      stripePriceId: "price_orphan",
+      stripeCouponId: null,
+      discountPercent: null,
+      trialEndsAt: null,
+      currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
+      currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
+      canceledAt: null,
+      cancelAtPeriodEnd: false,
+    };
+    const paymentGateway = buildFakePaymentGateway({
+      getSubscription: jest.fn().mockResolvedValue(normalized),
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findAllStripeLinked: jest.fn().mockResolvedValue([current]),
+    });
+    const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo({
+      findByStripePriceId: jest.fn().mockResolvedValue(null),
+    });
+
+    const telemetry = buildFakeTelemetry();
+    const useCase = new ReconcileSubscriptionsUseCase(
+      subscriptionRepo,
+      paymentGateway,
+      billingPlanPriceRepo,
+      telemetry,
+    );
+    const result = await useCase.execute();
+
+    expect(billingPlanPriceRepo.findByStripePriceId).toHaveBeenCalledWith(
+      "price_orphan",
+    );
+    expect(telemetry.captureMessage).toHaveBeenCalledWith(
+      expect.stringContaining("org-1"),
+      "warn",
+      expect.objectContaining({
+        code: "BILLING_SUBSCRIPTION_PRICE_NOT_IN_CATALOG",
+        stripePriceId: "price_orphan",
+      }),
+    );
+    expect(subscriptionRepo.update).toHaveBeenCalledWith(
+      "org-1",
+      expect.objectContaining({
+        status: "active",
+        stripePriceId: "price_orphan",
+        priceCents: 4990,
+      }),
+    );
+    expect(result.updated).toBe(1);
+  });
+
+  it("flags an orphan Stripe price even on a tick where no other field drifted", async () => {
+    // The check runs BEFORE the drift gate, so a subscribed org sitting on a
+    // Stripe price absent from the local catalog is surfaced continuously,
+    // not only on the tick some other field happens to diverge.
+    const current = buildSubscription({ stripePriceId: "price_orphan" });
+    const normalized = {
+      stripeSubscriptionId: "sub_stripe_1",
+      stripeCustomerId: "cus_1",
+      status: "active" as const,
+      billingInterval: "monthly" as const,
+      priceCents: 4990,
+      stripePriceId: "price_orphan",
+      stripeCouponId: null,
+      discountPercent: null,
+      trialEndsAt: null,
+      currentPeriodStart: new Date("2026-01-01T00:00:00Z"),
+      currentPeriodEnd: new Date("2026-02-01T00:00:00Z"),
+      canceledAt: null,
+      cancelAtPeriodEnd: false,
+    };
+    const paymentGateway = buildFakePaymentGateway({
+      getSubscription: jest.fn().mockResolvedValue(normalized),
+    });
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findAllStripeLinked: jest.fn().mockResolvedValue([current]),
+    });
+    const billingPlanPriceRepo = buildFakeBillingPlanPriceRepo({
+      findByStripePriceId: jest.fn().mockResolvedValue(null),
+    });
+
+    const telemetry = buildFakeTelemetry();
+    const useCase = new ReconcileSubscriptionsUseCase(
+      subscriptionRepo,
+      paymentGateway,
+      billingPlanPriceRepo,
+      telemetry,
+    );
+    const result = await useCase.execute();
+
+    expect(billingPlanPriceRepo.findByStripePriceId).toHaveBeenCalledWith(
+      "price_orphan",
+    );
+    expect(telemetry.captureMessage).toHaveBeenCalledWith(
+      expect.stringContaining("org-1"),
+      "warn",
+      expect.objectContaining({
+        code: "BILLING_SUBSCRIPTION_PRICE_NOT_IN_CATALOG",
+        stripePriceId: "price_orphan",
+      }),
+    );
+    expect(subscriptionRepo.update).not.toHaveBeenCalled();
+    expect(result).toEqual({ checked: 1, updated: 0, errors: 0, diffs: [] });
   });
 });

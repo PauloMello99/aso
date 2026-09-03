@@ -1,4 +1,7 @@
-import { shouldMarkTrialConsumed } from "./subscription-sync";
+import {
+  shouldMarkTrialConsumed,
+  shouldSkipStripeStatusOverride,
+} from "./subscription-sync";
 import { SubscriptionEntity } from "./subscription.entity";
 
 function buildSubscription(
@@ -24,6 +27,7 @@ function buildSubscription(
     compGrantedBy: null,
     compExpiresAt: null,
     canceledAt: null,
+    cancelAtPeriodEnd: false,
     trialConsumed: false,
     createdAt: new Date("2026-01-01T00:00:00Z"),
     updatedAt: new Date("2026-01-01T00:00:00Z"),
@@ -58,5 +62,27 @@ describe("shouldMarkTrialConsumed", () => {
     const result = shouldMarkTrialConsumed(current, { trialEndsAt: null });
 
     expect(result).toBe(false);
+  });
+});
+
+describe("shouldSkipStripeStatusOverride", () => {
+  it("returns true for a local canceled row when Stripe reports past_due", () => {
+    expect(shouldSkipStripeStatusOverride("canceled", "past_due")).toBe(true);
+  });
+
+  it("returns true for a local canceled row when Stripe reports incomplete-mapped canceled", () => {
+    expect(shouldSkipStripeStatusOverride("canceled", "canceled")).toBe(true);
+  });
+
+  it("returns false for a local canceled row when Stripe reports active", () => {
+    expect(shouldSkipStripeStatusOverride("canceled", "active")).toBe(false);
+  });
+
+  it("returns false for a local canceled row when Stripe reports trialing", () => {
+    expect(shouldSkipStripeStatusOverride("canceled", "trialing")).toBe(false);
+  });
+
+  it("returns false when the local row is not canceled", () => {
+    expect(shouldSkipStripeStatusOverride("active", "past_due")).toBe(false);
   });
 });

@@ -7,6 +7,11 @@ export const platformRoleEnum = pgEnum("platform_role", [
 
 export const orgRoleEnum = pgEnum("org_role", ["owner", "employee"]);
 
+export const memberClassificationEnum = pgEnum("member_classification", [
+  "resident",
+  "guest",
+]);
+
 export const invitationStatusEnum = pgEnum("invitation_status", [
   "pending",
   "accepted",
@@ -103,6 +108,8 @@ export const auditActionEnum = pgEnum("audit_action", [
   "cashier_transaction_created",
   "cashier_fees_updated",
   "cashier_commissions_updated",
+  "org_admin_access",
+  "campaign_settings_updated",
 ]);
 
 export const anamnesisResponseStatusEnum = pgEnum(
@@ -113,6 +120,11 @@ export const anamnesisResponseStatusEnum = pgEnum(
 export const billingInvoiceEventTypeEnum = pgEnum(
   "billing_invoice_event_type",
   ["paid", "payment_failed"],
+);
+
+export const billingRefundEventStatusEnum = pgEnum(
+  "billing_refund_event_status",
+  ["pending", "requires_action", "succeeded", "failed", "canceled"],
 );
 
 export const ticketStatusEnum = pgEnum("ticket_status", [
@@ -134,4 +146,16 @@ export const ticketAuthorTypeEnum = pgEnum("ticket_author_type", [
   "customer",
   "agent",
   "system",
+]);
+
+export const campaignTriggerTypeEnum = pgEnum("campaign_trigger_type", [
+  "post_service",
+  "birthday",
+  "inactivity",
+]);
+
+export const campaignSendStatusEnum = pgEnum("campaign_send_status", [
+  "sent",
+  "failed",
+  "bounced",
 ]);

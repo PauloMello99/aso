@@ -21,6 +21,11 @@ import {
   TableRow,
 } from "@/shared/components/ui/table"
 import { useAdminAuditLogs } from "../hooks/use-admin"
+import {
+  AUDIT_ACTION_OPTIONS,
+  getAuditActionLabel,
+  getAuditActionVariant,
+} from "../lib/audit-labels"
 import type { AuditAction, AuditLogFilters } from "../types"
 
 function fmtDateTime(iso: string): string {
@@ -32,45 +37,6 @@ function fmtDateTime(iso: string): string {
     minute: "2-digit",
   })
 }
-
-const ACTION_LABELS: Record<AuditAction, string> = {
-  create: "Criação",
-  update: "Atualização",
-  delete: "Remoção",
-  invite_sent: "Convite enviado",
-  invite_accepted: "Convite aceito",
-  subscription_changed: "Assinatura",
-  cashier_transaction_created: "Caixa: lançamento",
-  cashier_fees_updated: "Caixa: taxas",
-  cashier_commissions_updated: "Caixa: comissões",
-}
-
-const ACTION_VARIANTS: Record<
-  AuditAction,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  create: "default",
-  update: "secondary",
-  delete: "destructive",
-  invite_sent: "outline",
-  invite_accepted: "outline",
-  subscription_changed: "secondary",
-  cashier_transaction_created: "default",
-  cashier_fees_updated: "secondary",
-  cashier_commissions_updated: "secondary",
-}
-
-const ACTION_OPTIONS: AuditAction[] = [
-  "create",
-  "update",
-  "delete",
-  "invite_sent",
-  "invite_accepted",
-  "subscription_changed",
-  "cashier_transaction_created",
-  "cashier_fees_updated",
-  "cashier_commissions_updated",
-]
 
 const PAGE_SIZE = 50
 
@@ -129,9 +95,9 @@ export function AdminAuditLogs() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas as ações</SelectItem>
-            {ACTION_OPTIONS.map((a) => (
+            {AUDIT_ACTION_OPTIONS.map((a) => (
               <SelectItem key={a} value={a}>
-                {ACTION_LABELS[a]}
+                {getAuditActionLabel(a)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -191,26 +157,28 @@ export function AdminAuditLogs() {
                         {fmtDateTime(row.createdAt)}
                       </TableCell>
                       <TableCell>
-                        {row.actor ? (
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">
-                              {row.actor.name || "—"}
-                            </p>
-                            <p className="truncate text-xs text-foreground/50">
-                              {row.actor.email}
-                            </p>
-                            {row.metadata?.viaSuperAdmin === true && (
-                              <Badge
-                                variant="outline"
-                                className="mt-0.5 px-1.5 py-0 text-[10px]"
-                              >
-                                via super_admin
-                              </Badge>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-foreground/40">sistema</span>
-                        )}
+                        <div className="flex min-w-0 flex-col items-start gap-0.5">
+                          {row.actor ? (
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">
+                                {row.actor.name || "—"}
+                              </p>
+                              <p className="truncate text-xs text-foreground/50">
+                                {row.actor.email}
+                              </p>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-foreground/40">sistema</span>
+                          )}
+                          {row.metadata?.viaSuperAdmin === true && (
+                            <Badge
+                              variant="outline"
+                              className="px-1.5 py-0 text-xs"
+                            >
+                              via super_admin
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {row.org ? (
@@ -220,8 +188,11 @@ export function AdminAuditLogs() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={ACTION_VARIANTS[row.action]} className="text-xs">
-                          {ACTION_LABELS[row.action]}
+                        <Badge
+                          variant={getAuditActionVariant(row.action)}
+                          className="text-xs"
+                        >
+                          {getAuditActionLabel(row.action)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm">

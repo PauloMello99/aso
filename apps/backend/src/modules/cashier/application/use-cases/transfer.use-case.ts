@@ -7,10 +7,15 @@ import {
   ITransactionRepository,
   TRANSACTION_REPOSITORY,
 } from "../../domain/transaction.repository.interface";
+import {
+  IMemberRepository,
+  MEMBER_REPOSITORY,
+} from "../../../organizations/domain/member.repository.interface";
+import { resolveActor } from "./resolve-actor";
 
 export interface TransferInput {
   orgId: string;
-  createdBy?: string | null;
+  authId: string;
   fromMethod: TransferMethod;
   toMethod: TransferMethod;
   amountCents: number;
@@ -28,15 +33,23 @@ export class TransferUseCase {
   constructor(
     @Inject(TRANSACTION_REPOSITORY)
     private readonly transactionRepo: ITransactionRepository,
+    @Inject(MEMBER_REPOSITORY)
+    private readonly memberRepo: IMemberRepository,
   ) {}
 
   async execute(input: TransferInput): Promise<TransferResult> {
     const when = input.transactedAt ?? new Date();
     const label = input.description?.trim() || "Transferência";
 
+    const { userId: createdBy } = await resolveActor(
+      this.memberRepo,
+      input.orgId,
+      input.authId,
+    );
+
     const outcome = await this.transactionRepo.create({
       orgId: input.orgId,
-      createdBy: input.createdBy ?? null,
+      createdBy,
       description: `${label} (saída)`,
       type: "outcome",
       grossCents: input.amountCents,
@@ -49,7 +62,7 @@ export class TransferUseCase {
 
     const income = await this.transactionRepo.create({
       orgId: input.orgId,
-      createdBy: input.createdBy ?? null,
+      createdBy,
       description: `${label} (entrada)`,
       type: "income",
       grossCents: input.amountCents,

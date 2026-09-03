@@ -50,7 +50,7 @@
         "-e",
         "bash",
         "-lc",
-        "exec ~/ink-ops-rag-venv/bin/python /mnt/c/Users/Paulo/Documents/Repos/Pessoal/aso/bin/scripts/rag/mcp_server.py"
+        "exec ~/ink-ops-rag-venv/bin/python /mnt/c/Repos/Pessoal/aso/bin/scripts/rag/mcp_server.py"
       ]
     },
     "github": {

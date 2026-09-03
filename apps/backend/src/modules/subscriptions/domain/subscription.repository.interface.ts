@@ -46,6 +46,7 @@ export interface UpdateSubscriptionData {
   compGrantedBy?: string | null;
   compExpiresAt?: Date | null;
   canceledAt?: Date | null;
+  cancelAtPeriodEnd?: boolean;
   trialConsumed?: boolean;
 }
 

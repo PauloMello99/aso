@@ -13,7 +13,10 @@ import type {
   IMemberRepository,
   UpsertMembershipData,
 } from "../../domain/member.repository.interface";
-import type { MemberEntity } from "../../domain/member.entity";
+import type {
+  MemberClassification,
+  MemberEntity,
+} from "../../domain/member.entity";
 import type { OrgRole } from "../../domain/org.entity";
 import { MemberMapper } from "./member.mapper";
 
@@ -55,6 +58,38 @@ export class DrizzleMemberRepository implements IMemberRepository {
         orgId: schema.orgMemberships.orgId,
         userId: schema.orgMemberships.userId,
         role: schema.orgMemberships.role,
+        classification: schema.orgMemberships.classification,
+        enabled: schema.orgMemberships.enabled,
+        permissions: schema.orgMemberships.permissions,
+        userName: schema.users.name,
+        userEmail: schema.users.email,
+        joinedAt: schema.orgMemberships.joinedAt,
+      })
+      .from(schema.orgMemberships)
+      .innerJoin(schema.users, eq(schema.users.id, schema.orgMemberships.userId))
+      .where(eq(schema.orgMemberships.id, memberId))
+      .limit(1);
+
+    if (!row) throw new Error("Member not found after update");
+    return MemberMapper.toDomain(row);
+  }
+
+  async updateClassification(
+    memberId: string,
+    classification: MemberClassification | null,
+  ): Promise<MemberEntity> {
+    await this.db
+      .update(schema.orgMemberships)
+      .set({ classification })
+      .where(eq(schema.orgMemberships.id, memberId));
+
+    const [row] = await this.db
+      .select({
+        memberId: schema.orgMemberships.id,
+        orgId: schema.orgMemberships.orgId,
+        userId: schema.orgMemberships.userId,
+        role: schema.orgMemberships.role,
+        classification: schema.orgMemberships.classification,
         enabled: schema.orgMemberships.enabled,
         permissions: schema.orgMemberships.permissions,
         userName: schema.users.name,
@@ -77,6 +112,7 @@ export class DrizzleMemberRepository implements IMemberRepository {
         orgId: schema.orgMemberships.orgId,
         userId: schema.orgMemberships.userId,
         role: schema.orgMemberships.role,
+        classification: schema.orgMemberships.classification,
         enabled: schema.orgMemberships.enabled,
         permissions: schema.orgMemberships.permissions,
         userName: schema.users.name,
@@ -97,6 +133,7 @@ export class DrizzleMemberRepository implements IMemberRepository {
         orgId: schema.orgMemberships.orgId,
         userId: schema.orgMemberships.userId,
         role: schema.orgMemberships.role,
+        classification: schema.orgMemberships.classification,
         enabled: schema.orgMemberships.enabled,
         permissions: schema.orgMemberships.permissions,
         userName: schema.users.name,
@@ -127,6 +164,7 @@ export class DrizzleMemberRepository implements IMemberRepository {
           orgId: schema.orgMemberships.orgId,
           userId: schema.orgMemberships.userId,
           role: schema.orgMemberships.role,
+          classification: schema.orgMemberships.classification,
           enabled: schema.orgMemberships.enabled,
           permissions: schema.orgMemberships.permissions,
           userName: schema.users.name,
@@ -165,6 +203,7 @@ export class DrizzleMemberRepository implements IMemberRepository {
           orgId,
           userId: u.id,
           role: "owner",
+          classification: null,
           enabled: true,
           permissions: [],
           userName: u.name,
@@ -188,6 +227,7 @@ export class DrizzleMemberRepository implements IMemberRepository {
         orgId: schema.orgMemberships.orgId,
         userId: schema.orgMemberships.userId,
         role: schema.orgMemberships.role,
+        classification: schema.orgMemberships.classification,
         enabled: schema.orgMemberships.enabled,
         permissions: schema.orgMemberships.permissions,
         userName: schema.users.name,
@@ -215,6 +255,7 @@ export class DrizzleMemberRepository implements IMemberRepository {
         orgId: schema.orgMemberships.orgId,
         userId: schema.orgMemberships.userId,
         role: schema.orgMemberships.role,
+        classification: schema.orgMemberships.classification,
         enabled: schema.orgMemberships.enabled,
         permissions: schema.orgMemberships.permissions,
         userName: schema.users.name,

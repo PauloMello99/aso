@@ -11,7 +11,7 @@ wsl ollama pull bge-m3
 docker compose -f docker-compose.rag.yml up -d
 
 # 3. venv dedicado + deps (mcp, fastembed, tokenizers)
-wsl -e bash -lc "python3 -m venv ~/ink-ops-rag-venv && ~/ink-ops-rag-venv/bin/pip install -r /mnt/c/Users/Paulo/Documents/Repos/Pessoal/ink-ops/bin/scripts/rag/requirements.txt"
+wsl -e bash -lc "python3 -m venv ~/ink-ops-rag-venv && ~/ink-ops-rag-venv/bin/pip install -r /mnt/c/Repos/Pessoal/aso/bin/scripts/rag/requirements.txt"
 
 # 4. Warm-up dos artefatos (tokenizer XLM-RoBERTa + modelo BM25 — nunca em hooks)
 wsl ~/ink-ops-rag-venv/bin/python bin/scripts/rag/warmup.py

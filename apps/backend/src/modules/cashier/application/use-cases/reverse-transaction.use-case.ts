@@ -16,12 +16,17 @@ import {
   ITransactionCategoryRepository,
   TRANSACTION_CATEGORY_REPOSITORY,
 } from "../../domain/transaction-category.repository.interface";
+import {
+  IMemberRepository,
+  MEMBER_REPOSITORY,
+} from "../../../organizations/domain/member.repository.interface";
 import { resolveReversalCategoryId } from "../../domain/reversal-category";
+import { resolveActor } from "./resolve-actor";
 
 export interface ReverseTransactionInput {
   orgId: string;
   transactionId: string;
-  reversedBy?: string | null;
+  authId: string;
 }
 
 @Injectable()
@@ -29,6 +34,8 @@ export class ReverseTransactionUseCase {
   constructor(
     @Inject(TRANSACTION_REPOSITORY)
     private readonly transactionRepo: ITransactionRepository,
+    @Inject(MEMBER_REPOSITORY)
+    private readonly memberRepo: IMemberRepository,
     @Inject(SERVICE_REPOSITORY)
     private readonly serviceRepo: IServiceRepository,
     @Inject(TRANSACTION_CATEGORY_REPOSITORY)
@@ -59,6 +66,12 @@ export class ReverseTransactionUseCase {
       throw new TransactionAlreadyReversedException(input.transactionId);
     }
 
+    const { userId: createdBy } = await resolveActor(
+      this.memberRepo,
+      input.orgId,
+      input.authId,
+    );
+
     const categoryId = await resolveReversalCategoryId(
       this.categoryRepo,
       original.orgId,
@@ -66,7 +79,7 @@ export class ReverseTransactionUseCase {
 
     return this.transactionRepo.create({
       orgId: original.orgId,
-      createdBy: input.reversedBy ?? null,
+      createdBy,
       description: `Estorno: ${original.description}`,
       type: original.type === "income" ? "outcome" : "income",
       grossCents: original.grossCents,

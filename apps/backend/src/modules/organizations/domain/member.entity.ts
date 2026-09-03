@@ -1,10 +1,13 @@
 import type { OrgRole } from "./org.entity";
 
+export type MemberClassification = "resident" | "guest";
+
 export interface MemberEntityProps {
   memberId: string;
   orgId: string;
   userId: string;
   role: OrgRole;
+  classification?: MemberClassification | null;
   enabled: boolean;
   permissions: string[];
   userName: string;
@@ -17,6 +20,7 @@ export class MemberEntity {
   readonly orgId: string;
   readonly userId: string;
   readonly role: OrgRole;
+  readonly classification: MemberClassification | null;
   readonly enabled: boolean;
   readonly permissions: string[];
   readonly userName: string;
@@ -28,6 +32,7 @@ export class MemberEntity {
     this.orgId = props.orgId;
     this.userId = props.userId;
     this.role = props.role;
+    this.classification = props.classification ?? null;
     this.enabled = props.enabled;
     this.permissions = props.permissions ?? [];
     this.userName = props.userName;

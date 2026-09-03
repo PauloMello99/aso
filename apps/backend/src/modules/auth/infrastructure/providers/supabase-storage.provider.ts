@@ -126,6 +126,10 @@ export class SupabaseStorageProvider implements IStorageProvider {
     return result;
   }
 
+  getPublicUrl(bucket: string, path: string): string {
+    return this.admin.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+  }
+
   async removeFile(bucket: string, path: string): Promise<void> {
     await this.admin.storage.from(bucket).remove([path]);
   }

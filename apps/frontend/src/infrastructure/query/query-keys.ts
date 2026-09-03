@@ -58,6 +58,7 @@ export const queryKeys = {
     fees: (orgId: string) => ["cashier", orgId, "fees"] as const,
     categories: (orgId: string) => ["cashier", orgId, "categories"] as const,
     commissions: (orgId: string) => ["cashier", orgId, "commissions"] as const,
+    memberFees: (orgId: string) => ["cashier", orgId, "member-fees"] as const,
   },
 
   admin: {
@@ -116,6 +117,7 @@ export const queryKeys = {
   adminSubscription: {
     detail: (orgId: string) => ["admin", orgId, "subscription"] as const,
     invoices: (orgId: string) => ["admin", orgId, "subscription", "invoices"] as const,
+    refunds: (orgId: string) => ["admin", orgId, "subscription", "refunds"] as const,
   },
 
   adminSupport: {
@@ -145,6 +147,16 @@ export const queryKeys = {
       ["customer-self-service", "registration", token] as const,
     update: (token: string) =>
       ["customer-self-service", "update", token] as const,
+  },
+
+  campaigns: {
+    all: (orgId: string) => ["campaigns", orgId] as const,
+    list: (orgId: string) => ["campaigns", orgId, "list"] as const,
+  },
+
+  publicCampaigns: {
+    preferences: (token: string) =>
+      ["public-campaigns", "preferences", token] as const,
   },
 
   publicBilling: {

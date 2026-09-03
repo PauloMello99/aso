@@ -407,6 +407,104 @@
       "when": 1782004700000,
       "tag": "0057_audit_action_cashier",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1782004800000,
+      "tag": "0058_audit_action_org_admin_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1782004900000,
+      "tag": "0059_subscriptions_cancel_at_period_end",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1782005000000,
+      "tag": "0060_billing_refund_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1782005100000,
+      "tag": "0061_customer_email_preferences",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1782005200000,
+      "tag": "0062_org_campaign_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1782005300000,
+      "tag": "0063_campaign_sends",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1782005400000,
+      "tag": "0064_billing_refund_events_charge_idx",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1782005500000,
+      "tag": "0065_audit_action_campaign_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1782005600000,
+      "tag": "0066_campaigns",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1782005700000,
+      "tag": "0067_drop_org_campaign_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1782005800000,
+      "tag": "0068_campaign_images_bucket",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1782005900000,
+      "tag": "0069_member_classification",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1782006000000,
+      "tag": "0070_member_payment_fees",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1782006100000,
+      "tag": "0071_customers_nullable_address",
+      "breakpoints": true
     }
   ]
 }

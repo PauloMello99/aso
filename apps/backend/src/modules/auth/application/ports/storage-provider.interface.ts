@@ -30,5 +30,7 @@ export interface IStorageProvider {
     },
   ): Promise<Record<string, { url: string; downloadUrl: string }>>;
 
+  getPublicUrl(bucket: string, path: string): string;
+
   removeFile(bucket: string, path: string): Promise<void>;
 }

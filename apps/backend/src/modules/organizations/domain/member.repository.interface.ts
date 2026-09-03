@@ -1,5 +1,5 @@
 import type { OrgRole } from "./org.entity";
-import type { MemberEntity } from "./member.entity";
+import type { MemberClassification, MemberEntity } from "./member.entity";
 
 export const MEMBER_REPOSITORY = Symbol("MEMBER_REPOSITORY");
 
@@ -17,6 +17,10 @@ export interface IMemberRepository {
   findByAuthId(orgId: string, authId: string): Promise<MemberEntity | null>;
   updateRole(memberId: string, role: OrgRole): Promise<MemberEntity>;
   updatePermissions(memberId: string, permissions: string[]): Promise<MemberEntity>;
+  updateClassification(
+    memberId: string,
+    classification: MemberClassification | null,
+  ): Promise<MemberEntity>;
   setEnabled(memberId: string, enabled: boolean): Promise<MemberEntity>;
   countActiveOwners(orgId: string): Promise<number>;
   countOwnedOrgs(userId: string): Promise<number>;

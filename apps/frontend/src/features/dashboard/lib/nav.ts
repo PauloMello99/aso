@@ -8,6 +8,8 @@ import {
   Settings,
   CreditCard,
   ClipboardList,
+  LifeBuoy,
+  Megaphone,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
@@ -61,11 +63,20 @@ export const ORG_NAV_SECTIONS: NavSection[] = [
       { label: "Agenda", href: "schedule", icon: CalendarDays, module: "schedule" },
       { label: "Estoque", href: "stock", icon: Archive, module: "stock" },
       { label: "Caixa", href: "cashier", icon: Wallet, module: "cashier" },
+      {
+        label: "Campanhas",
+        href: "campaigns",
+        icon: Megaphone,
+        roles: ["owner"],
+      },
     ],
   },
   {
     label: "Configurações",
     items: [{ label: "Configurações", href: "settings", icon: Settings }],
+  },
+  {
+    items: [{ label: "Suporte", href: "support", icon: LifeBuoy }],
   },
 ]
 
@@ -106,6 +117,7 @@ export const PAGE_LABELS: Record<string, string> = {
   members: "Membros",
   stock: "Estoque",
   cashier: "Caixa",
+  campaigns: "Campanhas",
   settings: "Configurações",
   billing: "Cobrança",
   general: "Geral",
@@ -113,4 +125,5 @@ export const PAGE_LABELS: Record<string, string> = {
   anamnesis: "Anamnese",
   subscription: "Assinatura",
   organizations: "Organizações",
+  support: "Suporte",
 }

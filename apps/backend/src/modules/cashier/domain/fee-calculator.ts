@@ -1,3 +1,5 @@
+import type { MemberPaymentFeeEntity } from "./member-payment-fee.entity";
+import type { PaymentFeeEntity } from "./payment-fee.entity";
 import type { PaymentMethod } from "./transaction.entity";
 
 const FEE_ELIGIBLE_METHODS: ReadonlySet<PaymentMethod> = new Set([
@@ -33,4 +35,40 @@ export function computeNet(
 
 export function isFeeEligible(method: PaymentMethod): boolean {
   return FEE_ELIGIBLE_METHODS.has(method);
+}
+
+export type FeeSource = "member" | "org" | "none";
+
+export interface ResolvedFee {
+  config: FeeConfig | null;
+  source: FeeSource;
+  configId: string | null;
+}
+
+export function resolveFee(
+  method: PaymentMethod,
+  memberFee: MemberPaymentFeeEntity | null,
+  orgFee: PaymentFeeEntity | null,
+): ResolvedFee {
+  if (!isFeeEligible(method)) {
+    return { config: null, source: "none", configId: null };
+  }
+
+  if (memberFee && memberFee.active) {
+    return {
+      config: { percent: memberFee.percent, fixedCents: memberFee.fixedCents },
+      source: "member",
+      configId: memberFee.id,
+    };
+  }
+
+  if (orgFee) {
+    return {
+      config: { percent: orgFee.percent, fixedCents: orgFee.fixedCents },
+      source: "org",
+      configId: null,
+    };
+  }
+
+  return { config: null, source: "none", configId: null };
 }

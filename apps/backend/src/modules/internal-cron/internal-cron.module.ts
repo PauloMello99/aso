@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { CalendarModule } from "../calendar/calendar.module";
+import { CampaignsModule } from "../campaigns/campaigns.module";
 import { MaterialsModule } from "../materials/materials.module";
 import { SubscriptionsModule } from "../subscriptions/subscriptions.module";
 import { SupportInfrastructureModule } from "../support/infrastructure/support-infrastructure.module";
@@ -16,6 +17,7 @@ import { InternalCronController } from "./internal-cron.controller";
 @Module({
   imports: [
     CalendarModule,
+    CampaignsModule,
     MaterialsModule,
     SubscriptionsModule,
     SupportInfrastructureModule,

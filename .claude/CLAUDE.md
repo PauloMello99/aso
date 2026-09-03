@@ -8,8 +8,8 @@ Architecture) e `apps/frontend` (Next.js pages router, feature-based) são as ap
 concretas; `packages/` tem as libs reutilizáveis. Domínio coberto pelos módulos de
 backend: caixa (`cashier`), clientes (`customers`), materiais/estoque (`materials`),
 serviços (`services`), `calendar`, `overview`, `notifications`, `support` (canal de
-suporte B2B, ADR-0021), além de `auth`, `organizations`, `admin`, `audit`, `mail`,
-`internal-cron`, `health`, `user`.
+suporte B2B, ADR-0021), `campaigns` (campanhas de e-mail por gatilho, ADR-0025), além de
+`auth`, `organizations`, `admin`, `audit`, `mail`, `internal-cron`, `health`, `user`.
 
 Arquitetura e decisões: `.memory/architecture.md`, `.memory/domain-rules.md` e os ADRs
 em `.memory/adr/` (fonte de verdade). Roadmap: `.memory/roadmap.md`.
@@ -48,11 +48,14 @@ pnpm lint          # lint com cache (--max-warnings 0)
 pnpm check-types   # type-check com cache
 pnpm format        # prettier em todo o repo
 
-pnpm --filter backend db:generate   # drizzle-kit generate (migration)
 pnpm --filter backend db:migrate    # aplica migrations (migrator custom, ADR-0003)
 pnpm --filter backend db:rollback   # reverte última migration (usa .down.sql)
 pnpm --filter backend db:status     # estado das migrations
 ```
+
+> **NÃO use `db:generate` (drizzle-kit generate).** Quebrado desde a 0011; todas as
+> migrations 0003+ são escritas À MÃO (`.sql` + `.down.sql` + entrada manual em
+> `drizzle/migrations/meta/_journal.json`). Ver `.memory/domain-rules.md`.
 
 Supabase local: `pnpm db:start` (`npx supabase start`); tipos: `pnpm db:gen-types`.
 
@@ -76,7 +79,9 @@ Supabase local: `pnpm db:start` (`npx supabase start`); tipos: `pnpm db:gen-type
 - Há suíte automatizada em ambas as apps: backend usa Jest (`apps/backend`, `ts-jest`,
   jest 30; `.spec.ts` por use-case, `jest.Mocked<Interface>` + builders `buildFake*`);
   frontend usa Vitest (`.spec.ts` junto de lib/schemas). `pnpm test` (turbo) roda as duas —
-  validar mudanças com `pnpm check-types` + `pnpm lint` + `pnpm test` + `pnpm build`
+  validar mudanças com `pnpm check-types` + `pnpm lint` + `pnpm test` + `pnpm build`, e
+  **verificar no preview toda mudança observável no navegador** (dev server via
+  `.claude/launch.json`; ver `docs/ai/agentic-workflow.md` §Validação, passo 8)
 
 ## Workflow de agentes
 

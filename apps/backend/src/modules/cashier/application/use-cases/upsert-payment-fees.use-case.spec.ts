@@ -101,6 +101,7 @@ describe("UpsertPaymentFeesUseCase", () => {
       entityType: "payment_fees",
       entityId: "org-1",
       metadata: {
+        scope: "org",
         changes: [
           {
             paymentMethod: "credit_card",

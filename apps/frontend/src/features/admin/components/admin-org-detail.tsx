@@ -34,12 +34,15 @@ import {
   useSetOrgSuspended,
 } from "../hooks/use-admin"
 import { fmtDate } from "../lib/format"
+import {
+  getAuditActionLabel,
+  getAuditActionVariant,
+} from "../lib/audit-labels"
 import { ConfirmDialog } from "@/shared/components/ui/confirm-dialog"
 import { OrgSubscriptionPanel } from "./org-subscription-panel"
 import type {
   AdminOrgDetail as AdminOrgDetailData,
   AdminOrgMember,
-  AuditAction,
 } from "../types"
 
 type TabId = "overview" | "subscription" | "members" | "notifications" | "audit"
@@ -383,33 +386,6 @@ function NotificationsTab({
   )
 }
 
-const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
-  create: "Criação",
-  update: "Atualização",
-  delete: "Remoção",
-  invite_sent: "Convite enviado",
-  invite_accepted: "Convite aceito",
-  subscription_changed: "Assinatura",
-  cashier_transaction_created: "Caixa: lançamento",
-  cashier_fees_updated: "Caixa: taxas",
-  cashier_commissions_updated: "Caixa: comissões",
-}
-
-const AUDIT_ACTION_VARIANTS: Record<
-  AuditAction,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  create: "default",
-  update: "secondary",
-  delete: "destructive",
-  invite_sent: "outline",
-  invite_accepted: "outline",
-  subscription_changed: "secondary",
-  cashier_transaction_created: "default",
-  cashier_fees_updated: "secondary",
-  cashier_commissions_updated: "secondary",
-}
-
 function AuditTab({ orgId }: { orgId: string }) {
   const [page, setPage] = React.useState(1)
   const { page: result, loading, error } = useAdminAuditLogs({
@@ -465,18 +441,28 @@ function AuditTab({ orgId }: { orgId: string }) {
                   {fmtDateTime(row.createdAt)}
                 </TableCell>
                 <TableCell>
-                  {row.actor ? (
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{row.actor.name || "—"}</p>
-                      <p className="truncate text-xs text-foreground/50">{row.actor.email}</p>
-                    </div>
-                  ) : (
-                    <span className="text-xs text-foreground/40">sistema</span>
-                  )}
+                  <div className="flex min-w-0 flex-col items-start gap-0.5">
+                    {row.actor ? (
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{row.actor.name || "—"}</p>
+                        <p className="truncate text-xs text-foreground/50">{row.actor.email}</p>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-foreground/40">sistema</span>
+                    )}
+                    {row.metadata?.viaSuperAdmin === true && (
+                      <Badge variant="outline" className="px-1.5 py-0 text-xs">
+                        via super_admin
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={AUDIT_ACTION_VARIANTS[row.action]} className="text-xs">
-                    {AUDIT_ACTION_LABELS[row.action]}
+                  <Badge
+                    variant={getAuditActionVariant(row.action)}
+                    className="text-xs"
+                  >
+                    {getAuditActionLabel(row.action)}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-sm">

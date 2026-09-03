@@ -96,6 +96,50 @@ de suspensão diferente; misturar as duas semânticas no mesmo campo confundiria
 ajudaria. Registro aqui para que o campo `viaSuperAdmin` nunca seja lido como "toda ação de
 super_admin fica marcada" — só marca o caminho de miss deste ADR.
 
+## Addendum (2026-08-30): T2 — evento de auditoria do ACESSO (não só das mutações)
+
+**Decisão**: além do `metadata.viaSuperAdmin` em cada mutação (addendum anterior), o **ato de
+o super_admin abrir uma org** passa a gerar um `audit_log` próprio — `action:
+'org_admin_access'` (migration `0058`, valor de enum), `entity_type: 'organization'`,
+`entity_id`/`org_id` da org, `metadata: { slug }` (sem PII; `viaSuperAdmin` é adicionado pelo
+`AuditService`). Ator = `users.id` do super_admin (resolvido via `logByAuthId` antes do
+`registerPostCommit`).
+
+**Onde**: `ResolveOrgBySlugUseCase` (`GET /orgs/by-slug/:slug`), lendo `isActingAsSuperAdmin()`
+**depois** do `await` de `findBySlugAndAuthId` (que é onde o repositório marca o ALS no
+miss-path). Ordem protegida por um cenário de spec que semeia `runWithActingContext(false)` e
+deixa o fake do repositório marcar o contexto durante o `await`.
+
+**Recorte deliberado — o evento de acesso NÃO cobre todos os caminhos de síntese:**
+- Cobre: super_admin **sem membership** entrando pela resolução por slug (o botão "Gerenciar"
+  do `/admin/orgs/[id]` → deep-link). É o fluxo do "modo diagnóstico".
+- **NÃO** cobre: `findByIdAndAuthId` (`GET /orgs/:orgId`, navegação por URL direta) nem
+  `isOwner()`, que marcam o ALS mas não emitem evento; nem o super_admin que **tem membership
+  de employee** e sobe a owner via `OrgOwnerGuard`/`isOwner()` (nesse caso o frontend não
+  chama by-slug — `org-layout.tsx` exige `!listOrg`). Nesses caminhos as **mutações** ainda
+  carregam `viaSuperAdmin`, então o *ato* fica rastreado; só o *acesso* não gera linha.
+- Fechar isso (emitir o evento num ponto comum, ex. no `RlsInterceptor` quando
+  `isActingAsSuperAdmin()` vira `true`) é iteração futura, não feito em T2.
+
+**Dedup**: `useResolveOrgBySlug` recebeu `staleTime: Infinity` + `refetchOnWindowFocus: false`
+para o evento representar a *sessão* de acesso, não cada cache miss (com 30s de staleTime
+global, uma sessão gerava dezenas de linhas). Trade-off: renomeação de org durante a sessão
+do admin só reflete após reload.
+
+**Painel `/admin`**: a union `AuditAction` do frontend estava defasada (9 de 17 valores → várias
+ações renderizavam badge vazio). Sincronizada; mapas de label/variant movidos para
+`features/admin/lib/audit-labels.ts` com helpers `getAuditActionLabel`/`getAuditActionVariant`
+(fallback para o valor cru). Badge "via super_admin" renderizado a partir de
+`metadata.viaSuperAdmin` **fora** do ramo de ator resolvido (aparece mesmo quando `actorId` é
+null). `AUDIT_ACTIONS` (allowlist do filtro no DTO) também completada — os 17 valores hoje são
+mantidos à mão em 3 lugares (enum Drizzle, union `AuditAction`, allowlist do DTO); consolidar
+num único array runtime que alimente a union e o DTO é dívida técnica registrada.
+
+**Gotcha de release**: se o código subir antes da migration `0058`, o `INSERT` do audit com
+`org_admin_access` falha (enum inválido) e o erro é engolido pelo catch do hook — perda
+silenciosa do registro. Vale para todo valor de enum novo (0053/0055/0057). Ordem
+migration-antes-do-deploy no procedimento de release.
+
 ## Relacionado
 
 - ADR-0005 (RLS + `is_super_admin()`), ADR-0012 (e-mail), PLAT-1 (painel super_admin).

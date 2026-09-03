@@ -29,6 +29,7 @@ const memberRow = {
   orgId: "org-1",
   userId: "user-1",
   role: "employee",
+  classification: null,
   enabled: true,
   permissions: [],
   userName: "Fulano",
@@ -102,6 +103,63 @@ describe("DrizzleMemberRepository", () => {
 
       expect(result).toBeNull();
       expect(capturedActing).toBe(false);
+    });
+  });
+
+  describe("updateClassification", () => {
+    // Fake que cobre o padrão de updateClassification (espelha updatePermissions):
+    // um `update(...).set(...).where(...)` seguido de um `select(...).limit(1)`.
+    function buildUpdateDb(row: unknown): {
+      db: DrizzleDB;
+      set: jest.Mock;
+    } {
+      const where = jest.fn().mockResolvedValue(undefined);
+      const set = jest.fn().mockReturnValue({ where });
+      const update = jest.fn().mockReturnValue({ set });
+      const limit = jest.fn().mockResolvedValue(row ? [row] : []);
+      const queryBuilder = {
+        from: jest.fn().mockReturnThis(),
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit,
+      };
+      const db = {
+        update,
+        select: jest.fn().mockReturnValue(queryBuilder),
+      } as unknown as DrizzleDB;
+      return { db, set };
+    }
+
+    it("grava 'resident' e retorna o membro mapeado", async () => {
+      const { db, set } = buildUpdateDb({
+        ...memberRow,
+        classification: "resident",
+      });
+      const repo = new DrizzleMemberRepository(db, buildDb([]));
+
+      const result = await repo.updateClassification("member-1", "resident");
+
+      expect(set).toHaveBeenCalledWith({ classification: "resident" });
+      expect(result.classification).toBe("resident");
+    });
+
+    it("grava null (limpa a classificação) e retorna o membro mapeado", async () => {
+      const { db, set } = buildUpdateDb({ ...memberRow, classification: null });
+      const repo = new DrizzleMemberRepository(db, buildDb([]));
+
+      const result = await repo.updateClassification("member-1", null);
+
+      expect(set).toHaveBeenCalledWith({ classification: null });
+      expect(result.classification).toBeNull();
+    });
+
+    it("lança quando o membro não existe após o update", async () => {
+      const { db } = buildUpdateDb(null);
+      const repo = new DrizzleMemberRepository(db, buildDb([]));
+
+      await expect(
+        repo.updateClassification("member-1", "guest"),
+      ).rejects.toThrow("Member not found after update");
     });
   });
 });

@@ -15,6 +15,7 @@ const NAV_STEP_DESCRIPTIONS: Record<string, string> = {
   stock: "Controle materiais e itens disponíveis no estoque.",
   cashier: "Acompanhe entradas, saídas e saldo do caixa.",
   settings: "Ajuste preferências da organização e da sua conta.",
+  support: "Abra chamados e acompanhe o atendimento da nossa equipe.",
 }
 
 function getNavStepDescription(item: NavItem): string {

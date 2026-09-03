@@ -2,6 +2,7 @@ import {
   pgTable,
   uuid,
   text,
+  numeric,
   timestamp,
   integer,
   index,
@@ -11,6 +12,7 @@ import { relations } from "drizzle-orm";
 import { transactionTypeEnum, paymentMethodEnum } from "../enums";
 import { organizations } from "../organizations";
 import { transactionCategories } from "./lookup";
+import { orgMemberPaymentFees } from "./member-payment-fees";
 
 export const transactions = pgTable(
   "transactions",
@@ -29,6 +31,13 @@ export const transactions = pgTable(
     categoryId: uuid("category_id").references(() => transactionCategories.id, {
       onDelete: "set null",
     }),
+    feeConfigId: uuid("fee_config_id").references(
+      () => orgMemberPaymentFees.id,
+      { onDelete: "set null" },
+    ),
+    feePercent: numeric("fee_percent", { precision: 5, scale: 2 }),
+    feeFixedCents: integer("fee_fixed_cents"),
+    feeSource: text("fee_source"),
     reversesTransactionId: uuid("reverses_transaction_id").references(
       (): AnyPgColumn => transactions.id,
       { onDelete: "restrict" },

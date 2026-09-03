@@ -31,10 +31,14 @@ export const customers = pgTable(
     birthDate: date("birth_date").notNull(),
     gender: genderEnum("gender"),
     address: text("address").notNull(),
-    number: text("number").notNull(),
+    // number/city/state: nullable desde a 0071. Clientes importados do sistema legado
+    // Ink House vêm sem endereço estruturado (só address single-line). A
+    // obrigatoriedade é mantida nas camadas de aplicação (CreateCustomerDto
+    // @IsNotEmpty; customerSchema zod .min(1) no form de criar E editar).
+    number: text("number"),
     addressLine2: text("address_line2"),
-    city: text("city").notNull(),
-    state: text("state").notNull(),
+    city: text("city"),
+    state: text("state"),
     postalCode: text("postal_code"),
     country: text("country"),
     notes: text("notes"),

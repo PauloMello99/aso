@@ -1,0 +1,6 @@
+-- Reverse 0068: nothing to do here on purpose.
+-- Bucket 'campaign-images' is left intact: Supabase Storage blocks direct DELETE on
+-- storage.buckets/storage.objects via raw SQL ("Use the Storage API instead").
+-- Re-applying the up-migration is idempotent (ON CONFLICT DO UPDATE), so there's no
+-- side effect in leaving the bucket orphaned after a local rollback. Real removal (if
+-- ever needed) must go through the Supabase Storage API/dashboard, never a raw DELETE.

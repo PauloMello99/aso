@@ -58,13 +58,25 @@ export class CorrectTransactionUseCase {
     const reversal = await this.reverseTransaction.execute({
       orgId: input.orgId,
       transactionId: input.transactionId,
-      reversedBy: input.correctedBy,
+      authId: input.correctedBy ?? "",
     });
 
     const replacement = await this.createTransaction.execute({
       orgId: input.orgId,
       authId: input.correctedBy ?? "",
       trustedCreatedBy: original.createdBy,
+      // Passa o snapshot de taxa do lançamento original para que a perna de
+      // reposição reuse a mesma taxa quando o método de pagamento não mudou
+      // (evita reprecificar pela ORG e gerar diferença de dinheiro no livro
+      // append-only). Se o método mudou, CreateTransactionUseCase ignora este
+      // snapshot e cai na taxa da ORG.
+      originalFee: {
+        paymentMethod: original.paymentMethod,
+        feePercent: original.feePercent,
+        feeFixedCents: original.feeFixedCents,
+        feeSource: original.feeSource,
+        feeConfigId: original.feeConfigId,
+      },
       description: input.description,
       type: input.type,
       grossCents: input.grossCents,

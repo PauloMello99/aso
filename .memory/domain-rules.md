@@ -125,14 +125,16 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
   `AuditService.log()` (captura síncrona, antes do hook pós-commit). Detalhe completo no
   addendum do ADR-0013. Não-membro sem super_admin → 404 (sem vazar).
 - **Cobertura de auditoria do caixa (PLAT-3, fatia caixa, 2026-08-24) — parcial e
-  deliberadamente incompleta.** Só 3 das 9 operações mutantes do módulo emitem
+  deliberadamente incompleta.** Só 4 das 10 operações mutantes do módulo emitem
   `audit_logs`: `create-transaction` (`cashier_transaction_created`),
-  `upsert-payment-fees` (`cashier_fees_updated`, só quando algum valor muda de fato —
-  `previousPercent`/`previousFixedCents` capturados antes do upsert) e
-  `upsert-member-commissions` (`cashier_commissions_updated`, mesma lógica de só-quando-
-  muda). **Não auditam ainda:** `reverse-transaction`, `correct-transaction`, `transfer`
-  (bloqueados pelo GOTCHA de `created_by` heterogêneo, ver acima — um `authId` novo ao
-  lado de um campo que já mistura auth id/users.id seria mais confusão, não menos) e
+  `upsert-payment-fees` e `upsert-member-payment-fees` (ambos `cashier_fees_updated`,
+  discriminados por `metadata.scope` — `"org"` vs `"member"`; registros históricos não têm
+  `scope`; só quando algum valor muda de fato — `previousPercent`/`previousFixedCents`
+  capturados antes do upsert; uma remoção de override do membro aparece em `changes[]` com
+  `percent: null`/`fixedCents: null`) e `upsert-member-commissions`
+  (`cashier_commissions_updated`, mesma lógica de só-quando-muda). **Não auditam ainda:** `reverse-transaction`, `correct-transaction`, `transfer`
+  (agora recebem `authId` e resolvem `created_by` via `resolveActor` — 2026-09-02 — então
+  o obstáculo do `created_by` heterogêneo caiu; falta só instrumentar o `logByAuthId`) e
   CRUD de categorias (exigiria converter assinaturas posicionais pra objeto, refactor à
   parte). **`cashier_transaction_created` nem sub- nem sobre-cobre "criação de
   lançamento" no sentido amplo:** pagamento de serviço (`register-payment`,
@@ -289,6 +291,17 @@ Platform User (único por email/auth)
 - `owner`: gestão total da org
 - `employee`: acesso conforme permissões configuradas pelo owner (granularidade a definir)
 
+**Label de classificação do membro (`org_memberships.classification`) — DISPLAY-ONLY
+(2026-09-02, migration `0069`).** Enum `member_classification` (`resident` | `guest`),
+coluna **nullable** sem default nem backfill (`NULL` = "não classificado", estado válido).
+É **só exibição** (badge na listagem de membros) e edição — **PROIBIDO** ler esse campo em
+qualquer regra de negócio, guard, RLS, billing, caixa ou decisão de autorização. Editável
+por owner/super_admin via `PATCH /orgs/:orgId/members/:memberId/classification` (body
+`{ classification: "resident" | "guest" | null }`; `null` ou body vazio = limpar).
+`UpdateMemberClassificationUseCase` espelha `UpdateMemberPermissionsUseCase`; sem código de
+erro novo. **Sem policy RLS nova** — `org_memberships_update` (owner/super_admin) já cobre a
+coluna (RLS é por linha).
+
 **Visibilidade por funcionário ("só vê o que é dele") — backend.** Regra de produto: o
 funcionário só enxerga dados referentes a ele; o owner vê tudo e pode lançar **em nome de**
 um funcionário. Estado por módulo (2026-06-21):
@@ -313,17 +326,20 @@ um funcionário. Estado por módulo (2026-06-21):
     `created_by` do lançamento original e repassa via `trustedCreatedBy` (campo interno
     de `create-transaction` que pula `resolveActor`/`resolveCreatedBy`) — assim o
     corrigido **continua pertencendo ao funcionário**, não migra para o owner que corrige.
-  - **GOTCHA — `created_by` nem sempre é `users.id`, apesar da regra acima:**
-    `transfer.use-case.ts` grava as duas pernas com `input.createdBy`, e
-    `cashier.controller.ts` (endpoint de transferência) passa `user.id` (**auth id** do
-    Supabase, não `users.id`) — achado pela `reviewer` durante a fatia de auditoria do
-    caixa de PLAT-3 (2026-08-24). Uma perna de transferência corrigida propaga esse auth
-    id pra frente via `trustedCreatedBy`, então o mesmo bug alcança `correct-transaction`.
-    Pré-existente, não introduzido por essa fatia; corrigir exige backfill de dados
-    históricos (não dá pra saber, a-posteriori, quais linhas de `transactions.created_by`
-    são auth id vs. users.id sem reprocessar caso a caso) — registrado como item futuro,
-    não uma tarefa desta fatia. Ver "Cobertura de auditoria do caixa" abaixo — é por isso
-    que estorno/correção/transferência não têm auditoria ainda.
+  - **`created_by` = `users.id` em TODAS as escritas novas (corrigido 2026-09-02):**
+    `TransferUseCase` e `ReverseTransactionUseCase` recebiam `createdBy`/`reversedBy` já
+    resolvido do controller, que passava `user.id` (**auth id** do Supabase) — gravavam
+    auth id em `transactions.created_by`. Achado pela `reviewer` na fatia de auditoria do
+    caixa de PLAT-3 (2026-08-24); corrigido fazendo os dois use-cases receberem `authId` e
+    resolverem via `resolveActor` (mesmo padrão de `create-transaction`);
+    `correct-transaction` repassa `authId` (não mais `reversedBy`) ao chamar o reverse. A
+    perna de reposição de errata continua herdando `trustedCreatedBy: original.createdBy`
+    (autoria preservada) — agora sempre um `users.id` canônico para lançamentos novos.
+    **Linhas históricas de transferência/estorno gravadas antes desse fix ainda podem ter
+    auth id** — não houve backfill (contagem local = 0 linhas afetadas; decisão de
+    normalizar em produção fica com o dono). Qualquer join `created_by → users.id` sobre
+    dados antigos (filtro `createdBy` de `list-transactions`, scoping por funcionário) vê
+    órfãos para essas linhas antigas.
 
 **Navegação por papel (multi-org/multi-papel) — frontend.** Um usuário pode ser `owner`
 de N orgs e `employee` de outras N ao mesmo tempo. `GET /orgs` retorna `role` por org;
@@ -521,6 +537,19 @@ interval)` e `lookup_key` — garantem só uma linha vigente por par; preços an
   entram no `set:` do `onConflictDoUpdate` de `DrizzleBillingPlanRepository.upsert` (usado
   por `SyncPlanCatalogUseCase` no boot) — se entrassem, todo boot resetaria a curadoria do
   super_admin para o default, já que `PLAN_CATALOG` (seed) não carrega esses campos.
+- **`billing_refund_events` e `billing_invoice_events` são append-only por analogia ao
+  ADR-0010** (espelho administrativo de eventos do Stripe; migration `0060` nota (a) e
+  `0033`) — nunca `UPDATE`/`DELETE` de linha, correção é sempre linha nova
+  (`billing_refund_events`: uma linha por `(stripe_refund_id, status)`, dedup via
+  `onConflictDoNothing`). **Única exceção, restrita a `billing_refund_events`**
+  (T4-F5 Bloco B, decisão D4, ADR-0016): a reconciliação de refunds pode dar `UPDATE`
+  **exclusivamente** na coluna de correlação `org_id` **quando `NULL`**
+  (`resolveOrgIdWhereNull` por charge, `backfillOrgIdFromResolvedSiblings` por refund),
+  derivada server-side de `charge.customer` → `subscriptions.stripe_customer_id`, nunca a
+  partir do cliente. **Jamais** toca `status` / `amount_cents` / `occurred_at` / `reason`
+  nem valor monetário. Sem migração; a correção do backfill depende de
+  `subscriptions.stripe_customer_id` ser UNIQUE. `billing_invoice_events` **não** tem
+  exceção — permanece estritamente append-only.
 
 ### Gaps de reunião aplicados (2026-06-20) — migrations 0011–0013
 
@@ -604,7 +633,9 @@ encodeURIComponent(nome)`. Para listagens, usar `createSignedUrls` (plural) — 
   `gross - round(gross*percent/100 + fixed_cents)`. Só em **entrada** (`income`) com cartão.
   Config **exclusiva de `owner`/`super_admin`** (checado em `upsert-payment-fees` via
   `IOrganizationRepository.isOwner`; `CASHIER_FORBIDDEN` 403). Helper puro
-  `domain/fee-calculator.ts` (reusável pelo futuro módulo de Serviços).
+  `domain/fee-calculator.ts` (reusável pelo futuro módulo de Serviços). Desde a migration
+  `0070` essa taxa da org é só o **fallback** — pode ser sobreposta por funcionário; ver
+  "Taxa de cartão por profissional" abaixo.
 - **Frontend**: valores sempre em **centavos** no estado (`lib/money.ts`); UI mobile-first
   (Table desktop + cards mobile), `Sheet` para novo lançamento/correção, `Dialog` para estorno,
   `DropdownMenu` portaled nas ações (oculto em linhas já estornadas/estorno). Config de taxas em
@@ -631,6 +662,69 @@ encodeURIComponent(nome)`. Para listagens, usar `createSignedUrls` (plural) — 
   `CancelServiceUseCase`, `CorrectServicePaymentUseCase` (só na reversão, nunca na
   transação de substituição) — `CorrectTransactionUseCase` delega pra
   `ReverseTransactionUseCase` e herda de graça.
+
+### Taxa de cartão por profissional — override + fallback da org (2026-09-02, migrations 0069/0070)
+
+- **Config por `(org_id, user_id, payment_method)`**: `org_member_payment_fees` (migration
+  `0070`) é um **override opcional** da taxa da org (`org_payment_fees`). Molde de
+  `org_member_commissions`/0051: versionamento imutável (`active` + `superseded_at` +
+  supersede), índice único **parcial** `(org_id, user_id, payment_method) WHERE active` (não
+  deferível), RLS (SELECT = membro da org; INSERT/UPDATE = owner ou super_admin; **sem
+  policy de DELETE**), `REVOKE ALL` de anon/authenticated.
+- **Sem backfill — a tabela nasce vazia.** Todo funcionário usa a taxa da org por fallback
+  até receber um override explícito; não há divergência no dia 1.
+- **Resolução** = `resolveFee(method, memberFee, orgFee)` em
+  `cashier/domain/fee-calculator.ts`, nesta ordem: (1) método **não elegível**
+  (`!isFeeEligible`, fora de `credit_card`/`debit_card`) → `source: "none"`, sem taxa;
+  (2) `memberFee` **ativo** para `(org, user, method)` → `source: "member"` — **mesmo com
+  `percent "0.00"`/`fixedCents 0`**: 0% explícito é decisão, NÃO cai para a org; (3) senão
+  `orgFee` presente → `source: "org"`; (4) senão → `source: "none"`.
+  `computeNet`/`isFeeEligible` inalterados. `resolveFee` **não** revalida o método do
+  `memberFee` — o caller já busca filtrado via
+  `IMemberPaymentFeeRepository.findActiveByOrgUserAndMethod(orgId, userId, method)`.
+- **Membro alvo da taxa, por consumidor**: `services.performed_by` (o profissional) em
+  `register-payment`, `create-service` (bloco pago) e `correct-service-payment` (perna de
+  substituição); `created_by` resolvido (`users.id`) no lançamento manual
+  (`create-transaction`); **`null` (→ fallback org)** no caminho de CORREÇÃO de lançamento
+  manual quando o método **não** mudou — aí reusa o SNAPSHOT de taxa do lançamento original
+  (não reprecifica); só reprecifica pela org se o método mudou na correção.
+- **Snapshot desnormalizado em `transactions`** (4 colunas nullable, migration `0070`):
+  `fee_config_id` (FK → `org_member_payment_fees.id` `ON DELETE SET NULL`, **só auditoria —
+  nunca lido para cálculo**, porque a config apontada pode ter sido superseded depois),
+  `fee_percent`, `fee_fixed_cents`, `fee_source` (`'member'` | `'org'` | `'none'`).
+  **`fee_source` NULL = linha anterior à 0070 (legado)**; da 0070 em diante **todo INSERT**
+  em `transactions` grava valor não-nulo — o repositório de transações aplica `'none'` por
+  omissão (inclusive transferência e estorno). A perna de **estorno** de errata grava
+  `fee_source: 'none'` e **copia** `fee_cents`/`net_cents` do original (não recalcula); o
+  snapshot de **comissão** de errata (preexistente) permanece intocado.
+- **Sem trigger de imutabilidade nas colunas `fee_*` de `transactions`** (ao contrário de
+  `services.commission_*` na 0051), **de propósito** e registrado na migration para não
+  parecer omissão: `transactions_update`/`transactions_delete` já são
+  `is_super_admin()`-only e nenhum caminho de app dá UPDATE em `transactions` (caixa
+  append-only, ADR-0010); o único UPDATE possível é o `ON DELETE SET NULL` de
+  `fee_config_id`, inofensivo (só ponteiro de auditoria).
+- **Repositório** (`DrizzleMemberPaymentFeeRepository`, token
+  `MEMBER_PAYMENT_FEE_REPOSITORY`): deliberadamente **sem cache** — o repo org-level
+  `DrizzlePaymentFeeRepository` mantém `TtlCache` 60min e **não** foi alterado. Conexão
+  `DRIZZLE` (RLS-scoped), nunca `DRIZZLE_ADMIN`. `supersede()` desativa a linha ativa
+  **antes** de inserir a nova, na MESMA transação (índice parcial não é deferível).
+  `deactivate(orgId, userId, method)` = UPDATE `active=false` + `superseded_at` (**nunca
+  DELETE**; idempotente) → volta ao fallback da org. O trigger
+  `org_member_payment_fees_protect_immutable` **clampa em silêncio** (sem `RAISE`) e
+  **incondicionalmente** (nem super_admin escapa)
+  `percent`/`fixed_cents`/`payment_method`/`org_id`/`user_id`/`created_by`/`created_at` — só
+  `active`/`superseded_at`/`updated_at` mudam num UPDATE; um UPDATE indevido nesses campos
+  **aparenta sucesso** e é ignorado.
+- **Endpoints**: `GET /orgs/:orgId/cashier/member-fees` (`GetMemberPaymentFeesUseCase`,
+  scoping por ator no use-case — owner vê todos, funcionário só o próprio; **sem**
+  `OrgOwnerGuard`); `PUT /orgs/:orgId/cashier/member-fees` (`UpsertMemberPaymentFeesUseCase`,
+  `OrgOwnerGuard` + `ActiveSubscriptionGuard`; body
+  `{ fees?: [{ userId, paymentMethod, percent, fixedCents }], deactivations?: [{ userId, paymentMethod }] }`
+  — `fees` só de métodos elegíveis via `@IsIn`; audita `cashier_fees_updated` só quando
+  algo muda, com `metadata.scope: "member"`). Exceção nova `FeeMemberNotFoundException`
+  (`FEE_MEMBER_NOT_FOUND` → 404, em `DOMAIN_CODE_TO_STATUS`).
+- **Comissão modo `net` passa a refletir a taxa do funcionário** — ver
+  "Comissão/repasse por profissional" abaixo.
 
 ### Comissão/repasse por profissional (2026-08-19, P-1)
 
@@ -673,6 +767,12 @@ encodeURIComponent(nome)`. Para listagens, usar `createSignedUrls` (plural) — 
   cartão) e zeraria comissão de dinheiro/pix silenciosamente. Modo `gross` = base é o
   bruto (estúdio absorve 100% da taxa de cartão); modo `net` = base é o líquido pós-taxa
   (`netCents` já calculado por `computeNet` em outro lugar).
+- **Modo `net` embute a taxa do FUNCIONÁRIO quando há override (2026-09-02, migration
+  `0070`)**: se existe linha ativa de `org_member_payment_fees` para `(org, user, method)`,
+  o `net_cents` que alimenta `computeCommission` já desconta essa taxa (não só a da org).
+  Consequência **pretendida** — o repasse de novos atendimentos acompanha a taxa do
+  profissional. Modo `gross` inalterado. Só afeta lançamentos **futuros**; nenhum
+  histórico é recalculado (append-only, ADR-0010).
 - **Agregação por período** (`commissionCentsByPeriod`) tem `performedBy: string | null`
   **obrigatório** (não opcional) de propósito — força todo caller a declarar o escopo
   explicitamente: `null` agrega a org inteira (só o ramo owner do overview usa), uma
@@ -704,7 +804,8 @@ encodeURIComponent(nome)`. Para listagens, usar `createSignedUrls` (plural) — 
   **deriva** status de `canceledAt` + `paymentTransactionId` (`serviceStatus()` em types).
 - **Reaproveitamento entre módulos:** o use-case importa tokens já exportados pelos
   `*InfrastructureModule`: `TRANSACTION_REPOSITORY`+`computeNet`+`PAYMENT_FEE_REPOSITORY`
-  (cashier), `MATERIAL_REPOSITORY`+`STOCK_MOVEMENT_REPOSITORY` (materials),
+  +`MEMBER_PAYMENT_FEE_REPOSITORY` (cashier; ver "Taxa de cartão por profissional"),
+  `MATERIAL_REPOSITORY`+`STOCK_MOVEMENT_REPOSITORY` (materials),
   `CUSTOMER_REPOSITORY` (customers), `MEMBER_REPOSITORY` (orgs). `services.module` importa os 4
   infra-modules. Atomicidade garantida pela transação por-request do `RlsInterceptor`.
 - **`performed_by` / `created_by` = `users.id` (app), NÃO authId.** `user.id` no controller é o
@@ -724,7 +825,9 @@ encodeURIComponent(nome)`. Para listagens, usar `createSignedUrls` (plural) — 
   não-financeiros (tipo/cliente/profissional/local/descrição/data); materiais = cancelar + recriar.
 - **Corrigir valor de pagamento** (`PATCH /:id/payment`, owner-only, `CorrectServicePaymentUseCase`,
   2026-07-17): estorna a transação de pagamento original e relança uma nova com o valor/método
-  corrigidos (fee/net recalculados via `computeNet` no NOVO método) — só então atualiza
+  corrigidos (fee/net recalculados via `computeNet` no NOVO método, com a taxa resolvida
+  por `resolveFee` a partir de `performed_by` — override do profissional, senão a da org) —
+  só então atualiza
   `services.amount_cents`/`payment_method`/`payment_transaction_id`, nessa ordem exata (nunca deixa
   o serviço apontando para uma transação já estornada). **Autoria**: o estorno usa o ator que
   corrige (`createdBy: currentUserId`); o relançamento preserva o autor original
@@ -1107,6 +1210,12 @@ anamnesis_response_id IS NOT NULL`): `assertAnamnesisResponseLinkable` faz o
   sem entrada correspondente é **silenciosamente ignorada** por `db:migrate` (sem erro,
   simplesmente não aplica). Todo fluxo de migration manual (ver `env_migration_snapshot_gap`
   na memória de sessão) precisa desse passo extra antes de rodar `db:migrate`.
+- **`.claude/CLAUDE.md` está desatualizado ao listar `pnpm --filter backend db:generate`**
+  (`drizzle-kit generate`) no fluxo de migration: `drizzle-kit generate` **não é usado**
+  desde a migration `0003` — todas as migrations `0003+` são **escritas à mão** (`.sql` +
+  `.down.sql` + entrada manual em `meta/_journal.json`). As `0066` / `0067` / `0068`
+  (rework T6) seguiram esse fluxo manual. Editar os arquivos de `src/database/schema/` **não
+  gera nem altera** migration — o schema é espelho de leitura.
 - **Pendência dura fora do código**: `features/legal/constants/entity.ts` (`LEGAL_ENTITY`)
   tem placeholders `[PREENCHER: ...]` para razão social/CNPJ/endereço/encarregado — bloqueia
   o site de ir ao ar até serem preenchidos com dados reais (identificação do fornecedor,
@@ -1126,6 +1235,172 @@ anamnesis_response_id IS NOT NULL`): `assertAnamnesisResponseLinkable` faz o
 - **Cron interno**: `CronSecretGuard` (header `x-cron-secret` == env `CRON_SECRET`) protege `POST /internal/cron/*` (sem Auth/Org guard). `POST /internal/cron/agenda-reminders` lembra appointments `scheduled` que começam nas próximas 24h e seta `reminder_sent_at` (**idempotente**). No Railway, um job agendado bate nesse endpoint. **Queries de cron/cross-user usam `DRIZZLE_ADMIN`** (sem contexto de request, RLS bloquearia; e a policy de `users` é self-only).
 - **Feature flags completas (ADR-0009) adiadas**: por ora e-mail é gateado por env; in-app sempre ligado.
 - Frontend: `features/notifications/` (`useNotifications` polling 30s + `NotificationBell` portaled no `top-header`).
+
+### Campanhas de e-mail por gatilho — backend (T6 Bloco A 2026-09-01 + rework T6 2026-09-01, ADR-0025 corpo + Addendum 2026-09)
+
+> O rework T6 (revisão 30-08) retrabalhou esta feature **antes de ela ir live**. Esta
+> seção descreve o **estado atual**; o Addendum de 2026-09 do ADR-0025 tem o racional
+> completo (D5 revertida, `org_campaign_settings` dropada, bucket de imagens, moderação
+> ML/LLM em aberto). Migrations do rework: `0066_campaigns`, `0067_drop_org_campaign_settings`,
+> `0068_campaign_images_bucket` — todas **escritas à mão** (ver nota acima sobre
+> `db:generate`).
+
+- **Módulo `modules/campaigns/`** (não reusa `NotificationService`, que é keyed em
+  `users.id`; campanhas alvejam `customers` sem conta). 3 gatilhos: `post_service`
+  (janela rolante `[now-48h, now-24h)` sobre `services.performed_at`), `birthday`
+  (mês/dia de `birth_date`), `inactivity` (`MAX(performed_at)` além de
+  `campaigns.inactivity_months` da própria org). `RunCampaignTriggersUseCase` roda no tick
+  único de cron (`CRON_JOBS.CAMPAIGN_TRIGGERS`), self-throttled 20h via
+  `cron_job_state.claimRun` (molde ADR-0024).
+- **`campaigns` (migration `0066`) é um CRUD: N linhas por org, UMA por gatilho**
+  (`UNIQUE (org_id, trigger)` = D1). Substituiu `org_campaign_settings` (0062, 1 linha/org,
+  flags + 6 colunas de copy), **dropada pela migration `0067`** (`.down.sql` recria só a
+  estrutura; **sem backfill** — copy custom eventual é descartada de propósito, feature
+  nunca esteve live). Colunas de `campaigns`: `id`, `org_id` (FK `organizations`
+  `ON DELETE CASCADE`), `trigger` (enum, **imutável** — não entra no `PATCH`), `name`
+  (`text NOT NULL`, CHECK `btrim` 1–80), `enabled` (`bool NOT NULL` default `false`),
+  `subject` (`text` NULLABLE, `NULL` = default autoral, CHECK `btrim` 1–200), `body`
+  (`jsonb` NULLABLE, `NULL` = default autoral, CHECK `octet_length(body::text) ≤ 65536` +
+  `jsonb_typeof = 'object'`), `inactivity_months` (`integer` NULLABLE, CHECK
+  **bidirecional**: `trigger='inactivity'` ⇒ 1–36, qualquer outro ⇒ `IS NULL`),
+  `created_at` / `updated_at` (`updated_at` **sem trigger**, setado no repo).
+- **RLS de `campaigns`**: `SELECT` = `is_super_admin() OR is_org_member(org_id)`;
+  `INSERT` / `UPDATE` / `DELETE` = `is_super_admin() OR is_org_owner(org_id)` (`UPDATE` com
+  `WITH CHECK` = `USING`, porque `org_id` é chave de tenancy). `REVOKE ALL FROM anon,
+  authenticated`. **Há policy de DELETE** (não havia na 0062, onde "desligar" era flag) — a
+  campanha é o objeto do CRUD, excluir é operação de primeira classe.
+- **CRUD**: `CampaignsController` (`orgs/:orgId/campaigns`, `AuthGuard` +
+  `OrgMembershipGuard`, **sem `ActiveSubscriptionGuard`**). `GET` = qualquer membro;
+  `POST` / `PATCH :id` / `DELETE :id` = `OrgOwnerGuard` no método + double-check
+  `orgRepo.isOwner` no use-case (`super_admin` age como owner, ADR-0013).
+  `CreateCampaignUseCase` faz pré-check de gatilho já usado **e** traduz o `23505` da
+  `campaigns_org_trigger_uq` para a mesma exception (corrida de POSTs). `GET` também
+  devolve `campaignsEnabled` (env), `availableTriggers` (gatilhos ainda não usados) e
+  `defaults` (copy autoral por gatilho, corpo em Tiptap-JSON, **sem** interpolar — para o
+  editor do frontend partir dela).
+- **Gate = env `CAMPAIGNS_ENABLED` (global, super_admin) + `campaigns.enabled` por gatilho
+  por org — NÃO usa o módulo de Feature Flags (ADR-0009)** (decisão de escopo). Ambos
+  nascem `false`. Ordem dos gates no use-case: `CAMPAIGNS_ENABLED` → canal de e-mail
+  (`NOTIFICATIONS_EMAIL_ENABLED` + `RESEND_API_KEY`, espelha `ResendEmailSender`) →
+  `claimRun`. Nenhuma escrita em `campaign_sends` se algum gate falhar. Org sem campanha do
+  gatilho (ou com `enabled = false`) = desligada (as queries fazem
+  `INNER JOIN campaigns cp ... AND cp.enabled = true`, nunca `LEFT`); org com `suspended_at`
+  não dispara.
+- **Corpo da campanha é rich-text Tiptap-JSON (D5 REVERTIDA no rework)** — duas barreiras
+  independentes:
+  1. **Walker de allowlist FECHADA no servidor** (`campaigns/domain/campaign-body.ts`,
+     `validateCampaignBody(input, opts?)`, roda antes de gravar, devolve cópia re-emitida).
+     Nós: `doc / paragraph / text / hardBreak / bulletList / orderedList / listItem /
+     heading (level 2|3 só) / image (attrs só `src` + `alt` opcional)`. Marcas só em `text`:
+     `bold / italic / link`. `link.href` e `image.src`: `normalizeUrl` **parseia com
+     `new URL()`**, aceita **só `http:` / `https:`** (rejeita `javascript:` / `data:` /
+     `vbscript:` / protocolo-relativo / relativo / não-parseável) e **re-emite
+     `toString()`** (dot-segments `..` resolvidos → o `startsWith` do prefixo do bucket é
+     à prova de traversal); `target` / `rel` do link **normalizados** (`_blank` / `noopener
+     noreferrer nofollow`), nunca aceitos do cliente. Surrogate UTF-16 solto em `text.text`
+     ou `image.alt` → **400** (evita 500 do jsonb no INSERT). Tetos: profundidade ≤ 5,
+     ≤ 10 nós `image`, ≤ 65536 bytes serializados (casa com o CHECK do banco). Fora da
+     allowlist → `CampaignInvalidBodyException` (**400 `CAMPAIGN_INVALID_BODY`**).
+  2. **Renderer Tiptap-JSON → React Email** (`mail/application/render-campaign-body.tsx`,
+     `renderCampaignBody`): mapeia para `<Text>/<Heading>/<ul>/<ol>/<li>/<br>/<Img>/
+     <strong>/<em>/<Link>`; **NUNCA `dangerouslySetInnerHTML`** (React escapa por
+     construção). Barreira **própria**: `safeHttpUrl()` re-parseia `image.src`/`link.href`
+     e descarta o nó `image` / renderiza o `link` sem `<Link>` se o esquema não for
+     http(s). Tipos `Tiptap*` **replicados** aqui (o módulo `mail` não pode depender de
+     `campaigns` — dep circular). A **interpolação de `{{customerName}}` / `{{orgName}}`**
+     roda **aqui** (saiu de `resolveCampaignCopy`), passe único por regex allowlist, **só
+     nos nós `text`**.
+- **Assunto continua texto puro**: `resolveCampaignCopy` interpola tokens, colapsa CR/LF em
+  espaço, `trim`, `slice(0, 200)` **antes** do provider (o escape do React Email não alcança
+  o campo `subject` — risco de header injection). **Rodapé fixo** (identificação do
+  remetente + link de descadastro via `footerOverride` do `base-layout.tsx`, transacionais
+  byte-idênticos), **não editável** pela org; o e-mail de campanha não afirma "possui uma
+  conta no ASO".
+- **Default autoral**: `CAMPAIGN_DEFAULT_COPY` (`campaigns/domain/campaign-copy.ts`) é
+  `Record<trigger, { subject: string; body: TiptapDoc }>` (o `body` foi convertido de
+  `string[]` para `TiptapDoc` no rework). `subject` / `body` `NULL` na linha ⇒ usa o
+  default; fallback **por campo e independente**. `campaignDefaultBodyDoc(trigger)` serve o
+  editor do frontend.
+- **Upload de imagem — bucket `campaign-images` (migration `0068`, PÚBLICO de propósito)**:
+  cliente de e-mail não autentica no Supabase, signed URL não renderiza → precisa de URL
+  pública direta (mesma escolha de `avatars`, 0010). 2 MB, `jpeg|png|webp|gif`, sem policy
+  de `storage.objects` (escrita só pelo backend com `service_role`).
+  **`POST /orgs/:orgId/campaigns/images`** (owner-only, `FileInterceptor("file")` +
+  `ParseFilePipe` `MaxFileSizeValidator` 2 MB + `FileTypeValidator`) → `{ url }` pública,
+  path `<org_id>/<uuid>.<ext>`. `UploadCampaignImageUseCase` **NÃO grava no banco** (a URL
+  vive no `body`). `content-type` inválido → `CampaignImageUnsupportedTypeException`
+  (**415 `CAMPAIGN_IMAGE_UNSUPPORTED_TYPE`**), mas o `ParseFilePipe` já barra com **400**
+  antes — o 415 é defesa interna praticamente inalcançável via HTTP. O walker recebe
+  `opts.imageSrcPrefix` (`SUPABASE_URL` +
+  `/storage/v1/object/public/campaign-images/`, via `campaignImageSrcPrefix()`) e **exige**
+  que todo `image.src` comece com esse prefixo — impede imagem de tracking de terceiro.
+  `SUPABASE_URL` ausente ⇒ vale só a regra http(s).
+- **Opt-out (`customer_email_preferences`, migration `0061`) — INTOCADO pelo rework**: 1
+  linha por `(customer_id, org_id)`, flags por gatilho (default `true`) +
+  `unsubscribed_all_at` (opt-out global). **Ausência de linha = não optou por sair**. O
+  cron materializa a linha (`ensureForCustomer`, `ON CONFLICT DO NOTHING`) para embutir o
+  token. `unsubscribe_token` (`encode(gen_random_bytes(32),'hex')`, hex de 64 chars, não
+  UUID) **NÃO expira e NUNCA rotaciona** — viaja em links de e-mails já entregues. FK
+  COMPOSTA `(customer_id, org_id) → customers(id, org_id)`. RLS só de SELECT; escrita só
+  via `DRIZZLE_ADMIN`. `updated_at` sem trigger.
+- **TODA query de gatilho E o `findRetriable` filtram opt-out em SQL**
+  (`p.id IS NULL OR (p.unsubscribed_all_at IS NULL AND p.<trigger>_enabled)`) — cliente que
+  se descadastra entre a 1ª tentativa e o retry é respeitado. O `enabled` da **campanha**
+  (config, não consentimento) não é re-checado no retry. Os helpers de target fazem
+  **`INNER JOIN campaigns cp`** (`cp.trigger = '<gatilho>' AND cp.enabled = true`);
+  `findRetriable` faz **`LEFT JOIN campaigns cp`** (`cp.trigger = cs.trigger`) — campanha
+  **deletada** entre a tentativa e o retry ⇒ `cp.subject`/`cp.body` `NULL` ⇒ retry sai com
+  o default autoral, **sem descartar** a linha. `findInactivityTargets` inclui **`cp.id`**
+  no `GROUP BY` (jsonb `cp.body` não tem operador de igualdade); janela vem de
+  `cp.inactivity_months`. Todos os helpers usam `DRIZZLE_ADMIN` (cron cross-org).
+- **`campaign_sends` (migration `0063`) — INALTERADA pelo rework**, append-only (espírito
+  ADR-0010): **uma linha terminal por tentativa** (`sent | failed | bounced`, sem
+  `pending`), inserida DEPOIS do sender; nunca `UPDATE`/`DELETE`. `UNIQUE (dedupe_key,
+  attempt, status)`. `dedupe_key` (`post_service:<service_id>` /
+  `birthday:<customer_id>:<YYYY>` / `inactivity:<customer_id>:<YYYY-MM>`, UTC) DEVE embutir
+  UUID globalmente único; `NOT EXISTS` por **qualquer** linha com o `dedupe_key`. **Sem FK
+  e sem RLS** (só `DRIZZLE_ADMIN`). `bounced` ainda não é escrito (falta webhook Resend).
+  Retry só quando a última linha do `dedupe_key` é `failed` e `attempt < 3`.
+  **Consequência do CRUD**: apagar e **recriar** uma campanha do mesmo gatilho **NÃO
+  reenvia** para quem já recebeu (o `dedupe_key` não referencia a linha de `campaigns` —
+  histórico herdado); default seguro, comunicado no `ConfirmDialog` de exclusão.
+- **Auditoria**: create / update / delete de campanha **reusam a action
+  `campaign_settings_updated`** (enum `audit_action`, migration `0065` — **sem migration
+  nova**), `entityType: "campaign"`, `metadata = { operation: "created" | "updated" |
+  "deleted", trigger, campaignId, changed }` (`changed: string[]`, ausente no `delete`).
+  **Nunca grava conteúdo de `subject` / `body`** — só o literal `"body"` em `changed`
+  quando o corpo mudou (critério = presença da chave no patch, não diff de conteúdo).
+- **Endpoint público** `GET/POST /public/campaigns/{preferences,unsubscribe}/:token` (sem
+  `AuthGuard`, `@Throttle` assimétrico 30/60s vs 10/600s, `DRIZZLE_ADMIN` via repo).
+  `GET` devolve payload minimizado (`orgName` + 4 toggles, sem `orgId`). Token inválido →
+  `CAMPAIGN_PREFERENCES_NOT_FOUND` (404, genérico). `POST` idempotente. **Não tem gate de
+  `CAMPAIGNS_ENABLED`** — o kill-switch para só o envio, nunca o descadastro.
+- **Fuso (D8)**: data de referência de `birthday`/`inactivity` = dia-calendário em
+  **`America/Sao_Paulo`**, calculado no use-case via
+  `Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" })` → `Date` à meia-noite
+  UTC, consumido pelos helpers como texto `YYYY-MM-DD` (`toUtcDateString`), nunca `::date`
+  sobre `timestamptz`. 29/02 não dispara em ano não-bissexto (limitação aceita no MVP).
+- **Codes de domínio** em `DOMAIN_CODE_TO_STATUS` (`common/exceptions/domain-status.map.ts`):
+  `CAMPAIGN_INVALID_BODY` (400), `CAMPAIGN_NOT_FOUND` (404),
+  `CAMPAIGN_TRIGGER_ALREADY_USED` (409), `CAMPAIGN_INVALID_INACTIVITY_MONTHS` (400),
+  `CAMPAIGN_IMAGE_UNSUPPORTED_TYPE` (415); `CAMPAIGN_SETTINGS_FORBIDDEN` (403) e
+  `CAMPAIGN_PREFERENCES_NOT_FOUND` (404) mantidos.
+- **Frontend**: aba **top-level "Campanhas"** (`ORG_NAV_SECTIONS`, `href: "campaigns"`,
+  `roles: ["owner"]`, `/dashboard/org/[orgSlug]/campaigns`) — saiu de Configurações. CRUD:
+  lista com `Switch` de `enabled` + `Sheet` de criar/editar + `ConfirmDialog` de exclusão.
+  Editor rich-text **Tiptap** (`@tiptap/react` v3, `immediatelyRender: false` p/ o pages
+  router), toolbar limitada à allowlist do servidor. Tela antiga `/settings/campaigns`
+  **removida sem redirect** (feature não live).
+- **Bloco B / ativação**: as telas de config do dono + página de preferências do cliente em
+  `/preferencias-email/:token` devem existir antes de `CAMPAIGNS_ENABLED=true` — link de
+  descadastro sem destino vivo = falha de LGPD.
+- **Débito**: round-trip Resend não exercitado (no-op sem API key); predicados de opt-out
+  em SQL cru sem teste de integração (ver `docs/campaigns-local-testing.md`);
+  `MAX_TARGETS_PER_TRIGGER=200` global cross-org por gatilho por tick (excedente sai da
+  janela, só `logger.warn`); sem índice dedicado a `campaign_sends.customer_id`; **imagens
+  órfãs no bucket `campaign-images` NÃO são removidas no DELETE da campanha** (de propósito
+  — não quebrar e-mail já entregue; débito de cleanup de Storage); **moderação de conteúdo
+  por ML/LLM em aberto** (não adotada — custo de manutenção).
 
 ### Relatórios segmentados (reunião 11/06)
 

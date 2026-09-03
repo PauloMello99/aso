@@ -1,0 +1,18 @@
+-- 0064 — T4-F5 hardening (H1): índice btree em "billing_refund_events"."stripe_charge_id".
+-- A tabela nasceu (0060) só com "billing_refund_events_org_occurred_idx" (org_id,
+-- occurred_at DESC), que não cobre nenhuma das leituras keyed por charge:
+--
+--   (a) DrizzleBillingRefundEventRepository.findResolvedOrgIdByChargeId —
+--       SELECT org_id ... WHERE stripe_charge_id = $1 AND org_id IS NOT NULL LIMIT 1.
+--       É o passo (c) do RefundOrgResolver, no caminho quente do webhook de refund.
+--   (b) DrizzleBillingRefundEventRepository.resolveOrgIdWhereNull —
+--       UPDATE ... WHERE stripe_charge_id = $1 AND org_id IS NULL, o backfill de órfãos
+--       do ReconcileRefundsUseCase (passe 2).
+--
+-- Ambas faziam seq scan. Btree simples (não parcial): o índice serve só a igualdade
+-- "stripe_charge_id = $1"; a polaridade de "org_id" ((a) IS NOT NULL, (b) IS NULL) é
+-- recheck no heap sobre as poucas linhas casadas por charge. Um parcial
+-- "WHERE org_id IS NULL" cobriria só (b) e deixaria (a) — o caminho quente do webhook —
+-- em seq scan. Um parcial "WHERE stripe_charge_id IS NOT NULL" só encolheria o índice
+-- (btree do PG indexa NULLs) e não se paga nesta escala (dezenas a centenas de linhas).
+CREATE INDEX IF NOT EXISTS "billing_refund_events_charge_idx" ON "billing_refund_events" ("stripe_charge_id");

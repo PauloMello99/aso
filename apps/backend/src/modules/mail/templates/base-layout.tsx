@@ -15,6 +15,14 @@ interface BaseLayoutProps {
   preview: string;
   children: ReactNode;
   supportEmail?: string;
+  /**
+   * Rodapé alternativo. Quando fornecido, substitui o rodapé fixo padrão
+   * ("possui uma conta no ASO" + mailto de suporte) — usado por e-mails de
+   * campanha, cujo destinatário é cliente de uma org e não tem conta no ASO
+   * (identificação de remetente correta, LGPD/ADR-0018 + CAN-SPAM). Quando
+   * `undefined`, o rodapé padrão é renderizado sem alteração.
+   */
+  footerOverride?: ReactNode;
 }
 
 const DEFAULT_SUPPORT_EMAIL = "suporte@assessorink-so.com";
@@ -23,6 +31,7 @@ export function BaseLayout({
   preview,
   children,
   supportEmail = DEFAULT_SUPPORT_EMAIL,
+  footerOverride,
 }: BaseLayoutProps) {
   return (
     <Html lang="pt-BR">
@@ -38,15 +47,17 @@ export function BaseLayout({
           <Section style={card}>{children}</Section>
           <Hr style={hr} />
           <Section>
-            <Text style={footer}>
-              Você recebeu este e-mail porque possui uma conta no ASO.
-              <br />
-              Precisa de ajuda? Fale com a gente em{" "}
-              <Link href={`mailto:${supportEmail}`} style={footerLink}>
-                {supportEmail}
-              </Link>
-              .
-            </Text>
+            {footerOverride ?? (
+              <Text style={footer}>
+                Você recebeu este e-mail porque possui uma conta no ASO.
+                <br />
+                Precisa de ajuda? Fale com a gente em{" "}
+                <Link href={`mailto:${supportEmail}`} style={footerLink}>
+                  {supportEmail}
+                </Link>
+                .
+              </Text>
+            )}
           </Section>
         </Container>
       </Body>
@@ -134,6 +145,10 @@ export const sharedStyles = {
     color: "#2563eb",
     fontSize: "13px",
     wordBreak: "break-all",
+  } satisfies React.CSSProperties,
+  linkInline: {
+    color: "#2563eb",
+    fontSize: "13px",
   } satisfies React.CSSProperties,
   muted: {
     fontSize: "13px",
