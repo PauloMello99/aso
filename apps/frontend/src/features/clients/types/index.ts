@@ -13,9 +13,11 @@ export interface Customer {
   gender: Gender | null
   address: string
   addressLine2: string | null
-  number: string
-  city: string
-  state: string
+  // number/city/state: nullable para clientes importados do legado Ink House.
+  // O form (customerSchema) continua exigindo no cadastro e na edição.
+  number: string | null
+  city: string | null
+  state: string | null
   postalCode: string | null
   country: string | null
   notes: string | null

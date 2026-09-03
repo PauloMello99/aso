@@ -8,8 +8,8 @@ Architecture), `apps/frontend` (Next.js pages router, feature-based), `packages/
 libs compartilhadas. Domínio coberto pelos módulos de backend: caixa (`cashier`),
 clientes (`customers`), materiais/estoque (`materials`), serviços (`services`),
 `calendar`, `overview`, `notifications`, `support` (canal de suporte B2B, ADR-0021),
-além de `auth`, `organizations`, `admin`, `audit`, `mail`, `internal-cron`, `health`,
-`user`.
+`campaigns` (campanhas de e-mail por gatilho, ADR-0025), além de `auth`, `organizations`,
+`admin`, `audit`, `mail`, `internal-cron`, `health`, `user`.
 
 Arquitetura e decisões: `.memory/architecture.md`, `.memory/domain-rules.md` e os ADRs
 em `.memory/adr/` (fonte de verdade). Roadmap: `.memory/roadmap.md`.
@@ -47,11 +47,14 @@ pnpm lint          # lint com cache (--max-warnings 0)
 pnpm check-types   # type-check com cache
 pnpm format        # prettier em todo o repo
 
-pnpm --filter backend db:generate   # drizzle-kit generate (migration)
 pnpm --filter backend db:migrate    # aplica migrations (migrator custom, ADR-0003)
 pnpm --filter backend db:rollback   # reverte última migration (usa .down.sql)
 pnpm --filter backend db:status     # estado das migrations
 ```
+
+> **NÃO use `db:generate` (drizzle-kit generate).** Quebrado desde a 0011; todas as
+> migrations 0003+ são escritas À MÃO (`.sql` + `.down.sql` + entrada manual em
+> `drizzle/migrations/meta/_journal.json`). Ver `.memory/domain-rules.md`.
 
 Supabase local: `pnpm db:start` (`npx supabase start`); tipos: `pnpm db:gen-types`.
 

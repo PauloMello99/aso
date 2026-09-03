@@ -494,6 +494,45 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_refund_events: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          currency: string
+          id: string
+          occurred_at: string
+          org_id: string | null
+          reason: string | null
+          status: Database["public"]["Enums"]["billing_refund_event_status"]
+          stripe_charge_id: string | null
+          stripe_refund_id: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          currency: string
+          id?: string
+          occurred_at: string
+          org_id?: string | null
+          reason?: string | null
+          status: Database["public"]["Enums"]["billing_refund_event_status"]
+          stripe_charge_id?: string | null
+          stripe_refund_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          occurred_at?: string
+          org_id?: string | null
+          reason?: string | null
+          status?: Database["public"]["Enums"]["billing_refund_event_status"]
+          stripe_charge_id?: string | null
+          stripe_refund_id?: string
+        }
+        Relationships: []
+      }
       calendar_connections: {
         Row: {
           connected_at: string | null
@@ -663,6 +702,92 @@ export type Database = {
           },
         ]
       }
+      campaign_sends: {
+        Row: {
+          attempt: number
+          created_at: string
+          customer_id: string
+          dedupe_key: string
+          error: string | null
+          id: string
+          org_id: string
+          sent_at: string | null
+          status: Database["public"]["Enums"]["campaign_send_status"]
+          trigger: Database["public"]["Enums"]["campaign_trigger_type"]
+        }
+        Insert: {
+          attempt?: number
+          created_at?: string
+          customer_id: string
+          dedupe_key: string
+          error?: string | null
+          id?: string
+          org_id: string
+          sent_at?: string | null
+          status: Database["public"]["Enums"]["campaign_send_status"]
+          trigger: Database["public"]["Enums"]["campaign_trigger_type"]
+        }
+        Update: {
+          attempt?: number
+          created_at?: string
+          customer_id?: string
+          dedupe_key?: string
+          error?: string | null
+          id?: string
+          org_id?: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["campaign_send_status"]
+          trigger?: Database["public"]["Enums"]["campaign_trigger_type"]
+        }
+        Relationships: []
+      }
+      campaigns: {
+        Row: {
+          body: Json | null
+          created_at: string
+          enabled: boolean
+          id: string
+          inactivity_months: number | null
+          name: string
+          org_id: string
+          subject: string | null
+          trigger: Database["public"]["Enums"]["campaign_trigger_type"]
+          updated_at: string
+        }
+        Insert: {
+          body?: Json | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          inactivity_months?: number | null
+          name: string
+          org_id: string
+          subject?: string | null
+          trigger: Database["public"]["Enums"]["campaign_trigger_type"]
+          updated_at?: string
+        }
+        Update: {
+          body?: Json | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          inactivity_months?: number | null
+          name?: string
+          org_id?: string
+          subject?: string | null
+          trigger?: Database["public"]["Enums"]["campaign_trigger_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cron_job_state: {
         Row: {
           job_name: string
@@ -722,6 +847,60 @@ export type Database = {
           },
           {
             foreignKeyName: "customer_attachments_org_id_organizations_id_fk"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_email_preferences: {
+        Row: {
+          birthday_enabled: boolean
+          created_at: string
+          customer_id: string
+          id: string
+          inactivity_enabled: boolean
+          org_id: string
+          post_service_enabled: boolean
+          unsubscribe_token: string
+          unsubscribed_all_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          birthday_enabled?: boolean
+          created_at?: string
+          customer_id: string
+          id?: string
+          inactivity_enabled?: boolean
+          org_id: string
+          post_service_enabled?: boolean
+          unsubscribe_token?: string
+          unsubscribed_all_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          birthday_enabled?: boolean
+          created_at?: string
+          customer_id?: string
+          id?: string
+          inactivity_enabled?: boolean
+          org_id?: string
+          post_service_enabled?: boolean
+          unsubscribe_token?: string
+          unsubscribed_all_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_email_preferences_customer_org_fk"
+            columns: ["customer_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id", "org_id"]
+          },
+          {
+            foreignKeyName: "customer_email_preferences_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1218,8 +1397,61 @@ export type Database = {
           },
         ]
       }
+      org_member_payment_fees: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          fixed_cents: number
+          id: string
+          org_id: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          percent: number
+          superseded_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          fixed_cents?: number
+          id?: string
+          org_id: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          percent?: number
+          superseded_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          fixed_cents?: number
+          id?: string
+          org_id?: string
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          percent?: number
+          superseded_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_member_payment_fees_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_memberships: {
         Row: {
+          classification:
+            | Database["public"]["Enums"]["member_classification"]
+            | null
           enabled: boolean
           id: string
           joined_at: string
@@ -1229,6 +1461,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          classification?:
+            | Database["public"]["Enums"]["member_classification"]
+            | null
           enabled?: boolean
           id?: string
           joined_at?: string
@@ -1238,6 +1473,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          classification?:
+            | Database["public"]["Enums"]["member_classification"]
+            | null
           enabled?: boolean
           id?: string
           joined_at?: string
@@ -1713,6 +1951,7 @@ export type Database = {
           billing_interval:
             | Database["public"]["Enums"]["billing_interval"]
             | null
+          cancel_at_period_end: boolean
           canceled_at: string | null
           comp_expires_at: string | null
           comp_granted_by: string | null
@@ -1739,6 +1978,7 @@ export type Database = {
           billing_interval?:
             | Database["public"]["Enums"]["billing_interval"]
             | null
+          cancel_at_period_end?: boolean
           canceled_at?: string | null
           comp_expires_at?: string | null
           comp_granted_by?: string | null
@@ -1765,6 +2005,7 @@ export type Database = {
           billing_interval?:
             | Database["public"]["Enums"]["billing_interval"]
             | null
+          cancel_at_period_end?: boolean
           canceled_at?: string | null
           comp_expires_at?: string | null
           comp_granted_by?: string | null
@@ -2159,6 +2400,10 @@ export type Database = {
           created_by: string | null
           description: string
           fee_cents: number
+          fee_config_id: string | null
+          fee_fixed_cents: number | null
+          fee_percent: number | null
+          fee_source: string | null
           id: string
           org_id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
@@ -2174,6 +2419,10 @@ export type Database = {
           created_by?: string | null
           description: string
           fee_cents?: number
+          fee_config_id?: string | null
+          fee_fixed_cents?: number | null
+          fee_percent?: number | null
+          fee_source?: string | null
           id?: string
           org_id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
@@ -2189,6 +2438,10 @@ export type Database = {
           created_by?: string | null
           description?: string
           fee_cents?: number
+          fee_config_id?: string | null
+          fee_fixed_cents?: number | null
+          fee_percent?: number | null
+          fee_source?: string | null
           id?: string
           org_id?: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
@@ -2202,6 +2455,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "transaction_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_fee_config_id_org_member_payment_fees_id_fk"
+            columns: ["fee_config_id"]
+            isOneToOne: false
+            referencedRelation: "org_member_payment_fees"
             referencedColumns: ["id"]
           },
           {
@@ -2299,15 +2559,26 @@ export type Database = {
         | "cashier_transaction_created"
         | "cashier_fees_updated"
         | "cashier_commissions_updated"
+        | "org_admin_access"
+        | "campaign_settings_updated"
       billing_interval: "monthly" | "semiannual" | "annual"
       billing_invoice_event_type: "paid" | "payment_failed"
+      billing_refund_event_status:
+        | "pending"
+        | "requires_action"
+        | "succeeded"
+        | "failed"
+        | "canceled"
       calendar_attendee_status: "going" | "not_going"
       calendar_event_status: "scheduled" | "canceled"
       calendar_event_type: "appointment" | "unavailability"
       calendar_event_visibility: "private" | "shared"
       calendar_provider: "google" | "outlook" | "apple"
+      campaign_send_status: "sent" | "failed" | "bounced"
+      campaign_trigger_type: "post_service" | "birthday" | "inactivity"
       gender: "male" | "female" | "other"
       invitation_status: "pending" | "accepted" | "expired" | "cancelled"
+      member_classification: "resident" | "guest"
       notification_type:
         | "agenda_reminder"
         | "member_unavailability"
@@ -2478,16 +2749,28 @@ export const Constants = {
         "cashier_transaction_created",
         "cashier_fees_updated",
         "cashier_commissions_updated",
+        "org_admin_access",
+        "campaign_settings_updated",
       ],
       billing_interval: ["monthly", "semiannual", "annual"],
       billing_invoice_event_type: ["paid", "payment_failed"],
+      billing_refund_event_status: [
+        "pending",
+        "requires_action",
+        "succeeded",
+        "failed",
+        "canceled",
+      ],
       calendar_attendee_status: ["going", "not_going"],
       calendar_event_status: ["scheduled", "canceled"],
       calendar_event_type: ["appointment", "unavailability"],
       calendar_event_visibility: ["private", "shared"],
       calendar_provider: ["google", "outlook", "apple"],
+      campaign_send_status: ["sent", "failed", "bounced"],
+      campaign_trigger_type: ["post_service", "birthday", "inactivity"],
       gender: ["male", "female", "other"],
       invitation_status: ["pending", "accepted", "expired", "cancelled"],
+      member_classification: ["resident", "guest"],
       notification_type: [
         "agenda_reminder",
         "member_unavailability",

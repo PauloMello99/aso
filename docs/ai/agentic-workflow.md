@@ -187,9 +187,17 @@ padrão do tester — parar no menor conjunto que prova a mudança:
    transversal ou antes de considerar a tarefa concluída
 6. Build: `pnpm --filter <app> build` (ou `pnpm build`) — quando config/build foi afetado
 7. Migrations locais: `pnpm --filter backend db:status` (+ `npx supabase status`) quando tocou schema
+8. **Verificação no preview — obrigatória para toda mudança observável no navegador**
+   (algo que o dev server renderiza, serve ou loga): subir o preview via
+   `.claude/launch.json` (`frontend` :3000 / `backend` :3001), recarregar, checar
+   console + logs + network, exercitar o fluxo alterado e **anexar prova na resposta**
+   (screenshot / log de request / log de servidor). Só pula quando a mudança não é
+   exercitável no preview (tipos, tooling, lib, teste, trabalho ainda não integrável).
+   Nunca pedir para o usuário conferir manualmente no lugar disso.
 
-Ainda não existe e2e (TDD por módulo cobre unit/integração via Jest/Vitest; e2e contra
-Supabase local é roadmap). Não invente comandos de e2e inexistentes.
+Ainda não existe e2e automatizado (TDD por módulo cobre unit/integração via Jest/Vitest;
+e2e contra Supabase local é roadmap). A verificação no preview (passo 8) é a checagem
+funcional manual até lá. Não invente comandos de e2e inexistentes.
 
 ## Regras anti-desperdício
 

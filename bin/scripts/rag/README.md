@@ -42,7 +42,7 @@ ollama pull bge-m3
 docker compose -f docker-compose.rag.yml up -d
 
 # 3. venv dedicado + deps
-REPO=/mnt/c/Users/Paulo/Documents/Repos/Pessoal/ink-ops
+REPO=/mnt/c/Repos/Pessoal/aso
 python3 -m venv ~/ink-ops-rag-venv
 ~/ink-ops-rag-venv/bin/pip install -r "$REPO/bin/scripts/rag/requirements.txt"
 

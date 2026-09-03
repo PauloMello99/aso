@@ -19,10 +19,11 @@ export interface CustomerUpdateInvitationCustomerSnapshot {
   phone: string | null;
   birthDate: string;
   address: string;
-  number: string;
+  // number/city/state podem ser NULL em clientes importados do legado Ink House (0071).
+  number: string | null;
   addressLine2: string | null;
-  city: string;
-  state: string;
+  city: string | null;
+  state: string | null;
   postalCode: string | null;
   country: string | null;
 }

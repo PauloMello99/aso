@@ -6,6 +6,8 @@ import { MemberEntity } from "../../../organizations/domain/member.entity";
 import { ITransactionRepository } from "../../../cashier/domain/transaction.repository.interface";
 import { TransactionEntity } from "../../../cashier/domain/transaction.entity";
 import { IPaymentFeeRepository } from "../../../cashier/domain/payment-fee.repository.interface";
+import { IMemberPaymentFeeRepository } from "../../../cashier/domain/member-payment-fee.repository.interface";
+import { MemberPaymentFeeEntity } from "../../../cashier/domain/member-payment-fee.entity";
 import { IMemberCommissionRepository } from "../../../cashier/domain/member-commission.repository.interface";
 import { MemberCommissionEntity } from "../../../cashier/domain/member-commission.entity";
 import { computeNet } from "../../../cashier/domain/fee-calculator";
@@ -97,6 +99,25 @@ function buildCommission(
   });
 }
 
+function buildMemberPaymentFee(
+  overrides: Partial<Parameters<typeof MemberPaymentFeeEntity.create>[0]> = {},
+): MemberPaymentFeeEntity {
+  return MemberPaymentFeeEntity.create({
+    id: "member-fee-1",
+    orgId: "org-1",
+    userId: "user-1",
+    paymentMethod: "credit_card",
+    percent: "5.00",
+    fixedCents: 0,
+    active: true,
+    supersededAt: null,
+    createdBy: "owner-1",
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    updatedAt: new Date("2026-01-01T00:00:00Z"),
+    ...overrides,
+  });
+}
+
 function buildFakeServiceRepo(
   overrides: Partial<jest.Mocked<IServiceRepository>> = {},
 ): jest.Mocked<IServiceRepository> {
@@ -177,11 +198,23 @@ function buildFakeCommissionRepo(
   } as unknown as jest.Mocked<IMemberCommissionRepository>;
 }
 
+function buildFakeMemberFeeRepo(
+  overrides: Partial<jest.Mocked<IMemberPaymentFeeRepository>> = {},
+): jest.Mocked<IMemberPaymentFeeRepository> {
+  return {
+    findActiveByOrg: jest.fn(),
+    findActiveByOrgUserAndMethod: jest.fn().mockResolvedValue(null),
+    supersede: jest.fn(),
+    ...overrides,
+  } as unknown as jest.Mocked<IMemberPaymentFeeRepository>;
+}
+
 interface Fakes {
   serviceRepo: jest.Mocked<IServiceRepository>;
   memberRepo: jest.Mocked<IMemberRepository>;
   transactionRepo: jest.Mocked<ITransactionRepository>;
   feeRepo: jest.Mocked<IPaymentFeeRepository>;
+  memberFeeRepo: jest.Mocked<IMemberPaymentFeeRepository>;
   commissionRepo: jest.Mocked<IMemberCommissionRepository>;
 }
 
@@ -191,6 +224,7 @@ function buildUseCase(overrides: Partial<Fakes> = {}) {
     memberRepo: buildFakeMemberRepo(),
     transactionRepo: buildFakeTransactionRepo(),
     feeRepo: buildFakeFeeRepo(),
+    memberFeeRepo: buildFakeMemberFeeRepo(),
     commissionRepo: buildFakeCommissionRepo(),
     ...overrides,
   };
@@ -199,6 +233,7 @@ function buildUseCase(overrides: Partial<Fakes> = {}) {
     fakes.memberRepo,
     fakes.transactionRepo,
     fakes.feeRepo,
+    fakes.memberFeeRepo,
     fakes.commissionRepo,
   );
   return { useCase, ...fakes };
@@ -404,6 +439,187 @@ describe("RegisterPaymentUseCase", () => {
       "org-1",
       "professional-1",
     );
+  });
+
+  describe("taxa de pagamento por executor (performedBy)", () => {
+    it("performedBy com taxa própria ativa: snapshot 'member' e comissão modo net sobre o líquido pós-taxa do membro", async () => {
+      const service = buildService({
+        amountCents: 10000,
+        paymentMethod: "credit_card",
+        performedBy: "user-1",
+      });
+      const refreshed = buildService({ paymentTransactionId: "tx-1" });
+      const memberFee = buildMemberPaymentFee({
+        id: "member-fee-1",
+        userId: "user-1",
+        paymentMethod: "credit_card",
+        percent: "5.00",
+        fixedCents: 0,
+      });
+      const orgFee = { percent: "10.00", fixedCents: 0 };
+      const commission = buildCommission({ percent: "30.00", mode: "net" });
+
+      const { useCase, transactionRepo, serviceRepo, memberFeeRepo } =
+        buildUseCase({
+          serviceRepo: buildFakeServiceRepo({
+            findById: jest
+              .fn()
+              .mockResolvedValueOnce(service)
+              .mockResolvedValueOnce(refreshed),
+          }),
+          feeRepo: buildFakeFeeRepo({
+            findByOrgAndMethod: jest.fn().mockResolvedValue(orgFee),
+          }),
+          memberFeeRepo: buildFakeMemberFeeRepo({
+            findActiveByOrgUserAndMethod: jest
+              .fn()
+              .mockResolvedValue(memberFee),
+          }),
+          commissionRepo: buildFakeCommissionRepo({
+            findActiveByOrgAndUser: jest.fn().mockResolvedValue(commission),
+          }),
+        });
+
+      await useCase.execute(baseInput);
+
+      expect(memberFeeRepo.findActiveByOrgUserAndMethod).toHaveBeenCalledWith(
+        "org-1",
+        "user-1",
+        "credit_card",
+      );
+      // taxa do membro (5%), não a da org (10%): fee 500, líquido 9500
+      expect(transactionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          feeCents: 500,
+          netCents: 9500,
+          feeConfigId: "member-fee-1",
+          feePercent: "5.00",
+          feeFixedCents: 0,
+          feeSource: "member",
+        }),
+      );
+      // comissão modo net: 30% de 9500 (líquido pós-taxa do membro) = 2850
+      expect(serviceRepo.setPaymentTransaction).toHaveBeenCalledWith(
+        "service-1",
+        "tx-1",
+        expect.objectContaining({ baseCents: 9500, commissionCents: 2850 }),
+      );
+    });
+
+    it("performedBy sem taxa própria, org configurada: snapshot 'org' com feeConfigId null e números da org", async () => {
+      const service = buildService({
+        amountCents: 10000,
+        paymentMethod: "credit_card",
+        performedBy: "user-1",
+      });
+      const refreshed = buildService({ paymentTransactionId: "tx-1" });
+      const orgFee = { percent: "10.00", fixedCents: 0 };
+
+      const { useCase, transactionRepo, memberFeeRepo } = buildUseCase({
+        serviceRepo: buildFakeServiceRepo({
+          findById: jest
+            .fn()
+            .mockResolvedValueOnce(service)
+            .mockResolvedValueOnce(refreshed),
+        }),
+        feeRepo: buildFakeFeeRepo({
+          findByOrgAndMethod: jest.fn().mockResolvedValue(orgFee),
+        }),
+        memberFeeRepo: buildFakeMemberFeeRepo({
+          findActiveByOrgUserAndMethod: jest.fn().mockResolvedValue(null),
+        }),
+      });
+
+      await useCase.execute(baseInput);
+
+      expect(memberFeeRepo.findActiveByOrgUserAndMethod).toHaveBeenCalledWith(
+        "org-1",
+        "user-1",
+        "credit_card",
+      );
+      expect(transactionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          feeCents: 1000,
+          netCents: 9000,
+          feeConfigId: null,
+          feePercent: "10.00",
+          feeFixedCents: 0,
+          feeSource: "org",
+        }),
+      );
+    });
+
+    it("serviço sem performedBy: não consulta o repo de taxa de membro e cai na taxa da org", async () => {
+      const service = buildService({
+        amountCents: 10000,
+        paymentMethod: "credit_card",
+        performedBy: null,
+      });
+      const refreshed = buildService({
+        paymentTransactionId: "tx-1",
+        performedBy: null,
+      });
+      const orgFee = { percent: "10.00", fixedCents: 0 };
+
+      const { useCase, transactionRepo, memberFeeRepo } = buildUseCase({
+        serviceRepo: buildFakeServiceRepo({
+          findById: jest
+            .fn()
+            .mockResolvedValueOnce(service)
+            .mockResolvedValueOnce(refreshed),
+        }),
+        feeRepo: buildFakeFeeRepo({
+          findByOrgAndMethod: jest.fn().mockResolvedValue(orgFee),
+        }),
+      });
+
+      await useCase.execute(baseInput);
+
+      expect(
+        memberFeeRepo.findActiveByOrgUserAndMethod,
+      ).not.toHaveBeenCalled();
+      expect(transactionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          feeCents: 1000,
+          netCents: 9000,
+          feeConfigId: null,
+          feePercent: "10.00",
+          feeFixedCents: 0,
+          feeSource: "org",
+        }),
+      );
+    });
+
+    it("método não elegível a taxa (dinheiro): snapshot 'none' e feeCents 0 mesmo com performedBy", async () => {
+      const service = buildService({
+        amountCents: 10000,
+        paymentMethod: "cash",
+        performedBy: "user-1",
+      });
+      const refreshed = buildService({ paymentTransactionId: "tx-1" });
+
+      const { useCase, transactionRepo } = buildUseCase({
+        serviceRepo: buildFakeServiceRepo({
+          findById: jest
+            .fn()
+            .mockResolvedValueOnce(service)
+            .mockResolvedValueOnce(refreshed),
+        }),
+      });
+
+      await useCase.execute(baseInput);
+
+      expect(transactionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          feeCents: 0,
+          netCents: 10000,
+          feeConfigId: null,
+          feePercent: null,
+          feeFixedCents: null,
+          feeSource: "none",
+        }),
+      );
+    });
   });
 
   it("lança ServiceNotFoundException quando o serviço não existe", async () => {

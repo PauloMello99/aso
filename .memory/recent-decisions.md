@@ -28,6 +28,7 @@
 | ADR-0022 | Support (Fatia C): tickets órfãos (`org_id` nullable, RLS ramificada explicitamente, INSERT exclusivo de `DRIZZLE_ADMIN`) + e-mail-to-ticket via Resend Inbound (dedupe por `email_id` UNIQUE claim+escrita na mesma transação, threading por plus-address sempre confirmado contra `requesterEmail`, vínculo a org sempre manual pelo super_admin) — Turnstile fail-closed no formulário público, Svix sem bypass no webhook                                                                                                                           | 2026-08-15 | Aceito                                        |
 | ADR-0023 | Billing (catálogo Stripe, super_admin): `billing_plans` no banco vira fonte de verdade (sync não rotaciona mais preço automaticamente, só reporta `drift`); Price/Coupon são imutáveis no Stripe pós-criação — "editar" é sempre criar novo + `transfer_lookup_key` + arquivar separado (Price) ou editar só o Promotion Code (Coupon); discriminador anti-corrida no webhook evita persistir o Price arquivado de uma rotação                                                                                                                          | 2026-08-15 | Aceito (parcialmente superseded por ADR-0024) |
 | ADR-0024 | Billing multi-preço por intervalo (`billing_plan_prices`, migration 0048, índices únicos parciais `WHERE active`), migração automática de assinantes na rotação (`RotatePlanIntervalPriceUseCase`, sem transação cross-repository), reconciliação periódica via cron invertendo a direção do ADR-0023 (Stripe manda, `ReconcilePlanCatalogUseCase` self-throttled a cada 3 dias via `cron_job_state`), endpoint público `GET /public/billing/plans` (feature-flag `PUBLIC_PRICING_ENABLED`), landing com ISR (`numReplicas=1` do ADR-0011 torna seguro) | 2026-08-16 | Aceito                                        |
+| ADR-0025 | Campanhas de e-mail por gatilho (T6 Bloco A): módulo `campaigns` próprio (não reusa `NotificationService`), opt-out por cliente em `customer_email_preferences` (migration 0061, `unsubscribe_token` que nunca rotaciona), `org_campaign_settings` (migration 0062) + env `CAMPAIGNS_ENABLED` como gate — sem o módulo de Feature Flags (ADR-0009), `campaign_sends` (migration 0063) append-only sem FK nem RLS, copy custom texto-puro com allowlist de tokens, rodapé fixo via `footerOverride`, fuso `America/Sao_Paulo` nos gatilhos de data (D8) | 2026-09-01 | Aceito (parcialmente superseded pelo Addendum 2026-09 — rework T6) |
 
 ## Decisões/registros recentes (sem ADR)
 
@@ -122,6 +123,17 @@
   `image-compression.ts`), fix de `jest.config.js rootDir` no Windows com worktree em path
   com segmento `.claude`. Validado pós-merge: check-types + lint + test (102/102 suites
   backend, 610 testes; 34/34 frontend, 279 testes) + build, tudo verde. Sem push.
+- **2026-08-30 — Token efficiency do Claude Code documentado** (`docs/ai/token-efficiency.md`):
+  `caveman` (`JuliusBrussee/caveman`) já instalado e ativo (marketplace no `~/.claude/settings.json`,
+  `enabledPlugins.caveman: true` no `.claude/settings.json`); default do repo fixado em
+  `lite` via `.caveman.json` na raiz (`/caveman full` por sessão em discussão longa).
+  Engajamento por sessão ainda não confirmado — checar com `/caveman-stats`. `caveman`
+  reduz **só output** (~14–21% de sessão em workload verboso, net-negativo em Q&A curto,
+  custa ~1–1.5k input/turno). `rtk` (Rust Token Killer) **não instalado** — exige baixar
+  binário Windows + `rtk init -g` pessoal (não escopo de projeto: quebraria Bash de quem
+  não tem o binário); só cobre `git`/`grep`/`find`, não `pnpm`/`turbo`/`vitest`. Alavancas
+  maiores registradas mas não alteradas: podar `enabledMcpjsonServers` (10 servidores, 4
+  quebrados), `opus[1m]`, `alwaysThinkingEnabled`.
 - **2026-08-22/23 — M10d: gate de versão vigente + reenvio inteligente + envio de cópia por
   e-mail da ficha de anamnese** (feature nova, via skill `development-workflow`, classificada
   complexa). Migration `0055_audit_action_anamnesis_resend_copy` (2 valores novos de
@@ -144,3 +156,86 @@
   (104/104 suites backend, 628 testes; 36/36 frontend, 292 testes) + build, tudo verde.
   Branch `features/continuar-progresso-de1de1`, sem commit ainda (aguardando pedido do
   usuário).
+- **2026-08-31 — Espelho local do desconto do Stripe passa a ser fiel** (revisão 30-08,
+  módulo `subscriptions`): `toNormalizedSubscription` hard-codeava `stripeCouponId`/
+  `discountPercent` como `null`, causando drift eterno + write thrash no reconcile e
+  zeragem do cache pelo webhook/`MigrateSubscribersToPriceUseCase`. Opção A: o gateway
+  resolve o desconto real do Stripe (`expand: ["discounts"]` + `coupons.retrieve`
+  condicional; helpers `extractSubscriptionDiscountRef`/`mapCouponToDiscount`/
+  `resolveSubscriptionDiscount`), com telemetria nova
+  (`BILLING_SUBSCRIPTION_DISCOUNT_DRIFT_OVERWRITTEN` a cada sobrescrita no reconcile, por
+  ADR-0024). Sem ADR novo — detalhe completo no ADR-0016
+  (`.memory/adr/0016-billing-stripe-assinatura.md`), Addendum 2026-08-31 "espelho fiel do
+  desconto do Stripe", que substitui o item 4 do Addendum T4-F2 (2026-08-31).
+- **2026-08-31 — T4-F5: fluxo Stripe endurecido (fecha o T4)** (revisão 30-08, módulo
+  `subscriptions`). **Bloco A** (`d7f7c49`): `refund.updated` consumido, `has_more` paginado
+  de verdade, `ReconcileSubscriptionsUseCase` ganha `diffs[]` por campo + `captureMessage`
+  só para campos monetários (novo `BILLING_SUBSCRIPTION_PRICE_DRIFT_OVERWRITTEN`) + detecção
+  de `stripe_price_id` órfão, guard anti-flap `shouldSkipStripeStatusOverride` simétrico
+  webhook↔cron. **Bloco B** (`8244632`): `ReconcileRefundsUseCase` (job de cron
+  self-throttled, molde ADR-0024) — varredura global `refunds.list({created:{gte:now-7d}})`
+  com **guarda de inserção** (não ingere refund alheio — conta Stripe pode ser
+  compartilhada) + passe de re-resolução de `org_id` órfão. **Exceção D4 ao append-only de
+  `billing_refund_events`**: `resolveOrgIdWhereNull` (por charge) e
+  `backfillOrgIdFromResolvedSiblings` (por refund, raw `UPDATE ... FROM`) preenchem `org_id`
+  quando NULL, nunca `status`/`amount_cents`/`occurred_at`/`reason` — registrada em
+  `domain-rules.md`. `GET /admin/orgs/:orgId/subscription/refunds` paginado
+  (`SubscriptionRefundsPage`, sem `id`/`org_id` internos). Sem ADR novo — ADR-0016 addenda
+  "T4-F5 Bloco A" e "T4-F5 Bloco B". Dependência load-bearing: `subscriptions.stripe_customer_id`
+  UNIQUE ancora o backfill contra misatribuição entre orgs. T4-F4 (cancelamento pelo
+  super_admin) segue bloqueado (converge com T3).
+- **2026-09-01 — T6 Bloco A: backend do MVP de campanhas de e-mail por gatilho**
+  (`ADR-0025`). Módulo novo `apps/backend/src/modules/campaigns/` (Clean Architecture),
+  disparo via `RunCampaignTriggersUseCase` no tick único de cron, self-throttled 20h por
+  `cron_job_state`. 3 gatilhos: `post_service`/`birthday`/`inactivity`. Migrations
+  `0061_customer_email_preferences` (opt-out por cliente, `unsubscribe_token` que não
+  expira nem rotaciona, RLS só SELECT), `0062_org_campaign_settings` (flags `*_enabled` +
+  copy custom por gatilho, default `false`), `0063_campaign_sends` (enums
+  `campaign_trigger_type`/`campaign_send_status`, log append-only sem FK nem RLS — uma
+  linha terminal por tentativa). Gate = env `CAMPAIGNS_ENABLED` + flags por org — **não**
+  puxa o módulo de Feature Flags (ADR-0009, decisão de escopo). Copy custom é texto puro
+  (`<Text>` do React Email, `dangerouslySetInnerHTML` proibido) com allowlist de 2 tokens
+  em passe único; rodapé de descadastro fixo via `footerOverride` do `base-layout`.
+  Endpoint público `GET/POST /public/campaigns/{preferences,unsubscribe}/:token` (sem
+  gate de `CAMPAIGNS_ENABLED` — o kill-switch para só o envio, nunca o descadastro).
+  Primeira decisão de fuso explícita em lógica de negócio do repo: `America/Sao_Paulo`
+  nos gatilhos de data (D8). Validado: check-types + lint + test (817 testes backend, 37
+  suites frontend) + build verdes; migration round-trip ×2; `database-guardian`
+  (`changes_required` → aplicado) e `reviewer` (`approved_with_notes` → 3 medium + 4 low
+  aplicados). **Pré-requisito de ativação**: Bloco B (telas de config do dono + página de
+  preferências do cliente em `/preferencias-email/:token`) antes de `CAMPAIGNS_ENABLED=true`
+  — link de descadastro precisa de destino vivo (LGPD). Commits pendentes (aguardando
+  pedido do usuário).
+- **2026-09-01 — Rework T6 de campanhas de e-mail** (`ADR-0025`, **Addendum 2026-09** —
+  corpo original preservado como histórico; ver
+  `.memory/adr/0025-campanhas-email-por-gatilho.md`). A feature foi retrabalhada **antes de
+  ir live**: `org_campaign_settings` (0062, 1 linha/org) **dropada** pela migration `0067`
+  e substituída por `campaigns` (migration `0066`) — tabela CRUD com N linhas/org, UMA por
+  gatilho (`UNIQUE (org_id, trigger)`), nova policy de DELETE, sem backfill. **D5
+  revertida**: o corpo do e-mail deixa de ser texto puro e passa a **Tiptap-JSON**, com
+  duas barreiras — walker de allowlist fechada no servidor (`validateCampaignBody`, 400
+  `CAMPAIGN_INVALID_BODY`) + renderer React Email sem `dangerouslySetInnerHTML`
+  (`mail/application/render-campaign-body.tsx`); assunto (texto puro) e rodapé fixo
+  inalterados. Novo bucket **`campaign-images`** (migration `0068`, PÚBLICO — cliente de
+  e-mail não autentica) para upload de imagem do corpo (owner-only, não grava no banco; o
+  walker exige `src` com prefixo do bucket). `campaign_sends` (0063) e o opt-out (0061)
+  **inalterados** — recriar campanha do mesmo gatilho NÃO reenvia (dedupe herdado).
+  Auditoria reusa a action `campaign_settings_updated` (enum da migration `0065`, sem
+  migration nova) com `metadata.operation`. Frontend: aba top-level "Campanhas"
+  (owner-only), CRUD com editor Tiptap. **Em aberto**: serviço de moderação de conteúdo por
+  ML/LLM (não adotado — custo de manutenção); cleanup de imagens órfãs no DELETE (deixadas
+  de propósito). Migrations `0066`/`0067`/`0068` escritas à mão. Sem ADR novo — Addendum ao
+  ADR-0025. Commits pendentes (aguardando pedido do usuário).
+- **2026-09-02 — Taxa de meio de pagamento por funcionário + label de classificação de
+  membro** (SEM ADR novo — decisão do coordenador: extensão direta dos padrões
+  `0051_member_commissions`/ADR-0010/ADR-0013, sem trade-off arquitetural). Migrations à
+  mão `0069_member_classification` (`org_memberships.classification`, enum
+  `resident`|`guest` nullable — **display-only**, proibido ler em regra/guard/RLS; editável
+  por owner/super_admin) e `0070_member_payment_fees` (`org_member_payment_fees` versionado
+  imutável por `(org, user, method)` + snapshot `fee_*` em `transactions`). Decisão
+  central: **override + fallback da org, sem backfill** — a tabela nasce vazia, cada
+  funcionário usa `org_payment_fees` até receber override explícito; `resolveFee` resolve
+  membro → org → nenhuma; a comissão em modo `net` passa a refletir a taxa do funcionário.
+  Convenções em `domain-rules.md` (seções "Roles dentro da org", "Taxa de cartão por
+  profissional", "Comissão/repasse por profissional", "Cobertura de auditoria do caixa").
+  Commits pendentes (aguardando pedido do usuário).

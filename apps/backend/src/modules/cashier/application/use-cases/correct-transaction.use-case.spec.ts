@@ -111,12 +111,23 @@ describe("CorrectTransactionUseCase", () => {
       original.id,
     );
     expect(reverseTransaction.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ orgId: "org-1", transactionId: original.id }),
+      expect.objectContaining({
+        orgId: "org-1",
+        transactionId: original.id,
+        authId: "user-2",
+      }),
     );
     expect(createTransaction.execute).toHaveBeenCalledWith(
       expect.objectContaining({
         trustedCreatedBy: original.createdBy,
         grossCents: 15000,
+        originalFee: {
+          paymentMethod: original.paymentMethod,
+          feePercent: original.feePercent,
+          feeFixedCents: original.feeFixedCents,
+          feeSource: original.feeSource,
+          feeConfigId: original.feeConfigId,
+        },
       }),
     );
     expect(result).toEqual({ reversal, replacement });

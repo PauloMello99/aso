@@ -12,10 +12,12 @@ export interface CustomerEntityProps {
   birthDate: string;
   gender: Gender | null;
   address: string;
-  number: string;
+  // number/city/state: nullable para clientes importados do legado Ink House (0071).
+  // Criação nova continua exigindo (CreateCustomerData abaixo mantém string).
+  number: string | null;
   addressLine2: string | null;
-  city: string;
-  state: string;
+  city: string | null;
+  state: string | null;
   postalCode: string | null;
   country: string | null;
   notes: string | null;
@@ -73,10 +75,10 @@ export class CustomerEntity {
   readonly birthDate: string;
   readonly gender: Gender | null;
   readonly address: string;
-  readonly number: string;
+  readonly number: string | null;
   readonly addressLine2: string | null;
-  readonly city: string;
-  readonly state: string;
+  readonly city: string | null;
+  readonly state: string | null;
   readonly postalCode: string | null;
   readonly country: string | null;
   readonly notes: string | null;

@@ -8,7 +8,11 @@ import {
   unique,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
-import { orgRoleEnum, invitationStatusEnum } from "./enums";
+import {
+  orgRoleEnum,
+  invitationStatusEnum,
+  memberClassificationEnum,
+} from "./enums";
 
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -34,6 +38,7 @@ export const orgMemberships = pgTable(
       .references(() => organizations.id, { onDelete: "cascade" }),
     userId: uuid("user_id").notNull(),
     role: orgRoleEnum("role").notNull().default("employee"),
+    classification: memberClassificationEnum("classification"),
     permissions: text("permissions").array().notNull().default([]),
     enabled: boolean("enabled").notNull().default(true),
     joinedAt: timestamp("joined_at", { withTimezone: true })

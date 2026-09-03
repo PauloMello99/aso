@@ -1,4 +1,5 @@
 import type { Transaction as TransactionRow } from "../../../../database/schema/studio/transactions";
+import type { FeeSource } from "../../domain/fee-calculator";
 import {
   PaymentMethod,
   TransactionEntity,
@@ -18,6 +19,10 @@ export class TransactionMapper {
       feeCents: row.feeCents,
       paymentMethod: row.paymentMethod as PaymentMethod,
       categoryId: row.categoryId ?? null,
+      feeConfigId: row.feeConfigId ?? null,
+      feePercent: row.feePercent ?? null,
+      feeFixedCents: row.feeFixedCents ?? null,
+      feeSource: row.feeSource as FeeSource | null,
       reversesTransactionId: row.reversesTransactionId ?? null,
       transactedAt: row.transactedAt,
       createdAt: row.createdAt,

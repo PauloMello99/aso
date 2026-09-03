@@ -1,3 +1,5 @@
+import type { FeeSource } from "./fee-calculator";
+
 export type TransactionType = "income" | "outcome";
 export type PaymentMethod =
   | "cash"
@@ -19,6 +21,10 @@ export interface TransactionEntityProps {
   feeCents: number;
   paymentMethod: PaymentMethod;
   categoryId: string | null;
+  feeConfigId?: string | null;
+  feePercent?: string | null;
+  feeFixedCents?: number | null;
+  feeSource?: FeeSource | null;
   reversesTransactionId: string | null;
   transactedAt: Date;
   createdAt: Date;
@@ -34,6 +40,10 @@ export interface CreateTransactionData {
   feeCents: number;
   paymentMethod: PaymentMethod;
   categoryId?: string | null;
+  feeConfigId?: string | null;
+  feePercent?: string | null;
+  feeFixedCents?: number | null;
+  feeSource?: FeeSource | null;
   reversesTransactionId?: string | null;
   transactedAt?: Date;
 }
@@ -55,6 +65,10 @@ export class TransactionEntity {
   readonly feeCents: number;
   readonly paymentMethod: PaymentMethod;
   readonly categoryId: string | null;
+  readonly feeConfigId: string | null;
+  readonly feePercent: string | null;
+  readonly feeFixedCents: number | null;
+  readonly feeSource: FeeSource | null;
   readonly reversesTransactionId: string | null;
   readonly transactedAt: Date;
   readonly createdAt: Date;
@@ -70,6 +84,10 @@ export class TransactionEntity {
     this.feeCents = props.feeCents;
     this.paymentMethod = props.paymentMethod;
     this.categoryId = props.categoryId;
+    this.feeConfigId = props.feeConfigId ?? null;
+    this.feePercent = props.feePercent ?? null;
+    this.feeFixedCents = props.feeFixedCents ?? null;
+    this.feeSource = props.feeSource ?? null;
     this.reversesTransactionId = props.reversesTransactionId;
     this.transactedAt = props.transactedAt;
     this.createdAt = props.createdAt;

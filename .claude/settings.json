@@ -31,6 +31,27 @@
         ]
       }
     ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .claude\\hooks\\pwsh-guard.ps1"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -Command \"Write-Output 'Compactacao iminente = a sessao ficou longa (dumbzone). Antes de continuar: (1) grave o estado em .claude/scratch/workflow-ledger.md; (2) se o trabalho atual e um fluxo development-workflow em andamento, considere terminar o passo corrente e recomendar sessao nova em vez de arrastar o contexto; (3) apos compactar, NAO re-leia arquivos ja lidos - confie no ledger e nos YAML dos agentes.'\""
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit",
@@ -48,15 +69,10 @@
     "caveman": true
   },
   "enabledMcpjsonServers": [
-    "shadcn",
-    "supabase-local",
-    "postgres-local",
-    "supabase-staging",
-    "postgres-staging",
     "ink-memory",
-    "github",
-    "railway",
-    "resend",
-    "better-stack"
+    "postgres-local",
+    "supabase-local",
+    "postgres-staging",
+    "supabase-staging"
   ]
 }

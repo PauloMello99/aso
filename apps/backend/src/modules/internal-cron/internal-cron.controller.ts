@@ -6,6 +6,8 @@ import { SendStockCheckRemindersUseCase } from "../materials/application/use-cas
 import { ReconcileSubscriptionsUseCase } from "../subscriptions/application/use-cases/reconcile-subscriptions.use-case";
 import { ExpireSubscriptionsUseCase } from "../subscriptions/application/use-cases/expire-subscriptions.use-case";
 import { ReconcilePlanCatalogUseCase } from "../subscriptions/application/use-cases/reconcile-plan-catalog.use-case";
+import { ReconcileRefundsUseCase } from "../subscriptions/application/use-cases/reconcile-refunds.use-case";
+import { RunCampaignTriggersUseCase } from "../campaigns/application/use-cases/run-campaign-triggers.use-case";
 import { SweepTicketSlaUseCase } from "../support/application/use-cases/sweep-ticket-sla.use-case";
 
 interface JobResult {
@@ -24,6 +26,8 @@ export class InternalCronController {
     private readonly reconcileSubscriptions: ReconcileSubscriptionsUseCase,
     private readonly expireSubscriptions: ExpireSubscriptionsUseCase,
     private readonly reconcilePlanCatalog: ReconcilePlanCatalogUseCase,
+    private readonly reconcileRefunds: ReconcileRefundsUseCase,
+    private readonly runCampaignTriggers: RunCampaignTriggersUseCase,
     private readonly sweepTicketSla: SweepTicketSlaUseCase,
   ) {}
 
@@ -53,6 +57,20 @@ export class InternalCronController {
         // are a cheap no-op claim check.
         name: CRON_JOBS.BILLING_CATALOG_RECONCILIATION,
         run: () => this.reconcilePlanCatalog.execute(),
+      },
+      {
+        // Self-throttled inside the use-case (runs at most once every 24
+        // hours) — invoked on every tick like the other jobs, but most calls
+        // are a cheap no-op claim check.
+        name: CRON_JOBS.BILLING_REFUND_RECONCILIATION,
+        run: () => this.reconcileRefunds.execute(),
+      },
+      {
+        // Self-throttled inside the use-case (runs at most once every 20
+        // hours) — invoked on every tick like the other jobs, but most calls
+        // are a cheap no-op (kill-switch/channel/claim check).
+        name: CRON_JOBS.CAMPAIGN_TRIGGERS,
+        run: () => this.runCampaignTriggers.execute(),
       },
       {
         name: CRON_JOBS.TICKET_SLA_SWEEP,

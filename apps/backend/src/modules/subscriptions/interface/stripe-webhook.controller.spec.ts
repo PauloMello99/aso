@@ -4,15 +4,20 @@ import { ConfigService } from "@nestjs/config";
 import type { Request } from "express";
 import { StripeWebhookController } from "./stripe-webhook.controller";
 import { HandleStripeWebhookUseCase } from "../application/use-cases/handle-stripe-webhook.use-case";
+import { RefundOrgResolver } from "../application/refund-org-resolver.service";
 import { StripePaymentGateway } from "../infrastructure/stripe-payment-gateway";
+import { IPaymentGateway } from "../domain/ports/payment-gateway.port";
 import { ISubscriptionRepository } from "../domain/subscription.repository.interface";
 import { IStripeWebhookEventRepository } from "../domain/stripe-webhook-event.repository.interface";
 import { IBillingInvoiceEventRepository } from "../domain/billing-invoice-event.repository.interface";
+import { IBillingRefundEventRepository } from "../domain/billing-refund-event.repository.interface";
 import { IBillingPlanRepository } from "../domain/billing-plan.repository.interface";
+import { IBillingPlanPriceRepository } from "../domain/billing-plan-price.repository.interface";
 import { IBillingCouponRepository } from "../domain/billing-coupon.repository.interface";
 import { SubscriptionEntity } from "../domain/subscription.entity";
 import { WebhookSignatureInvalidException } from "../domain/exceptions/webhook-signature-invalid.exception";
 import { TelemetryService } from "../../../common/telemetry/telemetry.service";
+import { FrontendRevalidationClient } from "../infrastructure/frontend-revalidation.client";
 
 /**
  * Exercises the full webhooks/stripe path (controller -> use-case ->
@@ -78,6 +83,7 @@ function buildSubscription(
     compGrantedBy: null,
     compExpiresAt: null,
     canceledAt: null,
+    cancelAtPeriodEnd: false,
     trialConsumed: false,
     createdAt: new Date("2026-01-01T00:00:00Z"),
     updatedAt: new Date("2026-01-01T00:00:00Z"),
@@ -115,6 +121,52 @@ function buildFakeInvoiceEventRepo(): jest.Mocked<IBillingInvoiceEventRepository
   } as unknown as jest.Mocked<IBillingInvoiceEventRepository>;
 }
 
+function buildFakeRefundEventRepo(): jest.Mocked<IBillingRefundEventRepository> {
+  return {
+    create: jest.fn(),
+    findResolvedOrgIdByRefundId: jest.fn().mockResolvedValue(null),
+    findResolvedOrgIdByChargeId: jest.fn().mockResolvedValue(null),
+    backfillOrgIdFromResolvedSiblings: jest.fn().mockResolvedValue(0),
+  } as unknown as jest.Mocked<IBillingRefundEventRepository>;
+}
+
+function buildFakeRefundOrgResolver(
+  deps: {
+    subscriptionRepo?: jest.Mocked<ISubscriptionRepository>;
+    refundEventRepo?: jest.Mocked<IBillingRefundEventRepository>;
+    paymentGateway?: IPaymentGateway;
+  } = {},
+): RefundOrgResolver {
+  return new RefundOrgResolver(
+    deps.subscriptionRepo ?? buildFakeSubscriptionRepo(),
+    deps.refundEventRepo ?? buildFakeRefundEventRepo(),
+    deps.paymentGateway ??
+      ({
+        retrieveChargeCustomerId: jest.fn().mockResolvedValue(null),
+        retrievePaymentIntentCustomerId: jest.fn().mockResolvedValue(null),
+      } as unknown as IPaymentGateway),
+  );
+}
+
+function buildFakeBillingPlanPriceRepo(): jest.Mocked<IBillingPlanPriceRepository> {
+  return {
+    findActiveByPlanId: jest.fn(),
+    findAllByPlanId: jest.fn().mockResolvedValue([]),
+    findActiveByPlanIdAndInterval: jest.fn().mockResolvedValue(null),
+    findByPlanIdAndInterval: jest.fn(),
+    findByStripePriceId: jest.fn().mockResolvedValue(null),
+    create: jest.fn(),
+    updateById: jest.fn(),
+    deactivateById: jest.fn(),
+  } as unknown as jest.Mocked<IBillingPlanPriceRepository>;
+}
+
+function buildFakeRevalidationClient(): jest.Mocked<FrontendRevalidationClient> {
+  return {
+    revalidate: jest.fn().mockResolvedValue(undefined),
+  } as unknown as jest.Mocked<FrontendRevalidationClient>;
+}
+
 function buildFakeBillingPlanRepo(): jest.Mocked<IBillingPlanRepository> {
   return {
     findByKey: jest.fn(),
@@ -149,7 +201,10 @@ function buildFakeTelemetry(): jest.Mocked<TelemetryService> {
 
 describe("StripeWebhookController (webhooks/stripe, offline)", () => {
   it("rejects a payload signed with the wrong secret with WebhookSignatureInvalidException", async () => {
-    const paymentGateway = new StripePaymentGateway(buildConfig());
+    const paymentGateway = new StripePaymentGateway(
+      buildConfig(),
+      buildFakeTelemetry(),
+    );
     const webhookEventRepo = buildFakeWebhookEventRepo();
     const useCase = new HandleStripeWebhookUseCase(
       paymentGateway,
@@ -158,7 +213,11 @@ describe("StripeWebhookController (webhooks/stripe, offline)", () => {
       buildFakeInvoiceEventRepo(),
       buildFakeBillingPlanRepo(),
       buildFakeBillingCouponRepo(),
+      buildFakeBillingPlanPriceRepo(),
       buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
+      buildFakeRefundEventRepo(),
+      buildFakeRefundOrgResolver(),
     );
     const controller = new StripeWebhookController(useCase);
 
@@ -179,7 +238,10 @@ describe("StripeWebhookController (webhooks/stripe, offline)", () => {
   });
 
   it("processes a validly signed customer.subscription.updated event and returns {received:true}", async () => {
-    const paymentGateway = new StripePaymentGateway(buildConfig());
+    const paymentGateway = new StripePaymentGateway(
+      buildConfig(),
+      buildFakeTelemetry(),
+    );
     const normalized = {
       stripeSubscriptionId: "sub_stripe_1",
       stripeCustomerId: "cus_1",
@@ -193,6 +255,7 @@ describe("StripeWebhookController (webhooks/stripe, offline)", () => {
       currentPeriodStart: new Date("2026-02-01T00:00:00Z"),
       currentPeriodEnd: new Date("2026-03-01T00:00:00Z"),
       canceledAt: null,
+      cancelAtPeriodEnd: false,
     };
     jest
       .spyOn(paymentGateway, "getSubscription")
@@ -210,7 +273,11 @@ describe("StripeWebhookController (webhooks/stripe, offline)", () => {
       buildFakeInvoiceEventRepo(),
       buildFakeBillingPlanRepo(),
       buildFakeBillingCouponRepo(),
+      buildFakeBillingPlanPriceRepo(),
       buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
+      buildFakeRefundEventRepo(),
+      buildFakeRefundOrgResolver(),
     );
     const controller = new StripeWebhookController(useCase);
 
@@ -235,7 +302,10 @@ describe("StripeWebhookController (webhooks/stripe, offline)", () => {
   });
 
   it("does not reprocess a replayed event.id (claim returns false)", async () => {
-    const paymentGateway = new StripePaymentGateway(buildConfig());
+    const paymentGateway = new StripePaymentGateway(
+      buildConfig(),
+      buildFakeTelemetry(),
+    );
     const getSubscriptionSpy = jest.spyOn(paymentGateway, "getSubscription");
 
     const subscriptionRepo = buildFakeSubscriptionRepo();
@@ -249,7 +319,11 @@ describe("StripeWebhookController (webhooks/stripe, offline)", () => {
       buildFakeInvoiceEventRepo(),
       buildFakeBillingPlanRepo(),
       buildFakeBillingCouponRepo(),
+      buildFakeBillingPlanPriceRepo(),
       buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
+      buildFakeRefundEventRepo(),
+      buildFakeRefundOrgResolver(),
     );
     const controller = new StripeWebhookController(useCase);
 
@@ -269,5 +343,84 @@ describe("StripeWebhookController (webhooks/stripe, offline)", () => {
     expect(getSubscriptionSpy).not.toHaveBeenCalled();
     expect(subscriptionRepo.update).not.toHaveBeenCalled();
     expect(webhookEventRepo.markProcessed).not.toHaveBeenCalled();
+  });
+
+  it("mirrors a validly signed charge.refunded event into billing_refund_events", async () => {
+    const paymentGateway = new StripePaymentGateway(
+      buildConfig(),
+      buildFakeTelemetry(),
+    );
+    const subscriptionRepo = buildFakeSubscriptionRepo({
+      findByStripeCustomerId: jest
+        .fn()
+        .mockResolvedValue(buildSubscription({ orgId: "org-1" })),
+    });
+    const refundEventRepo = buildFakeRefundEventRepo();
+    const webhookEventRepo = buildFakeWebhookEventRepo();
+    const useCase = new HandleStripeWebhookUseCase(
+      paymentGateway,
+      subscriptionRepo,
+      webhookEventRepo,
+      buildFakeInvoiceEventRepo(),
+      buildFakeBillingPlanRepo(),
+      buildFakeBillingCouponRepo(),
+      buildFakeBillingPlanPriceRepo(),
+      buildFakeTelemetry(),
+      buildFakeRevalidationClient(),
+      refundEventRepo,
+      buildFakeRefundOrgResolver({
+        subscriptionRepo,
+        refundEventRepo,
+        paymentGateway,
+      }),
+    );
+    const controller = new StripeWebhookController(useCase);
+
+    const payload = JSON.stringify({
+      id: "evt_charge_refunded",
+      type: "charge.refunded",
+      created: 1_767_225_600,
+      data: {
+        object: {
+          id: "ch_1",
+          customer: "cus_1",
+          refunds: {
+            data: [
+              {
+                id: "re_1",
+                charge: "ch_1",
+                status: "succeeded",
+                amount: 500,
+                currency: "brl",
+                reason: "requested_by_customer",
+              },
+            ],
+            has_more: false,
+          },
+        },
+      },
+    });
+    const signature = signPayload(payload);
+
+    const result = await controller.handle(
+      buildRawBodyRequest(payload),
+      signature,
+    );
+
+    expect(result).toEqual({ received: true });
+    expect(refundEventRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stripeRefundId: "re_1",
+        stripeChargeId: "ch_1",
+        orgId: "org-1",
+        status: "succeeded",
+        amountCents: 500,
+        currency: "brl",
+        occurredAt: new Date(1_767_225_600 * 1000),
+      }),
+    );
+    expect(webhookEventRepo.markProcessed).toHaveBeenCalledWith(
+      "evt_charge_refunded",
+    );
   });
 });

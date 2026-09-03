@@ -40,6 +40,7 @@ function toDomain(row: SubscriptionRow): SubscriptionEntity {
     compGrantedBy: row.compGrantedBy ?? null,
     compExpiresAt: row.compExpiresAt ?? null,
     canceledAt: row.canceledAt ?? null,
+    cancelAtPeriodEnd: row.cancelAtPeriodEnd,
     trialConsumed: row.trialConsumed,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -231,6 +232,9 @@ export class DrizzleSubscriptionRepository implements ISubscriptionRepository {
           compExpiresAt: data.compExpiresAt,
         }),
         ...(data.canceledAt !== undefined && { canceledAt: data.canceledAt }),
+        ...(data.cancelAtPeriodEnd !== undefined && {
+          cancelAtPeriodEnd: data.cancelAtPeriodEnd,
+        }),
         ...(data.trialConsumed !== undefined && {
           trialConsumed: data.trialConsumed,
         }),

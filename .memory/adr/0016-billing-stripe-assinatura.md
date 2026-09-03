@@ -48,7 +48,11 @@ decisão de produto própria dele; o ink-ops não tem esse requisito).
 4. **Desconto parcial é o único caso real que usa a Coupon API do Stripe** — o valor
    efetivamente cobrado tem que continuar sendo resolvido pelo Stripe (é quem emite fatura e
    cobra o cartão); replicar isso localmente duplicaria lógica de faturamento sem necessidade.
-   Cache local (`discountPercent`/coupon id) é só para exibição no admin.
+   O cache local (`discountPercent`/`stripeCouponId`) é um **espelho** do desconto no Stripe:
+   preenchido tanto por `apply-discount`/`remove-discount` quanto pelo webhook/reconcile a
+   partir de `subscription.discounts`, e usado para exibição no admin. O Stripe segue como
+   autoridade sobre o valor efetivamente cobrado (ver Addendum 2026-08-31 — espelho fiel do
+   desconto do Stripe).
 
 5. **Nova tabela `stripe_webhook_events` para idempotência**: `INSERT ... ON CONFLICT DO
    NOTHING RETURNING` usado como *claim* do evento — se a query não retorna linha, o evento
@@ -88,7 +92,13 @@ decisão de produto própria dele; o ink-ops não tem esse requisito).
 11. **Gotcha de API Stripe (SDK v22+, confirmado também no Larmony)**: no objeto
     `Subscription`, `current_period_start`/`current_period_end` e `price` **não estão no
     nível raiz** — vivem em `sub.items.data[0]`. Qualquer normalização de subscription
-    (webhook, reconciliação) precisa ler dali, não do topo do objeto.
+    (webhook, reconciliação) precisa ler dali, não do topo do objeto. O **cupom** de uma
+    subscription também não fica no raiz: vive em `subscription.discounts[].source.coupon`
+    (`string | Stripe.Coupon | null`), e `subscription.discounts` é
+    `Array<string | Stripe.Discount>`. Em `stripe@22.3.2` / `apiVersion 2026-06-24.dahlia`
+    **não existem** `Stripe.Discount.coupon` nem `Subscription.discount` no nível raiz; a
+    expansão do Stripe não desce recursivamente em `discounts[].source.coupon` (ver
+    Addendum 2026-08-31 — espelho fiel do desconto do Stripe).
 
 ## Consequências
 
@@ -198,6 +208,639 @@ certo é adotar o Price existente via `GET /v1/prices?lookup_keys[]=...` e escre
 linha, não tentar criar um novo). Vale conferir sempre, ao trocar `STRIPE_SECRET_KEY`
 localmente, se o `stripe config --list` do Stripe CLI (`acct_id`) bate com a conta da nova
 chave — divergência silenciosa aqui custou a maior parte do tempo de debug desta sessão.
+
+## Addendum (2026-08-30): T4-F1 — espelhar `cancel_at_period_end` do Stripe
+
+**Contexto**: o cancelamento agendado do Stripe (`cancel_at_period_end`) não era refletido
+no espelho local — marcar "cancelar ao fim do período" no dashboard do Stripe (ou, no
+futuro, via feature self-service) não chegava ao banco nem à UI da org.
+
+**Decisão**:
+
+1. **Coluna booleana** `subscriptions.cancel_at_period_end boolean NOT NULL DEFAULT false`
+   (migration `0059`), espelho fiel do campo do Stripe — que é `boolean` na raiz de
+   `Stripe.Subscription` em `stripe@22.3.2` (ao contrário de `current_period_start/end`, que
+   a v22 moveu para `items.data[0]`). O "quando" do corte já é `current_period_end`; nenhuma
+   coluna de data nova. `cancel_at` (data de cancelamento arbitrária) fica **fora de escopo**
+   até uma feature exigir — entra como coluna adicional, sem migrar a booleana.
+
+2. **Write-ALWAYS** no sync, em contraste explícito com o write-once de `trialConsumed` (ver
+   addendum de 2026-08-17). Tanto `HandleStripeWebhookUseCase.syncNormalizedSubscription`
+   quanto `ReconcileSubscriptionsUseCase.reconcileOne` gravam `cancelAtPeriodEnd` de forma
+   incondicional (não num spread condicional): se o usuário **desmarca** o cancelamento no
+   Stripe, o espelho volta a `false`. `reconcileOne` inclui o campo na comparação de drift
+   (`!==` direto, sem `.getTime()` — é boolean).
+
+3. **Zerar ao encerrar localmente**: `grant-comp` (converte em cortesia),
+   `handleSubscriptionDeleted`, o branch de "subscription sumiu do Stripe" da reconciliação,
+   e `ExpireSubscriptionsUseCase` (`expireComps` + `lockExpiredPastDue`) gravam
+   `cancelAtPeriodEnd: false` no payload de encerramento — uma assinatura já encerrada com
+   `cancel_at_period_end=true` seria espelho infiel.
+
+4. **Exposição**: a `SubscriptionEntity` ganha `cancelAtPeriodEnd` como **readonly prop**
+   (não getter — o controller serializa a entity direto e getters de classe não sobrevivem
+   ao `JSON.stringify`). `GET /orgs/:orgId/subscription` passa a incluir o campo sem
+   alteração de use-case/controller/DTO. No frontend, `ActiveSection` troca o rótulo
+   "Próxima cobrança" por "Encerra em <data>" e mostra um aviso (`text-warning`) quando
+   `cancelAtPeriodEnd && currentPeriodEnd`.
+
+**Edge case aceito e documentado**: para orgs cortesia (`type === 'custom'`),
+`shouldApplyStripeSync` retorna `false` e `findAllStripeLinked` exige `stripe_subscription_id`
+não-nulo — então um cancelamento agendado feito no dashboard do Stripe **nunca reflete
+localmente** para elas. É desejado (proteger a cortesia de webhook fora de ordem), não bug;
+`grant-comp` já força `false` ao converter.
+
+**Ordenação de deploy**: `DrizzleSubscriptionRepository` usa `.select()` sem argumentos →
+Drizzle emite lista **explícita** de colunas incluindo `cancel_at_period_end`. A migration
+`0059` DEVE ser aplicada **antes** do deploy da app; o rollback só é seguro **depois** de
+reverter a app. Vale para todo valor de coluna novo lido pelo repo.
+
+**Dívida técnica registrada**: `apps/backend/src/database/types_db.ts` (gerado pelo Supabase
+CLI) fica defasado até `pnpm db:gen-types` — sem impacto funcional (a persistência tipa por
+`$inferSelect` do Drizzle, não pelos tipos Supabase).
+
+## Addendum (2026-08-31): T4-F2 — cancelamento agendado self-service pelo dono
+
+**Contexto**: com a F1 espelhando `cancel_at_period_end`, o dono da org passa a poder
+**agendar o cancelamento** da própria assinatura e **desfazer** de dentro da plataforma, sem
+ir ao portal do Stripe.
+
+**Decisão**:
+
+1. **Dois endpoints owner-only, sem body**: `POST /orgs/:orgId/subscription/schedule-cancellation`
+   e `POST /orgs/:orgId/subscription/resume`, atrás de `OrgOwnerGuard`. Um use-case por
+   operação (`ScheduleSubscriptionCancellationUseCase` / `ResumeSubscriptionUseCase`), sem
+   DTO — evita o controller ramificar num boolean do cliente.
+
+2. **Boolean-only.** `cancel_at` (data arbitrária de cancelamento) permanece **fora de
+   escopo** — a feature self-service é "cancelar (efetivo no fim do período)", que é
+   exatamente `cancel_at_period_end`. A frase "fica para F2" da nota de sessão de 30/08 era
+   imprecisa e fica corrigida aqui. `cancel_at` entra como coluna adicional se/quando uma
+   feature exigir cancelamento em data marcada.
+
+3. **Sem `idempotencyKey`** na chamada `stripe.subscriptions.update` do toggle — diferente de
+   `updateSubscriptionPrice`, onde a chave protege contra rateio duplicado (efeito
+   financeiro). Aqui é set de um boolean para valor fixo; uma chave determinística faria um
+   ciclo schedule→resume→schedule dentro da janela de 24h do Stripe reproduzir o body
+   cacheado do primeiro request, gravando no espelho um estado que o Stripe não tem.
+
+4. **Payload de escrita estreito** — `subscriptionRepo.update` recebe **só**
+   `{ cancelAtPeriodEnd, canceledAt, currentPeriodEnd, status }` do normalizado, não o bloco
+   largo de `migrate-subscribers-to-price`. Motivo: consistência com o padrão local de
+   descontos — `stripeCouponId`/`discountPercent` são geridos só por `apply-discount`/
+   `remove-discount`, e `toNormalizedSubscription` os fixa em `null`. **Nota**: isso NÃO
+   impede o webhook (`syncNormalizedSubscription`, que grava o bloco largo) de zerar o
+   desconto no espelho no próximo `customer.subscription.updated` — esse é um defeito
+   pré-existente do webhook, rastreado em follow-up separado (não introduzido por T4-F2)
+   → resolvido no Addendum 2026-08-31 — espelho fiel do desconto do Stripe (mais abaixo).
+
+5. **Guard** `isActiveLike` (`active` | `trialing`) `&& isStripeLinked`. `past_due` e
+   cortesia (`type='custom'`, nunca `isStripeLinked`) ficam fora — o caminho para `past_due`
+   segue sendo o portal do Stripe (regularizar pagamento antes de cancelar). Assimetria
+   deliberada: agendar 2x é no-op idempotente (clique duplo num fluxo destrutivo não vira
+   erro); `resume` com a flag já `false` é 409 (`SUBSCRIPTION_NOT_SCHEDULED_FOR_CANCELLATION`).
+   Códigos novos: `SUBSCRIPTION_NOT_CANCELABLE`, `SUBSCRIPTION_NOT_SCHEDULED_FOR_CANCELLATION`,
+   `SUBSCRIPTION_NOT_RESUMABLE`, `SUBSCRIPTION_STRIPE_MISSING` (todos 409). `resource_missing`
+   do Stripe é traduzido para `SUBSCRIPTION_STRIPE_MISSING` no gateway em vez de vazar 500.
+
+6. **Auditoria** no padrão `grant-comp`: `action: 'subscription_changed'`,
+   `metadata.operation: 'schedule_cancellation' | 'resume'`, sem PII.
+
+7. **UI** em `ActiveSection` e `TrialingSection` (o dono pediu nos dois; o use-case aceita
+   `trialing`): botão "Cancelar assinatura" (com `ConfirmDialog` destrutivo) quando a flag é
+   `false`, "Reativar assinatura" (sem dialog, é reversão) quando `true`. Botões gateados por
+   `canManageStripe` (`stripeCustomerId && stripeSubscriptionId`), alinhado ao guard do
+   backend. O aviso "vai encerrar em <data>" agora vale para as duas seções.
+
+**Por que não é redundante com o portal do Stripe**: reflexo imediato no espelho local (sem
+esperar o webhook) e UX in-app; o portal continua como caminho único para forma de pagamento
+e para `past_due`.
+
+## Addendum (2026-08-31): T4-F3 — espelho de reembolsos do Stripe
+
+**Contexto**: o sistema rastreava invoices (`billing_invoice_events`: paid/payment_failed)
+mas **nenhum reembolso** — `charge.refunded` / `refund.*` não eram consumidos, e um refund
+feito no dashboard do Stripe ficava invisível ao sistema. Escopo de F3: **só espelhar**
+(tabela + webhook + endpoint read-only). **Não** inclui ação de emitir reembolso (T4-F4),
+**não** inclui UI (F4/F5), **não** inclui reconciliação de refunds (F5).
+
+**Decisão**:
+
+1. **Tabela `billing_refund_events` (migration `0060`) append-only, com unique
+   `(stripe_refund_id, status)` + `onConflictDoNothing`** — **uma linha por status distinto
+   alcançado** por um refund; reentrada no mesmo status é deduplicada por design. Nunca
+   UPDATE/DELETE (append-only por analogia ao ADR-0010; espelha `billing_invoice_events`).
+   O dedupe primário de evento continua sendo `stripe_webhook_events` (PK = `event.id`).
+   Colunas: `stripe_refund_id`, `stripe_charge_id`, `org_id` (nullable, **sem FK**),
+   `status` (enum `billing_refund_event_status`: pending/requires_action/succeeded/failed/
+   canceled), `amount_cents` (integer; `Stripe.Refund.amount` já vem na menor unidade),
+   `currency`, `reason`, `occurred_at`, `created_at`. RLS habilitada sem policy +
+   `REVOKE ALL FROM anon, authenticated` (só `DRIZZLE_ADMIN` acessa).
+
+2. **`occurred_at` vem do `event.created` do envelope do webhook** (quando observamos a
+   transição), **não** de `refund.created` — senão as linhas do mesmo refund empatam e a
+   linha do tempo fica não-ordenável (o writer de `billing_invoice_events` usa
+   `entity.created`, que aqui daria empate total). O read-path ordena por
+   `(occurred_at DESC, created_at DESC)`. **Exceção do caminho de reconciliação** (varredura
+   de cron, sem envelope de evento): usa `refund.created` como `occurred_at` aproximado —
+   ver Addendum "T4-F5 Bloco B" abaixo.
+
+3. **Read-path é a tabela LOCAL** (`GET /admin/orgs/:orgId/subscription/refunds` →
+   `ListSubscriptionRefundsUseCase` → `refundEventRepo.listPageByOrgId(orgId, { limit,
+   offset })`). Diferente de `GET /invoices`, que lê **live** do Stripe — a API do Stripe
+   **não tem list-by-customer de refunds**, então a tabela é a única fonte.
+   **Paginado desde o Bloco B de T4-F5** (ver Addendum abaixo): query DTO
+   `ListSubscriptionRefundsQueryDto` (`page`/`limit`, `@Min(1)` / `@Max(200)`, molde de
+   `AuditLogsQueryDto`), `DEFAULT_LIMIT = 50` / `MAX_LIMIT = 200`; a resposta passou a ser o
+   envelope explícito
+   `SubscriptionRefundsPage { data: SubscriptionRefundRow[]; total; page; pages }`, e
+   `SubscriptionRefundRow` **omite** o PK interno `id` e o `org_id` (`occurredAt` sai como
+   ISO string). Não é mais `BillingRefundEventEntity[]` cru. `orgId` vem do path +
+   `PlatformAdminGuard` (super_admin only); com `DRIZZLE_ADMIN` bypassa RLS, então o
+   `WHERE org_id = $1` é a única fronteira de tenant — o `orgId` **nunca** pode vir do body.
+
+4. **F3 escuta só `charge.refunded`** (o event traz `Stripe.Charge` com `customer` inline +
+   `charge.refunds.data[]`; cobre o caso comum de refund de cartão instantâneo, org mapeada
+   via `charge.customer` → `subscriptions.stripe_customer_id`). Fica para **F5**:
+   `refund.updated` (transições assíncronas), reconciliação de refunds, `charge.refunds.
+   has_more` truncado. **Fechado no Bloco A de T4-F5** (ver Addendum abaixo): `refund.updated`
+   consumido + `has_more` re-buscado por completo via `listRefundsByCharge`. A **reconciliação
+   de refunds** foi entregue no Bloco B de T4-F5 (ver Addendum abaixo).
+
+5. **Status desconhecido/`null` do Stripe é DESCARTADO** com `logger.warn` +
+   `telemetry.captureMessage("warn", { code: "BILLING_REFUND_EVENT_UNKNOWN_STATUS", ... })`
+   e `continue` (os demais refunds do mesmo charge são inseridos). Sem esse guard, um valor
+   novo do Stripe (`Refund.status` é `string | null` nas typings) viraria
+   `invalid input value for enum` → 500 em loop de retry. `has_more` truncado emite
+   `BILLING_REFUND_EVENT_LIST_TRUNCATED`. Os dois são dívida coberta por F5 — o `has_more`
+   truncado foi endereçado no Bloco A de T4-F5 (re-fetch paginado completo; o
+   `BILLING_REFUND_EVENT_LIST_TRUNCATED` passa a sinalizar o teto de varredura de 500, não a
+   fatia do payload). O **descarte de status desconhecido permanece**: se o volume aparecer
+   na telemetria, a saída sancionada é trocar a coluna `status` para `text` numa migration
+   futura.
+
+6. **Sem novo valor de `audit_action`** (espelho puro webhook→tabela, sem ação manual) e
+   **sem código novo em `DOMAIN_CODE_TO_STATUS`** (reusa `SubscriptionNotFoundException`).
+   Refunds cujo `charge.customer` não mapeia entram com `org_id NULL` e ficam invisíveis ao
+   endpoint por-org — deliberado, mesma semântica de `billing_invoice_events`; re-resolver o
+   `org_id` é trabalho de F5. **Entregue no Bloco B de T4-F5** (ver Addendum abaixo): a
+   decisão D4 revisou o "por linha nova, nunca UPDATE" e o Bloco B faz dois
+   `UPDATE ... SET org_id WHERE org_id IS NULL` estreitos (`resolveOrgIdWhereNull` por
+   charge, `backfillOrgIdFromResolvedSiblings` por refund) — exceção mínima ao append-only,
+   sem tocar `status`/`amount_cents`/`occurred_at`/`reason` nem valor monetário. O Bloco A
+   já emitia `BILLING_REFUND_EVENT_ORG_UNRESOLVED` para tornar essas linhas rastreáveis.
+
+**Pré-requisito de deploy (checklist, não código)**: `charge.refunded` precisa estar na
+lista de eventos do endpoint de webhook do Stripe (**test E live**) — hoje essa lista é
+gerenciada no dashboard do Stripe, não há config no repo. Sem esse passo o webhook nunca
+chega e a fatia fica inerte, sem erro visível. Um `charge.refunded` que chega mas vem sem a
+chave `refunds` no payload emite `telemetry.captureMessage(...,
+{ code: "BILLING_REFUND_EVENT_PAYLOAD_MISSING_REFUNDS" })` — esse sinal é o instrumento de
+verificação que substitui o round-trip ao vivo bloqueado.
+
+**Sem verificação no preview**: F3 não tem superfície observável no navegador (endpoint
+admin-only sem UI; query key `queryKeys.adminSubscription.refunds` sem consumidor até F4/F5).
+O round-trip `charge.refunded` ao vivo não foi exercitável nesta entrega — a chave do
+`stripe` CLI local está expirada; cobertura por unit tests do webhook com payload assinado
+(incl. o caso ponta a ponta no controller spec) + roteiro em `docs/billing-local-testing.md`.
+
+## Addendum (2026-08-31): espelho fiel do desconto do Stripe
+
+**Contexto**: `toNormalizedSubscription` (`infrastructure/stripe-payment-gateway.ts`)
+hard-codeava `stripeCouponId: null` e `discountPercent: null` em toda subscription
+normalizada. Consequências para qualquer org com desconto ativo no Stripe:
+
+- **Drift eterno + write thrash no `ReconcileSubscriptionsUseCase`**: a comparação de drift
+  em `stripeCouponId`/`discountPercent` sempre via `null` "vindo do Stripe", divergente do
+  valor local gravado por `apply-discount` — cada tick do cron reescrevia a linha.
+- **Zeragem do cache**: `HandleStripeWebhookUseCase.syncNormalizedSubscription` (a cada
+  `customer.subscription.updated`) e `MigrateSubscribersToPriceUseCase` gravam o bloco
+  normalizado inteiro — com o `null` hard-coded, apagavam `stripeCouponId`/`discountPercent`
+  do espelho logo após `apply-discount` os ter gravado.
+
+Este addendum **substitui o item 4 do Addendum de 2026-08-31 (T4-F2 — cancelamento agendado
+self-service pelo dono)**, que registrava a zeragem pelo webhook como "defeito pré-existente
+do webhook, rastreado em follow-up separado" — o follow-up é este trabalho e fica encerrado
+aqui. O item 4 daquele addendum permanece como registro histórico.
+
+**Decisão (Opção A — o espelho local passa a ser FIEL ao Stripe)**, aprovada pelo
+responsável:
+
+1. **`toNormalizedSubscription(subscription, discount)` recebe o desconto já resolvido pelo
+   chamador.** Helpers puros novos, exportados no gateway: `extractSubscriptionDiscountRef`
+   (`none` / `unexpanded` / `coupon_id` / `coupon`) e `mapCouponToDiscount`. O método novo
+   `resolveSubscriptionDiscount` resolve o desconto e é invocado por `normalizeSubscription`
+   nos **3 call sites normalizados**: `getSubscription`, o `update` de
+   `updateSubscriptionPrice` e o `update` de `updateSubscriptionCancelAtPeriodEnd`. A
+   interface `NormalizedSubscription` e os use-cases `apply-discount`/`remove-discount`
+   **não mudaram**.
+
+2. **Expansão + `coupons.retrieve` condicional.** Os 3 call sites passam
+   `expand: ["items.data.price", "discounts"]`. A expansão do Stripe **não é recursiva**:
+   `discounts[0].source.coupon` volta como `string` (id) no caso comum, então
+   `resolveSubscriptionDiscount` faz um `coupons.retrieve` extra **só** quando
+   `extractSubscriptionDiscountRef` devolve `kind: "coupon_id"`. O caminho aninhado
+   `expand: ["discounts.source.coupon"]` (1 chamada em vez de 2) foi **rejeitado nesta
+   entrega**: não verificável (chave do Stripe CLI expirada; `source` é campo novo nessa
+   `apiVersion`) e, se o path fosse inválido, o Stripe responderia 400 e quebraria todo
+   `getSubscription` — reconcile pararia para todas as orgs, o webhook entraria em loop de
+   retry 500 e o botão de cancelar/reativar do dono quebraria. Fica como otimização futura
+   condicionada a teste ao vivo em modo teste. (A rejeição do "desconto 100% local" segue
+   em _Alternativas rejeitadas_; aqui a rejeição é só do atalho de expansão.)
+
+3. **Regra de mapeamento** (`mapCouponToDiscount` + `resolveSubscriptionDiscount`) —
+   DECISÃO D1, confirmada pelo responsável. `subscriptions.discount_percent` é `INTEGER`,
+   então qualquer caso não-inteiro grava o id real do cupom com percentual `null` (o admin
+   ainda vê que há desconto e qual cupom):
+
+   | Situação no Stripe | `stripe_coupon_id` | `discount_percent` |
+   |---|---|---|
+   | `percent_off` inteiro | id real do cupom | `percent_off` |
+   | `percent_off` fracionário | id real do cupom | `null` (+ telemetria) |
+   | cupom `amount_off` | id real do cupom | `null` |
+   | cupom irresolvível (`coupons.retrieve` → `null`, ex. deletado no Stripe) | id real do cupom | `null` |
+   | sem desconto (`discounts` vazio) | `null` | `null` |
+   | múltiplos descontos (`discounts.length > 1`) | usa `discounts[0]` (regra acima) | idem (+ telemetria) |
+
+4. **Telemetria** (`captureMessage("warn", ...)`, `module: "subscriptions"`):
+   - `BILLING_SUBSCRIPTION_DISCOUNT_NOT_EXPANDED` — `discounts[0]` veio como id nu (a
+     expansão não aplicou). Sinal **defensivo / de regressão**: os 3 call sites
+     normalizados já passam `expand: ["discounts"]`, então na prática só dispara se alguém
+     remover o `expand` ou adicionar um call site normalizado sem ele.
+   - `BILLING_COUPON_FRACTIONAL_PERCENT_OFF_UNSUPPORTED` — reusado de
+     `handleCouponUpserted`; `percent_off` fracionário.
+   - `BILLING_SUBSCRIPTION_MULTIPLE_DISCOUNTS_UNSUPPORTED` — `discounts.length > 1`.
+   - `BILLING_COUPON_RESOLUTION_FAILED` — guarda `try/catch` na branch `coupon_id` de
+     `resolveSubscriptionDiscount`: quando `coupons.retrieve` falha por erro que **não** é
+     `resource_missing` (429/5xx/rede) já depois de o chamador ter feito seu write no
+     Stripe, o espelho grava `{ stripeCouponId: <id real>, discountPercent: null }` e o
+     reconcile seguinte preenche o percentual. Cupom deletado (`resource_missing`) não
+     passa por aqui — `retrieveCoupon` já o mapeia para `null` (linha "cupom irresolvível"
+     da tabela do item 3).
+   - `BILLING_SUBSCRIPTION_DISCOUNT_DRIFT_OVERWRITTEN` (em `ReconcileSubscriptionsUseCase`)
+     — emitido a **cada** sobrescrita automática de `stripeCouponId`/`discountPercent` para
+     bater com o Stripe (exigência do ADR-0024: sobrescrita monetária automática nunca é
+     silenciosa).
+
+5. **Rajada única de telemetria no primeiro tick pós-deploy** (consequência aceita — D3).
+   As linhas hoje estão com `stripe_coupon_id`/`discount_percent` `null` por causa do bug;
+   no primeiro `billing-reconciliation` após o deploy, cada org com desconto real no Stripe
+   dispara um `BILLING_SUBSCRIPTION_DISCOUNT_DRIFT_OVERWRITTEN` ao ter o espelho corrigido.
+   É desejável — registro auditável da correção — e não se repete nos ticks seguintes.
+
+**Cadência das demais emissões de telemetria**: ao contrário da rajada descrita no item 5
+(única, no primeiro tick pós-deploy), os códigos
+`BILLING_SUBSCRIPTION_MULTIPLE_DISCOUNTS_UNSUPPORTED`,
+`BILLING_COUPON_FRACTIONAL_PERCENT_OFF_UNSUPPORTED`,
+`BILLING_SUBSCRIPTION_DISCOUNT_NOT_EXPANDED` e `BILLING_COUPON_RESOLUTION_FAILED` são
+emitidos a **cada** `getSubscription` — ou seja, a cada tick de reconcile e a cada
+`customer.subscription.updated` — enquanto a condição persistir. São sinais de condição
+persistente, não incidentes novos a cada emissão; quem configurar alerta deve tratá-los
+como **estado, não como evento**. `BILLING_COUPON_RESOLUTION_FAILED` é o único cuja
+condição normalmente se resolve no tick seguinte (ver item 4).
+
+**Consequência observável nova**: um cupom `repeating` (com `duration_in_months`) que
+expira no Stripe deixa `subscription.discounts` vazio; no próximo sync (webhook ou
+reconcile) `resolveSubscriptionDiscount` devolve `{ stripeCouponId: null, discountPercent:
+null }` e o espelho local **limpa o desconto sozinho**, sem ação do admin. Antes, com o
+`null` hard-coded, o espelho nunca refletia nem a aplicação nem a expiração de um cupom
+vindo do Stripe.
+
+**Limitação conhecida**: um desconto aplicado no **nível do item** da subscription (via
+Dashboard do Stripe, não no nível da subscription) não aparece em `subscription.discounts`
+e mapeia para os dois campos `null`. `applyCouponToSubscription` da plataforma sempre grava
+no nível da subscription, então isso só ocorre por ação manual fora da plataforma.
+
+**Gotcha de API** (`stripe@22.3.2` / `apiVersion 2026-06-24.dahlia`): **não existem**
+`Stripe.Discount.coupon` nem `Subscription.discount` no nível raiz. O cupom fica em
+`Discount.source.coupon: string | Stripe.Coupon | null`; `Subscription.discounts` é
+`Array<string | Stripe.Discount>`. A expansão do Stripe não desce recursivamente em
+`discounts[].source.coupon`.
+
+**Sem verificação ao vivo**: o round-trip `aplicar cupom no Dashboard (modo teste) →
+webhook/reconcile → espelho local` não foi exercitado nesta entrega (chave do `stripe` CLI
+local expirada). Cobertura por unit test: `stripe-payment-gateway.spec.ts`
+(`extractSubscriptionDiscountRef`, `mapCouponToDiscount` — inteiro / fracionário /
+`amount_off`, `toNormalizedSubscription` com e sem desconto) e
+`reconcile-subscriptions.use-case.spec.ts` ("does not report drift when the local discount
+already matches Stripe", "restores a divergent discount and emits telemetry", "zeroes the
+cached discount when a repeating coupon expired in Stripe"). O self-clear do cupom
+`repeating` expirado está exercido por esse último teste; a limitação do desconto por item
+é **inferida do código** (`subscription.discounts` não carrega descontos de item), não
+observada ao vivo. Roteiro manual em `docs/billing-local-testing.md`.
+
+## Addendum (2026-08-31): T4-F5 Bloco A — endurecimento do fluxo Stripe
+
+**Contexto**: T4-F5 fecha a dívida que os addenda de T4-F1/F2/F3 acumularam em torno do
+fluxo Stripe (webhook + reconciliação): `refund.updated` não consumido,
+`charge.refunds.has_more` truncado silenciosamente, `ReconcileSubscriptionsUseCase` sem
+relatório de drift por campo (fora do padrão ADR-0024), e a corrida anti-flap entre
+`ExpireSubscriptionsUseCase` e o webhook coberta só no cron. Escopo: **só endurecimento** —
+sem migração, sem nova superfície de UI, sem ação manual nova.
+
+**Decisão de corte (A entregue / B adiado)**: os 13 passos planejados de T4-F5 foram
+partidos em **Bloco A** (passos 1–6, esta entrega) e **Bloco B** (follow-up). Bloco B =
+reconciliação de refunds via job de cron + paginação/response-shape do
+`GET /admin/orgs/:orgId/subscription/refunds` + doc própria, com as decisões já tomadas:
+
+- **D3** — a varredura de reconciliação é global
+  (`refunds.list({ created: { gte: now − 7d } })`) com passe de re-resolução de órfãos, e
+  **guarda de inserção obrigatória**: só grava um refund que já tenha linha local
+  preexistente **ou** cujo charge resolva para um `stripe_customer_id` conhecido — a conta
+  Stripe pode ser compartilhada com outros produtos, então varredura global sem guarda
+  contaminaria a tabela.
+- **D4** — re-resolução de `org_id` órfão via `UPDATE` estreito
+  `SET org_id WHERE org_id IS NULL`: exceção mínima e documentada ao append-only (ADR-0010)
+  — **nunca** toca `status` / `amount_cents` / `occurred_at` nem qualquer valor monetário,
+  e não exige migração.
+
+**Bloco B entregue** no Addendum "T4-F5 Bloco B — reconciliação de refunds" (abaixo); D3 e
+D4 saíram como descritas aqui.
+
+**Decisão (Bloco A)**:
+
+1. **Port + adapter para refunds** (`domain/ports/payment-gateway.port.ts`,
+   `infrastructure/stripe-payment-gateway.ts`). Novo `GatewayRefund` (`refundId`,
+   `chargeId: string | null`, `status: string | null` **cru** — a whitelist vive no
+   consumidor —, `amountCents`, `currency`, `reason: string | null`, `createdAt: Date`). O
+   `createdAt` é `refund.created`. No Bloco A é **informacional / não lido** — o webhook
+   estampa `occurred_at` a partir do `event.created` do envelope (migration `0060` nota
+   (a); ver Addendum T4-F3). No Bloco B (ver Addendum abaixo) a reconciliação, que não tem
+   envelope de evento, passa a usá-lo como `occurred_at` **aproximado** — desvio consciente
+   da nota (a), documentado lá. Dois métodos novos:
+   - `listRefundsByCharge(chargeId)` → `{ refunds, truncated }`: `for await` sobre
+     `stripe.refunds.list({ charge, limit: 100 })` com teto
+     `MAX_REFUNDS_PER_CHARGE_SCAN = 500` → `truncated: true` ao alcançá-lo (falso-positivo
+     possível num charge com exatamente 500 refunds — o espelho continua completo nesse
+     caso; distinguir exigiria look-ahead do iterador). Sem `try/catch` (espelha
+     `listInvoices`): falha do Stripe propaga para o chamador decidir o fallback.
+   - `retrieveChargeCustomerId(chargeId)` → `string | null`: `charges.retrieve`;
+     `isResourceMissing` → `null`; **qualquer outro erro (429/5xx/rede) propaga** (não é
+     blanket-catch — o `try/catch` do passo (d) da escada abaixo é quem o absorve).
+
+   **Fato de API** (`stripe@22.3.2`): `Stripe.Refund` **não tem** `customer` (só
+   `payment_intent`, fora de escopo do Bloco A) — um `Stripe.Refund` isolado só chega a uma
+   org pelo `charge` dele.
+
+2. **Reads de correlação** em `IBillingRefundEventRepository`:
+   `findResolvedOrgIdByRefundId` / `findResolvedOrgIdByChargeId` — primeira linha do mesmo
+   refund/charge com `org_id IS NOT NULL`. Existem para evitar um `charges.retrieve` por
+   evento; retornar `null` é normal (refund de um charge nunca espelhado).
+
+3. **`refund.updated` consumido** (`handle-stripe-webhook.use-case.ts`, novo
+   `case "refund.updated"` → `handleRefundUpdated`). `event.data.object` é um `Stripe.Refund`
+   (≠ `charge.refunded`, que traz `Stripe.Charge`). **Não** consumimos `refund.created` nem
+   `charge.refund.updated`: `refund.updated` cobre as transições assíncronas
+   (`pending` → `succeeded`/`failed`/`canceled`), e — **inferido do comentário de código,
+   não observado ao vivo** — `refund.created` chega junto do `charge.refunded` no fluxo
+   desta plataforma (que já espelha a primeira linha), enquanto `charge.refund.updated` é
+   uma variante escopada a método de pagamento. Helpers privados extraídos de
+   `handleRefundEvent`:
+   - `writeRefundRow` — whitelist de status (`toRefundEventStatus`) +
+     `BILLING_REFUND_EVENT_UNKNOWN_STATUS` no descarte + `refundEventRepo.create`.
+   - `resolveRefundOrgId` — escada, mais barato primeiro: (a) `customerId` conhecido →
+     subscription local; (b) `findResolvedOrgIdByRefundId`; (c)
+     `findResolvedOrgIdByChargeId`; (d) `retrieveChargeCustomerId` → subscription local;
+     senão `null`. **Nunca lança** — a falha do Stripe no passo (d) que não seja
+     `resource_missing` é engolida (só `logger.warn`) para não jogar o webhook num loop de
+     retry por org irresolvível.
+
+   Quando grava com `orgId: null` → `BILLING_REFUND_EVENT_ORG_UNRESOLVED` (a linha fica
+   queryável por `WHERE org_id IS NULL` para o Bloco B re-resolver; o `onConflictDoNothing`
+   em `(stripe_refund_id, status)` garante que um retry do mesmo evento **não** faz backfill
+   do `org_id`).
+
+4. **`charge.refunds.has_more` paginado de fato**: quando `has_more === true`,
+   `handleRefundEvent` chama `listRefundsByCharge(charge.id)` e espelha a **lista completa**
+   (não a fatia parcial do payload). `truncated` → `BILLING_REFUND_EVENT_LIST_TRUNCATED`
+   (mensagem re-escopada: "excedeu o teto de varredura de 500", não mais "has_more do
+   payload"). Gateway lança → `BILLING_REFUND_EVENT_BACKFILL_FAILED` + fallback para a fatia
+   parcial do payload; re-fetch volta vazio (consistência eventual do Stripe) →
+   `BILLING_REFUND_EVENT_BACKFILL_EMPTY` + mesmo fallback. Em nenhum caminho o webhook
+   responde 500 — retry loop evitado por construção.
+
+5. **`ReconcileSubscriptionsUseCase` alinhado ao ADR-0024**: `ReconcileSubscriptionDiff` +
+   `diffs: ReconcileSubscriptionDiff[]` em `ReconcileSubscriptionsResult` (mesmo formato de
+   `ReconcilePlanCatalogDiff`). `hasDrift` passa a ser comparação campo a campo — 11 campos
+   (`status`, `billingInterval`, `priceCents`, `stripePriceId`, `stripeCouponId`,
+   `discountPercent`, `trialEndsAt`, `currentPeriodStart`, `currentPeriodEnd`, `canceledAt`,
+   `cancelAtPeriodEnd`), 1 diff por campo divergente, datas comparadas por valor. `diffs` é
+   produzido para o consumidor do Bloco B (relatório/endpoint) e **não é exposto ainda** —
+   `InternalCronController` chama `reconcileSubscriptions.execute()` e descarta o retorno.
+   - **Telemetria só para campos monetários**: o bloco
+     `BILLING_SUBSCRIPTION_DISCOUNT_DRIFT_OVERWRITTEN` (Addendum "espelho fiel do desconto
+     do Stripe") permanece intacto; novo `BILLING_SUBSCRIPTION_PRICE_DRIFT_OVERWRITTEN`
+     agregado para `priceCents` / `stripePriceId` / `billingInterval`. `status` /
+     `currentPeriod*` / `canceledAt` / `cancelAtPeriodEnd` / `trialEndsAt` geram diff mas
+     **não** telemetria (mudam a cada renovação, afogariam o sinal monetário).
+   - **`stripe_price_id` órfão**: **antes** do gate de drift, se `normalized.stripePriceId`
+     não é `null` e não há linha em `billingPlanPriceRepo.findByStripePriceId` →
+     `BILLING_SUBSCRIPTION_PRICE_NOT_IN_CATALOG` e a assinatura **não é tocada** (não
+     quebrar checkout de assinante pagante — mesmo racional de `handlePriceDeleted`).
+     Cobertura contínua (todo tick, não só quando há outro drift). É o inverso do que
+     `ReconcilePlanCatalogUseCase` cobre (preço que sumiu do Stripe). Construtor ganhou
+     `BILLING_PLAN_PRICE_REPOSITORY`.
+
+6. **Guard anti-flap simétrico webhook↔cron**: nova função pura
+   `shouldSkipStripeStatusOverride(currentStatus, incomingStatus)` em
+   `domain/subscription-sync.ts` — `true` **sse**
+   `current === 'canceled' && incoming !== 'active' && incoming !== 'trialing'`.
+   `reconcileOne` troca o `if` inline por ela (refator puro, sem mudança de comportamento).
+   `syncNormalizedSubscription` (webhook) passa a aplicar **o mesmo guard**, com **return
+   cedo do sync inteiro** quando dispara — pular só `status` ressuscitaria `type` (o
+   `update` deriva `type` de `normalized.status`); `markProcessed` continua rodando (é
+   depois do `switch`). **Não** aplicado em `handleSubscriptionDeleted` (destino já é
+   `canceled`, seria no-op). Fecha a corrida em que
+   `ExpireSubscriptionsUseCase.lockExpiredPastDue` trava `past_due` local e um
+   `customer.subscription.updated` / `invoice.payment_failed` atrasado no meio do ciclo
+   ressuscitaria a linha.
+
+**Sem migração no Bloco A** → sem `database-guardian`. As colunas de `billing_refund_events`
+(migration `0060`, Addendum T4-F3) já cobrem tudo que o Bloco A grava.
+
+**Pré-requisito de deploy (checklist, não código)**: `refund.updated` precisa estar na lista
+de eventos do endpoint de webhook do Stripe (**test E live**) — mesma nota do
+`charge.refunded` no Addendum T4-F3, e mesma gestão manual no dashboard do Stripe (sem
+config no repo). Sem esse passo o `handleRefundUpdated` é código morto sem erro visível.
+
+**Sem verificação ao vivo nem no preview**: nenhuma superfície observável no navegador — os
+endpoints admin de refund seguem sem consumidor de UI (a paginação/response-shape deles é
+Bloco B). O round-trip ao vivo (`refund.updated` real; backfill de `has_more` dependente da
+paginação e da consistência eventual do Stripe) **não foi exercitado** — chave do `stripe`
+CLI local expirada, mesma limitação dos addenda T4-F3 e "espelho fiel do desconto".
+Cobertura por unit tests: `handle-stripe-webhook.use-case.spec.ts` +
+`stripe-webhook.controller.spec.ts` (`refund.updated`, backfill de `has_more`, escada de
+resolução de org, descarte de status desconhecido) e `reconcile-subscriptions.use-case.spec.ts`
+(relatório de `diffs`, `stripe_price_id` órfão, guard anti-flap).
+
+**Dívida que permanece para o Bloco B**:
+
+- **Reconciliação de refunds** — job de cron, padrão ADR-0024, self-throttle via
+  `cron_job_state`; decisões D3/D4 acima. **Entregue** — ver Addendum abaixo.
+- **Paginação + response shape explícito** do `GET /admin/orgs/:orgId/subscription/refunds`
+  — hoje devolve `BillingRefundEventEntity[]` cru (com `id` / `org_id` internos), teto de
+  100 sem marcador de truncamento. **Entregue** (`SubscriptionRefundsPage`) — ver Addendum
+  abaixo.
+- **Re-resolução de `org_id` das linhas órfãs** (`WHERE org_id IS NULL`) — D4, `UPDATE`
+  estreito. **Entregue** (`resolveOrgIdWhereNull` por charge +
+  `backfillOrgIdFromResolvedSiblings` por refund) — ver Addendum abaixo.
+- **`payment_intent` como caminho alternativo de correlação** quando `refund.charge` é
+  `null` (fora de escopo do Bloco A — sem `customer` nem `charge`, não há como resolver a
+  org no espelho atual). **Permanece aberto** (fora do escopo do Bloco B).
+- **`listInvoices` sem paginação** (`limit: 100` fixo) — mesma classe de bug que o
+  `has_more` de refunds, deixado fora de escopo deliberadamente: read path não relacionado,
+  sem evidência de truncamento. Registrado aqui como dívida explícita. **Permanece aberto.**
+
+## Addendum (2026-08-31): T4-F5 Bloco B — reconciliação de refunds
+
+**Contexto**: fecha o Bloco B planejado no Addendum "T4-F5 Bloco A" — reconciliação de
+refunds por job de cron + paginação/response-shape do
+`GET /admin/orgs/:orgId/subscription/refunds`. As decisões D3/D4 já estavam tomadas lá;
+este addendum registra o estado entregue. Escopo: **sem migração** (as colunas de
+`billing_refund_events` da migration `0060` / Addendum T4-F3 já cobrem tudo), sem nova
+superfície de UI, sem ação manual nova.
+
+**Decisão (Bloco B)**:
+
+1. **Job de cron `billing-refund-reconciliation`**
+   (`CRON_JOBS.BILLING_REFUND_RECONCILIATION`, `ReconcileRefundsUseCase`, molde de
+   `ReconcilePlanCatalogUseCase`). Self-throttled via `cron_job_state`
+   (`ICronJobStateRepository.claimRun`, `MIN_INTERVAL_MS = 24h` — padrão ADR-0024), não um
+   `@Cron` do Nest; registrado no array `jobs` do `InternalCronController` + provider/export
+   em `subscriptions.module.ts`. Rodado em todo `POST /internal/cron/tick` como os demais
+   jobs, mas a esmagadora maioria das chamadas é um claim no-op barato.
+
+2. **Passe 1 — varredura GLOBAL de 7 dias** (D3). O Stripe **não tem** list-by-customer de
+   refunds, então `gateway.listRefundsCreatedSince(now − 7d)` faz `for await` sobre
+   `stripe.refunds.list({ created: { gte } })` com teto `MAX_REFUNDS_PER_GLOBAL_SCAN = 2000`
+   → `truncated: true` + `BILLING_REFUND_RECONCILE_SCAN_TRUNCATED` ao alcançá-lo. A janela
+   de 7d dá folga sobre o intervalo de 24h — alguns ticks perdidos ainda não deixam um
+   refund sair da janela sem espelho. Por refund: `toRefundEventStatus` (whitelist dos 5
+   valores do enum, extraída para `domain/refund-event-status.ts` e **reusada pelo webhook**
+   — os dois aplicam exatamente o mesmo mapa); status fora da whitelist →
+   `BILLING_REFUND_EVENT_UNKNOWN_STATUS` + skip; transição já espelhada para aquele refund
+   (`findStatusesByRefundIds`, uma query para o batch inteiro) → skip **antes** de resolver
+   a org (a escada pode gastar um `charges.retrieve`, e o teto é 2000).
+
+3. **Guarda de inserção OBRIGATÓRIA** (D3 — a conta Stripe pode ser compartilhada com
+   outros produtos). Um refund nunca visto localmente (`seen.length === 0`) só é gravado se
+   a org resolver para um `stripe_customer_id` conhecido; senão conta em `skippedForeign` e
+   **não grava** (não emite por-refund — seria ruído no teto de 2000). Um refund que já tem
+   linha local é nosso de qualquer jeito — a nova transição é espelhada mesmo sem org
+   resolvida (a reconciliação grava `orgId: null` e o Passe 2 re-resolve).
+
+4. **`RefundOrgResolver`** (`application/refund-org-resolver.service.ts`, `@Injectable`, em
+   `application/` flat — convenção do módulo). Escada de resolução da org de um refund,
+   barato primeiro: (a) `customerId` conhecido → subscription local; (b)
+   `findResolvedOrgIdByRefundId`; (c) `findResolvedOrgIdByChargeId`; (d) `charges.retrieve`
+   → subscription local; senão `null`. **Nunca lança** — falha do Stripe no passo (d) que
+   não seja `resource_missing` é engolida (`logger.warn`) para não jogar o webhook num loop
+   de retry. Extraída do `HandleStripeWebhookUseCase` (que tinha a mesma escada inline) para
+   ser compartilhada pelo job. Não emite telemetria — quem sabe que a linha vai sem org é o
+   chamador (`writeRefundRow` do webhook emite `BILLING_REFUND_EVENT_ORG_UNRESOLVED`). Na
+   reconciliação o resultado da escada é **memoizado por `chargeId` para o run** (não
+   persistente): N refunds do mesmo charge — rotina numa conta compartilhada — disparam um
+   único `resolve` (logo no máximo um `charges.retrieve`) em vez de N; refunds sem
+   `chargeId` não são memoizados e resolvem cada um por si. A guarda de inserção é
+   reavaliada por refund mesmo assim.
+
+5. **Passe 2 — re-resolução de órfãos** (linhas ainda em `org_id IS NULL`), decisão D4:
+   **exceção mínima e deliberada ao append-only** de `billing_refund_events` (append-only
+   por analogia ao ADR-0010, ver migration `0060` nota (a)). Dois `UPDATE` estreitos, ambos
+   `SET org_id WHERE org_id IS NULL` — jamais tocam
+   `status`/`amount_cents`/`occurred_at`/`reason` nem valor monetário; só preenchem uma
+   coluna de correlação derivada server-side de `charge.customer` →
+   `subscriptions.stripe_customer_id`, nunca a partir do cliente. Sem migração.
+
+   a. **`backfillOrgIdFromResolvedSiblings()` roda PRIMEIRO** — `UPDATE ... FROM` set-based
+      por `stripe_refund_id`: preenche o `org_id` de uma linha órfã a partir de uma linha
+      irmã do **mesmo refund** que já carrega `org_id`. É o fix do **HIGH do
+      `database-guardian`** (que rodou apesar de não haver migração, pelos caminhos de raw
+      SQL): sem ele, um refund cuja linha `pending` nasceu órfã e cuja linha `succeeded`
+      posterior resolveu a org ficaria `org_id NULL` para sempre — `listUnresolvedChargeIds`
+      **exclui de propósito** refunds com irmã já resolvida, então o passe por charge nunca
+      o alcançaria e a linha `pending` sumiria do endpoint permanentemente. É por isso que a
+      passada por `stripe_refund_id` vem **antes** da passada por charge.
+   b. **`resolveOrgIdWhereNull(stripeChargeId, orgId)`** — `UPDATE` por charge. Alvos:
+      `listUnresolvedChargeIds(200, now − 30d)` (charge ids distintos de linhas ainda
+      órfãs). A janela de 30d (múltiplo da janela de varredura) evita starvation: um órfão
+      mais velho que isso já teve ~4 janelas de tentativa e é quase certamente
+      irrecuperável (conta compartilhada, ou customer sem subscription local) — sem o corte
+      ocuparia a cabeça de todo batch para sempre. Para cada charge:
+      `retrieveChargeCustomerId` → `subscriptionRepo.findByStripeCustomerId` →
+      `resolveOrgIdWhereNull`.
+
+   Telemetria do Passe 2: `BILLING_REFUND_ORPHAN_SIBLING_BACKFILL`,
+   `BILLING_REFUND_ORPHAN_RESOLVED`.
+
+6. **`occurred_at` na reconciliação = `refund.created`** (`GatewayRefund.createdAt`),
+   **aproximado**. É um **desvio consciente da nota (a) da migration `0060`**, que manda
+   `occurred_at` ser o `event.created` do envelope do webhook: o job não tem envelope de
+   evento e `refund.created` é o mais próximo disponível. O `.sql` da `0060` **não é
+   editado** (o migrator custom valida sha256 — ADR-0003); a nota lá continua correta e
+   normativa para o caminho do webhook, que é o primário — esta é a exceção do caminho de
+   varredura, registrada aqui. O dedupe `(stripe_refund_id, status)` mantém a gravação
+   idempotente entre runs.
+
+7. **Telemetria de linha gravada**: `BILLING_REFUND_RECONCILE_ROW_WRITTEN` (`logger.warn` +
+   `captureMessage`) em toda linha nova — escrita monetária automática sem supervisão
+   humana nunca é silenciosa (exigência do ADR-0024, mesmo padrão de
+   `ReconcilePlanCatalogUseCase`). `BILLING_REFUND_RECONCILE_FAILED` num `try/catch` por
+   item (Passe 1 e Passe 2), sem derrubar o run.
+
+8. **Endpoint `GET /admin/orgs/:orgId/subscription/refunds` paginado** — fecha a dívida do
+   Addendum T4-F3 §3. Query DTO `ListSubscriptionRefundsQueryDto` (`page`/`limit`,
+   `@Type(() => Number)` + `@IsInt` + `@Min(1)`, `limit` também `@Max(200)` — molde de
+   `AuditLogsQueryDto`). `ListSubscriptionRefundsUseCase` clampa (`DEFAULT_LIMIT = 50`,
+   `MAX_LIMIT = 200`), calcula `offset = (page − 1) * limit` e chama
+   `refundEventRepo.listPageByOrgId(orgId, { limit, offset })` (`listByOrgId` de teto fixo
+   100 foi **removido** do repo). Resposta: envelope explícito
+   `SubscriptionRefundsPage { data: SubscriptionRefundRow[]; total; page; pages }`;
+   `SubscriptionRefundRow` **omite** o PK interno `id` e o `org_id` e serializa `occurredAt`
+   como ISO string. Contrato mudou de `BillingRefundEventEntity[]` cru para envelope —
+   **sem consumidor de UI hoje** (`queryKeys.adminSubscription.refunds` existe sem hook que
+   a consuma; `useAdminSubscription*` só usa `detail`/`invoices`), então não é breaking na
+   prática. **Divergência deliberada do `AuditLogsPage`**: `pages` é
+   `Math.max(1, Math.ceil(total / limit))`, então `total: 0` → `pages: 1` (o `AuditLogsPage`
+   faz `Math.ceil(0 / limit) = 0`) — travada em teste. `orgId` vem do path +
+   `PlatformAdminGuard`; `DRIZZLE_ADMIN` bypassa RLS, então `WHERE org_id = $1` é a única
+   fronteira de tenant — `orgId` nunca do body.
+
+**Pré-requisito de deploy (checklist, não código)**: a reconciliação **não** exige evento
+de webhook novo — `refund.updated` já foi coberto no Bloco A. Mas ela é **rede de
+segurança**, não a fonte primária: depende de `charge.refunded` / `refund.updated` estarem
+na lista de eventos do endpoint de webhook do Stripe (**test E live**, gerida no dashboard,
+sem config no repo — mesma nota dos addenda T4-F3 e Bloco A). Sem esses eventos
+configurados a varredura de 7d vira a única fonte — funciona, mas com latência de até um
+tick de cron e sujeita ao teto de 2000 e à janela de 7 dias.
+
+**Sem verificação ao vivo nem no preview**: nenhuma superfície observável no navegador — o
+endpoint de refunds segue sem consumidor de UI. O round-trip ao vivo (refund real no
+dashboard em modo teste → varredura global → espelho local) **não foi exercitado** — chave
+do `stripe` CLI local expirada, mesma limitação dos addenda T4-F3, "espelho fiel do
+desconto" e Bloco A. Cobertura por unit tests: `reconcile-refunds.use-case.spec.ts`,
+`refund-org-resolver.service.spec.ts`, `list-subscription-refunds.use-case.spec.ts` +
+suíte `subscriptions` verde (34 suites / 269 testes) e `pnpm check-types` + `pnpm lint` +
+`pnpm test` + `pnpm build` verdes. `database-guardian` `changes_required` → 1 high + 2
+medium aplicados (o high é a razão de `backfillOrgIdFromResolvedSiblings` existir);
+`reviewer` `approved_with_notes` → 1 medium (memoização por `chargeId`) aplicado.
+
+**Dívida que permanece**:
+
+- **Linha com `stripe_charge_id NULL` E sem irmã resolvida** — não recuperável
+  automaticamente (nenhum dos dois passes a alcança; documentado no doc-comment de
+  `listUnresolvedChargeIds`). Ocorre se um `refund.updated` chega como primeira linha do
+  refund com `refund.charge` null.
+- **Sem índice em `billing_refund_events.stripe_charge_id`** — `resolveOrgIdWhereNull` e
+  `findResolvedOrgIdByChargeId` fazem seq scan. Dívida **com gatilho**: reavaliar quando a
+  tabela passar de ~50k linhas (exigiria migração; D4 foi sem migração).
+- **`backfillOrgIdFromResolvedSiblings` é raw SQL sem teste de DB** e sua correção depende
+  da invariante `subscriptions.stripe_customer_id` **UNIQUE** (um charge → um customer → no
+  máx. uma subscription → uma org). Se esse unique cair, o backfill — e também
+  `resolveOrgIdWhereNull` — vira misatribuição de refund entre orgs.
+- **`payment_intent` como correlação alternativa** quando `refund.charge` é `null` — segue
+  aberto (herdado do Bloco A, fora do escopo do Bloco B).
+- **`listInvoices` sem paginação** (`limit: 100` fixo) — segue aberto (herdado do Bloco A).
 
 ## Relacionado
 

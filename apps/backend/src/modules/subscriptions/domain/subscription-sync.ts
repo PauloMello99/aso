@@ -47,6 +47,29 @@ export function shouldApplyStripeSync(
 }
 
 /**
+ * Anti-flap guard, applied symmetrically in HandleStripeWebhookUseCase and
+ * ReconcileSubscriptionsUseCase: `ExpireSubscriptionsUseCase.lockExpiredPastDue`
+ * can lock a subscription locally (status: canceled) without touching Stripe
+ * (e.g. a past_due grace-period lock). Without this guard, the next
+ * webhook/reconcile pass would see Stripe still reporting past_due/canceled and
+ * "resurrect" the local record back to a paying-adjacent state, and the
+ * following expire tick would re-lock it — an endless flap. Only let Stripe
+ * override a local cancellation when Stripe itself reports the org as actually
+ * paying again (active/trialing); any other incoming status is not meaningful
+ * drift to resolve.
+ */
+export function shouldSkipStripeStatusOverride(
+  currentStatus: SubscriptionStatus,
+  incomingStatus: SubscriptionStatus,
+): boolean {
+  return (
+    currentStatus === "canceled" &&
+    incomingStatus !== "active" &&
+    incomingStatus !== "trialing"
+  );
+}
+
+/**
  * Decides whether an incoming Stripe-derived update should mark the local
  * subscription's trial as consumed. `trialConsumed` is write-once and must
  * only flip to true when Stripe itself confirms a trial happened (i.e.

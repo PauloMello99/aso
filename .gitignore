@@ -48,6 +48,17 @@ packages/*/src/*.ts.map
 .rag/
 .memory/sessions/
 
+# Agentic workflow scratch (ledger, handoffs) - transient, per-session
+.claude/scratch/
+
 # Python
 **/__pycache__/
 **/.venv/
+
+# Arquivos de acesso a bancos (credenciais em texto plano) — nunca versionar
+inkhouse-access.md
+aso-access.md
+
+# Migração Ink House → ASO: contém connection string de prod + PII de clientes reais.
+# Roteiro/decisões ficam no doc de levantamento; os artefatos não são versionados.
+scripts/inkhouse-migration/

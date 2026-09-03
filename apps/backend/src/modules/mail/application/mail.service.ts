@@ -8,6 +8,9 @@ import {
 } from "../domain/ports/email-sender.port";
 import { AnamnesisLinkEmail } from "../templates/anamnesis-link-email";
 import { AnamnesisSignedCopyEmail } from "../templates/anamnesis-signed-copy";
+import { CampaignBirthdayEmail } from "../templates/campaign-birthday";
+import { CampaignInactivityEmail } from "../templates/campaign-inactivity";
+import { CampaignPostServiceEmail } from "../templates/campaign-post-service";
 import { CustomerSelfRegistrationLinkEmail } from "../templates/customer-self-registration-link-email";
 import { CustomerUpdateLinkEmail } from "../templates/customer-update-link-email";
 import { InviteEmail } from "../templates/invite-email";
@@ -21,6 +24,7 @@ import {
   TicketSlaAlertEmail,
   TicketSlaAlertType,
 } from "../templates/ticket-sla-alert";
+import { renderCampaignBody, type TiptapDoc } from "./render-campaign-body";
 
 export interface SendOrgInviteInput {
   to: string;
@@ -107,6 +111,23 @@ export interface SendTicketSlaAlertInput {
   orgName: string;
   alertType: TicketSlaAlertType;
   queueUrl?: string;
+}
+
+/**
+ * Gatilho de campanha. Union literal inline de propósito — importar
+ * `CampaignTrigger` do módulo `campaigns` criaria dependência circular
+ * (`campaigns` já depende de `mail` via `CampaignMailerMailServiceAdapter`).
+ */
+export type CampaignTriggerName = "post_service" | "birthday" | "inactivity";
+
+export interface SendCampaignByTriggerInput {
+  to: string;
+  trigger: CampaignTriggerName;
+  subject: string;
+  body: TiptapDoc;
+  customerName: string;
+  orgName: string;
+  unsubscribeUrl: string;
 }
 
 @Injectable()
@@ -287,6 +308,49 @@ export class MailService {
         supportEmail: this.supportEmail,
       }),
     );
+  }
+
+  /**
+   * Envio de e-mail de campanha (T6 Bloco A). Best-effort como
+   * `sendNotification`: `dispatch` engole o `false` do sender quando o canal
+   * está desligado (no-op silencioso) e relança em falha real. O gate de flag
+   * (`CAMPAIGNS_ENABLED`) vive no `RunCampaignTriggersUseCase`; o gate de canal
+   * (`NOTIFICATIONS_EMAIL_ENABLED` + `RESEND_API_KEY`) vive no
+   * `ResendEmailSender`. `input.subject` já vem resolvido/interpolado e vai
+   * direto ao provider, sem prefixo. `input.body` é um `TiptapDoc` validado;
+   * `renderCampaignBody` interpola os tokens nos nós de texto e emite React
+   * Email (escape garantido pelo React).
+   */
+  async sendCampaignByTrigger(
+    input: SendCampaignByTriggerInput,
+  ): Promise<void> {
+    await this.dispatch(
+      input.to,
+      input.subject,
+      this.renderCampaignTemplate(input),
+    );
+  }
+
+  private renderCampaignTemplate(
+    input: SendCampaignByTriggerInput,
+  ): ReactElement {
+    const props = {
+      subject: input.subject,
+      body: renderCampaignBody(input.body, {
+        customerName: input.customerName,
+        orgName: input.orgName,
+      }),
+      orgName: input.orgName,
+      unsubscribeUrl: input.unsubscribeUrl,
+    };
+    switch (input.trigger) {
+      case "post_service":
+        return CampaignPostServiceEmail(props);
+      case "birthday":
+        return CampaignBirthdayEmail(props);
+      case "inactivity":
+        return CampaignInactivityEmail(props);
+    }
   }
 
   private async dispatch(

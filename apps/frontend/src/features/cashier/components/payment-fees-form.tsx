@@ -88,7 +88,9 @@ export function PaymentFeesForm({ orgId }: PaymentFeesFormProps) {
         <p className="text-sm text-foreground/50">
           Ao lançar uma <strong>entrada em cartão</strong>, o sistema desconta a
           taxa e registra o valor líquido no caixa. Líquido = bruto −
-          (bruto × percentual + valor fixo).
+          (bruto × percentual + valor fixo). Esta é a taxa padrão da
+          organização; cada funcionário pode ter taxas próprias, definidas na
+          tela de Membros.
         </p>
 
         {FEE_ELIGIBLE_METHODS.map((method, idx) => (

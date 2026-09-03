@@ -26,6 +26,7 @@ function buildSubscription(
     compGrantedBy: "user-1",
     compExpiresAt: new Date("2026-01-01T00:00:00Z"),
     canceledAt: null,
+    cancelAtPeriodEnd: false,
     trialConsumed: false,
     createdAt: new Date("2025-12-01T00:00:00Z"),
     updatedAt: new Date("2025-12-01T00:00:00Z"),
@@ -58,7 +59,7 @@ function buildFakeAuditService(): jest.Mocked<AuditService> {
 
 describe("ExpireSubscriptionsUseCase", () => {
   it("revokes an expired comp subscription and audits it", async () => {
-    const expiredComp = buildSubscription();
+    const expiredComp = buildSubscription({ cancelAtPeriodEnd: true });
     const subscriptionRepo = buildFakeSubscriptionRepo({
       findExpiredComps: jest.fn().mockResolvedValue([expiredComp]),
     });
@@ -79,6 +80,7 @@ describe("ExpireSubscriptionsUseCase", () => {
         compReason: null,
         compGrantedBy: null,
         compExpiresAt: null,
+        cancelAtPeriodEnd: false,
       }),
     );
     expect(auditService.log).toHaveBeenCalledWith(
@@ -118,6 +120,7 @@ describe("ExpireSubscriptionsUseCase", () => {
       type: "standard",
       status: "past_due",
       compExpiresAt: null,
+      cancelAtPeriodEnd: true,
     });
     const subscriptionRepo = buildFakeSubscriptionRepo({
       findExpiredPastDue: jest.fn().mockResolvedValue([expiredPastDue]),
@@ -132,7 +135,11 @@ describe("ExpireSubscriptionsUseCase", () => {
 
     expect(subscriptionRepo.update).toHaveBeenCalledWith(
       "org-2",
-      expect.objectContaining({ status: "canceled", type: "free" }),
+      expect.objectContaining({
+        status: "canceled",
+        type: "free",
+        cancelAtPeriodEnd: false,
+      }),
     );
     expect(auditService.log).toHaveBeenCalledWith(
       expect.objectContaining({
