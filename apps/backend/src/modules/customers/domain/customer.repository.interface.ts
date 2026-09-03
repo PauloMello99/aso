@@ -30,6 +30,15 @@ export interface ICustomerRepository {
     orgId: string,
     filter?: ListCustomersFilter,
   ): Promise<CustomerEntity[]>;
+  findPageByOrg(
+    orgId: string,
+    filter: ListCustomersFilter | undefined,
+    pagination: { limit: number; offset: number },
+  ): Promise<{ rows: CustomerEntity[]; total: number }>;
+  findOptionsByOrg(
+    orgId: string,
+    params: { enabledOnly?: boolean; limit: number },
+  ): Promise<{ id: string; name: string }[]>;
   create(data: CreateCustomerData): Promise<CustomerEntity>;
   update(id: string, data: UpdateCustomerData): Promise<CustomerEntity>;
   delete(id: string, orgId: string): Promise<void>;
