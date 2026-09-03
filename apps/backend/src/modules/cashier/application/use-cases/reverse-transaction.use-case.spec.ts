@@ -8,6 +8,8 @@ import { TransactionIsServicePaymentException } from "../../domain/exceptions/tr
 import { IServiceRepository } from "../../../services/domain/service.repository.interface";
 import { ITransactionCategoryRepository } from "../../domain/transaction-category.repository.interface";
 import { TransactionCategoryEntity } from "../../domain/transaction-category.entity";
+import { IMemberRepository } from "../../../organizations/domain/member.repository.interface";
+import { MemberEntity } from "../../../organizations/domain/member.entity";
 
 function buildTransaction(
   overrides: Partial<Parameters<typeof TransactionEntity.create>[0]> = {},
@@ -45,6 +47,44 @@ function buildFakeRepo(
     incomeExpenseSeries: jest.fn(),
     ...overrides,
   } as unknown as jest.Mocked<ITransactionRepository>;
+}
+
+function buildMember(
+  overrides: Partial<Parameters<typeof MemberEntity.create>[0]> = {},
+): MemberEntity {
+  return MemberEntity.create({
+    memberId: "member-1",
+    orgId: "org-1",
+    userId: "user-1",
+    role: "owner",
+    enabled: true,
+    permissions: [],
+    userName: "Fulano",
+    userEmail: "fulano@example.com",
+    joinedAt: new Date("2026-01-01T00:00:00Z"),
+    ...overrides,
+  });
+}
+
+function buildFakeMemberRepo(
+  overrides: Partial<jest.Mocked<IMemberRepository>> = {},
+): jest.Mocked<IMemberRepository> {
+  return {
+    findAllByOrg: jest.fn(),
+    upsert: jest.fn(),
+    findByMemberId: jest.fn(),
+    findByAuthId: jest.fn().mockResolvedValue(buildMember()),
+    updateRole: jest.fn(),
+    updatePermissions: jest.fn(),
+    updateClassification: jest.fn(),
+    setEnabled: jest.fn(),
+    countActiveOwners: jest.fn(),
+    countOwnedOrgs: jest.fn(),
+    removeAllByUserId: jest.fn(),
+    transferOwnership: jest.fn(),
+    remove: jest.fn(),
+    ...overrides,
+  } as unknown as jest.Mocked<IMemberRepository>;
 }
 
 function buildFakeServiceRepo(
@@ -110,17 +150,29 @@ describe("ReverseTransactionUseCase", () => {
     });
     const serviceRepo = buildFakeServiceRepo();
     const categoryRepo = buildFakeCategoryRepo();
-    const useCase = new ReverseTransactionUseCase(repo, serviceRepo, categoryRepo);
+    const memberRepo = buildFakeMemberRepo({
+      findByAuthId: jest
+        .fn()
+        .mockResolvedValue(buildMember({ userId: "user-2" })),
+    });
+    const useCase = new ReverseTransactionUseCase(
+      repo,
+      memberRepo,
+      serviceRepo,
+      categoryRepo,
+    );
 
     const result = await useCase.execute({
       orgId: "org-1",
       transactionId: original.id,
-      reversedBy: "user-2",
+      authId: "auth-user-2",
     });
 
+    expect(memberRepo.findByAuthId).toHaveBeenCalledWith("org-1", "auth-user-2");
     expect(repo.create).toHaveBeenCalledWith(
       expect.objectContaining({
         orgId: original.orgId,
+        createdBy: "user-2",
         type: "outcome",
         reversesTransactionId: original.id,
         netCents: original.netCents,
@@ -141,9 +193,19 @@ describe("ReverseTransactionUseCase", () => {
     const categoryRepo = buildFakeCategoryRepo({
       findBySystemKey: jest.fn().mockResolvedValue(buildCategory({ id: "cat-1" })),
     });
-    const useCase = new ReverseTransactionUseCase(repo, serviceRepo, categoryRepo);
+    const memberRepo = buildFakeMemberRepo();
+    const useCase = new ReverseTransactionUseCase(
+      repo,
+      memberRepo,
+      serviceRepo,
+      categoryRepo,
+    );
 
-    await useCase.execute({ orgId: "org-1", transactionId: original.id });
+    await useCase.execute({
+      orgId: "org-1",
+      transactionId: original.id,
+      authId: "auth-user-1",
+    });
 
     expect(categoryRepo.findBySystemKey).toHaveBeenCalledWith(
       original.orgId,
@@ -166,11 +228,18 @@ describe("ReverseTransactionUseCase", () => {
     const categoryRepo = buildFakeCategoryRepo({
       findBySystemKey: jest.fn().mockResolvedValue(null),
     });
-    const useCase = new ReverseTransactionUseCase(repo, serviceRepo, categoryRepo);
+    const memberRepo = buildFakeMemberRepo();
+    const useCase = new ReverseTransactionUseCase(
+      repo,
+      memberRepo,
+      serviceRepo,
+      categoryRepo,
+    );
 
     const result = await useCase.execute({
       orgId: "org-1",
       transactionId: original.id,
+      authId: "auth-user-1",
     });
 
     expect(repo.create).toHaveBeenCalledWith(
@@ -185,10 +254,20 @@ describe("ReverseTransactionUseCase", () => {
     });
     const serviceRepo = buildFakeServiceRepo();
     const categoryRepo = buildFakeCategoryRepo();
-    const useCase = new ReverseTransactionUseCase(repo, serviceRepo, categoryRepo);
+    const memberRepo = buildFakeMemberRepo();
+    const useCase = new ReverseTransactionUseCase(
+      repo,
+      memberRepo,
+      serviceRepo,
+      categoryRepo,
+    );
 
     await expect(
-      useCase.execute({ orgId: "org-1", transactionId: "missing" }),
+      useCase.execute({
+        orgId: "org-1",
+        transactionId: "missing",
+        authId: "auth-x",
+      }),
     ).rejects.toBeInstanceOf(TransactionNotFoundException);
     expect(repo.create).not.toHaveBeenCalled();
   });
@@ -202,10 +281,20 @@ describe("ReverseTransactionUseCase", () => {
     });
     const serviceRepo = buildFakeServiceRepo();
     const categoryRepo = buildFakeCategoryRepo();
-    const useCase = new ReverseTransactionUseCase(repo, serviceRepo, categoryRepo);
+    const memberRepo = buildFakeMemberRepo();
+    const useCase = new ReverseTransactionUseCase(
+      repo,
+      memberRepo,
+      serviceRepo,
+      categoryRepo,
+    );
 
     await expect(
-      useCase.execute({ orgId: "org-1", transactionId: alreadyReversal.id }),
+      useCase.execute({
+        orgId: "org-1",
+        transactionId: alreadyReversal.id,
+        authId: "auth-x",
+      }),
     ).rejects.toBeInstanceOf(TransactionNotReversibleException);
     expect(repo.create).not.toHaveBeenCalled();
   });
@@ -218,10 +307,20 @@ describe("ReverseTransactionUseCase", () => {
     });
     const serviceRepo = buildFakeServiceRepo();
     const categoryRepo = buildFakeCategoryRepo();
-    const useCase = new ReverseTransactionUseCase(repo, serviceRepo, categoryRepo);
+    const memberRepo = buildFakeMemberRepo();
+    const useCase = new ReverseTransactionUseCase(
+      repo,
+      memberRepo,
+      serviceRepo,
+      categoryRepo,
+    );
 
     await expect(
-      useCase.execute({ orgId: "org-1", transactionId: original.id }),
+      useCase.execute({
+        orgId: "org-1",
+        transactionId: original.id,
+        authId: "auth-x",
+      }),
     ).rejects.toBeInstanceOf(TransactionAlreadyReversedException);
     expect(repo.create).not.toHaveBeenCalled();
   });
@@ -235,10 +334,20 @@ describe("ReverseTransactionUseCase", () => {
       existsByPaymentTransactionId: jest.fn().mockResolvedValue(true),
     });
     const categoryRepo = buildFakeCategoryRepo();
-    const useCase = new ReverseTransactionUseCase(repo, serviceRepo, categoryRepo);
+    const memberRepo = buildFakeMemberRepo();
+    const useCase = new ReverseTransactionUseCase(
+      repo,
+      memberRepo,
+      serviceRepo,
+      categoryRepo,
+    );
 
     await expect(
-      useCase.execute({ orgId: "org-1", transactionId: original.id }),
+      useCase.execute({
+        orgId: "org-1",
+        transactionId: original.id,
+        authId: "auth-x",
+      }),
     ).rejects.toBeInstanceOf(TransactionIsServicePaymentException);
     expect(repo.create).not.toHaveBeenCalled();
   });

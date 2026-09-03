@@ -58,7 +58,7 @@ export class CorrectTransactionUseCase {
     const reversal = await this.reverseTransaction.execute({
       orgId: input.orgId,
       transactionId: input.transactionId,
-      reversedBy: input.correctedBy,
+      authId: input.correctedBy ?? "",
     });
 
     const replacement = await this.createTransaction.execute({

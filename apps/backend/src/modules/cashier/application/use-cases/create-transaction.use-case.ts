@@ -104,9 +104,9 @@ export class CreateTransactionUseCase {
     // - Ramo de correção com método de pagamento DIFERENTE (ou não-`income`): o
     //   snapshot antigo é inaplicável, então cai na taxa da ORG. `memberFee`
     //   segue `null` porque nesse ramo `createdBy` vem de
-    //   `transactions.created_by` da transação original — coluna hoje heterogênea
-    //   entre auth id e users.id (ver comentário do audit abaixo); um lookup por
-    //   users.id sairia vazio em silêncio e mascararia esse bug.
+    //   `transactions.created_by` da transação original — para linhas de
+    //   transferência/estorno gravadas antes de 2026-09-02 essa coluna ainda pode
+    //   ter auth id (sem backfill); um lookup por users.id sairia vazio em silêncio.
     const original = isCorrection ? input.originalFee : undefined;
 
     let feeConfig: FeeConfig | null;
@@ -199,10 +199,10 @@ export class CreateTransactionUseCase {
         paymentMethod: input.paymentMethod,
         categoryId: input.categoryId ?? null,
         // No caminho de correção, `createdBy` vem de `trustedCreatedBy` (copiado de
-        // transactions.created_by da transação original), coluna hoje heterogênea
-        // entre auth id e users.id (perna de transferência grava auth id — ver
-        // cashier.controller.ts). Não afirmar attributedTo nesse ramo evita
-        // propagar essa confusão para o audit log.
+        // transactions.created_by da transação original). Escritas novas de
+        // transferência/estorno já resolvem users.id (fix 2026-09-02), mas linhas
+        // antigas podem ainda ter auth id (sem backfill). Não afirmar attributedTo
+        // nesse ramo evita propagar essa ambiguidade para o audit log.
         attributedTo: isCorrection ? null : createdBy,
         source: isCorrection ? "correction" : "manual",
         transactedAt: transaction.transactedAt,

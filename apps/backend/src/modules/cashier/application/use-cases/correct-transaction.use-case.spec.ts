@@ -111,7 +111,11 @@ describe("CorrectTransactionUseCase", () => {
       original.id,
     );
     expect(reverseTransaction.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ orgId: "org-1", transactionId: original.id }),
+      expect.objectContaining({
+        orgId: "org-1",
+        transactionId: original.id,
+        authId: "user-2",
+      }),
     );
     expect(createTransaction.execute).toHaveBeenCalledWith(
       expect.objectContaining({

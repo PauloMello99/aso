@@ -133,8 +133,8 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
   capturados antes do upsert; uma remoção de override do membro aparece em `changes[]` com
   `percent: null`/`fixedCents: null`) e `upsert-member-commissions`
   (`cashier_commissions_updated`, mesma lógica de só-quando-muda). **Não auditam ainda:** `reverse-transaction`, `correct-transaction`, `transfer`
-  (bloqueados pelo GOTCHA de `created_by` heterogêneo, ver acima — um `authId` novo ao
-  lado de um campo que já mistura auth id/users.id seria mais confusão, não menos) e
+  (agora recebem `authId` e resolvem `created_by` via `resolveActor` — 2026-09-02 — então
+  o obstáculo do `created_by` heterogêneo caiu; falta só instrumentar o `logByAuthId`) e
   CRUD de categorias (exigiria converter assinaturas posicionais pra objeto, refactor à
   parte). **`cashier_transaction_created` nem sub- nem sobre-cobre "criação de
   lançamento" no sentido amplo:** pagamento de serviço (`register-payment`,
@@ -326,17 +326,20 @@ um funcionário. Estado por módulo (2026-06-21):
     `created_by` do lançamento original e repassa via `trustedCreatedBy` (campo interno
     de `create-transaction` que pula `resolveActor`/`resolveCreatedBy`) — assim o
     corrigido **continua pertencendo ao funcionário**, não migra para o owner que corrige.
-  - **GOTCHA — `created_by` nem sempre é `users.id`, apesar da regra acima:**
-    `transfer.use-case.ts` grava as duas pernas com `input.createdBy`, e
-    `cashier.controller.ts` (endpoint de transferência) passa `user.id` (**auth id** do
-    Supabase, não `users.id`) — achado pela `reviewer` durante a fatia de auditoria do
-    caixa de PLAT-3 (2026-08-24). Uma perna de transferência corrigida propaga esse auth
-    id pra frente via `trustedCreatedBy`, então o mesmo bug alcança `correct-transaction`.
-    Pré-existente, não introduzido por essa fatia; corrigir exige backfill de dados
-    históricos (não dá pra saber, a-posteriori, quais linhas de `transactions.created_by`
-    são auth id vs. users.id sem reprocessar caso a caso) — registrado como item futuro,
-    não uma tarefa desta fatia. Ver "Cobertura de auditoria do caixa" abaixo — é por isso
-    que estorno/correção/transferência não têm auditoria ainda.
+  - **`created_by` = `users.id` em TODAS as escritas novas (corrigido 2026-09-02):**
+    `TransferUseCase` e `ReverseTransactionUseCase` recebiam `createdBy`/`reversedBy` já
+    resolvido do controller, que passava `user.id` (**auth id** do Supabase) — gravavam
+    auth id em `transactions.created_by`. Achado pela `reviewer` na fatia de auditoria do
+    caixa de PLAT-3 (2026-08-24); corrigido fazendo os dois use-cases receberem `authId` e
+    resolverem via `resolveActor` (mesmo padrão de `create-transaction`);
+    `correct-transaction` repassa `authId` (não mais `reversedBy`) ao chamar o reverse. A
+    perna de reposição de errata continua herdando `trustedCreatedBy: original.createdBy`
+    (autoria preservada) — agora sempre um `users.id` canônico para lançamentos novos.
+    **Linhas históricas de transferência/estorno gravadas antes desse fix ainda podem ter
+    auth id** — não houve backfill (contagem local = 0 linhas afetadas; decisão de
+    normalizar em produção fica com o dono). Qualquer join `created_by → users.id` sobre
+    dados antigos (filtro `createdBy` de `list-transactions`, scoping por funcionário) vê
+    órfãos para essas linhas antigas.
 
 **Navegação por papel (multi-org/multi-papel) — frontend.** Um usuário pode ser `owner`
 de N orgs e `employee` de outras N ao mesmo tempo. `GET /orgs` retorna `role` por org;

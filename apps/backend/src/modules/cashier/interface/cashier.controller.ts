@@ -219,7 +219,7 @@ export class CashierController {
     return this.reverseTransaction.execute({
       orgId,
       transactionId: id,
-      reversedBy: user.id,
+      authId: user.id,
     });
   }
 
@@ -381,7 +381,7 @@ export class CashierController {
   ) {
     return this.transfer.execute({
       orgId,
-      createdBy: user.id,
+      authId: user.id,
       fromMethod: dto.fromMethod,
       toMethod: dto.toMethod,
       amountCents: dto.amountCents,
