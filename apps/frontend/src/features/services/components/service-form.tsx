@@ -44,7 +44,7 @@ import {
   SendAnamnesisInviteDialog,
   useAnamnesisPromptState,
 } from "@/features/anamnesis"
-import type { Customer } from "@/features/clients/types"
+import type { CustomerOption } from "@/features/clients/types"
 import type { Member } from "@/features/organizations/types"
 import type { Material } from "@/features/stock/types"
 import type { MaterialFormValues } from "@/features/stock/schemas/stock.schemas"
@@ -98,7 +98,7 @@ interface ServiceFormProps {
   orgId: string
   service?: Service | null
   isOwner: boolean
-  customers: Customer[]
+  customers: CustomerOption[]
   members: Member[]
   serviceTypes: ServiceType[]
   materials: Material[]

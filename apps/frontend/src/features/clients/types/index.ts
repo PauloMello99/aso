@@ -29,6 +29,7 @@ export interface Customer {
 export interface CustomerOption {
   id: string
   name: string
+  birthDate: string
 }
 
 export interface CustomersFilter {

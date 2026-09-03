@@ -25,7 +25,8 @@ interface StockVerificationPageProps {
 }
 
 export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
-  const { options: materials } = useMaterialOptions(orgId)
+  const { options: materials, truncated: materialsTruncated } =
+    useMaterialOptions(orgId)
   const { settings, verifications, setInterval, createVerification } =
     useStockVerification(orgId)
 
@@ -101,11 +102,17 @@ export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
         )}
       </section>
 
-      <section>
+      <section className="grid gap-2">
         <Button onClick={openConference}>
           <ClipboardCheck className="h-4 w-4" />
           Conferir estoque agora
         </Button>
+        {materialsTruncated && (
+          <p className="text-xs text-warning">
+            Mostrando os primeiros 1000 materiais — conferências com catálogos maiores
+            podem ficar incompletas.
+          </p>
+        )}
       </section>
 
       <section className="grid gap-2">

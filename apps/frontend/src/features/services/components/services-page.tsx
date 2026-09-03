@@ -24,7 +24,6 @@ import {
 } from "@/shared/components/ui/export-menu"
 import { downloadExport } from "@/shared/lib/download-export"
 import { useCurrentOrg } from "@/features/dashboard"
-import { useCustomers } from "@/features/clients/hooks/use-customers"
 import { useCustomerOptions } from "@/features/clients/hooks/use-customer-options"
 import { useMembers } from "@/features/organizations/hooks/use-members"
 import { useMaterials } from "@/features/stock/hooks/use-materials"
@@ -171,7 +170,6 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
     correctPayment,
   } = useServices(orgId, filter)
   const { serviceTypes, createServiceType } = useServiceTypes(orgId)
-  const { customers } = useCustomers(orgId, { enabledOnly: true })
   const { options: customerOptions, truncated: customersTruncated } =
     useCustomerOptions(orgId)
   const { options: materialOptions } = useMaterialOptions(orgId)
@@ -490,7 +488,7 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
         orgId={orgId}
         service={editing}
         isOwner={isOwner}
-        customers={customers}
+        customers={customerOptions}
         members={members}
         serviceTypes={serviceTypes}
         materials={materialOptions}
