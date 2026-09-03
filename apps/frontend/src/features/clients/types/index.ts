@@ -26,6 +26,11 @@ export interface Customer {
   updatedAt: string
 }
 
+export interface CustomerOption {
+  id: string
+  name: string
+}
+
 export interface CustomersFilter {
   search?: string
   enabledOnly?: boolean
