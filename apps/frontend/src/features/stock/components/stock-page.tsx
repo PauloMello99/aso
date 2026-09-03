@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Package, AlertTriangle, Plus, RefreshCw, Search } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
@@ -21,13 +21,14 @@ import {
   type ExportFormat,
 } from "@/shared/components/ui/export-menu"
 import { downloadExport } from "@/shared/lib/download-export"
-import { useMaterials, isLowStock } from "../hooks/use-materials"
+import { PaginationBar } from "@/shared/components/pagination-bar"
+import { useMaterials } from "../hooks/use-materials"
 import { MaterialList } from "./material-list"
 import { MaterialForm } from "./material-form"
 import { RestockForm } from "./restock-form"
 import { AdjustStockForm } from "./adjust-stock-form"
 import { StockMovementsPanel } from "./stock-movements-panel"
-import type { Material } from "../types"
+import type { Material, MaterialsFilter } from "../types"
 import type { MaterialFormValues, RestockFormValues, AdjustStockFormValues } from "../schemas/stock.schemas"
 
 interface StockPageProps {
@@ -70,6 +71,12 @@ export function StockPage({ orgId }: StockPageProps) {
     setAdvanced({ minCost: "", maxCost: "" })
   }
 
+  const [page, setPage] = useState(1)
+
+  useEffect(() => {
+    setPage(1)
+  }, [search, showArchived, advanced])
+
   async function handleExport(fields: string[], format: ExportFormat) {
     await downloadExport(
       `/orgs/${orgId}/materials/export`,
@@ -93,18 +100,7 @@ export function StockPage({ orgId }: StockPageProps) {
     )
   }
 
-  const {
-    materials,
-    loading,
-    error,
-    refetch,
-    createMaterial,
-    updateMaterial,
-    deleteMaterial,
-    restockMaterial,
-    adjustStock,
-    archiveMaterial,
-  } = useMaterials(orgId, {
+  const filter: MaterialsFilter = {
     name: search || undefined,
     archived: showArchived || undefined,
     shareable: advanced.shareable,
@@ -114,7 +110,29 @@ export function StockPage({ orgId }: StockPageProps) {
     maxCost: advanced.maxCost.trim()
       ? advanced.maxCost.replace(",", ".")
       : undefined,
-  })
+    page,
+  }
+
+  const {
+    materials,
+    total,
+    pages,
+    loading,
+    error,
+    refetch,
+    createMaterial,
+    updateMaterial,
+    deleteMaterial,
+    restockMaterial,
+    adjustStock,
+    archiveMaterial,
+  } = useMaterials(orgId, filter)
+
+  const { total: lowStockCount } = useMaterials(
+    orgId,
+    { ...filter, lowStockOnly: true, page: 1, limit: 1 },
+    { enabled: !!orgId },
+  )
 
   const [dialogs, setDialogs] = useState<DialogState>({
     materialForm: false,
@@ -132,8 +150,6 @@ export function StockPage({ orgId }: StockPageProps) {
   function closeDialog(key: keyof DialogState) {
     setDialogs((d) => ({ ...d, [key]: false }))
   }
-
-  const lowStockCount = materials.filter(isLowStock).length
 
   async function handleMaterialSubmit(values: MaterialFormValues) {
     const body = {
@@ -269,7 +285,7 @@ export function StockPage({ orgId }: StockPageProps) {
         <SummaryCard
           icon={<Package className="h-4 w-4 text-foreground/40" />}
           label="Total de materiais"
-          value={String(materials.length)}
+          value={String(total)}
           loading={loading}
         />
         <SummaryCard
@@ -309,15 +325,24 @@ export function StockPage({ orgId }: StockPageProps) {
           Carregando materiais…
         </div>
       ) : (
-        <MaterialList
-          materials={materials}
-          onRestock={(m) => openDialog("restockForm", m)}
-          onEdit={(m) => openDialog("materialForm", m)}
-          onAdjust={(m) => openDialog("adjustForm", m)}
-          onHistory={(m) => openDialog("movementsPanel", m)}
-          onDelete={handleDelete}
-          onArchive={handleArchive}
-        />
+        <>
+          <MaterialList
+            materials={materials}
+            onRestock={(m) => openDialog("restockForm", m)}
+            onEdit={(m) => openDialog("materialForm", m)}
+            onAdjust={(m) => openDialog("adjustForm", m)}
+            onHistory={(m) => openDialog("movementsPanel", m)}
+            onDelete={handleDelete}
+            onArchive={handleArchive}
+          />
+          <PaginationBar
+            page={page}
+            pages={pages}
+            total={total}
+            onPageChange={setPage}
+            itemLabel="material"
+          />
+        </>
       )}
 
       <MaterialForm

@@ -40,8 +40,14 @@ export interface ITransactionRepository {
     orgId: string,
     filter?: ListTransactionsFilter,
   ): Promise<TransactionEntity[]>;
+  findPageByOrg(
+    orgId: string,
+    filter: ListTransactionsFilter | undefined,
+    pagination: { limit: number; offset: number },
+  ): Promise<{ rows: TransactionEntity[]; total: number }>;
   findReversalOf(originalId: string): Promise<TransactionEntity | null>;
   findReversedIds(orgId: string): Promise<Set<string>>;
+  findReversedIdsIn(orgId: string, ids: string[]): Promise<Set<string>>;
   balance(orgId: string, createdBy?: string): Promise<BalanceSnapshot>;
   dailyBalanceHistory(
     orgId: string,

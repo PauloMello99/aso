@@ -28,7 +28,7 @@ import { ActiveSubscriptionGuard } from "../../subscriptions/interface/guards/ac
 import { RequireModule } from "../../auth/decorators/require-module.decorator";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
-import { ListServicesUseCase } from "../application/use-cases/list-services.use-case";
+import { ListServicesPageUseCase } from "../application/use-cases/list-services-page.use-case";
 import { ExportServicesUseCase } from "../application/use-cases/export-services.use-case";
 import { GetServiceUseCase } from "../application/use-cases/get-service.use-case";
 import {
@@ -58,6 +58,7 @@ import { CreateServiceTypeDto } from "./dto/create-service-type.dto";
 import { UpdateServiceTypeDto } from "./dto/update-service-type.dto";
 import type { ServiceStatusFilter } from "../domain/service.repository.interface";
 import type { PaymentMethod } from "../domain/service.entity";
+import { parsePageParam } from "../../../common/pagination/pagination";
 
 interface UploadedImage {
   buffer: Buffer;
@@ -84,7 +85,7 @@ function startOfCurrentMonth(): Date {
 @RequireModule("services")
 export class ServicesController {
   constructor(
-    private readonly listServices: ListServicesUseCase,
+    private readonly listServicesPage: ListServicesPageUseCase,
     private readonly exportServices: ExportServicesUseCase,
     private readonly getService: GetServiceUseCase,
     private readonly createService: CreateServiceUseCase,
@@ -147,13 +148,17 @@ export class ServicesController {
     @Query("minCents") minCents?: string,
     @Query("maxCents") maxCents?: string,
     @Query("q") q?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
   ) {
     const fromDate = from ? new Date(from) : startOfCurrentMonth();
     const toDate = to ? new Date(to) : undefined;
 
-    return this.listServices.execute({
+    return this.listServicesPage.execute({
       orgId,
       authId: user.id,
+      page: parsePageParam(page),
+      limit: parsePageParam(limit),
       filter: {
         from: fromDate,
         to: toDate,

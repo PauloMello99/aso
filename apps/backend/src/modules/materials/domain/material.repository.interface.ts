@@ -23,6 +23,15 @@ export interface IMaterialRepository {
     orgId: string,
     filter?: ListMaterialsFilter,
   ): Promise<MaterialEntity[]>;
+  findPageByOrg(
+    orgId: string,
+    filter: ListMaterialsFilter | undefined,
+    pagination: { limit: number; offset: number },
+  ): Promise<{ rows: MaterialEntity[]; total: number }>;
+  findOptionsByOrg(
+    orgId: string,
+    params: { limit: number },
+  ): Promise<MaterialEntity[]>;
   create(data: CreateMaterialData): Promise<MaterialEntity>;
   update(id: string, data: UpdateMaterialData): Promise<MaterialEntity>;
   updateStockQuantity(

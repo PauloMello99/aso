@@ -20,12 +20,13 @@ import { ActiveSubscriptionGuard } from "../../subscriptions/interface/guards/ac
 import { RequireModule } from "../../auth/decorators/require-module.decorator";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
-import { ListTransactionsUseCase } from "../application/use-cases/list-transactions.use-case";
+import { ListTransactionsPageUseCase } from "../application/use-cases/list-transactions-page.use-case";
 import { ExportTransactionsUseCase } from "../application/use-cases/export-transactions.use-case";
 import {
   parseFields,
   resolveExportFormat,
 } from "../../../common/csv/csv.util";
+import { parsePageParam } from "../../../common/pagination/pagination";
 import { CreateTransactionUseCase } from "../application/use-cases/create-transaction.use-case";
 import { ReverseTransactionUseCase } from "../application/use-cases/reverse-transaction.use-case";
 import { CorrectTransactionUseCase } from "../application/use-cases/correct-transaction.use-case";
@@ -71,7 +72,7 @@ function parseCents(value?: string): number | undefined {
 @RequireModule("cashier")
 export class CashierController {
   constructor(
-    private readonly listTransactions: ListTransactionsUseCase,
+    private readonly listTransactionsPage: ListTransactionsPageUseCase,
     private readonly exportTransactions: ExportTransactionsUseCase,
     private readonly createTransaction: CreateTransactionUseCase,
     private readonly reverseTransaction: ReverseTransactionUseCase,
@@ -105,8 +106,10 @@ export class CashierController {
     @Query("createdBy") createdBy?: string,
     @Query("q") q?: string,
     @Query("customerId") customerId?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
   ) {
-    return this.listTransactions.execute({
+    return this.listTransactionsPage.execute({
       orgId,
       authId: user.id,
       filter: {
@@ -125,6 +128,8 @@ export class CashierController {
         q: q || undefined,
         customerId: customerId || undefined,
       },
+      page: parsePageParam(page),
+      limit: parsePageParam(limit),
     });
   }
 

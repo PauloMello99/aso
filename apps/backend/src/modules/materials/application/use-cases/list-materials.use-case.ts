@@ -53,6 +53,7 @@ export function toMaterialListItemView(
   };
 }
 
+// Caminho NÃO paginado — usado por ExportMaterialsUseCase e GetOverviewUseCase (lowStock); listagem paginada vive em ListMaterialsPageUseCase.
 @Injectable()
 export class ListMaterialsUseCase {
   constructor(

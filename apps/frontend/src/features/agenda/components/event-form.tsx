@@ -34,7 +34,7 @@ import { Input } from "@/shared/components/ui/input"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { Switch } from "@/shared/components/ui/switch"
 import { Trash2 } from "lucide-react"
-import { useCustomers } from "@/features/clients/hooks/use-customers"
+import { useCustomerOptions } from "@/features/clients/hooks/use-customer-options"
 import { eventFormSchema, type EventFormValues } from "../schemas/agenda.schemas"
 import type { CalendarEvent } from "../types"
 import type { CalendarEventBody } from "../hooks/use-calendar-events"
@@ -93,7 +93,8 @@ export function EventForm({
 }: EventFormProps) {
   const isEditing = !!event
   const isCanceled = event?.status === "canceled"
-  const { customers } = useCustomers(orgId, { enabledOnly: true })
+  const { options: customers, truncated: customersTruncated } =
+    useCustomerOptions(orgId)
   const activeMembers = members.filter((m) => m.enabled)
 
   const form = useForm<EventFormValues>({
@@ -286,6 +287,12 @@ export function EventForm({
                           ))}
                         </SelectContent>
                       </Select>
+                      {customersTruncated && (
+                        <p className="text-xs text-foreground/40">
+                          Mostrando os primeiros 1000 clientes — refine a busca se não
+                          encontrar quem procura.
+                        </p>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}

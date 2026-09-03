@@ -1,8 +1,14 @@
 "use client"
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { apiRequest } from "@/infrastructure/api/client"
 import { queryKeys } from "@/infrastructure/query/query-keys"
+import type { Paginated } from "@/shared/types/pagination"
 import type { Service, ServicePaymentMethod, ServicesFilter } from "../types"
 import { useCorrectServicePayment } from "./use-correct-service-payment"
 
@@ -37,7 +43,7 @@ export interface UpdateServiceBody {
 export function useServices(orgId: string, filter?: ServicesFilter) {
   const queryClient = useQueryClient()
 
-  const { data = [], isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: queryKeys.services.list(orgId, filter),
     queryFn: () => {
       const params = new URLSearchParams()
@@ -54,11 +60,19 @@ export function useServices(orgId: string, filter?: ServicesFilter) {
       if (filter?.maxCents !== undefined)
         params.set("maxCents", String(filter.maxCents))
       if (filter?.q) params.set("q", filter.q)
+      if (filter?.page) params.set("page", String(filter.page))
+      if (filter?.limit) params.set("limit", String(filter.limit))
       const query = params.toString() ? `?${params.toString()}` : ""
-      return apiRequest<Service[]>(`/orgs/${orgId}/services${query}`)
+      return apiRequest<Paginated<Service>>(`/orgs/${orgId}/services${query}`)
     },
     enabled: !!orgId,
+    placeholderData: keepPreviousData,
   })
+
+  const services = data?.data ?? []
+  const total = data?.total ?? 0
+  const page = data?.page ?? 1
+  const pages = data?.pages ?? 0
 
   function invalidate() {
     void queryClient.invalidateQueries({
@@ -103,7 +117,10 @@ export function useServices(orgId: string, filter?: ServicesFilter) {
   const { correctPayment } = useCorrectServicePayment(orgId)
 
   return {
-    services: data,
+    services,
+    total,
+    page,
+    pages,
     loading: isLoading,
     error: error instanceof Error ? error.message : null,
     refetch,

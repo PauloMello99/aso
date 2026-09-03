@@ -1,4 +1,9 @@
 ﻿import { Inject, Injectable } from "@nestjs/common";
+import {
+  buildPaginated,
+  Paginated,
+  resolvePageRequest,
+} from "../../../../common/pagination/pagination";
 import { MaterialNotFoundException } from "../../domain/exceptions/material-not-found.exception";
 import { StockMovementEntity } from "../../domain/stock-movement.entity";
 import {
@@ -7,9 +12,10 @@ import {
 } from "../../domain/material.repository.interface";
 import {
   IStockMovementRepository,
-  ListMovementsFilter,
   STOCK_MOVEMENT_REPOSITORY,
 } from "../../domain/stock-movement.repository.interface";
+
+const PAGINATION_BOUNDS = { defaultLimit: 20, maxLimit: 100 };
 
 @Injectable()
 export class ListStockMovementsUseCase {
@@ -23,11 +29,25 @@ export class ListStockMovementsUseCase {
   async execute(
     materialId: string,
     orgId: string,
-    filter?: ListMovementsFilter,
-  ): Promise<StockMovementEntity[]> {
+    page?: number,
+    limit?: number,
+  ): Promise<Paginated<StockMovementEntity>> {
     const material = await this.materialRepo.findById(materialId, orgId);
     if (!material) throw new MaterialNotFoundException(materialId);
-    return this.movementRepo.findAllByMaterial(materialId, orgId, filter);
+
+    const {
+      page: resolvedPage,
+      limit: resolvedLimit,
+      offset,
+    } = resolvePageRequest({ page, limit }, PAGINATION_BOUNDS);
+
+    const { rows, total } = await this.movementRepo.findPageByMaterial(
+      materialId,
+      orgId,
+      { limit: resolvedLimit, offset },
+    );
+
+    return buildPaginated(rows, total, resolvedPage, resolvedLimit);
   }
 }
 

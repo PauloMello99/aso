@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select"
 import { DatePicker } from "@/shared/components/ui/date-picker"
+import { PaginationBar } from "@/shared/components/pagination-bar"
 import {
   FilterPopover,
   FilterField,
@@ -23,9 +24,10 @@ import {
 } from "@/shared/components/ui/export-menu"
 import { downloadExport } from "@/shared/lib/download-export"
 import { useCurrentOrg } from "@/features/dashboard"
-import { useCustomers } from "@/features/clients/hooks/use-customers"
+import { useCustomerOptions } from "@/features/clients/hooks/use-customer-options"
 import { useMembers } from "@/features/organizations/hooks/use-members"
 import { useMaterials } from "@/features/stock/hooks/use-materials"
+import { useMaterialOptions } from "@/features/stock/hooks/use-material-options"
 import type { MaterialFormValues } from "@/features/stock/schemas/stock.schemas"
 import { parseReaisToCents } from "@/features/cashier/lib/money"
 import { cashierErrorMessage } from "@/features/cashier/lib/error-messages"
@@ -113,6 +115,14 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
   const [search, setSearch] = useState("")
   const [amount, setAmount] = useState({ min: "", max: "" })
 
+  function updateFilter(patch: Partial<ServicesFilter>) {
+    setFilter((f) => ({ ...f, ...patch, page: 1 }))
+  }
+
+  function goToPage(p: number) {
+    setFilter((f) => ({ ...f, page: p }))
+  }
+
   const advancedCount =
     (filter.from ? 1 : 0) +
     (filter.to ? 1 : 0) +
@@ -125,18 +135,16 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
   function setAmountFilter(which: "min" | "max", raw: string) {
     setAmount((a) => ({ ...a, [which]: raw }))
     const cents = raw.trim() ? parseReaisToCents(raw) : Number.NaN
-    setFilter((f) => ({
-      ...f,
+    updateFilter({
       [which === "min" ? "minCents" : "maxCents"]: Number.isNaN(cents)
         ? undefined
         : cents,
-    }))
+    })
   }
 
   function clearAdvanced() {
     setAmount({ min: "", max: "" })
-    setFilter((f) => ({
-      ...f,
+    updateFilter({
       from: undefined,
       to: undefined,
       serviceTypeId: undefined,
@@ -144,11 +152,14 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
       paymentMethod: undefined,
       minCents: undefined,
       maxCents: undefined,
-    }))
+    })
   }
 
   const {
     services,
+    total,
+    page,
+    pages,
     loading,
     error,
     refetch,
@@ -159,8 +170,10 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
     correctPayment,
   } = useServices(orgId, filter)
   const { serviceTypes, createServiceType } = useServiceTypes(orgId)
-  const { customers } = useCustomers(orgId, { enabledOnly: true })
-  const { materials, createMaterial } = useMaterials(orgId)
+  const { options: customerOptions, truncated: customersTruncated } =
+    useCustomerOptions(orgId)
+  const { options: materialOptions } = useMaterialOptions(orgId)
+  const { createMaterial } = useMaterials(orgId, undefined, { enabled: false })
   const { members } = useMembers(orgId)
 
   async function handleCreateMaterial(values: MaterialFormValues) {
@@ -229,7 +242,7 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
   }
 
   function applySearch() {
-    setFilter((f) => ({ ...f, q: search || undefined }))
+    updateFilter({ q: search || undefined })
   }
 
   async function handleExport(fields: string[], format: ExportFormat) {
@@ -296,10 +309,9 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
         <Select
           value={filter.status ?? "all"}
           onValueChange={(v) =>
-            setFilter((f) => ({
-              ...f,
+            updateFilter({
               status: v === "all" ? undefined : (v as ServiceStatus),
-            }))
+            })
           }
         >
           <SelectTrigger className="sm:w-44">
@@ -318,10 +330,9 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
           <Select
             value={filter.performedBy ?? "all"}
             onValueChange={(v) =>
-              setFilter((f) => ({
-                ...f,
+              updateFilter({
                 performedBy: v === "all" ? undefined : v,
-              }))
+              })
             }
           >
             <SelectTrigger className="sm:w-48">
@@ -344,18 +355,14 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
             <FilterField label="De">
               <DatePicker
                 value={filter.from ?? ""}
-                onChange={(v) =>
-                  setFilter((f) => ({ ...f, from: v || undefined }))
-                }
+                onChange={(v) => updateFilter({ from: v || undefined })}
                 placeholder="Início"
               />
             </FilterField>
             <FilterField label="Até">
               <DatePicker
                 value={filter.to ?? ""}
-                onChange={(v) =>
-                  setFilter((f) => ({ ...f, to: v || undefined }))
-                }
+                onChange={(v) => updateFilter({ to: v || undefined })}
                 placeholder="Fim"
               />
             </FilterField>
@@ -364,10 +371,9 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
             <Select
               value={filter.serviceTypeId ?? "all"}
               onValueChange={(v) =>
-                setFilter((f) => ({
-                  ...f,
+                updateFilter({
                   serviceTypeId: v === "all" ? undefined : v,
-                }))
+                })
               }
             >
               <SelectTrigger>
@@ -387,10 +393,9 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
             <Select
               value={filter.customerId ?? "all"}
               onValueChange={(v) =>
-                setFilter((f) => ({
-                  ...f,
+                updateFilter({
                   customerId: v === "all" ? undefined : v,
-                }))
+                })
               }
             >
               <SelectTrigger>
@@ -398,23 +403,28 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os clientes</SelectItem>
-                {customers.map((c) => (
+                {customerOptions.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {customersTruncated && (
+              <p className="mt-1 text-xs text-foreground/40">
+                Mostrando os primeiros 1000 clientes — refine a busca se não encontrar
+                quem procura.
+              </p>
+            )}
           </FilterField>
           <FilterField label="Método de pagamento">
             <Select
               value={filter.paymentMethod ?? "all"}
               onValueChange={(v) =>
-                setFilter((f) => ({
-                  ...f,
+                updateFilter({
                   paymentMethod:
                     v === "all" ? undefined : (v as ServicePaymentMethod),
-                }))
+                })
               }
             >
               <SelectTrigger>
@@ -453,14 +463,23 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
           Carregando serviços…
         </div>
       ) : (
-        <ServiceList
-          services={services}
-          isOwner={isOwner}
-          onEdit={openEdit}
-          onPay={handlePay}
-          onCancel={handleCancel}
-          onCorrectPayment={openCorrectPayment}
-        />
+        <>
+          <ServiceList
+            services={services}
+            isOwner={isOwner}
+            onEdit={openEdit}
+            onPay={handlePay}
+            onCancel={handleCancel}
+            onCorrectPayment={openCorrectPayment}
+          />
+          <PaginationBar
+            page={page}
+            pages={pages}
+            total={total}
+            onPageChange={goToPage}
+            itemLabel="serviço"
+          />
+        </>
       )}
 
       <ServiceForm
@@ -469,10 +488,10 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
         orgId={orgId}
         service={editing}
         isOwner={isOwner}
-        customers={customers}
+        customers={customerOptions}
         members={members}
         serviceTypes={serviceTypes}
-        materials={materials}
+        materials={materialOptions}
         onCreateType={createServiceType}
         onCreateMaterial={handleCreateMaterial}
         onSubmit={handleSubmit}
