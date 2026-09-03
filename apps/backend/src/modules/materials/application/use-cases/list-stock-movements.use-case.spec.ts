@@ -65,7 +65,6 @@ function buildFakeMovementRepo(
   overrides: Partial<jest.Mocked<IStockMovementRepository>> = {},
 ): jest.Mocked<IStockMovementRepository> {
   return {
-    findAllByMaterial: jest.fn(),
     findPageByMaterial: jest.fn().mockResolvedValue({ rows: [], total: 0 }),
     create: jest.fn(),
     ...overrides,
