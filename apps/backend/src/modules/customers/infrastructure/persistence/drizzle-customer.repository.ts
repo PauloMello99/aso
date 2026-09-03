@@ -195,7 +195,7 @@ export class DrizzleCustomerRepository implements ICustomerRepository {
           ...(params.enabledOnly ? [eq(schema.customers.enabled, true)] : []),
         ),
       )
-      .orderBy(asc(schema.customers.name))
+      .orderBy(asc(schema.customers.name), asc(schema.customers.id))
       .limit(params.limit + 1);
   }
 

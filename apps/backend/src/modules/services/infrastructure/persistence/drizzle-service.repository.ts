@@ -220,6 +220,9 @@ export class DrizzleServiceRepository implements IServiceRepository {
       );
     }
 
+    // INVARIANTE: toda tabela referenciada aqui precisa estar no leftJoin do SELECT
+    // E do count() de findPageByOrg (que hoje só tem leftJoin de customers) — um
+    // filtro futuro que referencie schema.users/schema.serviceTypes quebra o count.
     return conditions;
   }
 

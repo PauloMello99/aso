@@ -39,8 +39,8 @@ export function resolvePageRequest(
   const safeLimit =
     rawLimit !== undefined && Number.isFinite(rawLimit) ? rawLimit : bounds.defaultLimit;
 
-  const page = Math.max(1, safePage);
-  const limit = Math.min(bounds.maxLimit, Math.max(1, safeLimit));
+  const page = Math.max(1, Math.floor(safePage));
+  const limit = Math.min(bounds.maxLimit, Math.max(1, Math.floor(safeLimit)));
   const offset = (page - 1) * limit;
 
   return { page, limit, offset };

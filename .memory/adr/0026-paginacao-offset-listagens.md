@@ -133,16 +133,25 @@ chamada leve ao mesmo hook com `limit: 1` e o filtro do subconjunto, aproveitand
   com busca server-side é o follow-up natural, não implementado aqui.
 - Nenhum índice novo foi adicionado — os índices existentes cobrem os `ORDER BY`
   principais (`transactions_org_transacted_idx`,
-  `stock_movements_material_id_created_at_idx`); `services(org_id, performed_at)` e
-  `customers(org_id, name)` ficam como follow-up medido caso o `EXPLAIN` mostre custo
-  relevante em produção.
+  `stock_movements_material_id_created_at_idx`); `services(org_id, performed_at)`,
+  `customers(org_id, name)` e `materials(org_id, last_used_at, name)` (esta última
+  sem NENHUM índice além da PK hoje) ficam como follow-up medido caso o `EXPLAIN`
+  mostre custo relevante em produção — `findPageByOrg` de materials passou a rodar
+  `count()` + `SELECT` com sort completo por request de página, contra 1 scan+sort
+  por visita à tela antes da paginação (achado do `database-guardian`).
 
 ## Alternativas rejeitadas
 
 - **Cursor-based**: descartado (ver Decisão §1).
 - **`estimated_count`/`count(*) OVER()`**: descartado nos volumes atuais (ver Decisão
-  §2) — `count()` exato e `SELECT` de página em paralelo (`Promise.all`) já é rápido o
-  suficiente.
+  §2) — `count()` exato já é rápido o suficiente. Nota de correção (achado do
+  `database-guardian`): `count()` e `SELECT` da página são despachados juntos via
+  `Promise.all`, mas **não** rodam em paralelo no banco — a request inteira usa uma
+  única conexão/transação RLS (`RlsContext.runWithClaims`, ver
+  `database.module.ts`), e o driver serializa as duas queries nessa mesma conexão. O
+  ganho do `Promise.all` aqui é só evitar um round-trip sequencial desnecessário no
+  código da aplicação, não paralelismo real de I/O — a mesma transação é o que
+  garante que `count` e página vejam exatamente as mesmas claims/estado.
 - **`?all=true` no mesmo endpoint paginado** (em vez de `/options` dedicado): descartado
   — criaria um bypass de paginação no mesmo contrato (retorno em união, superfície de
   abuso) em vez de uma rota dedicada com cap e projeção próprios.

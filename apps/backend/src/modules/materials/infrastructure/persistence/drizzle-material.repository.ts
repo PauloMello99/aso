@@ -148,7 +148,7 @@ export class DrizzleMaterialRepository implements IMaterialRepository {
           isNull(schema.materials.archivedAt),
         ),
       )
-      .orderBy(asc(schema.materials.name))
+      .orderBy(asc(schema.materials.name), asc(schema.materials.id))
       .limit(params.limit + 1);
 
     return rows.map(MaterialMapper.toDomain);
