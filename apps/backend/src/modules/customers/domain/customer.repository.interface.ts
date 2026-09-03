@@ -38,7 +38,7 @@ export interface ICustomerRepository {
   findOptionsByOrg(
     orgId: string,
     params: { enabledOnly?: boolean; limit: number },
-  ): Promise<{ id: string; name: string }[]>;
+  ): Promise<{ id: string; name: string; birthDate: string }[]>;
   create(data: CreateCustomerData): Promise<CustomerEntity>;
   update(id: string, data: UpdateCustomerData): Promise<CustomerEntity>;
   delete(id: string, orgId: string): Promise<void>;

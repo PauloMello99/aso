@@ -19,10 +19,13 @@ function buildFakeCustomerRepo(
   } as unknown as jest.Mocked<ICustomerRepository>;
 }
 
-function buildOptions(count: number): { id: string; name: string }[] {
+function buildOptions(
+  count: number,
+): { id: string; name: string; birthDate: string }[] {
   return Array.from({ length: count }, (_, i) => ({
     id: `customer-${i}`,
     name: `Cliente ${i}`,
+    birthDate: "1990-01-01",
   }));
 }
 

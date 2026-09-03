@@ -185,9 +185,13 @@ export class DrizzleCustomerRepository implements ICustomerRepository {
   async findOptionsByOrg(
     orgId: string,
     params: { enabledOnly?: boolean; limit: number },
-  ): Promise<{ id: string; name: string }[]> {
+  ): Promise<{ id: string; name: string; birthDate: string }[]> {
     return this.db
-      .select({ id: schema.customers.id, name: schema.customers.name })
+      .select({
+        id: schema.customers.id,
+        name: schema.customers.name,
+        birthDate: schema.customers.birthDate,
+      })
       .from(schema.customers)
       .where(
         and(

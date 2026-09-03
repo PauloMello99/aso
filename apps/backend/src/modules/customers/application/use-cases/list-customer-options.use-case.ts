@@ -9,6 +9,7 @@ const MAX_OPTIONS = 1000;
 export interface CustomerOption {
   id: string;
   name: string;
+  birthDate: string;
 }
 
 export interface ListCustomerOptionsResult {
