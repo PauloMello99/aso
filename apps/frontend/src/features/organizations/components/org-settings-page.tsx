@@ -5,7 +5,10 @@ import { useRouter } from "next/router";
 import { Loader2, AlertCircle, UserPlus } from "lucide-react";
 import { useOrg } from "@/features/dashboard/hooks/use-orgs";
 import { useAuth } from "@/features/auth/hooks/use-auth";
-import { useMemberCommissions } from "@/features/cashier";
+import {
+  useMemberCommissions,
+  useMemberPaymentFees,
+} from "@/features/cashier";
 import { Button } from "@/shared/components/ui/button";
 import { useOrgMutations } from "../hooks/use-org-mutations";
 import { useMembers } from "../hooks/use-members";
@@ -37,6 +40,7 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
     removeMember,
     setMemberStatus,
     updateMemberPermissions,
+    updateMemberClassification,
     cancelInvitation,
   } = useMembers(orgId);
   const {
@@ -45,6 +49,12 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
     error: commissionsError,
     upsertCommissions,
   } = useMemberCommissions(orgId);
+  const {
+    memberFees,
+    loading: memberFeesLoading,
+    error: memberFeesError,
+    updateMemberFees,
+  } = useMemberPaymentFees(orgId);
   const [inviteOpen, setInviteOpen] = useState(false);
 
   if (loading) {
@@ -143,12 +153,21 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
           onUpdatePermissions={async (memberId, permissions) => {
             await updateMemberPermissions(memberId, permissions);
           }}
+          onUpdateClassification={async (memberId, classification) => {
+            await updateMemberClassification(memberId, classification);
+          }}
           onCancelInvitation={cancelInvitation}
           commissions={commissions}
           commissionsLoading={commissionsLoading}
           commissionsError={commissionsError}
           onUpdateCommission={async (userId, percent, mode) => {
             await upsertCommissions([{ userId, percent, mode }]);
+          }}
+          memberFees={memberFees}
+          memberFeesLoading={memberFeesLoading}
+          memberFeesError={memberFeesError}
+          onUpdateMemberFees={async (payload) => {
+            await updateMemberFees(payload);
           }}
         />
 

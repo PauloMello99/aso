@@ -125,12 +125,14 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
   `AuditService.log()` (captura síncrona, antes do hook pós-commit). Detalhe completo no
   addendum do ADR-0013. Não-membro sem super_admin → 404 (sem vazar).
 - **Cobertura de auditoria do caixa (PLAT-3, fatia caixa, 2026-08-24) — parcial e
-  deliberadamente incompleta.** Só 3 das 9 operações mutantes do módulo emitem
+  deliberadamente incompleta.** Só 4 das 10 operações mutantes do módulo emitem
   `audit_logs`: `create-transaction` (`cashier_transaction_created`),
-  `upsert-payment-fees` (`cashier_fees_updated`, só quando algum valor muda de fato —
-  `previousPercent`/`previousFixedCents` capturados antes do upsert) e
-  `upsert-member-commissions` (`cashier_commissions_updated`, mesma lógica de só-quando-
-  muda). **Não auditam ainda:** `reverse-transaction`, `correct-transaction`, `transfer`
+  `upsert-payment-fees` e `upsert-member-payment-fees` (ambos `cashier_fees_updated`,
+  discriminados por `metadata.scope` — `"org"` vs `"member"`; registros históricos não têm
+  `scope`; só quando algum valor muda de fato — `previousPercent`/`previousFixedCents`
+  capturados antes do upsert; uma remoção de override do membro aparece em `changes[]` com
+  `percent: null`/`fixedCents: null`) e `upsert-member-commissions`
+  (`cashier_commissions_updated`, mesma lógica de só-quando-muda). **Não auditam ainda:** `reverse-transaction`, `correct-transaction`, `transfer`
   (bloqueados pelo GOTCHA de `created_by` heterogêneo, ver acima — um `authId` novo ao
   lado de um campo que já mistura auth id/users.id seria mais confusão, não menos) e
   CRUD de categorias (exigiria converter assinaturas posicionais pra objeto, refactor à
@@ -288,6 +290,17 @@ Platform User (único por email/auth)
 
 - `owner`: gestão total da org
 - `employee`: acesso conforme permissões configuradas pelo owner (granularidade a definir)
+
+**Label de classificação do membro (`org_memberships.classification`) — DISPLAY-ONLY
+(2026-09-02, migration `0069`).** Enum `member_classification` (`resident` | `guest`),
+coluna **nullable** sem default nem backfill (`NULL` = "não classificado", estado válido).
+É **só exibição** (badge na listagem de membros) e edição — **PROIBIDO** ler esse campo em
+qualquer regra de negócio, guard, RLS, billing, caixa ou decisão de autorização. Editável
+por owner/super_admin via `PATCH /orgs/:orgId/members/:memberId/classification` (body
+`{ classification: "resident" | "guest" | null }`; `null` ou body vazio = limpar).
+`UpdateMemberClassificationUseCase` espelha `UpdateMemberPermissionsUseCase`; sem código de
+erro novo. **Sem policy RLS nova** — `org_memberships_update` (owner/super_admin) já cobre a
+coluna (RLS é por linha).
 
 **Visibilidade por funcionário ("só vê o que é dele") — backend.** Regra de produto: o
 funcionário só enxerga dados referentes a ele; o owner vê tudo e pode lançar **em nome de**
@@ -617,7 +630,9 @@ encodeURIComponent(nome)`. Para listagens, usar `createSignedUrls` (plural) — 
   `gross - round(gross*percent/100 + fixed_cents)`. Só em **entrada** (`income`) com cartão.
   Config **exclusiva de `owner`/`super_admin`** (checado em `upsert-payment-fees` via
   `IOrganizationRepository.isOwner`; `CASHIER_FORBIDDEN` 403). Helper puro
-  `domain/fee-calculator.ts` (reusável pelo futuro módulo de Serviços).
+  `domain/fee-calculator.ts` (reusável pelo futuro módulo de Serviços). Desde a migration
+  `0070` essa taxa da org é só o **fallback** — pode ser sobreposta por funcionário; ver
+  "Taxa de cartão por profissional" abaixo.
 - **Frontend**: valores sempre em **centavos** no estado (`lib/money.ts`); UI mobile-first
   (Table desktop + cards mobile), `Sheet` para novo lançamento/correção, `Dialog` para estorno,
   `DropdownMenu` portaled nas ações (oculto em linhas já estornadas/estorno). Config de taxas em
@@ -644,6 +659,69 @@ encodeURIComponent(nome)`. Para listagens, usar `createSignedUrls` (plural) — 
   `CancelServiceUseCase`, `CorrectServicePaymentUseCase` (só na reversão, nunca na
   transação de substituição) — `CorrectTransactionUseCase` delega pra
   `ReverseTransactionUseCase` e herda de graça.
+
+### Taxa de cartão por profissional — override + fallback da org (2026-09-02, migrations 0069/0070)
+
+- **Config por `(org_id, user_id, payment_method)`**: `org_member_payment_fees` (migration
+  `0070`) é um **override opcional** da taxa da org (`org_payment_fees`). Molde de
+  `org_member_commissions`/0051: versionamento imutável (`active` + `superseded_at` +
+  supersede), índice único **parcial** `(org_id, user_id, payment_method) WHERE active` (não
+  deferível), RLS (SELECT = membro da org; INSERT/UPDATE = owner ou super_admin; **sem
+  policy de DELETE**), `REVOKE ALL` de anon/authenticated.
+- **Sem backfill — a tabela nasce vazia.** Todo funcionário usa a taxa da org por fallback
+  até receber um override explícito; não há divergência no dia 1.
+- **Resolução** = `resolveFee(method, memberFee, orgFee)` em
+  `cashier/domain/fee-calculator.ts`, nesta ordem: (1) método **não elegível**
+  (`!isFeeEligible`, fora de `credit_card`/`debit_card`) → `source: "none"`, sem taxa;
+  (2) `memberFee` **ativo** para `(org, user, method)` → `source: "member"` — **mesmo com
+  `percent "0.00"`/`fixedCents 0`**: 0% explícito é decisão, NÃO cai para a org; (3) senão
+  `orgFee` presente → `source: "org"`; (4) senão → `source: "none"`.
+  `computeNet`/`isFeeEligible` inalterados. `resolveFee` **não** revalida o método do
+  `memberFee` — o caller já busca filtrado via
+  `IMemberPaymentFeeRepository.findActiveByOrgUserAndMethod(orgId, userId, method)`.
+- **Membro alvo da taxa, por consumidor**: `services.performed_by` (o profissional) em
+  `register-payment`, `create-service` (bloco pago) e `correct-service-payment` (perna de
+  substituição); `created_by` resolvido (`users.id`) no lançamento manual
+  (`create-transaction`); **`null` (→ fallback org)** no caminho de CORREÇÃO de lançamento
+  manual quando o método **não** mudou — aí reusa o SNAPSHOT de taxa do lançamento original
+  (não reprecifica); só reprecifica pela org se o método mudou na correção.
+- **Snapshot desnormalizado em `transactions`** (4 colunas nullable, migration `0070`):
+  `fee_config_id` (FK → `org_member_payment_fees.id` `ON DELETE SET NULL`, **só auditoria —
+  nunca lido para cálculo**, porque a config apontada pode ter sido superseded depois),
+  `fee_percent`, `fee_fixed_cents`, `fee_source` (`'member'` | `'org'` | `'none'`).
+  **`fee_source` NULL = linha anterior à 0070 (legado)**; da 0070 em diante **todo INSERT**
+  em `transactions` grava valor não-nulo — o repositório de transações aplica `'none'` por
+  omissão (inclusive transferência e estorno). A perna de **estorno** de errata grava
+  `fee_source: 'none'` e **copia** `fee_cents`/`net_cents` do original (não recalcula); o
+  snapshot de **comissão** de errata (preexistente) permanece intocado.
+- **Sem trigger de imutabilidade nas colunas `fee_*` de `transactions`** (ao contrário de
+  `services.commission_*` na 0051), **de propósito** e registrado na migration para não
+  parecer omissão: `transactions_update`/`transactions_delete` já são
+  `is_super_admin()`-only e nenhum caminho de app dá UPDATE em `transactions` (caixa
+  append-only, ADR-0010); o único UPDATE possível é o `ON DELETE SET NULL` de
+  `fee_config_id`, inofensivo (só ponteiro de auditoria).
+- **Repositório** (`DrizzleMemberPaymentFeeRepository`, token
+  `MEMBER_PAYMENT_FEE_REPOSITORY`): deliberadamente **sem cache** — o repo org-level
+  `DrizzlePaymentFeeRepository` mantém `TtlCache` 60min e **não** foi alterado. Conexão
+  `DRIZZLE` (RLS-scoped), nunca `DRIZZLE_ADMIN`. `supersede()` desativa a linha ativa
+  **antes** de inserir a nova, na MESMA transação (índice parcial não é deferível).
+  `deactivate(orgId, userId, method)` = UPDATE `active=false` + `superseded_at` (**nunca
+  DELETE**; idempotente) → volta ao fallback da org. O trigger
+  `org_member_payment_fees_protect_immutable` **clampa em silêncio** (sem `RAISE`) e
+  **incondicionalmente** (nem super_admin escapa)
+  `percent`/`fixed_cents`/`payment_method`/`org_id`/`user_id`/`created_by`/`created_at` — só
+  `active`/`superseded_at`/`updated_at` mudam num UPDATE; um UPDATE indevido nesses campos
+  **aparenta sucesso** e é ignorado.
+- **Endpoints**: `GET /orgs/:orgId/cashier/member-fees` (`GetMemberPaymentFeesUseCase`,
+  scoping por ator no use-case — owner vê todos, funcionário só o próprio; **sem**
+  `OrgOwnerGuard`); `PUT /orgs/:orgId/cashier/member-fees` (`UpsertMemberPaymentFeesUseCase`,
+  `OrgOwnerGuard` + `ActiveSubscriptionGuard`; body
+  `{ fees?: [{ userId, paymentMethod, percent, fixedCents }], deactivations?: [{ userId, paymentMethod }] }`
+  — `fees` só de métodos elegíveis via `@IsIn`; audita `cashier_fees_updated` só quando
+  algo muda, com `metadata.scope: "member"`). Exceção nova `FeeMemberNotFoundException`
+  (`FEE_MEMBER_NOT_FOUND` → 404, em `DOMAIN_CODE_TO_STATUS`).
+- **Comissão modo `net` passa a refletir a taxa do funcionário** — ver
+  "Comissão/repasse por profissional" abaixo.
 
 ### Comissão/repasse por profissional (2026-08-19, P-1)
 
@@ -686,6 +764,12 @@ encodeURIComponent(nome)`. Para listagens, usar `createSignedUrls` (plural) — 
   cartão) e zeraria comissão de dinheiro/pix silenciosamente. Modo `gross` = base é o
   bruto (estúdio absorve 100% da taxa de cartão); modo `net` = base é o líquido pós-taxa
   (`netCents` já calculado por `computeNet` em outro lugar).
+- **Modo `net` embute a taxa do FUNCIONÁRIO quando há override (2026-09-02, migration
+  `0070`)**: se existe linha ativa de `org_member_payment_fees` para `(org, user, method)`,
+  o `net_cents` que alimenta `computeCommission` já desconta essa taxa (não só a da org).
+  Consequência **pretendida** — o repasse de novos atendimentos acompanha a taxa do
+  profissional. Modo `gross` inalterado. Só afeta lançamentos **futuros**; nenhum
+  histórico é recalculado (append-only, ADR-0010).
 - **Agregação por período** (`commissionCentsByPeriod`) tem `performedBy: string | null`
   **obrigatório** (não opcional) de propósito — força todo caller a declarar o escopo
   explicitamente: `null` agrega a org inteira (só o ramo owner do overview usa), uma
@@ -717,7 +801,8 @@ encodeURIComponent(nome)`. Para listagens, usar `createSignedUrls` (plural) — 
   **deriva** status de `canceledAt` + `paymentTransactionId` (`serviceStatus()` em types).
 - **Reaproveitamento entre módulos:** o use-case importa tokens já exportados pelos
   `*InfrastructureModule`: `TRANSACTION_REPOSITORY`+`computeNet`+`PAYMENT_FEE_REPOSITORY`
-  (cashier), `MATERIAL_REPOSITORY`+`STOCK_MOVEMENT_REPOSITORY` (materials),
+  +`MEMBER_PAYMENT_FEE_REPOSITORY` (cashier; ver "Taxa de cartão por profissional"),
+  `MATERIAL_REPOSITORY`+`STOCK_MOVEMENT_REPOSITORY` (materials),
   `CUSTOMER_REPOSITORY` (customers), `MEMBER_REPOSITORY` (orgs). `services.module` importa os 4
   infra-modules. Atomicidade garantida pela transação por-request do `RlsInterceptor`.
 - **`performed_by` / `created_by` = `users.id` (app), NÃO authId.** `user.id` no controller é o
@@ -737,7 +822,9 @@ encodeURIComponent(nome)`. Para listagens, usar `createSignedUrls` (plural) — 
   não-financeiros (tipo/cliente/profissional/local/descrição/data); materiais = cancelar + recriar.
 - **Corrigir valor de pagamento** (`PATCH /:id/payment`, owner-only, `CorrectServicePaymentUseCase`,
   2026-07-17): estorna a transação de pagamento original e relança uma nova com o valor/método
-  corrigidos (fee/net recalculados via `computeNet` no NOVO método) — só então atualiza
+  corrigidos (fee/net recalculados via `computeNet` no NOVO método, com a taxa resolvida
+  por `resolveFee` a partir de `performed_by` — override do profissional, senão a da org) —
+  só então atualiza
   `services.amount_cents`/`payment_method`/`payment_transaction_id`, nessa ordem exata (nunca deixa
   o serviço apontando para uma transação já estornada). **Autoria**: o estorno usa o ator que
   corrige (`createdBy: currentUserId`); o relançamento preserva o autor original

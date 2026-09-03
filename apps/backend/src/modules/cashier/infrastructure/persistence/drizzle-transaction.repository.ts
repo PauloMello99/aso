@@ -46,6 +46,10 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
         feeCents: data.feeCents,
         paymentMethod: data.paymentMethod,
         categoryId: data.categoryId ?? null,
+        feeConfigId: data.feeConfigId ?? null,
+        feePercent: data.feePercent ?? null,
+        feeFixedCents: data.feeFixedCents ?? null,
+        feeSource: data.feeSource ?? "none",
         reversesTransactionId: data.reversesTransactionId ?? null,
         ...(data.transactedAt ? { transactedAt: data.transactedAt } : {}),
       })

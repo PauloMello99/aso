@@ -226,3 +226,16 @@
   ML/LLM (não adotado — custo de manutenção); cleanup de imagens órfãs no DELETE (deixadas
   de propósito). Migrations `0066`/`0067`/`0068` escritas à mão. Sem ADR novo — Addendum ao
   ADR-0025. Commits pendentes (aguardando pedido do usuário).
+- **2026-09-02 — Taxa de meio de pagamento por funcionário + label de classificação de
+  membro** (SEM ADR novo — decisão do coordenador: extensão direta dos padrões
+  `0051_member_commissions`/ADR-0010/ADR-0013, sem trade-off arquitetural). Migrations à
+  mão `0069_member_classification` (`org_memberships.classification`, enum
+  `resident`|`guest` nullable — **display-only**, proibido ler em regra/guard/RLS; editável
+  por owner/super_admin) e `0070_member_payment_fees` (`org_member_payment_fees` versionado
+  imutável por `(org, user, method)` + snapshot `fee_*` em `transactions`). Decisão
+  central: **override + fallback da org, sem backfill** — a tabela nasce vazia, cada
+  funcionário usa `org_payment_fees` até receber override explícito; `resolveFee` resolve
+  membro → org → nenhuma; a comissão em modo `net` passa a refletir a taxa do funcionário.
+  Convenções em `domain-rules.md` (seções "Roles dentro da org", "Taxa de cartão por
+  profissional", "Comissão/repasse por profissional", "Cobertura de auditoria do caixa").
+  Commits pendentes (aguardando pedido do usuário).

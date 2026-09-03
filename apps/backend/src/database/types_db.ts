@@ -1397,8 +1397,61 @@ export type Database = {
           },
         ]
       }
+      org_member_payment_fees: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          fixed_cents: number
+          id: string
+          org_id: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          percent: number
+          superseded_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          fixed_cents?: number
+          id?: string
+          org_id: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          percent?: number
+          superseded_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          fixed_cents?: number
+          id?: string
+          org_id?: string
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          percent?: number
+          superseded_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_member_payment_fees_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_memberships: {
         Row: {
+          classification:
+            | Database["public"]["Enums"]["member_classification"]
+            | null
           enabled: boolean
           id: string
           joined_at: string
@@ -1408,6 +1461,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          classification?:
+            | Database["public"]["Enums"]["member_classification"]
+            | null
           enabled?: boolean
           id?: string
           joined_at?: string
@@ -1417,6 +1473,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          classification?:
+            | Database["public"]["Enums"]["member_classification"]
+            | null
           enabled?: boolean
           id?: string
           joined_at?: string
@@ -2341,6 +2400,10 @@ export type Database = {
           created_by: string | null
           description: string
           fee_cents: number
+          fee_config_id: string | null
+          fee_fixed_cents: number | null
+          fee_percent: number | null
+          fee_source: string | null
           id: string
           org_id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
@@ -2356,6 +2419,10 @@ export type Database = {
           created_by?: string | null
           description: string
           fee_cents?: number
+          fee_config_id?: string | null
+          fee_fixed_cents?: number | null
+          fee_percent?: number | null
+          fee_source?: string | null
           id?: string
           org_id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
@@ -2371,6 +2438,10 @@ export type Database = {
           created_by?: string | null
           description?: string
           fee_cents?: number
+          fee_config_id?: string | null
+          fee_fixed_cents?: number | null
+          fee_percent?: number | null
+          fee_source?: string | null
           id?: string
           org_id?: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
@@ -2384,6 +2455,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "transaction_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_fee_config_id_org_member_payment_fees_id_fk"
+            columns: ["fee_config_id"]
+            isOneToOne: false
+            referencedRelation: "org_member_payment_fees"
             referencedColumns: ["id"]
           },
           {
@@ -2500,6 +2578,7 @@ export type Database = {
       campaign_trigger_type: "post_service" | "birthday" | "inactivity"
       gender: "male" | "female" | "other"
       invitation_status: "pending" | "accepted" | "expired" | "cancelled"
+      member_classification: "resident" | "guest"
       notification_type:
         | "agenda_reminder"
         | "member_unavailability"
@@ -2691,6 +2770,7 @@ export const Constants = {
       campaign_trigger_type: ["post_service", "birthday", "inactivity"],
       gender: ["male", "female", "other"],
       invitation_status: ["pending", "accepted", "expired", "cancelled"],
+      member_classification: ["resident", "guest"],
       notification_type: [
         "agenda_reminder",
         "member_unavailability",

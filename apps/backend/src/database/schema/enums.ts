@@ -7,6 +7,11 @@ export const platformRoleEnum = pgEnum("platform_role", [
 
 export const orgRoleEnum = pgEnum("org_role", ["owner", "employee"]);
 
+export const memberClassificationEnum = pgEnum("member_classification", [
+  "resident",
+  "guest",
+]);
+
 export const invitationStatusEnum = pgEnum("invitation_status", [
   "pending",
   "accepted",

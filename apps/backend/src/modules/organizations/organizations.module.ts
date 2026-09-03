@@ -14,6 +14,7 @@ import { ListMembersUseCase } from "./application/use-cases/list-members.use-cas
 import { InviteMemberUseCase } from "./application/use-cases/invite-member.use-case";
 import { UpdateMemberRoleUseCase } from "./application/use-cases/update-member-role.use-case";
 import { UpdateMemberPermissionsUseCase } from "./application/use-cases/update-member-permissions.use-case";
+import { UpdateMemberClassificationUseCase } from "./application/use-cases/update-member-classification.use-case";
 import { SetMemberStatusUseCase } from "./application/use-cases/set-member-status.use-case";
 import { RemoveMemberUseCase } from "./application/use-cases/remove-member.use-case";
 import { ListInvitationsUseCase } from "./application/use-cases/list-invitations.use-case";
@@ -39,6 +40,7 @@ import { InvitationsController } from "./interface/invitations.controller";
     InviteMemberUseCase,
     UpdateMemberRoleUseCase,
     UpdateMemberPermissionsUseCase,
+    UpdateMemberClassificationUseCase,
     SetMemberStatusUseCase,
     RemoveMemberUseCase,
     ListInvitationsUseCase,

@@ -117,6 +117,13 @@ describe("CorrectTransactionUseCase", () => {
       expect.objectContaining({
         trustedCreatedBy: original.createdBy,
         grossCents: 15000,
+        originalFee: {
+          paymentMethod: original.paymentMethod,
+          feePercent: original.feePercent,
+          feeFixedCents: original.feeFixedCents,
+          feeSource: original.feeSource,
+          feeConfigId: original.feeConfigId,
+        },
       }),
     );
     expect(result).toEqual({ reversal, replacement });

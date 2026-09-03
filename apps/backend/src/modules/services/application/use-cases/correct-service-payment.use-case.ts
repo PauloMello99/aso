@@ -16,7 +16,11 @@ import {
   IPaymentFeeRepository,
   PAYMENT_FEE_REPOSITORY,
 } from "../../../cashier/domain/payment-fee.repository.interface";
-import { computeNet } from "../../../cashier/domain/fee-calculator";
+import {
+  IMemberPaymentFeeRepository,
+  MEMBER_PAYMENT_FEE_REPOSITORY,
+} from "../../../cashier/domain/member-payment-fee.repository.interface";
+import { computeNet, resolveFee } from "../../../cashier/domain/fee-calculator";
 import { computeCommission } from "../../../cashier/domain/commission-calculator";
 import type { CommissionMode } from "../../../cashier/domain/member-commission.entity";
 import {
@@ -51,6 +55,8 @@ export class CorrectServicePaymentUseCase {
     private readonly transactionRepo: ITransactionRepository,
     @Inject(PAYMENT_FEE_REPOSITORY)
     private readonly feeRepo: IPaymentFeeRepository,
+    @Inject(MEMBER_PAYMENT_FEE_REPOSITORY)
+    private readonly memberFeeRepo: IMemberPaymentFeeRepository,
     @Inject(TRANSACTION_CATEGORY_REPOSITORY)
     private readonly categoryRepo: ITransactionCategoryRepository,
   ) {}
@@ -109,16 +115,34 @@ export class CorrectServicePaymentUseCase {
       paymentMethod: original.paymentMethod,
       categoryId: reversalCategoryId,
       reversesTransactionId: original.id,
+      // Estorno contábil: espelha os números do original LITERALMENTE e NÃO
+      // replica o snapshot de taxa (não é nova cobrança) — fonte "none".
+      feeConfigId: null,
+      feePercent: null,
+      feeFixedCents: null,
+      feeSource: "none",
     });
 
-    const fee = await this.feeRepo.findByOrgAndMethod(
+    // Substituição = novo pagamento corrigido: reconsulta a config de taxa
+    // VIGENTE (sem preservar snapshot de fee). Só muda a FONTE: a taxa de quem
+    // EXECUTOU o serviço (`service.performedBy`, mesmo `users.id` da comissão)
+    // tem prioridade; sem taxa própria ativa cai na taxa da ORG, como antes.
+    const memberFee = service.performedBy
+      ? await this.memberFeeRepo.findActiveByOrgUserAndMethod(
+          input.orgId,
+          service.performedBy,
+          input.paymentMethod,
+        )
+      : null;
+    const orgFee = await this.feeRepo.findByOrgAndMethod(
       input.orgId,
       input.paymentMethod,
     );
+    const resolved = resolveFee(input.paymentMethod, memberFee, orgFee);
     const { feeCents, netCents } = computeNet(
       input.grossCents,
       input.paymentMethod,
-      fee,
+      resolved.config,
     );
     const replacement = await this.transactionRepo.create({
       orgId: input.orgId,
@@ -129,6 +153,10 @@ export class CorrectServicePaymentUseCase {
       feeCents,
       netCents,
       paymentMethod: input.paymentMethod,
+      feeConfigId: resolved.configId,
+      feePercent: resolved.config?.percent ?? null,
+      feeFixedCents: resolved.config?.fixedCents ?? null,
+      feeSource: resolved.source,
       transactedAt: input.transactedAt,
     });
 
@@ -143,6 +171,9 @@ export class CorrectServicePaymentUseCase {
             mode: service.commissionMode as CommissionMode,
           }
         : null;
+    // `netCents` acima já embute a taxa do EXECUTOR quando `service.performedBy`
+    // tem taxa própria ativa; em modo `net` a comissão passa a refletir essa
+    // taxa (consequência PRETENDIDA — mesma dos passos 13 / register-payment).
     const { baseCents, commissionCents } = computeCommission(
       input.grossCents,
       netCents,

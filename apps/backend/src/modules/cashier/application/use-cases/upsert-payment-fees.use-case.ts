@@ -89,7 +89,7 @@ export class UpsertPaymentFeesUseCase {
         action: "cashier_fees_updated",
         entityType: "payment_fees",
         entityId: input.orgId,
-        metadata: { changes },
+        metadata: { scope: "org", changes },
       });
     }
 

@@ -82,3 +82,20 @@ export const commissionItemSchema = z.object({
   percent: commissionPercentString,
   mode: z.enum(["gross", "net"]),
 });
+
+// Shape de SUBMIT da taxa por membro (não estado do formulário): fixedCents já
+// é centavo inteiro, igual ao body do PUT /cashier/member-fees e a
+// MemberPaymentFeeInput. O componente (passo 16) converte reais->centavos com
+// parseReaisToCents antes de validar, como payment-fees-form.tsx.
+export const memberFeeItemSchema = z.object({
+  userId: z.string(),
+  paymentMethod: z.enum(["credit_card", "debit_card"]),
+  percent: commissionPercentString,
+  fixedCents: z.number().int("Valor inválido").min(0, "Valor inválido"),
+});
+
+export const memberFeesSchema = z.object({
+  fees: z.array(memberFeeItemSchema),
+});
+
+export type MemberFeesFormValues = z.infer<typeof memberFeesSchema>;

@@ -15,6 +15,8 @@ import { GetPaymentFeesUseCase } from "./application/use-cases/get-payment-fees.
 import { UpsertPaymentFeesUseCase } from "./application/use-cases/upsert-payment-fees.use-case";
 import { GetMemberCommissionsUseCase } from "./application/use-cases/get-member-commissions.use-case";
 import { UpsertMemberCommissionsUseCase } from "./application/use-cases/upsert-member-commissions.use-case";
+import { GetMemberPaymentFeesUseCase } from "./application/use-cases/get-member-payment-fees.use-case";
+import { UpsertMemberPaymentFeesUseCase } from "./application/use-cases/upsert-member-payment-fees.use-case";
 import { ListTransactionCategoriesUseCase } from "./application/use-cases/list-transaction-categories.use-case";
 import { CreateTransactionCategoryUseCase } from "./application/use-cases/create-transaction-category.use-case";
 import { UpdateTransactionCategoryUseCase } from "./application/use-cases/update-transaction-category.use-case";
@@ -43,6 +45,8 @@ import { CashierController } from "./interface/cashier.controller";
     UpsertPaymentFeesUseCase,
     GetMemberCommissionsUseCase,
     UpsertMemberCommissionsUseCase,
+    GetMemberPaymentFeesUseCase,
+    UpsertMemberPaymentFeesUseCase,
     ListTransactionCategoriesUseCase,
     CreateTransactionCategoryUseCase,
     UpdateTransactionCategoryUseCase,

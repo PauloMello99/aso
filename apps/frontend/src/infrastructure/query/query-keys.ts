@@ -58,6 +58,7 @@ export const queryKeys = {
     fees: (orgId: string) => ["cashier", orgId, "fees"] as const,
     categories: (orgId: string) => ["cashier", orgId, "categories"] as const,
     commissions: (orgId: string) => ["cashier", orgId, "commissions"] as const,
+    memberFees: (orgId: string) => ["cashier", orgId, "member-fees"] as const,
   },
 
   admin: {

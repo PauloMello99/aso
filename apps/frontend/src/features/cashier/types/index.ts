@@ -121,3 +121,42 @@ export const COMMISSION_MODE_LABELS: Record<CommissionMode, string> = {
   gross: "Sobre o valor bruto (estúdio absorve a taxa)",
   net: "Sobre o valor líquido (taxa dividida)",
 }
+
+// Métodos com taxa configurável (espelha FEE_ELIGIBLE_METHODS, mas como união
+// literal para os shapes de taxa por membro, onde débito/crédito é o domínio
+// inteiro).
+export type FeeEligibleMethod = "credit_card" | "debit_card"
+
+export type FeeSource = "member" | "org" | "none"
+
+export interface MemberPaymentFee {
+  userId: string
+  name: string
+  role: "owner" | "employee"
+  paymentMethod: FeeEligibleMethod
+  percent: string
+  fixedCents: number
+  source: FeeSource
+  configured: boolean
+}
+
+export interface MemberPaymentFeeInput {
+  userId: string
+  paymentMethod: FeeEligibleMethod
+  percent: string
+  fixedCents: number
+}
+
+// Remove o override próprio do membro para aquele método (volta ao fallback da
+// taxa da org). Vai no campo opcional `deactivations` do PUT /cashier/member-fees.
+export interface MemberPaymentFeeDeactivation {
+  userId: string
+  paymentMethod: FeeEligibleMethod
+}
+
+// Corpo do PUT /cashier/member-fees: ambos opcionais (um payload só com
+// `deactivations` é válido).
+export interface MemberPaymentFeesUpdate {
+  fees?: MemberPaymentFeeInput[]
+  deactivations?: MemberPaymentFeeDeactivation[]
+}

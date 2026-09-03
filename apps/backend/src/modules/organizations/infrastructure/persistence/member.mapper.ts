@@ -1,4 +1,7 @@
-import { MemberEntity } from "../../domain/member.entity";
+import {
+  MemberEntity,
+  type MemberClassification,
+} from "../../domain/member.entity";
 import type { OrgRole } from "../../domain/org.entity";
 
 interface MemberRow {
@@ -6,6 +9,7 @@ interface MemberRow {
   orgId: string;
   userId: string;
   role: string;
+  classification: string | null;
   enabled: boolean;
   permissions: string[] | null;
   userName: string;
@@ -20,6 +24,7 @@ export class MemberMapper {
       orgId: row.orgId,
       userId: row.userId,
       role: row.role as OrgRole,
+      classification: (row.classification ?? null) as MemberClassification | null,
       enabled: row.enabled,
       permissions: row.permissions ?? [],
       userName: row.userName,

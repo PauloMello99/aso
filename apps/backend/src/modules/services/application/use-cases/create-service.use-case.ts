@@ -34,7 +34,11 @@ import {
   IPaymentFeeRepository,
   PAYMENT_FEE_REPOSITORY,
 } from "../../../cashier/domain/payment-fee.repository.interface";
-import { computeNet } from "../../../cashier/domain/fee-calculator";
+import {
+  IMemberPaymentFeeRepository,
+  MEMBER_PAYMENT_FEE_REPOSITORY,
+} from "../../../cashier/domain/member-payment-fee.repository.interface";
+import { computeNet, resolveFee } from "../../../cashier/domain/fee-calculator";
 import { computeCommission } from "../../../cashier/domain/commission-calculator";
 import {
   IMemberCommissionRepository,
@@ -98,6 +102,8 @@ export class CreateServiceUseCase {
     private readonly transactionRepo: ITransactionRepository,
     @Inject(PAYMENT_FEE_REPOSITORY)
     private readonly feeRepo: IPaymentFeeRepository,
+    @Inject(MEMBER_PAYMENT_FEE_REPOSITORY)
+    private readonly memberFeeRepo: IMemberPaymentFeeRepository,
     @Inject(ANAMNESIS_RESPONSE_REPOSITORY)
     private readonly anamnesisResponseRepo: IAnamnesisResponseRepository,
     @Inject(ANAMNESIS_FORM_REPOSITORY)
@@ -221,14 +227,25 @@ export class CreateServiceUseCase {
     }
 
     if (input.paymentStatus === "paid") {
-      const fee = await this.feeRepo.findByOrgAndMethod(
+      // Taxa de pagamento: a de quem EXECUTOU o serviço (`performedBy`, o mesmo
+      // `users.id` usado pela comissão) tem prioridade; sem taxa própria ativa
+      // cai na taxa da ORG, como antes.
+      const memberFee = performedBy
+        ? await this.memberFeeRepo.findActiveByOrgUserAndMethod(
+            input.orgId,
+            performedBy,
+            input.paymentMethod,
+          )
+        : null;
+      const orgFee = await this.feeRepo.findByOrgAndMethod(
         input.orgId,
         input.paymentMethod,
       );
+      const resolved = resolveFee(input.paymentMethod, memberFee, orgFee);
       const { feeCents, netCents } = computeNet(
         input.amountCents,
         input.paymentMethod,
-        fee,
+        resolved.config,
       );
       const tx = await this.transactionRepo.create({
         orgId: input.orgId,
@@ -239,6 +256,10 @@ export class CreateServiceUseCase {
         feeCents,
         netCents,
         paymentMethod: input.paymentMethod,
+        feeConfigId: resolved.configId,
+        feePercent: resolved.config?.percent ?? null,
+        feeFixedCents: resolved.config?.fixedCents ?? null,
+        feeSource: resolved.source,
         transactedAt: input.performedAt,
       });
       const config = performedBy
@@ -247,6 +268,10 @@ export class CreateServiceUseCase {
             performedBy,
           )
         : null;
+      // ORDEM PRESERVADA: este `netCents` já embute a taxa do executor quando
+      // `performedBy` tem taxa própria ativa, e continua sendo a base da comissão
+      // em modo `net` — logo a comissão nesse modo passa a refletir a taxa do
+      // funcionário (consequência PRETENDIDA).
       const { baseCents, commissionCents } = computeCommission(
         input.amountCents,
         netCents,

@@ -27,6 +27,7 @@ import { ListMembersUseCase } from "../application/use-cases/list-members.use-ca
 import { InviteMemberUseCase } from "../application/use-cases/invite-member.use-case";
 import { UpdateMemberRoleUseCase } from "../application/use-cases/update-member-role.use-case";
 import { UpdateMemberPermissionsUseCase } from "../application/use-cases/update-member-permissions.use-case";
+import { UpdateMemberClassificationUseCase } from "../application/use-cases/update-member-classification.use-case";
 import { SetMemberStatusUseCase } from "../application/use-cases/set-member-status.use-case";
 import { RemoveMemberUseCase } from "../application/use-cases/remove-member.use-case";
 import { ListInvitationsUseCase } from "../application/use-cases/list-invitations.use-case";
@@ -36,6 +37,7 @@ import { UpdateOrgDto } from "./dto/update-org.dto";
 import { InviteMemberDto } from "./dto/invite-member.dto";
 import { UpdateMemberRoleDto } from "./dto/update-member-role.dto";
 import { UpdateMemberPermissionsDto } from "./dto/update-member-permissions.dto";
+import { UpdateMemberClassificationDto } from "./dto/update-member-classification.dto";
 import { SetMemberStatusDto } from "./dto/set-member-status.dto";
 import { TransferOwnershipDto } from "./dto/transfer-ownership.dto";
 
@@ -55,6 +57,7 @@ export class OrgsController {
     private readonly inviteMember: InviteMemberUseCase,
     private readonly updateMemberRole: UpdateMemberRoleUseCase,
     private readonly updateMemberPermissions: UpdateMemberPermissionsUseCase,
+    private readonly updateMemberClassification: UpdateMemberClassificationUseCase,
     private readonly setMemberStatus: SetMemberStatusUseCase,
     private readonly removeMember: RemoveMemberUseCase,
     private readonly listInvitations: ListInvitationsUseCase,
@@ -156,6 +159,21 @@ export class OrgsController {
       memberId,
       user.id,
       dto.permissions,
+    );
+  }
+
+  @Patch(":orgId/members/:memberId/classification")
+  updateClassification(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("memberId", ParseUUIDPipe) memberId: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: UpdateMemberClassificationDto,
+  ) {
+    return this.updateMemberClassification.execute(
+      orgId,
+      memberId,
+      user.id,
+      dto.classification ?? null,
     );
   }
 

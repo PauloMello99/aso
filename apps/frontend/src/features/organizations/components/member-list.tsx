@@ -8,6 +8,8 @@ import {
   Power,
   SlidersHorizontal,
   Percent,
+  CreditCard,
+  Tag,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -41,10 +43,27 @@ import {
   COMMISSION_MODE_LABELS,
   commissionErrorMessage,
   commissionItemSchema,
+  memberFeesSchema,
   type CommissionMode,
   type MemberCommission,
+  type FeeEligibleMethod,
+  type FeeSource,
+  type MemberPaymentFee,
+  type MemberPaymentFeeInput,
+  type MemberPaymentFeeDeactivation,
+  type MemberPaymentFeesUpdate,
 } from "@/features/cashier";
-import type { Member, Invitation, OrgRole } from "../types";
+import {
+  centsToReaisInput,
+  parseReaisToCents,
+} from "@/features/cashier/lib/money";
+import { MEMBER_CLASSIFICATION_LABELS } from "../types";
+import type {
+  Member,
+  Invitation,
+  MemberClassification,
+  OrgRole,
+} from "../types";
 
 const ROLE_LABEL: Record<OrgRole, string> = {
   owner: "Proprietário",
@@ -71,6 +90,10 @@ interface MemberListProps {
     memberId: string,
     permissions: string[],
   ) => Promise<void>;
+  onUpdateClassification: (
+    memberId: string,
+    classification: MemberClassification | null,
+  ) => Promise<void>;
   onCancelInvitation: (invitationId: string) => Promise<void>;
   commissions: MemberCommission[];
   commissionsLoading: boolean;
@@ -80,9 +103,121 @@ interface MemberListProps {
     percent: string,
     mode: CommissionMode,
   ) => Promise<void>;
+  memberFees: MemberPaymentFee[];
+  memberFeesLoading: boolean;
+  memberFeesError: string | null;
+  onUpdateMemberFees: (payload: MemberPaymentFeesUpdate) => Promise<void>;
 }
 
 const commissionFieldsSchema = commissionItemSchema.omit({ userId: true });
+
+// Mesma validação de percentual do diálogo de comissão (vazio permitido, 0–100).
+const feePercentSchema = commissionItemSchema.shape.percent;
+
+// União literal local: FEE_ELIGIBLE_METHODS de cashier é PaymentMethod[]; aqui o
+// domínio é só crédito/débito.
+const FEE_METHODS = ["credit_card", "debit_card"] as const;
+
+const FEE_METHOD_LABEL: Record<FeeEligibleMethod, string> = {
+  credit_card: "Crédito",
+  debit_card: "Débito",
+};
+
+interface FeeFieldValues {
+  percent: string;
+  fixed: string;
+}
+
+type FeeFieldMap = Record<FeeEligibleMethod, FeeFieldValues>;
+
+function emptyFeeFieldMap(): FeeFieldMap {
+  return {
+    credit_card: { percent: "", fixed: "" },
+    debit_card: { percent: "", fixed: "" },
+  };
+}
+
+// Semeia o diálogo de taxa a partir das linhas planas de memberFees (uma por
+// membro × método elegível). Override próprio (source === "member") popula os
+// campos editáveis; herança (org/none) vai só para os placeholders.
+function computeFeeSeed(rows: MemberPaymentFee[], userId: string) {
+  const draft = emptyFeeFieldMap();
+  const inherited = emptyFeeFieldMap();
+  const configured: Record<FeeEligibleMethod, boolean> = {
+    credit_card: false,
+    debit_card: false,
+  };
+  const source: Record<FeeEligibleMethod, FeeSource> = {
+    credit_card: "none",
+    debit_card: "none",
+  };
+  for (const method of FEE_METHODS) {
+    const row = rows.find(
+      (f) => f.userId === userId && f.paymentMethod === method,
+    );
+    if (!row) continue;
+    source[method] = row.source;
+    configured[method] = row.source === "member";
+    const values: FeeFieldValues = {
+      percent: row.percent,
+      fixed: centsToReaisInput(row.fixedCents),
+    };
+    if (row.source === "member") {
+      draft[method] = values;
+    } else {
+      inherited[method] = values;
+    }
+  }
+  return { draft, inherited, configured, source };
+}
+
+function feeFieldsError(fields: FeeFieldMap): string | null {
+  for (const method of FEE_METHODS) {
+    const { percent, fixed } = fields[method];
+    const percentResult = feePercentSchema.safeParse(percent);
+    if (!percentResult.success) {
+      return percentResult.error.issues[0]?.message ?? "Percentual inválido";
+    }
+    if (fixed.trim() !== "" && Number.isNaN(parseReaisToCents(fixed))) {
+      return "Valor fixo inválido";
+    }
+  }
+  return null;
+}
+
+// Guard anti-override-fantasma (espelha confirmCommission): campos preenchidos
+// viram upsert em `fees`; campos limpos de um método que TINHA override próprio
+// viram `deactivations` (remove o override, volta ao fallback da org); campos
+// limpos e sem override prévio são omitidos dos dois — salvar sem preencher não
+// cria taxa por membro em 0.
+function buildFeePayload(
+  userId: string,
+  fields: FeeFieldMap,
+  configured: Record<FeeEligibleMethod, boolean>,
+): {
+  fees: MemberPaymentFeeInput[];
+  deactivations: MemberPaymentFeeDeactivation[];
+} {
+  const fees: MemberPaymentFeeInput[] = [];
+  const deactivations: MemberPaymentFeeDeactivation[] = [];
+  for (const method of FEE_METHODS) {
+    const percent = fields[method].percent.trim();
+    const fixed = fields[method].fixed.trim();
+    if (percent === "" && fixed === "") {
+      if (configured[method]) {
+        deactivations.push({ userId, paymentMethod: method });
+      }
+      continue;
+    }
+    fees.push({
+      userId,
+      paymentMethod: method,
+      percent: percent === "" ? "0" : percent.replace(",", "."),
+      fixedCents: fixed === "" ? 0 : parseReaisToCents(fixed),
+    });
+  }
+  return { fees, deactivations };
+}
 
 export function MemberList({
   members,
@@ -93,15 +228,24 @@ export function MemberList({
   onRemove,
   onToggleStatus,
   onUpdatePermissions,
+  onUpdateClassification,
   onCancelInvitation,
   commissions,
   commissionsLoading,
   commissionsError,
   onUpdateCommission,
+  memberFees,
+  memberFeesLoading,
+  memberFeesError,
+  onUpdateMemberFees,
 }: MemberListProps) {
   const [roleDialog, setRoleDialog] = useState<{
     member: Member;
     role: OrgRole;
+  } | null>(null);
+  const [classificationDialog, setClassificationDialog] = useState<{
+    member: Member;
+    value: MemberClassification | "none";
   } | null>(null);
   const [removeDialog, setRemoveDialog] = useState<Member | null>(null);
   const [permsDialog, setPermsDialog] = useState<Member | null>(null);
@@ -116,6 +260,19 @@ export function MemberList({
   const [commissionSubmitError, setCommissionSubmitError] = useState<
     string | null
   >(null);
+  const [feesDialog, setFeesDialog] = useState<Member | null>(null);
+  const [feesDraft, setFeesDraft] = useState<FeeFieldMap>(emptyFeeFieldMap);
+  const [feesInherited, setFeesInherited] =
+    useState<FeeFieldMap>(emptyFeeFieldMap);
+  const [feesConfigured, setFeesConfigured] = useState<
+    Record<FeeEligibleMethod, boolean>
+  >({ credit_card: false, debit_card: false });
+  const [feesMethodSource, setFeesMethodSource] = useState<
+    Record<FeeEligibleMethod, FeeSource>
+  >({ credit_card: "none", debit_card: "none" });
+  const [feesTouched, setFeesTouched] = useState(false);
+  const [feesFieldError, setFeesFieldError] = useState<string | null>(null);
+  const [feesSubmitError, setFeesSubmitError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   function openPerms(member: Member) {
@@ -156,6 +313,47 @@ export function MemberList({
     setCommissionPercent(existing?.configured ? existing.percent : "");
     setCommissionMode(existing?.mode ?? "gross");
   }, [commissions, commissionDialogUserId, commissionTouched]);
+
+  function openFees(member: Member) {
+    const seed = computeFeeSeed(memberFees, member.userId);
+    setFeesDraft(seed.draft);
+    setFeesInherited(seed.inherited);
+    setFeesConfigured(seed.configured);
+    setFeesMethodSource(seed.source);
+    setFeesTouched(false);
+    setFeesFieldError(null);
+    setFeesSubmitError(null);
+    setFeesDialog(member);
+  }
+
+  // Mesma re-semeadura do diálogo de comissão: source/configured/inherited
+  // sempre acompanham o servidor (o guard anti-fantasma depende de saber se havia
+  // override próprio); os campos editáveis só re-semeiam enquanto o owner não
+  // mexeu, para não descartar uma edição em andamento.
+  const feesDialogUserId = feesDialog?.userId;
+  useEffect(() => {
+    if (!feesDialogUserId) return;
+    const seed = computeFeeSeed(memberFees, feesDialogUserId);
+    setFeesConfigured(seed.configured);
+    setFeesMethodSource(seed.source);
+    setFeesInherited(seed.inherited);
+    if (feesTouched) return;
+    setFeesDraft(seed.draft);
+  }, [memberFees, feesDialogUserId, feesTouched]);
+
+  function handleFeeFieldChange(
+    method: FeeEligibleMethod,
+    field: "percent" | "fixed",
+    value: string,
+  ) {
+    setFeesTouched(true);
+    const next: FeeFieldMap = {
+      ...feesDraft,
+      [method]: { ...feesDraft[method], [field]: value },
+    };
+    setFeesDraft(next);
+    setFeesFieldError(feeFieldsError(next));
+  }
 
   function togglePerm(module: ModuleKey, on: boolean) {
     setPermsDraft((prev) =>
@@ -228,12 +426,70 @@ export function MemberList({
     }
   }
 
+  async function confirmFees() {
+    if (!feesDialog) return;
+    if (feesFieldError) return;
+    setLoading(true);
+    setFeesSubmitError(null);
+    try {
+      const { fees, deactivations } = buildFeePayload(
+        feesDialog.userId,
+        feesDraft,
+        feesConfigured,
+      );
+      // Nada preenchido e nenhum override prévio: não chama a API.
+      if (fees.length > 0 || deactivations.length > 0) {
+        const parsed = memberFeesSchema.safeParse({ fees });
+        if (!parsed.success) {
+          setFeesFieldError(
+            parsed.error.issues[0]?.message ?? "Dados inválidos",
+          );
+          return;
+        }
+        try {
+          await onUpdateMemberFees({
+            fees: parsed.data.fees.length > 0 ? parsed.data.fees : undefined,
+            deactivations:
+              deactivations.length > 0 ? deactivations : undefined,
+          });
+        } catch (err) {
+          setFeesSubmitError(
+            err instanceof Error
+              ? err.message
+              : "Não foi possível salvar as taxas.",
+          );
+          return;
+        }
+      }
+
+      setFeesDialog(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function confirmRoleChange() {
     if (!roleDialog) return;
     setLoading(true);
     try {
       await onUpdateRole(roleDialog.member.memberId, roleDialog.role);
       setRoleDialog(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function confirmClassification() {
+    if (!classificationDialog) return;
+    setLoading(true);
+    try {
+      await onUpdateClassification(
+        classificationDialog.member.memberId,
+        classificationDialog.value === "none"
+          ? null
+          : classificationDialog.value,
+      );
+      setClassificationDialog(null);
     } finally {
       setLoading(false);
     }
@@ -249,6 +505,12 @@ export function MemberList({
       setLoading(false);
     }
   }
+
+  const feeDraftEmpty = FEE_METHODS.every(
+    (m) =>
+      feesDraft[m].percent.trim() === "" && feesDraft[m].fixed.trim() === "",
+  );
+  const feeHasPriorOverride = FEE_METHODS.some((m) => feesConfigured[m]);
 
   return (
     <div className="grid gap-6">
@@ -292,6 +554,14 @@ export function MemberList({
                     Suspenso
                   </Badge>
                 )}
+                {member.classification != null && (
+                  <Badge
+                    variant="ghost"
+                    className="shrink-0 bg-surface-2 text-text-muted"
+                  >
+                    {MEMBER_CLASSIFICATION_LABELS[member.classification]}
+                  </Badge>
+                )}
                 <Badge
                   variant={member.role === "owner" ? "brand" : "secondary"}
                   className="shrink-0"
@@ -308,6 +578,13 @@ export function MemberList({
                     }
                     onPermissions={() => openPerms(member)}
                     onCommission={() => openCommission(member)}
+                    onFees={() => openFees(member)}
+                    onClassification={() =>
+                      setClassificationDialog({
+                        member,
+                        value: member.classification ?? "none",
+                      })
+                    }
                   />
                 )}
               </div>
@@ -393,6 +670,59 @@ export function MemberList({
             <Button
               disabled={loading}
               onClick={confirmRoleChange}
+              className="w-full sm:w-auto"
+            >
+              {loading ? "Salvando…" : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!classificationDialog}
+        onOpenChange={(v) => !v && setClassificationDialog(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Classificação</DialogTitle>
+            <DialogDescription>
+              Defina a classificação de{" "}
+              <span className="font-medium text-foreground">
+                {classificationDialog?.member.userName}
+              </span>
+              .
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            <Label>Classificação</Label>
+            <Select
+              value={classificationDialog?.value}
+              onValueChange={(v) =>
+                classificationDialog &&
+                setClassificationDialog({
+                  ...classificationDialog,
+                  value: v as MemberClassification | "none",
+                })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="resident">
+                  {MEMBER_CLASSIFICATION_LABELS.resident}
+                </SelectItem>
+                <SelectItem value="guest">
+                  {MEMBER_CLASSIFICATION_LABELS.guest}
+                </SelectItem>
+                <SelectItem value="none">Sem classificação</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button
+              disabled={loading}
+              onClick={confirmClassification}
               className="w-full sm:w-auto"
             >
               {loading ? "Salvando…" : "Confirmar"}
@@ -547,6 +877,105 @@ export function MemberList({
       </Dialog>
 
       <Dialog
+        open={!!feesDialog}
+        onOpenChange={(v) => !v && setFeesDialog(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Taxas de cartão</DialogTitle>
+            <DialogDescription>
+              Configure as taxas de cartão de{" "}
+              <span className="font-medium text-foreground">
+                {feesDialog?.userName}
+              </span>
+              . Uma taxa definida aqui substitui a taxa da organização para este
+              funcionário.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid max-h-[60vh] gap-4 overflow-y-auto pr-1">
+            {FEE_METHODS.map((method) => (
+              <div
+                key={method}
+                className="grid gap-2 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3"
+              >
+                <p className="text-sm font-medium text-foreground">
+                  {FEE_METHOD_LABEL[method]}
+                </p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="grid gap-1.5">
+                    <Label>Percentual (%)</Label>
+                    <Input
+                      placeholder={
+                        memberFeesLoading
+                          ? "Carregando…"
+                          : feesInherited[method].percent || "0,00"
+                      }
+                      inputMode="decimal"
+                      autoComplete="off"
+                      disabled={memberFeesLoading || !!memberFeesError}
+                      value={feesDraft[method].percent}
+                      onChange={(e) =>
+                        handleFeeFieldChange(method, "percent", e.target.value)
+                      }
+                    />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label>Valor fixo (R$)</Label>
+                    <Input
+                      placeholder={
+                        memberFeesLoading
+                          ? "Carregando…"
+                          : feesInherited[method].fixed || "0,00"
+                      }
+                      inputMode="decimal"
+                      autoComplete="off"
+                      disabled={memberFeesLoading || !!memberFeesError}
+                      value={feesDraft[method].fixed}
+                      onChange={(e) =>
+                        handleFeeFieldChange(method, "fixed", e.target.value)
+                      }
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-foreground/50">
+                  {feesMethodSource[method] === "member"
+                    ? "Taxa própria deste funcionário. Limpe os dois campos e salve para remover e voltar à taxa da organização."
+                    : feesMethodSource[method] === "org"
+                      ? "Herdado da organização."
+                      : "Sem taxa configurada para este método."}
+                </p>
+              </div>
+            ))}
+
+            {feesFieldError && (
+              <p className="text-xs text-destructive">{feesFieldError}</p>
+            )}
+            {memberFeesError && (
+              <p className="text-sm text-destructive">{memberFeesError}</p>
+            )}
+            {feesSubmitError && (
+              <p className="text-sm text-destructive">{feesSubmitError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              disabled={
+                loading ||
+                memberFeesLoading ||
+                !!feesFieldError ||
+                !!memberFeesError ||
+                (feeDraftEmpty && !feeHasPriorOverride)
+              }
+              onClick={confirmFees}
+              className="w-full sm:w-auto"
+            >
+              {loading ? "Salvando…" : "Salvar taxas"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
         open={!!removeDialog}
         onOpenChange={(v) => !v && setRemoveDialog(null)}
       >
@@ -584,6 +1013,8 @@ function MemberActions({
   onToggleStatus,
   onPermissions,
   onCommission,
+  onFees,
+  onClassification,
 }: {
   member: Member;
   onChangeRole: (role: OrgRole) => void;
@@ -591,6 +1022,8 @@ function MemberActions({
   onToggleStatus: () => void;
   onPermissions: () => void;
   onCommission: () => void;
+  onFees: () => void;
+  onClassification: () => void;
 }) {
   const nextRole: OrgRole = member.role === "owner" ? "employee" : "owner";
   const nextRoleLabel =
@@ -613,6 +1046,14 @@ function MemberActions({
         <DropdownMenuItem onClick={onCommission}>
           <Percent className="mr-2 h-4 w-4" />
           Comissão
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onFees}>
+          <CreditCard className="mr-2 h-4 w-4" />
+          Taxas de cartão
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onClassification}>
+          <Tag className="mr-2 h-4 w-4" />
+          Classificação
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onChangeRole(nextRole)}>
           <ShieldCheck className="mr-2 h-4 w-4" />

@@ -1,5 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { computeNet } from "../../domain/fee-calculator";
+import {
+  computeNet,
+  resolveFee,
+  FeeConfig,
+  FeeSource,
+} from "../../domain/fee-calculator";
 import {
   PaymentMethod,
   TransactionEntity,
@@ -14,6 +19,10 @@ import {
   PAYMENT_FEE_REPOSITORY,
 } from "../../domain/payment-fee.repository.interface";
 import {
+  IMemberPaymentFeeRepository,
+  MEMBER_PAYMENT_FEE_REPOSITORY,
+} from "../../domain/member-payment-fee.repository.interface";
+import {
   IMemberRepository,
   MEMBER_REPOSITORY,
 } from "../../../organizations/domain/member.repository.interface";
@@ -25,6 +34,20 @@ export interface CreateTransactionInput {
   authId: string;
   createdBy?: string | null;
   trustedCreatedBy?: string | null;
+  /**
+   * Snapshot de taxa do lançamento ORIGINAL, passado apenas por
+   * CorrectTransactionUseCase no ramo de correção. Quando o método de pagamento
+   * da correção é o MESMO do original, este snapshot é reusado tal e qual (só
+   * `feeCents`/`netCents` são recomputados sobre o novo gross); quando o método
+   * muda, é ignorado e a taxa é reprecificada pela ORG.
+   */
+  originalFee?: {
+    paymentMethod: PaymentMethod;
+    feePercent: string | null;
+    feeFixedCents: number | null;
+    feeSource: FeeSource | null;
+    feeConfigId: string | null;
+  };
   description: string;
   type: TransactionType;
   grossCents: number;
@@ -40,6 +63,8 @@ export class CreateTransactionUseCase {
     private readonly transactionRepo: ITransactionRepository,
     @Inject(PAYMENT_FEE_REPOSITORY)
     private readonly feeRepo: IPaymentFeeRepository,
+    @Inject(MEMBER_PAYMENT_FEE_REPOSITORY)
+    private readonly memberFeeRepo: IMemberPaymentFeeRepository,
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepo: IMemberRepository,
     private readonly auditService: AuditService,
@@ -64,15 +89,82 @@ export class CreateTransactionUseCase {
       );
     }
 
-    const fee =
-      input.type === "income"
-        ? await this.feeRepo.findByOrgAndMethod(input.orgId, input.paymentMethod)
-        : null;
+    const isCorrection = input.trustedCreatedBy !== undefined;
+
+    // Regra de taxa neste use-case:
+    // - Caminho manual (`trustedCreatedBy` indefinido — INALTERADO): resolve via
+    //   `resolveFee(method, taxa própria de `createdBy`, taxa da ORG)`.
+    // - Ramo de CORREÇÃO (via CorrectTransactionUseCase, único que define
+    //   `trustedCreatedBy`) de um `income` com o MESMO método de pagamento do
+    //   lançamento original: REUSA o snapshot de taxa que o original congelou
+    //   (`feePercent`/`feeFixedCents`/`feeSource`/`feeConfigId`) e recomputa só
+    //   `feeCents`/`netCents` sobre o novo gross. Reprecificar pela ORG aqui
+    //   trocaria a taxa aplicada e criaria diferença real de dinheiro num livro
+    //   append-only.
+    // - Ramo de correção com método de pagamento DIFERENTE (ou não-`income`): o
+    //   snapshot antigo é inaplicável, então cai na taxa da ORG. `memberFee`
+    //   segue `null` porque nesse ramo `createdBy` vem de
+    //   `transactions.created_by` da transação original — coluna hoje heterogênea
+    //   entre auth id e users.id (ver comentário do audit abaixo); um lookup por
+    //   users.id sairia vazio em silêncio e mascararia esse bug.
+    const original = isCorrection ? input.originalFee : undefined;
+
+    let feeConfig: FeeConfig | null;
+    let feeConfigId: string | null;
+    let feePercent: string | null;
+    let feeFixedCents: number | null;
+    let feeSource: FeeSource;
+
+    if (
+      input.type === "income" &&
+      original != null &&
+      input.paymentMethod === original.paymentMethod
+    ) {
+      feeConfig =
+        original.feeSource === "none" ||
+        original.feePercent === null ||
+        original.feeFixedCents === null
+          ? null
+          : {
+              percent: original.feePercent,
+              fixedCents: original.feeFixedCents,
+            };
+      feeConfigId = original.feeConfigId;
+      feePercent = original.feePercent;
+      feeFixedCents = original.feeFixedCents;
+      feeSource = original.feeSource ?? "none";
+    } else {
+      const feeUserId = isCorrection ? null : createdBy;
+
+      const memberFee =
+        input.type === "income" && feeUserId
+          ? await this.memberFeeRepo.findActiveByOrgUserAndMethod(
+              input.orgId,
+              feeUserId,
+              input.paymentMethod,
+            )
+          : null;
+
+      const orgFee =
+        input.type === "income"
+          ? await this.feeRepo.findByOrgAndMethod(
+              input.orgId,
+              input.paymentMethod,
+            )
+          : null;
+
+      const resolved = resolveFee(input.paymentMethod, memberFee, orgFee);
+      feeConfig = resolved.config;
+      feeConfigId = resolved.configId;
+      feePercent = resolved.config?.percent ?? null;
+      feeFixedCents = resolved.config?.fixedCents ?? null;
+      feeSource = resolved.source;
+    }
 
     const { feeCents, netCents } = computeNet(
       input.grossCents,
       input.paymentMethod,
-      fee,
+      feeConfig,
     );
 
     const transaction = await this.transactionRepo.create({
@@ -85,11 +177,13 @@ export class CreateTransactionUseCase {
       netCents,
       paymentMethod: input.paymentMethod,
       categoryId: input.categoryId ?? null,
+      feeConfigId,
+      feePercent,
+      feeFixedCents,
+      feeSource,
       reversesTransactionId: null,
       transactedAt: input.transactedAt,
     });
-
-    const isCorrection = input.trustedCreatedBy !== undefined;
 
     await this.auditService.logByAuthId(input.authId, {
       orgId: input.orgId,
@@ -101,6 +195,7 @@ export class CreateTransactionUseCase {
         grossCents: input.grossCents,
         feeCents,
         netCents,
+        feeSource,
         paymentMethod: input.paymentMethod,
         categoryId: input.categoryId ?? null,
         // No caminho de correção, `createdBy` vem de `trustedCreatedBy` (copiado de
