@@ -34,8 +34,12 @@ export const queryKeys = {
     all: (orgId: string) => ["materials", orgId] as const,
     list: (orgId: string, filter?: MaterialsFilter) =>
       ["materials", orgId, "list", filter ?? {}] as const,
-    movements: (orgId: string, materialId: string) =>
-      ["materials", orgId, "movements", materialId] as const,
+    movements: (
+      orgId: string,
+      materialId: string,
+      params?: { page?: number; limit?: number },
+    ) => ["materials", orgId, "movements", materialId, params ?? {}] as const,
+    options: (orgId: string) => ["materials", orgId, "options"] as const,
   },
 
   customers: {
@@ -46,6 +50,7 @@ export const queryKeys = {
       ["customers", orgId, "detail", id] as const,
     attachments: (orgId: string, customerId: string) =>
       ["customers", orgId, "detail", customerId, "attachments"] as const,
+    options: (orgId: string) => ["customers", orgId, "options"] as const,
   },
 
   cashier: {

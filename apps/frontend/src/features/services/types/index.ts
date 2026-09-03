@@ -55,6 +55,8 @@ export interface ServicesFilter {
   minCents?: number
   maxCents?: number
   q?: string
+  page?: number
+  limit?: number
 }
 
 export const SERVICE_PAYMENT_METHODS: ServicePaymentMethod[] = [

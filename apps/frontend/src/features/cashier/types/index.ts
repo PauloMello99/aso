@@ -71,6 +71,8 @@ export interface TransactionsFilter {
   createdBy?: string
   customerId?: string
   q?: string
+  page?: number
+  limit?: number
 }
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {

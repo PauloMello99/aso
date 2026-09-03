@@ -8,6 +8,7 @@ import { AnamnesisInfrastructureModule } from "../anamnesis/infrastructure/anamn
 import { SubscriptionsModule } from "../subscriptions/subscriptions.module";
 import { ServicesInfrastructureModule } from "./infrastructure/services-infrastructure.module";
 import { ListServicesUseCase } from "./application/use-cases/list-services.use-case";
+import { ListServicesPageUseCase } from "./application/use-cases/list-services-page.use-case";
 import { ExportServicesUseCase } from "./application/use-cases/export-services.use-case";
 import { GetServiceUseCase } from "./application/use-cases/get-service.use-case";
 import { CreateServiceUseCase } from "./application/use-cases/create-service.use-case";
@@ -39,6 +40,7 @@ import { ServicesController } from "./interface/services.controller";
   controllers: [ServicesController],
   providers: [
     ListServicesUseCase,
+    ListServicesPageUseCase,
     ExportServicesUseCase,
     GetServiceUseCase,
     CreateServiceUseCase,
