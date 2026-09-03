@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select"
 import { DatePicker } from "@/shared/components/ui/date-picker"
+import { PaginationBar } from "@/shared/components/pagination-bar"
 import {
   FilterPopover,
   FilterField,
@@ -113,6 +114,14 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
   const [search, setSearch] = useState("")
   const [amount, setAmount] = useState({ min: "", max: "" })
 
+  function updateFilter(patch: Partial<ServicesFilter>) {
+    setFilter((f) => ({ ...f, ...patch, page: 1 }))
+  }
+
+  function goToPage(p: number) {
+    setFilter((f) => ({ ...f, page: p }))
+  }
+
   const advancedCount =
     (filter.from ? 1 : 0) +
     (filter.to ? 1 : 0) +
@@ -125,18 +134,16 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
   function setAmountFilter(which: "min" | "max", raw: string) {
     setAmount((a) => ({ ...a, [which]: raw }))
     const cents = raw.trim() ? parseReaisToCents(raw) : Number.NaN
-    setFilter((f) => ({
-      ...f,
+    updateFilter({
       [which === "min" ? "minCents" : "maxCents"]: Number.isNaN(cents)
         ? undefined
         : cents,
-    }))
+    })
   }
 
   function clearAdvanced() {
     setAmount({ min: "", max: "" })
-    setFilter((f) => ({
-      ...f,
+    updateFilter({
       from: undefined,
       to: undefined,
       serviceTypeId: undefined,
@@ -144,11 +151,14 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
       paymentMethod: undefined,
       minCents: undefined,
       maxCents: undefined,
-    }))
+    })
   }
 
   const {
     services,
+    total,
+    page,
+    pages,
     loading,
     error,
     refetch,
@@ -229,7 +239,7 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
   }
 
   function applySearch() {
-    setFilter((f) => ({ ...f, q: search || undefined }))
+    updateFilter({ q: search || undefined })
   }
 
   async function handleExport(fields: string[], format: ExportFormat) {
@@ -296,10 +306,9 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
         <Select
           value={filter.status ?? "all"}
           onValueChange={(v) =>
-            setFilter((f) => ({
-              ...f,
+            updateFilter({
               status: v === "all" ? undefined : (v as ServiceStatus),
-            }))
+            })
           }
         >
           <SelectTrigger className="sm:w-44">
@@ -318,10 +327,9 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
           <Select
             value={filter.performedBy ?? "all"}
             onValueChange={(v) =>
-              setFilter((f) => ({
-                ...f,
+              updateFilter({
                 performedBy: v === "all" ? undefined : v,
-              }))
+              })
             }
           >
             <SelectTrigger className="sm:w-48">
@@ -344,18 +352,14 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
             <FilterField label="De">
               <DatePicker
                 value={filter.from ?? ""}
-                onChange={(v) =>
-                  setFilter((f) => ({ ...f, from: v || undefined }))
-                }
+                onChange={(v) => updateFilter({ from: v || undefined })}
                 placeholder="Início"
               />
             </FilterField>
             <FilterField label="Até">
               <DatePicker
                 value={filter.to ?? ""}
-                onChange={(v) =>
-                  setFilter((f) => ({ ...f, to: v || undefined }))
-                }
+                onChange={(v) => updateFilter({ to: v || undefined })}
                 placeholder="Fim"
               />
             </FilterField>
@@ -364,10 +368,9 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
             <Select
               value={filter.serviceTypeId ?? "all"}
               onValueChange={(v) =>
-                setFilter((f) => ({
-                  ...f,
+                updateFilter({
                   serviceTypeId: v === "all" ? undefined : v,
-                }))
+                })
               }
             >
               <SelectTrigger>
@@ -387,10 +390,9 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
             <Select
               value={filter.customerId ?? "all"}
               onValueChange={(v) =>
-                setFilter((f) => ({
-                  ...f,
+                updateFilter({
                   customerId: v === "all" ? undefined : v,
-                }))
+                })
               }
             >
               <SelectTrigger>
@@ -410,11 +412,10 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
             <Select
               value={filter.paymentMethod ?? "all"}
               onValueChange={(v) =>
-                setFilter((f) => ({
-                  ...f,
+                updateFilter({
                   paymentMethod:
                     v === "all" ? undefined : (v as ServicePaymentMethod),
-                }))
+                })
               }
             >
               <SelectTrigger>
@@ -453,14 +454,23 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
           Carregando serviços…
         </div>
       ) : (
-        <ServiceList
-          services={services}
-          isOwner={isOwner}
-          onEdit={openEdit}
-          onPay={handlePay}
-          onCancel={handleCancel}
-          onCorrectPayment={openCorrectPayment}
-        />
+        <>
+          <ServiceList
+            services={services}
+            isOwner={isOwner}
+            onEdit={openEdit}
+            onPay={handlePay}
+            onCancel={handleCancel}
+            onCorrectPayment={openCorrectPayment}
+          />
+          <PaginationBar
+            page={page}
+            pages={pages}
+            total={total}
+            onPageChange={goToPage}
+            itemLabel="serviço"
+          />
+        </>
       )}
 
       <ServiceForm
