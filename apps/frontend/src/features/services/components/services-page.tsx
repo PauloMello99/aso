@@ -25,8 +25,10 @@ import {
 import { downloadExport } from "@/shared/lib/download-export"
 import { useCurrentOrg } from "@/features/dashboard"
 import { useCustomers } from "@/features/clients/hooks/use-customers"
+import { useCustomerOptions } from "@/features/clients/hooks/use-customer-options"
 import { useMembers } from "@/features/organizations/hooks/use-members"
 import { useMaterials } from "@/features/stock/hooks/use-materials"
+import { useMaterialOptions } from "@/features/stock/hooks/use-material-options"
 import type { MaterialFormValues } from "@/features/stock/schemas/stock.schemas"
 import { parseReaisToCents } from "@/features/cashier/lib/money"
 import { cashierErrorMessage } from "@/features/cashier/lib/error-messages"
@@ -170,7 +172,10 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
   } = useServices(orgId, filter)
   const { serviceTypes, createServiceType } = useServiceTypes(orgId)
   const { customers } = useCustomers(orgId, { enabledOnly: true })
-  const { materials, createMaterial } = useMaterials(orgId)
+  const { options: customerOptions, truncated: customersTruncated } =
+    useCustomerOptions(orgId)
+  const { options: materialOptions } = useMaterialOptions(orgId)
+  const { createMaterial } = useMaterials(orgId, undefined, { enabled: false })
   const { members } = useMembers(orgId)
 
   async function handleCreateMaterial(values: MaterialFormValues) {
@@ -400,13 +405,19 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os clientes</SelectItem>
-                {customers.map((c) => (
+                {customerOptions.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {customersTruncated && (
+              <p className="mt-1 text-xs text-foreground/40">
+                Mostrando os primeiros 1000 clientes — refine a busca se não encontrar
+                quem procura.
+              </p>
+            )}
           </FilterField>
           <FilterField label="Método de pagamento">
             <Select
@@ -482,7 +493,7 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
         customers={customers}
         members={members}
         serviceTypes={serviceTypes}
-        materials={materials}
+        materials={materialOptions}
         onCreateType={createServiceType}
         onCreateMaterial={handleCreateMaterial}
         onSubmit={handleSubmit}

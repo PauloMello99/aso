@@ -17,7 +17,7 @@ import {
   SheetTitle,
 } from "@/shared/components/ui/sheet"
 import { Switch } from "@/shared/components/ui/switch"
-import { useMaterials } from "../hooks/use-materials"
+import { useMaterialOptions } from "../hooks/use-material-options"
 import { useStockVerification } from "../hooks/use-stock-verification"
 
 interface StockVerificationPageProps {
@@ -25,7 +25,7 @@ interface StockVerificationPageProps {
 }
 
 export function StockVerificationPage({ orgId }: StockVerificationPageProps) {
-  const { materials } = useMaterials(orgId)
+  const { options: materials } = useMaterialOptions(orgId)
   const { settings, verifications, setInterval, createVerification } =
     useStockVerification(orgId)
 
