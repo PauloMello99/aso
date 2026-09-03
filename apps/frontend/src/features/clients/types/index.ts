@@ -37,4 +37,6 @@ export interface CustomersFilter {
   birthMonth?: number
   city?: string
   state?: string
+  page?: number
+  limit?: number
 }
