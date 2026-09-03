@@ -1,14 +1,18 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
   and,
+  count,
   desc,
   eq,
   gte,
+  ilike,
   inArray,
   isNotNull,
   isNull,
   lte,
+  or,
   sql,
+  type SQL,
 } from "drizzle-orm";
 import { DRIZZLE, DrizzleDB } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
@@ -167,10 +171,10 @@ export class DrizzleServiceRepository implements IServiceRepository {
     );
   }
 
-  async findAllByOrg(
+  private buildListConditions(
     orgId: string,
     filter?: ListServicesFilter,
-  ): Promise<ServiceEntity[]> {
+  ): SQL[] {
     const conditions = [eq(schema.services.orgId, orgId)];
 
     if (filter?.from) {
@@ -206,6 +210,32 @@ export class DrizzleServiceRepository implements IServiceRepository {
       conditions.push(isNull(schema.services.canceledAt));
       conditions.push(isNull(schema.services.paymentTransactionId));
     }
+    if (filter?.q) {
+      const term = `%${filter.q}%`;
+      conditions.push(
+        or(
+          ilike(schema.services.description, term),
+          ilike(schema.customers.name, term),
+        )!,
+      );
+    }
+
+    return conditions;
+  }
+
+  private listOrderBy(): SQL[] {
+    return [
+      desc(schema.services.performedAt),
+      desc(schema.services.createdAt),
+      desc(schema.services.id),
+    ];
+  }
+
+  async findAllByOrg(
+    orgId: string,
+    filter?: ListServicesFilter,
+  ): Promise<ServiceEntity[]> {
+    const conditions = this.buildListConditions(orgId, filter);
 
     const rows = await this.db
       .select({
@@ -225,19 +255,9 @@ export class DrizzleServiceRepository implements IServiceRepository {
         eq(schema.serviceTypes.id, schema.services.serviceTypeId),
       )
       .where(and(...conditions))
-      .orderBy(desc(schema.services.performedAt));
+      .orderBy(...this.listOrderBy());
 
-    const filtered = filter?.q
-      ? rows.filter((r) => {
-          const q = filter.q!.toLowerCase();
-          return (
-            (r.service.description ?? "").toLowerCase().includes(q) ||
-            (r.customerName ?? "").toLowerCase().includes(q)
-          );
-        })
-      : rows;
-
-    return filtered.map((r) =>
+    return rows.map((r) =>
       toDomain(
         r.service,
         {
@@ -248,6 +268,65 @@ export class DrizzleServiceRepository implements IServiceRepository {
         [],
       ),
     );
+  }
+
+  async findPageByOrg(
+    orgId: string,
+    filter: ListServicesFilter | undefined,
+    pagination: { limit: number; offset: number },
+  ): Promise<{ rows: ServiceEntity[]; total: number }> {
+    const conditions = this.buildListConditions(orgId, filter);
+    const whereClause = and(...conditions);
+
+    const [countRows, rows] = await Promise.all([
+      this.db
+        .select({ total: count() })
+        .from(schema.services)
+        .leftJoin(
+          schema.customers,
+          eq(schema.customers.id, schema.services.customerId),
+        )
+        .where(whereClause),
+      this.db
+        .select({
+          service: schema.services,
+          customerName: schema.customers.name,
+          employeeName: schema.users.name,
+          typeName: schema.serviceTypes.name,
+        })
+        .from(schema.services)
+        .leftJoin(
+          schema.customers,
+          eq(schema.customers.id, schema.services.customerId),
+        )
+        .leftJoin(
+          schema.users,
+          eq(schema.users.id, schema.services.performedBy),
+        )
+        .leftJoin(
+          schema.serviceTypes,
+          eq(schema.serviceTypes.id, schema.services.serviceTypeId),
+        )
+        .where(whereClause)
+        .orderBy(...this.listOrderBy())
+        .limit(pagination.limit)
+        .offset(pagination.offset),
+    ]);
+
+    return {
+      rows: rows.map((r) =>
+        toDomain(
+          r.service,
+          {
+            customerName: r.customerName,
+            employeeName: r.employeeName,
+            typeName: r.typeName,
+          },
+          [],
+        ),
+      ),
+      total: Number(countRows[0]?.total ?? 0),
+    };
   }
 
   async setPaymentTransaction(

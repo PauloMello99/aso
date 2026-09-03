@@ -73,6 +73,11 @@ export interface IServiceRepository {
     orgId: string,
     filter?: ListServicesFilter,
   ): Promise<ServiceEntity[]>;
+  findPageByOrg(
+    orgId: string,
+    filter: ListServicesFilter | undefined,
+    pagination: { limit: number; offset: number },
+  ): Promise<{ rows: ServiceEntity[]; total: number }>;
   setPaymentTransaction(
     id: string,
     transactionId: string,
