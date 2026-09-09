@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { addYears, format, parseISO } from "date-fns"
@@ -35,6 +35,10 @@ import { Textarea } from "@/shared/components/ui/textarea"
 import { Switch } from "@/shared/components/ui/switch"
 import { Trash2 } from "lucide-react"
 import { useCustomerOptions } from "@/features/clients/hooks/use-customer-options"
+import type { CustomerOption } from "@/features/clients/types"
+import { AsyncCombobox } from "@/shared/components/ui/async-combobox"
+import { useDebouncedValue } from "@/shared/hooks/use-debounced-value"
+import { useStickyOption } from "@/shared/hooks/use-async-options"
 import { eventFormSchema, type EventFormValues } from "../schemas/agenda.schemas"
 import type { CalendarEvent } from "../types"
 import type { CalendarEventBody } from "../hooks/use-calendar-events"
@@ -44,6 +48,11 @@ import { EventAttendees } from "./event-attendees"
 
 const NO_CUSTOMER = "none"
 const ASSIGNEE_SELF = "self"
+const NO_CUSTOMER_OPTION: CustomerOption = {
+  id: NO_CUSTOMER,
+  name: "Sem cliente",
+  birthDate: "",
+}
 
 interface EventFormProps {
   open: boolean
@@ -93,8 +102,16 @@ export function EventForm({
 }: EventFormProps) {
   const isEditing = !!event
   const isCanceled = event?.status === "canceled"
-  const { options: customers, truncated: customersTruncated } =
-    useCustomerOptions(orgId)
+  const [customerSearch, setCustomerSearch] = useState("")
+  const debouncedCustomerSearch = useDebouncedValue(customerSearch, 250)
+  const {
+    options: customers,
+    truncated: customersTruncated,
+    loading: customersLoading,
+    isFetching: customersFetching,
+    error: customersError,
+    refetch: refetchCustomerOptions,
+  } = useCustomerOptions(orgId, { q: debouncedCustomerSearch })
   const activeMembers = members.filter((m) => m.enabled)
 
   const form = useForm<EventFormValues>({
@@ -104,6 +121,36 @@ export function EventForm({
 
   const type = form.watch("type")
   const allDay = form.watch("allDay")
+  const watchedCustomerId = form.watch("customerId")
+  // Some a busca ativa oculta "Sem cliente" — do contrário ela é sempre a
+  // opção de índice 0 e sequestra o realinhamento de activeIndex do
+  // AsyncCombobox: digitar uma busca e apertar Enter selecionaria "Sem
+  // cliente" em vez do primeiro resultado (value continua "none" até uma
+  // escolha real ser feita).
+  const customerComboboxOptions = customerSearch
+    ? customers
+    : [NO_CUSTOMER_OPTION, ...customers]
+  // Seed com o próprio evento em edição — o backend não retorna
+  // customerName no calendário (CalendarEvent não tem esse campo), então o
+  // seed não tem um nome real; ainda assim é melhor que "Sem cliente"
+  // (mentira) enquanto o registro completo não resolve via customers.
+  const customerSeed = useMemo<CustomerOption | undefined>(() => {
+    if (!event?.customerId) return undefined
+    return {
+      id: event.customerId,
+      name: "Cliente selecionado (carregando…)",
+      birthDate: "",
+    }
+  }, [event?.customerId])
+  const stickyCustomer = useStickyOption(
+    customers,
+    watchedCustomerId || undefined,
+    (c) => c.id,
+    customerSeed,
+  )
+  const selectedCustomerOption = watchedCustomerId
+    ? stickyCustomer
+    : NO_CUSTOMER_OPTION
 
   useEffect(() => {
     if (!open) return
@@ -267,32 +314,28 @@ export function EventForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Cliente</FormLabel>
-                      <Select
-                        value={field.value || NO_CUSTOMER}
-                        onValueChange={(v) =>
-                          field.onChange(v === NO_CUSTOMER ? "" : v)
-                        }
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Sem cliente" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={NO_CUSTOMER}>Sem cliente</SelectItem>
-                          {customers.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {customersTruncated && (
-                        <p className="text-xs text-foreground/40">
-                          Mostrando os primeiros 1000 clientes — refine a busca se não
-                          encontrar quem procura.
-                        </p>
-                      )}
+                      <FormControl>
+                        <AsyncCombobox
+                          value={field.value || NO_CUSTOMER}
+                          onValueChange={(v) =>
+                            field.onChange(v === NO_CUSTOMER ? "" : v)
+                          }
+                          options={customerComboboxOptions}
+                          selectedOption={selectedCustomerOption}
+                          loading={customersLoading}
+                          isFetching={customersFetching}
+                          truncated={customersTruncated}
+                          error={customersError}
+                          onRetry={refetchCustomerOptions}
+                          search={customerSearch}
+                          onSearchChange={setCustomerSearch}
+                          getOptionId={(c) => c.id}
+                          getOptionLabel={(c) => c.name}
+                          placeholder="Sem cliente"
+                          searchPlaceholder="Buscar cliente…"
+                          emptyLabel="Nenhum cliente encontrado."
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

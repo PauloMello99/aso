@@ -1,28 +1,20 @@
 "use client"
 
-import { useQuery } from "@tanstack/react-query"
-import { apiRequest } from "@/infrastructure/api/client"
+import { useAsyncOptions } from "@/shared/hooks/use-async-options"
+import { buildOptionsQuery } from "@/shared/lib/options-query"
 import { queryKeys } from "@/infrastructure/query/query-keys"
 import type { Material } from "../types"
 
-interface MaterialOptionsResponse {
-  data: Material[]
-  truncated: boolean
-}
-
-export function useMaterialOptions(orgId: string) {
-  const { data, isLoading, error } = useQuery({
-    queryKey: queryKeys.materials.options(orgId),
-    queryFn: () =>
-      apiRequest<MaterialOptionsResponse>(`/orgs/${orgId}/materials/options`),
+export function useMaterialOptions(
+  orgId: string,
+  params?: { q?: string; serviceTypeId?: string },
+) {
+  return useAsyncOptions<Material>({
+    queryKey: queryKeys.materials.options(orgId, params),
+    path: `/orgs/${orgId}/materials/options${buildOptionsQuery({
+      q: params?.q,
+      serviceTypeId: params?.serviceTypeId,
+    })}`,
     enabled: !!orgId,
-    staleTime: 5 * 60 * 1000,
   })
-
-  return {
-    options: data?.data ?? [],
-    truncated: data?.truncated ?? false,
-    loading: isLoading,
-    error: error instanceof Error ? error.message : null,
-  }
 }

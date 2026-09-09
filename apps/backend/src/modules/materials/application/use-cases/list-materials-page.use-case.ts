@@ -4,6 +4,7 @@ import {
   Paginated,
   resolvePageRequest,
 } from "../../../../common/pagination/pagination";
+import { MaterialEntity } from "../../domain/material.entity";
 import {
   IMaterialRepository,
   ListMaterialsFilter,
@@ -61,7 +62,24 @@ export class ListMaterialsPageUseCase {
       { limit: resolvedLimit, offset },
     );
 
-    const views = rows.map((m) => toMaterialListItemView(m, canSeeCost));
+    // Uma única chamada em lote para a página inteira — evita N+1 e garante
+    // que a edição de material sempre receba os vínculos atuais (sem isso o
+    // formulário abre com os checkboxes vazios e um save apaga os vínculos).
+    const serviceTypeIdsByMaterial =
+      await this.materialRepo.findServiceTypeIdsByMaterials(
+        orgId,
+        rows.map((m) => m.id),
+      );
+
+    const views = rows.map((m) =>
+      toMaterialListItemView(
+        MaterialEntity.create({
+          ...m,
+          serviceTypeIds: serviceTypeIdsByMaterial[m.id] ?? [],
+        }),
+        canSeeCost,
+      ),
+    );
 
     return buildPaginated(views, total, resolvedPage, resolvedLimit);
   }

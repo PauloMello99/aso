@@ -16,6 +16,9 @@ export const materialSchema = z.object({
   shareable: z.boolean().optional(),
   minimumQuantity: optionalPositiveNumericString,
   costPerUnit: optionalPositiveNumericString,
+  // Opcional: material sem vínculo a nenhum tipo de serviço é caso legítimo
+  // e continua listável — ver Material.serviceTypeIds.
+  serviceTypeIds: z.array(z.string().uuid()).optional(),
 })
 
 export type MaterialFormValues = z.infer<typeof materialSchema>

@@ -27,6 +27,7 @@ export class ListMaterialOptionsUseCase {
   async execute(
     orgId: string,
     authId?: string,
+    params?: { q?: string; serviceTypeId?: string },
   ): Promise<{ data: MaterialListItemView[]; truncated: boolean }> {
     let canSeeCost = false;
     if (authId) {
@@ -38,6 +39,8 @@ export class ListMaterialOptionsUseCase {
 
     const materials = await this.materialRepo.findOptionsByOrg(orgId, {
       limit: MAX_OPTIONS,
+      search: params?.q,
+      serviceTypeId: params?.serviceTypeId,
     });
 
     const truncated = materials.length > MAX_OPTIONS;

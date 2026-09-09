@@ -505,6 +505,13 @@
       "when": 1782006100000,
       "tag": "0071_customers_nullable_address",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1782006200000,
+      "tag": "0072_material_service_types",
+      "breakpoints": true
     }
   ]
 }

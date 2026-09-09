@@ -27,13 +27,13 @@ import { useCurrentOrg } from "@/features/dashboard"
 import { useCustomerOptions } from "@/features/clients/hooks/use-customer-options"
 import { useMembers } from "@/features/organizations/hooks/use-members"
 import { useMaterials } from "@/features/stock/hooks/use-materials"
-import { useMaterialOptions } from "@/features/stock/hooks/use-material-options"
 import type { MaterialFormValues } from "@/features/stock/schemas/stock.schemas"
 import { parseReaisToCents } from "@/features/cashier/lib/money"
 import { cashierErrorMessage } from "@/features/cashier/lib/error-messages"
 import { useServices } from "../hooks/use-services"
 import { useServiceTypes } from "../hooks/use-service-types"
 import { toCorrectPaymentBody } from "../lib/correct-payment-body"
+import { toCreateBody, toUpdateBody } from "../lib/service-body"
 import { ServiceList } from "./service-list"
 import { ServiceForm } from "./service-form"
 import { ServicePaymentCorrectionSheet } from "./service-payment-correction-sheet"
@@ -67,45 +67,6 @@ const EXPORT_COLUMNS = [
   { key: "paymentMethod", label: "Método" },
   { key: "status", label: "Status" },
 ]
-
-function toCreateBody(values: ServiceFormValues) {
-  return {
-    customerId: values.customerId,
-    serviceTypeId: values.serviceTypeId || null,
-    performedBy: values.performedBy || null,
-    description: values.description || null,
-    anamnesisResponseId: values.anamnesisResponseId,
-    amountCents: parseReaisToCents(values.amount),
-    paymentMethod: values.paymentMethod,
-    paymentStatus: values.paymentStatus,
-    performedAt: values.performedAt
-      ? new Date(values.performedAt).toISOString()
-      : undefined,
-    materials: values.materials.map((line) =>
-      line.shareable
-        ? { materialId: line.materialId, finished: !!line.finished }
-        : {
-            materialId: line.materialId,
-            quantity: line.quantity
-              ? Number(line.quantity.replace(",", "."))
-              : 0,
-          },
-    ),
-  }
-}
-
-function toUpdateBody(values: ServiceFormValues) {
-  return {
-    customerId: values.customerId,
-    serviceTypeId: values.serviceTypeId || null,
-    performedBy: values.performedBy || null,
-    description: values.description || null,
-    anamnesisResponseId: values.anamnesisResponseId,
-    performedAt: values.performedAt
-      ? new Date(values.performedAt).toISOString()
-      : undefined,
-  }
-}
 
 export function ServicesPage({ orgId }: ServicesPageProps) {
   const { org } = useCurrentOrg()
@@ -172,7 +133,6 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
   const { serviceTypes, createServiceType } = useServiceTypes(orgId)
   const { options: customerOptions, truncated: customersTruncated } =
     useCustomerOptions(orgId)
-  const { options: materialOptions } = useMaterialOptions(orgId)
   const { createMaterial } = useMaterials(orgId, undefined, { enabled: false })
   const { members } = useMembers(orgId)
 
@@ -182,6 +142,7 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
       shareable: values.shareable ?? false,
       minimumQuantity: values.minimumQuantity || undefined,
       costPerUnit: values.costPerUnit || null,
+      serviceTypeIds: values.serviceTypeIds ?? [],
     })
   }
 
@@ -488,10 +449,8 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
         orgId={orgId}
         service={editing}
         isOwner={isOwner}
-        customers={customerOptions}
         members={members}
         serviceTypes={serviceTypes}
-        materials={materialOptions}
         onCreateType={createServiceType}
         onCreateMaterial={handleCreateMaterial}
         onSubmit={handleSubmit}

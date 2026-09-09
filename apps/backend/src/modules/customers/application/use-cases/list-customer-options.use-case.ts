@@ -24,10 +24,14 @@ export class ListCustomerOptionsUseCase {
     private readonly customerRepo: ICustomerRepository,
   ) {}
 
-  async execute(orgId: string): Promise<ListCustomerOptionsResult> {
+  async execute(
+    orgId: string,
+    params?: { q?: string },
+  ): Promise<ListCustomerOptionsResult> {
     const rows = await this.customerRepo.findOptionsByOrg(orgId, {
       enabledOnly: true,
       limit: MAX_OPTIONS,
+      search: params?.q,
     });
 
     if (rows.length > MAX_OPTIONS) {
