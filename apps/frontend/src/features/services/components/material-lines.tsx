@@ -3,29 +3,27 @@
 import { useState } from "react"
 import { Controller, useFieldArray, useFormContext } from "react-hook-form"
 import { Plus, X } from "lucide-react"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select"
+import { AsyncCombobox } from "@/shared/components/ui/async-combobox"
 import { Input } from "@/shared/components/ui/input"
 import { Switch } from "@/shared/components/ui/switch"
 import { Button } from "@/shared/components/ui/button"
 import { cn } from "@/shared/lib/utils"
+import { useDebouncedValue } from "@/shared/hooks/use-debounced-value"
+import { useMaterialOptions } from "@/features/stock/hooks/use-material-options"
 import { MaterialForm } from "@/features/stock/components/material-form"
 import type { MaterialFormValues } from "@/features/stock/schemas/stock.schemas"
 import type { Material } from "@/features/stock/types"
 import type { ServiceFormValues } from "../schemas/services.schemas"
 
 interface MaterialLinesProps {
-  materials: Material[]
+  orgId: string
+  serviceTypeId?: string
   onCreateMaterial: (values: MaterialFormValues) => Promise<Material>
 }
 
 export function MaterialLines({
-  materials,
+  orgId,
+  serviceTypeId,
   onCreateMaterial,
 }: MaterialLinesProps) {
   const {
@@ -38,6 +36,14 @@ export function MaterialLines({
     name: "materials",
   })
   const [materialFormOpen, setMaterialFormOpen] = useState(false)
+  const [search, setSearch] = useState("")
+  const debouncedSearch = useDebouncedValue(search, 250)
+  const {
+    options: materialOptions,
+    truncated,
+    loading,
+    isFetching,
+  } = useMaterialOptions(orgId, { q: debouncedSearch, serviceTypeId })
 
   function appendMaterial(mat: Material) {
     append({
@@ -45,16 +51,21 @@ export function MaterialLines({
       shareable: mat.shareable,
       quantity: mat.shareable ? "" : "1",
       finished: false,
+      // Snapshot para exibir a linha sem depender de uma lista completa —
+      // ver comentário no schema (serviceMaterialLineSchema).
+      name: mat.name,
+      stockQuantity: mat.stockQuantity,
     })
   }
 
   const usedIds = new Set(fields.map((f) => f.materialId))
-  const available = materials.filter((m) => !usedIds.has(m.id))
+  const available = materialOptions.filter((m) => !usedIds.has(m.id))
 
   function addMaterial(materialId: string) {
-    const mat = materials.find((m) => m.id === materialId)
+    const mat = materialOptions.find((m) => m.id === materialId)
     if (!mat) return
     appendMaterial(mat)
+    setSearch("")
   }
 
   return (
@@ -66,7 +77,6 @@ export function MaterialLines({
       )}
 
       {fields.map((field, index) => {
-        const mat = materials.find((m) => m.id === field.materialId)
         const rowError =
           errors.materials?.[index]?.materialId?.message ??
           errors.materials?.[index]?.quantity?.message
@@ -81,7 +91,7 @@ export function MaterialLines({
             <div className="flex items-center gap-2">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm text-foreground">
-                  {mat?.name ?? "Material"}
+                  {field.name ?? "Material"}
                 </p>
                 {field.shareable ? (
                   <Controller
@@ -99,7 +109,7 @@ export function MaterialLines({
                   />
                 ) : (
                   <p className="mt-0.5 text-xs text-foreground/30">
-                    Em estoque: {mat?.stockQuantity ?? "—"}
+                    Em estoque: {field.stockQuantity ?? "—"}
                   </p>
                 )}
               </div>
@@ -132,39 +142,38 @@ export function MaterialLines({
         )
       })}
 
-      <div className="flex gap-2">
-        {available.length > 0 && (
-          <Select value="" onValueChange={addMaterial}>
-            <SelectTrigger className="w-full">
-              <span className="flex items-center gap-2 text-foreground/60">
-                <Plus className="h-4 w-4" />
-                <SelectValue placeholder="Adicionar material" />
-              </span>
-            </SelectTrigger>
-            <SelectContent>
-              {available.map((m) => (
-                <SelectItem key={m.id} value={m.id}>
-                  {m.name}
-                  {m.shareable ? " (compartilhável)" : ""}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        <Button
-          type="button"
-          variant="outline"
-          className="shrink-0"
-          onClick={() => setMaterialFormOpen(true)}
-        >
-          <Plus className="h-4 w-4" />
-          Criar material
-        </Button>
-      </div>
+      <AsyncCombobox
+        value=""
+        onValueChange={addMaterial}
+        options={available}
+        selectedOption={undefined}
+        loading={loading}
+        isFetching={isFetching}
+        truncated={truncated}
+        search={search}
+        onSearchChange={setSearch}
+        getOptionId={(m) => m.id}
+        getOptionLabel={(m) => `${m.name}${m.shareable ? " (compartilhável)" : ""}`}
+        placeholder="Adicionar material"
+        searchPlaceholder="Buscar material…"
+        emptyLabel="Nenhum material disponível."
+        footer={
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => setMaterialFormOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            Criar material
+          </Button>
+        }
+      />
 
       <MaterialForm
         open={materialFormOpen}
         onOpenChange={setMaterialFormOpen}
+        orgId={orgId}
         onSubmit={async (values) => {
           const created = await onCreateMaterial(values)
           appendMaterial(created)

@@ -25,6 +25,8 @@ import {
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Switch } from "@/shared/components/ui/switch";
+import { Checkbox } from "@/shared/components/ui/checkbox";
+import { useServiceTypes } from "@/features/services/hooks/use-service-types";
 import {
   materialSchema,
   type MaterialFormValues,
@@ -34,6 +36,7 @@ import type { Material } from "../types";
 interface MaterialFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  orgId: string;
   material?: Material | null;
   onSubmit: (values: MaterialFormValues) => Promise<void>;
 }
@@ -41,10 +44,12 @@ interface MaterialFormProps {
 export function MaterialForm({
   open,
   onOpenChange,
+  orgId,
   material,
   onSubmit,
 }: MaterialFormProps) {
   const isEditing = !!material;
+  const { serviceTypes } = useServiceTypes(orgId);
 
   const form = useForm<MaterialFormValues>({
     resolver: zodResolver(materialSchema),
@@ -53,6 +58,7 @@ export function MaterialForm({
       shareable: false,
       minimumQuantity: "",
       costPerUnit: "",
+      serviceTypeIds: [],
     },
   });
 
@@ -68,8 +74,15 @@ export function MaterialForm({
                   ? ""
                   : (material.minimumQuantity ?? ""),
               costPerUnit: material.costPerUnit ?? "",
+              serviceTypeIds: material?.serviceTypeIds ?? [],
             }
-          : { name: "", shareable: false, minimumQuantity: "", costPerUnit: "" },
+          : {
+              name: "",
+              shareable: false,
+              minimumQuantity: "",
+              costPerUnit: "",
+              serviceTypeIds: [],
+            },
       );
     }
   }, [open, material, form]);
@@ -157,6 +170,64 @@ export function MaterialForm({
                           onCheckedChange={field.onChange}
                         />
                       </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div>
+                <FormField
+                  control={form.control}
+                  name="serviceTypeIds"
+                  render={({ field }) => (
+                    <FormItem className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3">
+                      <div className="space-y-0.5">
+                        <FormLabel>
+                          Tipos de serviço{" "}
+                          <span className="text-xs text-foreground/30">
+                            (opcional)
+                          </span>
+                        </FormLabel>
+                        <FormDescription>
+                          Serve para priorizar este material no formulário de
+                          serviço; ele continua disponível para todos os
+                          tipos.
+                        </FormDescription>
+                      </div>
+                      {serviceTypes.length === 0 ? (
+                        <p className="mt-2 text-xs text-foreground/30">
+                          Nenhum tipo de serviço cadastrado.
+                        </p>
+                      ) : (
+                        <div className="mt-2 flex flex-col gap-2">
+                          {serviceTypes.map((type) => {
+                            const checked =
+                              field.value?.includes(type.id) ?? false;
+                            return (
+                              <label
+                                key={type.id}
+                                className="flex items-center gap-2 text-sm text-foreground/80"
+                              >
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={(v) => {
+                                    const current = field.value ?? [];
+                                    field.onChange(
+                                      v
+                                        ? [...current, type.id]
+                                        : current.filter(
+                                            (id) => id !== type.id,
+                                          ),
+                                    );
+                                  }}
+                                />
+                                {type.name}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <FormMessage />
                     </FormItem>
                   )}
                 />

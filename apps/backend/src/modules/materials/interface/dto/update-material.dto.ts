@@ -1,4 +1,5 @@
 ﻿import {
+  IsArray,
   IsBoolean,
   IsOptional,
   IsString,
@@ -32,5 +33,10 @@ export class UpdateMaterialDto {
   @Matches(NUMERIC_PATTERN, { message: "costPerUnit must be a positive number" })
   @IsOptional()
   costPerUnit?: string | null;
+
+  @IsArray()
+  @IsUUID("4", { each: true })
+  @IsOptional()
+  serviceTypeIds?: string[];
 }
 

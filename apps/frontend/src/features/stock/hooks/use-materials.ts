@@ -49,6 +49,7 @@ export function useMaterials(
     shareable?: boolean
     minimumQuantity?: string
     costPerUnit?: string | null
+    serviceTypeIds?: string[]
   }
 
   type UpdateBody = Partial<CreateBody>

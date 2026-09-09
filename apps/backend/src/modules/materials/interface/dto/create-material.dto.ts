@@ -1,4 +1,5 @@
 ﻿import {
+  IsArray,
   IsBoolean,
   IsNotEmpty,
   IsOptional,
@@ -31,5 +32,10 @@ export class CreateMaterialDto {
   @Matches(NUMERIC_PATTERN, { message: "costPerUnit must be a positive number" })
   @IsOptional()
   costPerUnit?: string | null;
+
+  @IsArray()
+  @IsUUID("4", { each: true })
+  @IsOptional()
+  serviceTypeIds?: string[];
 }
 

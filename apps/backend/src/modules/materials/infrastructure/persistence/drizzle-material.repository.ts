@@ -6,6 +6,7 @@ import {
   eq,
   gte,
   ilike,
+  inArray,
   isNotNull,
   isNull,
   lte,
@@ -137,18 +138,64 @@ export class DrizzleMaterialRepository implements IMaterialRepository {
 
   async findOptionsByOrg(
     orgId: string,
-    params: { limit: number },
+    params: { limit: number; search?: string; serviceTypeId?: string },
   ): Promise<MaterialEntity[]> {
+    const conditions: SQL[] = [
+      eq(schema.materials.orgId, orgId),
+      isNull(schema.materials.archivedAt),
+    ];
+    if (params.search) {
+      conditions.push(ilike(schema.materials.name, `%${params.search}%`));
+    }
+
+    if (params.serviceTypeId) {
+      const mst = schema.materialServiceTypes;
+      const rows = await this.db
+        .select({
+          id: schema.materials.id,
+          orgId: schema.materials.orgId,
+          categoryId: schema.materials.categoryId,
+          name: schema.materials.name,
+          stockQuantity: schema.materials.stockQuantity,
+          minimumQuantity: schema.materials.minimumQuantity,
+          costPerUnit: schema.materials.costPerUnit,
+          shareable: schema.materials.shareable,
+          lastUsedAt: schema.materials.lastUsedAt,
+          archivedAt: schema.materials.archivedAt,
+          createdAt: schema.materials.createdAt,
+          updatedAt: schema.materials.updatedAt,
+        })
+        .from(schema.materials)
+        // LEFT JOIN só ordena (vinculados primeiro) — NUNCA filtra, senão a
+        // lista deixaria de trazer materiais sem vínculo com este serviceType.
+        .leftJoin(
+          mst,
+          and(
+            eq(mst.materialId, schema.materials.id),
+            eq(mst.serviceTypeId, params.serviceTypeId),
+          ),
+        )
+        .where(and(...conditions))
+        .orderBy(
+          sql`(${mst.materialId} IS NOT NULL) DESC`,
+          sql`${schema.materials.lastUsedAt} DESC NULLS LAST`,
+          asc(schema.materials.name),
+          asc(schema.materials.id),
+        )
+        .limit(params.limit + 1);
+
+      return rows.map(MaterialMapper.toDomain);
+    }
+
     const rows = await this.db
       .select()
       .from(schema.materials)
-      .where(
-        and(
-          eq(schema.materials.orgId, orgId),
-          isNull(schema.materials.archivedAt),
-        ),
+      .where(and(...conditions))
+      .orderBy(
+        sql`${schema.materials.lastUsedAt} DESC NULLS LAST`,
+        asc(schema.materials.name),
+        asc(schema.materials.id),
       )
-      .orderBy(asc(schema.materials.name), asc(schema.materials.id))
       .limit(params.limit + 1);
 
     return rows.map(MaterialMapper.toDomain);
@@ -239,6 +286,65 @@ export class DrizzleMaterialRepository implements IMaterialRepository {
       .where(
         and(eq(schema.materials.id, id), eq(schema.materials.orgId, orgId)),
       );
+  }
+
+  async findServiceTypeIdsByMaterial(
+    materialId: string,
+    orgId: string,
+  ): Promise<string[]> {
+    const rows = await this.db
+      .select({ serviceTypeId: schema.materialServiceTypes.serviceTypeId })
+      .from(schema.materialServiceTypes)
+      .where(
+        and(
+          eq(schema.materialServiceTypes.materialId, materialId),
+          eq(schema.materialServiceTypes.orgId, orgId),
+        ),
+      );
+    return rows.map((r) => r.serviceTypeId);
+  }
+
+  async setServiceTypes(
+    materialId: string,
+    orgId: string,
+    serviceTypeIds: string[],
+  ): Promise<void> {
+    // Delete-all + insert: o array recebido é a verdade declarada do vínculo,
+    // não um diff — mantém a operação idempotente sem depender de estado prévio.
+    await this.db.transaction(async (tx) => {
+      await tx
+        .delete(schema.materialServiceTypes)
+        .where(
+          and(
+            eq(schema.materialServiceTypes.materialId, materialId),
+            eq(schema.materialServiceTypes.orgId, orgId),
+          ),
+        );
+
+      if (serviceTypeIds.length === 0) return;
+
+      await tx.insert(schema.materialServiceTypes).values(
+        serviceTypeIds.map((serviceTypeId) => ({
+          orgId,
+          materialId,
+          serviceTypeId,
+        })),
+      );
+    });
+  }
+
+  async countServiceTypesInOrg(orgId: string, ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    const [row] = await this.db
+      .select({ total: count() })
+      .from(schema.serviceTypes)
+      .where(
+        and(
+          eq(schema.serviceTypes.orgId, orgId),
+          inArray(schema.serviceTypes.id, ids),
+        ),
+      );
+    return Number(row?.total ?? 0);
   }
 }
 

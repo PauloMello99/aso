@@ -18,6 +18,8 @@ export interface Material {
   archivedAt: string | null
   createdAt: string
   updatedAt: string
+  // Opcional: material sem vínculo a nenhum tipo de serviço é caso legítimo.
+  serviceTypeIds?: string[]
 }
 
 export type StockMovementType =

@@ -29,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/components/ui/select"
+import { AsyncCombobox } from "@/shared/components/ui/async-combobox"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Textarea } from "@/shared/components/ui/textarea"
@@ -44,7 +45,9 @@ import {
   SendAnamnesisInviteDialog,
   useAnamnesisPromptState,
 } from "@/features/anamnesis"
-import type { CustomerOption } from "@/features/clients/types"
+import { useCustomerOptions } from "@/features/clients/hooks/use-customer-options"
+import { useDebouncedValue } from "@/shared/hooks/use-debounced-value"
+import { useStickyOption } from "@/shared/hooks/use-async-options"
 import type { Member } from "@/features/organizations/types"
 import type { Material } from "@/features/stock/types"
 import type { MaterialFormValues } from "@/features/stock/schemas/stock.schemas"
@@ -98,10 +101,8 @@ interface ServiceFormProps {
   orgId: string
   service?: Service | null
   isOwner: boolean
-  customers: CustomerOption[]
   members: Member[]
   serviceTypes: ServiceType[]
-  materials: Material[]
   onCreateType: (name: string) => Promise<ServiceType>
   onCreateMaterial: (values: MaterialFormValues) => Promise<Material>
   onSubmit: (values: ServiceFormValues) => Promise<void>
@@ -113,10 +114,8 @@ export function ServiceForm({
   orgId,
   service,
   isOwner,
-  customers,
   members,
   serviceTypes,
-  materials,
   onCreateType,
   onCreateMaterial,
   onSubmit,
@@ -163,14 +162,16 @@ export function ServiceForm({
     } catch (err) {
       if (err instanceof ApiError && err.code === "INSUFFICIENT_STOCK") {
         const materialId = err.details?.materialId
-        const mat = materials.find((m) => m.id === materialId)
         const index = values.materials.findIndex(
           (line) => line.materialId === materialId,
         )
-        if (mat) {
+        // O nome vem do snapshot guardado na própria linha (materials não é
+        // mais uma lista completa carregada no formulário).
+        const line = index >= 0 ? values.materials[index] : undefined
+        if (line) {
           const available = err.details?.available ?? "0"
           const requested = err.details?.requested ?? "0"
-          const message = `Estoque insuficiente de "${mat.name}": disponível ${available}, necessário ${requested}.`
+          const message = `Estoque insuficiente de "${line.name ?? "material"}": disponível ${available}, necessário ${requested}.`
           setSubmitError({
             title: "Estoque insuficiente",
             description: message,
@@ -197,10 +198,23 @@ export function ServiceForm({
   const watchedServiceTypeId = form.watch("serviceTypeId")
   const watchedPerformedAt = form.watch("performedAt")
 
+  const [customerSearch, setCustomerSearch] = useState("")
+  const debouncedCustomerSearch = useDebouncedValue(customerSearch, 250)
+  const {
+    options: customerOptions,
+    truncated: customersTruncated,
+    loading: customersLoading,
+    isFetching: customersFetching,
+  } = useCustomerOptions(orgId, { q: debouncedCustomerSearch })
+  const selectedCustomer = useStickyOption(
+    customerOptions,
+    watchedCustomerId || undefined,
+    (c) => c.id,
+  )
+
   const selectedServiceType = serviceTypes.find(
     (t) => t.id === watchedServiceTypeId,
   )
-  const selectedCustomer = customers.find((c) => c.id === watchedCustomerId)
 
   const {
     prompt: anamnesisPrompt,
@@ -270,20 +284,24 @@ export function ServiceForm({
                       <FormLabel>
                         Cliente <span className="text-destructive">*</span>
                       </FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o cliente" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {customers.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <AsyncCombobox
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          options={customerOptions}
+                          selectedOption={selectedCustomer}
+                          loading={customersLoading}
+                          isFetching={customersFetching}
+                          truncated={customersTruncated}
+                          search={customerSearch}
+                          onSearchChange={setCustomerSearch}
+                          getOptionId={(c) => c.id}
+                          getOptionLabel={(c) => c.name}
+                          placeholder="Selecione o cliente"
+                          searchPlaceholder="Buscar cliente…"
+                          emptyLabel="Nenhum cliente encontrado."
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -452,7 +470,8 @@ export function ServiceForm({
                     Materiais consumidos
                   </h3>
                   <MaterialLines
-                    materials={materials}
+                    orgId={orgId}
+                    serviceTypeId={watchedServiceTypeId}
                     onCreateMaterial={onCreateMaterial}
                   />
                   {(form.formState.errors.materials?.root?.message ??

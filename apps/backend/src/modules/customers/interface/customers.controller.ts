@@ -156,8 +156,11 @@ export class CustomersController {
 
   @Get("options")
   @AllowAnyOrgMember()
-  async options(@Param("orgId", ParseUUIDPipe) orgId: string) {
-    return this.listCustomerOptions.execute(orgId);
+  async options(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Query("q") q?: string,
+  ) {
+    return this.listCustomerOptions.execute(orgId, { q: q || undefined });
   }
 
   @Get("origins")

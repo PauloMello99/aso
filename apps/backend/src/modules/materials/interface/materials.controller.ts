@@ -115,8 +115,14 @@ export class MaterialsController {
   async options(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @CurrentUser() user: AuthUser,
+    @Query("q") q?: string,
+    @Query("serviceTypeId", new ParseUUIDPipe({ optional: true }))
+    serviceTypeId?: string,
   ) {
-    return this.listMaterialOptions.execute(orgId, user.id);
+    return this.listMaterialOptions.execute(orgId, user.id, {
+      q: q || undefined,
+      serviceTypeId: serviceTypeId || undefined,
+    });
   }
 
   @Get()

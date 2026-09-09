@@ -39,7 +39,10 @@ export const queryKeys = {
       materialId: string,
       params?: { page?: number; limit?: number },
     ) => ["materials", orgId, "movements", materialId, params ?? {}] as const,
-    options: (orgId: string) => ["materials", orgId, "options"] as const,
+    options: (
+      orgId: string,
+      params?: { q?: string; serviceTypeId?: string },
+    ) => ["materials", orgId, "options", params ?? {}] as const,
   },
 
   customers: {
@@ -50,7 +53,8 @@ export const queryKeys = {
       ["customers", orgId, "detail", id] as const,
     attachments: (orgId: string, customerId: string) =>
       ["customers", orgId, "detail", customerId, "attachments"] as const,
-    options: (orgId: string) => ["customers", orgId, "options"] as const,
+    options: (orgId: string, params?: { q?: string }) =>
+      ["customers", orgId, "options", params ?? {}] as const,
   },
 
   cashier: {

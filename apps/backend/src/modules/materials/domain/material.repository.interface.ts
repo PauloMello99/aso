@@ -30,7 +30,7 @@ export interface IMaterialRepository {
   ): Promise<{ rows: MaterialEntity[]; total: number }>;
   findOptionsByOrg(
     orgId: string,
-    params: { limit: number },
+    params: { limit: number; search?: string; serviceTypeId?: string },
   ): Promise<MaterialEntity[]>;
   create(data: CreateMaterialData): Promise<MaterialEntity>;
   update(id: string, data: UpdateMaterialData): Promise<MaterialEntity>;
@@ -42,5 +42,15 @@ export interface IMaterialRepository {
   setArchived(id: string, orgId: string, archived: boolean): Promise<MaterialEntity>;
   isLinkedToService(id: string): Promise<boolean>;
   delete(id: string, orgId: string): Promise<void>;
+  findServiceTypeIdsByMaterial(
+    materialId: string,
+    orgId: string,
+  ): Promise<string[]>;
+  setServiceTypes(
+    materialId: string,
+    orgId: string,
+    serviceTypeIds: string[],
+  ): Promise<void>;
+  countServiceTypesInOrg(orgId: string, ids: string[]): Promise<number>;
 }
 
