@@ -15,6 +15,7 @@ import {
 } from "drizzle-orm";
 import { DRIZZLE, DrizzleDB } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
+import { containsPattern } from "../../../../common/db/like-pattern.util";
 import {
   CreateMaterialData,
   MaterialEntity,
@@ -58,7 +59,7 @@ export class DrizzleMaterialRepository implements IMaterialRepository {
     }
 
     if (filter?.name) {
-      conditions.push(ilike(schema.materials.name, `%${filter.name}%`));
+      conditions.push(ilike(schema.materials.name, containsPattern(filter.name)));
     }
 
     if (filter?.lowStockOnly) {
@@ -145,7 +146,9 @@ export class DrizzleMaterialRepository implements IMaterialRepository {
       isNull(schema.materials.archivedAt),
     ];
     if (params.search) {
-      conditions.push(ilike(schema.materials.name, `%${params.search}%`));
+      conditions.push(
+        ilike(schema.materials.name, containsPattern(params.search)),
+      );
     }
 
     if (params.serviceTypeId) {
@@ -187,15 +190,15 @@ export class DrizzleMaterialRepository implements IMaterialRepository {
       return rows.map(MaterialMapper.toDomain);
     }
 
+    // Sem serviceTypeId, mantém a ordenação alfabética histórica (contrato
+    // usado por telas como a conferência física de estoque); ordenar por uso
+    // recente só faz sentido quando o chamador está filtrando por tipo de
+    // serviço (fluxo de seleção de materiais de um serviço).
     const rows = await this.db
       .select()
       .from(schema.materials)
       .where(and(...conditions))
-      .orderBy(
-        sql`${schema.materials.lastUsedAt} DESC NULLS LAST`,
-        asc(schema.materials.name),
-        asc(schema.materials.id),
-      )
+      .orderBy(asc(schema.materials.name), asc(schema.materials.id))
       .limit(params.limit + 1);
 
     return rows.map(MaterialMapper.toDomain);
@@ -302,6 +305,35 @@ export class DrizzleMaterialRepository implements IMaterialRepository {
         ),
       );
     return rows.map((r) => r.serviceTypeId);
+  }
+
+  async findServiceTypeIdsByMaterials(
+    orgId: string,
+    materialIds: string[],
+  ): Promise<Record<string, string[]>> {
+    if (materialIds.length === 0) return {};
+
+    const rows = await this.db
+      .select({
+        materialId: schema.materialServiceTypes.materialId,
+        serviceTypeId: schema.materialServiceTypes.serviceTypeId,
+      })
+      .from(schema.materialServiceTypes)
+      .where(
+        and(
+          eq(schema.materialServiceTypes.orgId, orgId),
+          inArray(schema.materialServiceTypes.materialId, materialIds),
+        ),
+      );
+
+    const result: Record<string, string[]> = {};
+    for (const materialId of materialIds) {
+      result[materialId] = [];
+    }
+    for (const row of rows) {
+      result[row.materialId]!.push(row.serviceTypeId);
+    }
+    return result;
   }
 
   async setServiceTypes(

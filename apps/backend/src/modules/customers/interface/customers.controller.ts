@@ -54,6 +54,7 @@ import {
   resolveExportFormat,
 } from "../../../common/csv/csv.util";
 import { parsePageParam } from "../../../common/pagination/pagination";
+import { sanitizeSearchQuery } from "../../../common/lib/query-string.util";
 
 interface UploadedDoc {
   buffer: Buffer;
@@ -160,7 +161,9 @@ export class CustomersController {
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @Query("q") q?: string,
   ) {
-    return this.listCustomerOptions.execute(orgId, { q: q || undefined });
+    return this.listCustomerOptions.execute(orgId, {
+      q: sanitizeSearchQuery(q),
+    });
   }
 
   @Get("origins")

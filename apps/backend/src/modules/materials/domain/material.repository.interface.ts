@@ -46,6 +46,10 @@ export interface IMaterialRepository {
     materialId: string,
     orgId: string,
   ): Promise<string[]>;
+  findServiceTypeIdsByMaterials(
+    orgId: string,
+    materialIds: string[],
+  ): Promise<Record<string, string[]>>;
   setServiceTypes(
     materialId: string,
     orgId: string,

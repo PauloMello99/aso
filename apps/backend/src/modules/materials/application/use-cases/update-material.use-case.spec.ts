@@ -97,5 +97,44 @@ describe("UpdateMaterialUseCase", () => {
     ).rejects.toThrow(MaterialServiceTypeInvalidException);
 
     expect(materialRepo.setServiceTypes).not.toHaveBeenCalled();
+    expect(materialRepo.update).not.toHaveBeenCalled();
+  });
+
+  it("chama setServiceTypes DEPOIS de update, nunca antes (update primeiro para não substituir vínculos se o update falhar)", async () => {
+    const callOrder: string[] = [];
+    const materialRepo = buildFakeMaterialRepo({
+      update: jest.fn().mockImplementation(async () => {
+        callOrder.push("update");
+        return buildMaterial();
+      }),
+      setServiceTypes: jest.fn().mockImplementation(async () => {
+        callOrder.push("setServiceTypes");
+      }),
+      countServiceTypesInOrg: jest.fn().mockResolvedValue(2),
+    });
+    const useCase = new UpdateMaterialUseCase(materialRepo);
+
+    await useCase.execute("mat-1", "org-1", {
+      name: "Nova tinta",
+      serviceTypeIds: ["svc-1", "svc-2"],
+    });
+
+    expect(callOrder).toEqual(["update", "setServiceTypes"]);
+  });
+
+  it("se update falhar, setServiceTypes nunca é chamado", async () => {
+    const materialRepo = buildFakeMaterialRepo({
+      update: jest.fn().mockRejectedValue(new Error("db error")),
+      countServiceTypesInOrg: jest.fn().mockResolvedValue(1),
+    });
+    const useCase = new UpdateMaterialUseCase(materialRepo);
+
+    await expect(
+      useCase.execute("mat-1", "org-1", {
+        serviceTypeIds: ["svc-1"],
+      }),
+    ).rejects.toThrow("db error");
+
+    expect(materialRepo.setServiceTypes).not.toHaveBeenCalled();
   });
 });

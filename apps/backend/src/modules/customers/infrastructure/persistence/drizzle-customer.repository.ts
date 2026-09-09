@@ -14,6 +14,7 @@ import {
 } from "drizzle-orm";
 import { DRIZZLE, DrizzleDB } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
+import { containsPattern } from "../../../../common/db/like-pattern.util";
 import {
   CreateCustomerData,
   CustomerEntity,
@@ -123,7 +124,7 @@ export class DrizzleCustomerRepository implements ICustomerRepository {
     }
 
     if (filter?.search) {
-      const term = `%${filter.search}%`;
+      const term = containsPattern(filter.search);
       const match = or(
         ilike(schema.customers.name, term),
         ilike(schema.customers.email, term),
@@ -198,7 +199,7 @@ export class DrizzleCustomerRepository implements ICustomerRepository {
           eq(schema.customers.orgId, orgId),
           ...(params.enabledOnly ? [eq(schema.customers.enabled, true)] : []),
           ...(params.search
-            ? [ilike(schema.customers.name, `%${params.search}%`)]
+            ? [ilike(schema.customers.name, containsPattern(params.search))]
             : []),
         ),
       )
