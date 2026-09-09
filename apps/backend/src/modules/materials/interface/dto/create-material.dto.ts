@@ -1,4 +1,5 @@
 ﻿import {
+  ArrayUnique,
   IsArray,
   IsBoolean,
   IsNotEmpty,
@@ -34,6 +35,7 @@ export class CreateMaterialDto {
   costPerUnit?: string | null;
 
   @IsArray()
+  @ArrayUnique()
   @IsUUID("4", { each: true })
   @IsOptional()
   serviceTypeIds?: string[];

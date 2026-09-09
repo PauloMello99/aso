@@ -11,6 +11,6 @@ ALTER TABLE "public"."materials" DROP CONSTRAINT IF EXISTS "materials_id_org_uq"
 ALTER TABLE "public"."service_types" DROP CONSTRAINT IF EXISTS "service_types_id_org_uq";
 --> statement-breakpoint
 
-DROP INDEX IF EXISTS "public"."materials_org_name_idx";
+DROP INDEX IF EXISTS "public"."materials_org_options_idx";
 --> statement-breakpoint
 DROP INDEX IF EXISTS "public"."customers_org_name_idx";

@@ -26,7 +26,14 @@ export const serviceTypes = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [unique().on(t.orgId, t.name)],
+  (t) => [
+    unique().on(t.orgId, t.name),
+    // Base para a FK composta (service_type_id, org_id) de
+    // material_service_types (migration 0072) — garante no banco que um
+    // vinculo so referencia tipo da PROPRIA org. NAO remover sem antes
+    // remover aquela FK.
+    unique("service_types_id_org_uq").on(t.id, t.orgId),
+  ],
 );
 
 export const materialCategories = pgTable(

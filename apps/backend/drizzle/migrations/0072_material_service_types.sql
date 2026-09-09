@@ -48,9 +48,17 @@ CREATE INDEX "material_service_types_service_type_idx" ON "public"."material_ser
 CREATE INDEX "material_service_types_org_idx" ON "public"."material_service_types" ("org_id");
 --> statement-breakpoint
 
--- Índices de apoio à busca dos endpoints /options (hoje inexistentes) usados
--- pelos formulários de material e cliente.
-CREATE INDEX "materials_org_name_idx" ON "public"."materials" ("org_id", "name");
+-- Índices de apoio aos endpoints /options (a tabela não tinha nenhum índice
+-- além da PK/FKs). Cada um cobre o ORDER BY do SEU endpoint:
+--   materials  → org_id, last_used_at DESC NULLS LAST, name
+--   customers  → org_id, name
+-- O filtro de busca (`ilike '%q%'`) NÃO é servido por btree — wildcard à
+-- esquerda inviabiliza o índice, e o projeto não tem pg_trgm. Isso é limitação
+-- aceita: a busca fica com seq scan escopado por organização, e o retorno é
+-- capado em 1000. Se aparecer organização grande o bastante para doer, a
+-- evolução é CREATE EXTENSION pg_trgm + índice GIN — decisão de infra, fora
+-- do escopo desta migration.
+CREATE INDEX "materials_org_options_idx" ON "public"."materials" ("org_id", "last_used_at" DESC NULLS LAST, "name");
 --> statement-breakpoint
 CREATE INDEX "customers_org_name_idx" ON "public"."customers" ("org_id", "name");
 --> statement-breakpoint

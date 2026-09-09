@@ -1,4 +1,5 @@
 ﻿import {
+  ArrayUnique,
   IsArray,
   IsBoolean,
   IsOptional,
@@ -35,6 +36,7 @@ export class UpdateMaterialDto {
   costPerUnit?: string | null;
 
   @IsArray()
+  @ArrayUnique()
   @IsUUID("4", { each: true })
   @IsOptional()
   serviceTypeIds?: string[];

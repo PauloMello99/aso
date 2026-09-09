@@ -6,37 +6,47 @@ import {
   numeric,
   boolean,
   unique,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { organizations } from "../organizations";
 import { materialCategories, serviceTypes } from "./lookup";
 
-export const materials = pgTable("materials", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id")
-    .notNull()
-    .references(() => organizations.id, { onDelete: "cascade" }),
-  categoryId: uuid("category_id").references(() => materialCategories.id, {
-    onDelete: "set null",
-  }),
-  name: text("name").notNull(),
-  stockQuantity: numeric("stock_quantity", { precision: 10, scale: 2 })
-    .notNull()
-    .default("0"),
-  minimumQuantity: numeric("minimum_quantity", { precision: 10, scale: 2 })
-    .notNull()
-    .default("0"),
-  costPerUnit: numeric("cost_per_unit", { precision: 10, scale: 2 }),
-  shareable: boolean("shareable").notNull().default(false),
-  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
-  archivedAt: timestamp("archived_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const materials = pgTable(
+  "materials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    categoryId: uuid("category_id").references(() => materialCategories.id, {
+      onDelete: "set null",
+    }),
+    name: text("name").notNull(),
+    stockQuantity: numeric("stock_quantity", { precision: 10, scale: 2 })
+      .notNull()
+      .default("0"),
+    minimumQuantity: numeric("minimum_quantity", { precision: 10, scale: 2 })
+      .notNull()
+      .default("0"),
+    costPerUnit: numeric("cost_per_unit", { precision: 10, scale: 2 }),
+    shareable: boolean("shareable").notNull().default(false),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    // Base para a FK composta (material_id, org_id) de material_service_types
+    // (migration 0072) — garante no banco que um vinculo so referencia
+    // material da PROPRIA org. NAO remover sem antes remover aquela FK.
+    unique("materials_id_org_uq").on(t.id, t.orgId),
+  ],
+);
 
 export const materialServiceTypes = pgTable(
   "material_service_types",
@@ -58,7 +68,12 @@ export const materialServiceTypes = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [unique().on(t.materialId, t.serviceTypeId)],
+  (t) => [
+    uniqueIndex("material_service_types_material_type_uq").on(
+      t.materialId,
+      t.serviceTypeId,
+    ),
+  ],
 );
 
 export const materialsRelations = relations(materials, ({ one, many }) => ({
