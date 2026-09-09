@@ -1,6 +1,7 @@
 ﻿import { Inject, Injectable } from "@nestjs/common";
 import { MaterialEntity, UpdateMaterialData } from "../../domain/material.entity";
 import { MaterialNotFoundException } from "../../domain/exceptions/material-not-found.exception";
+import { MaterialServiceTypeInvalidException } from "../../domain/exceptions/material-service-type-invalid.exception";
 import {
   IMaterialRepository,
   MATERIAL_REPOSITORY,
@@ -20,7 +21,32 @@ export class UpdateMaterialUseCase {
   ): Promise<MaterialEntity> {
     const existing = await this.materialRepo.findById(id, orgId);
     if (!existing) throw new MaterialNotFoundException(id);
-    return this.materialRepo.update(id, data);
+
+    if (data.serviceTypeIds !== undefined && data.serviceTypeIds.length > 0) {
+      const count = await this.materialRepo.countServiceTypesInOrg(
+        orgId,
+        data.serviceTypeIds,
+      );
+      if (count !== data.serviceTypeIds.length) {
+        throw new MaterialServiceTypeInvalidException();
+      }
+    }
+
+    // update primeiro, setServiceTypes depois: se o update falhar, os
+    // vínculos não são tocados. (O request inteiro já roda numa transação de
+    // RLS — isto é defesa em profundidade / clareza de intenção, não a única
+    // garantia de atomicidade.)
+    const updated = await this.materialRepo.update(id, data);
+
+    if (data.serviceTypeIds !== undefined) {
+      await this.materialRepo.setServiceTypes(id, orgId, data.serviceTypeIds);
+    }
+
+    const serviceTypeIds =
+      data.serviceTypeIds ??
+      (await this.materialRepo.findServiceTypeIdsByMaterial(id, orgId));
+
+    return MaterialEntity.create({ ...updated, serviceTypeIds });
   }
 }
 

@@ -157,6 +157,7 @@ export function StockPage({ orgId }: StockPageProps) {
       shareable: values.shareable ?? false,
       minimumQuantity: values.minimumQuantity || undefined,
       costPerUnit: values.costPerUnit || null,
+      serviceTypeIds: values.serviceTypeIds ?? [],
     }
     if (activeMaterial) {
       await updateMaterial(activeMaterial.id, body)
@@ -348,6 +349,7 @@ export function StockPage({ orgId }: StockPageProps) {
       <MaterialForm
         open={dialogs.materialForm}
         onOpenChange={(open) => !open && closeDialog("materialForm")}
+        orgId={orgId}
         material={activeMaterial}
         onSubmit={handleMaterialSubmit}
       />

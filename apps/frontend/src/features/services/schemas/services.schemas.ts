@@ -27,6 +27,12 @@ export const serviceMaterialLineSchema = z.object({
       "Informe uma quantidade inteira (sem casas decimais)",
     ),
   finished: z.boolean().optional(),
+  // Snapshot do material no momento em que a linha foi adicionada — a lista
+  // de materiais agora é resultado de busca assíncrona, então não dá mais
+  // para resolver nome/estoque via materials.find() sobre uma lista
+  // completa. Nunca enviado à API (toCreateBody monta o payload explicitamente).
+  name: z.string().optional(),
+  stockQuantity: z.string().optional(),
 })
 
 export const serviceSchema = z.object({

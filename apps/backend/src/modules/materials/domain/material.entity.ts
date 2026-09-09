@@ -16,6 +16,7 @@ export interface MaterialEntityProps {
   archivedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  serviceTypeIds?: string[];
 }
 
 export interface CreateMaterialData {
@@ -25,6 +26,7 @@ export interface CreateMaterialData {
   minimumQuantity?: string;
   costPerUnit?: string | null;
   shareable?: boolean;
+  serviceTypeIds?: string[];
 }
 
 export interface UpdateMaterialData {
@@ -33,6 +35,7 @@ export interface UpdateMaterialData {
   minimumQuantity?: string;
   costPerUnit?: string | null;
   shareable?: boolean;
+  serviceTypeIds?: string[];
 }
 
 export class MaterialEntity {
@@ -48,6 +51,7 @@ export class MaterialEntity {
   readonly archivedAt: Date | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
+  readonly serviceTypeIds?: string[];
 
   private constructor(props: MaterialEntityProps) {
     this.id = props.id;
@@ -62,6 +66,7 @@ export class MaterialEntity {
     this.archivedAt = props.archivedAt;
     this.createdAt = props.createdAt;
     this.updatedAt = props.updatedAt;
+    this.serviceTypeIds = props.serviceTypeIds;
   }
 
   get isArchived(): boolean {

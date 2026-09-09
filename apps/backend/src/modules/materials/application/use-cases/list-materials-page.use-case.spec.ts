@@ -39,6 +39,10 @@ function buildFakeMaterialRepo(
     setArchived: jest.fn(),
     isLinkedToService: jest.fn(),
     delete: jest.fn(),
+    findServiceTypeIdsByMaterial: jest.fn(),
+    findServiceTypeIdsByMaterials: jest.fn().mockResolvedValue({}),
+    setServiceTypes: jest.fn(),
+    countServiceTypesInOrg: jest.fn(),
     ...overrides,
   } as unknown as jest.Mocked<IMaterialRepository>;
 }
@@ -248,5 +252,51 @@ describe("ListMaterialsPageUseCase", () => {
     const emptyResult = await emptyUseCase.execute("org-1");
 
     expect(emptyResult.pages).toBe(0);
+  });
+
+  it("busca os vínculos em UMA chamada em lote com todos os ids da página e agrega por material", async () => {
+    const materials = [
+      buildMaterial({ id: "mat-1" }),
+      buildMaterial({ id: "mat-2" }),
+      buildMaterial({ id: "mat-3" }),
+    ];
+    const materialRepo = buildFakeMaterialRepo({
+      findPageByOrg: jest
+        .fn()
+        .mockResolvedValue({ rows: materials, total: 3 }),
+      findServiceTypeIdsByMaterials: jest.fn().mockResolvedValue({
+        "mat-1": ["svc-1", "svc-2"],
+        "mat-2": [],
+        "mat-3": ["svc-3"],
+      }),
+    });
+    const memberRepo = buildFakeMemberRepo();
+    const useCase = new ListMaterialsPageUseCase(materialRepo, memberRepo);
+
+    const result = await useCase.execute("org-1");
+
+    expect(materialRepo.findServiceTypeIdsByMaterials).toHaveBeenCalledTimes(1);
+    expect(materialRepo.findServiceTypeIdsByMaterials).toHaveBeenCalledWith(
+      "org-1",
+      ["mat-1", "mat-2", "mat-3"],
+    );
+    expect(result.data[0]?.serviceTypeIds).toEqual(["svc-1", "svc-2"]);
+    expect(result.data[1]?.serviceTypeIds).toEqual([]);
+    expect(result.data[2]?.serviceTypeIds).toEqual(["svc-3"]);
+  });
+
+  it("material sem vínculo recebe serviceTypeIds: [] (nunca undefined)", async () => {
+    const materialRepo = buildFakeMaterialRepo({
+      findPageByOrg: jest
+        .fn()
+        .mockResolvedValue({ rows: [buildMaterial({ id: "mat-1" })], total: 1 }),
+      findServiceTypeIdsByMaterials: jest.fn().mockResolvedValue({}),
+    });
+    const memberRepo = buildFakeMemberRepo();
+    const useCase = new ListMaterialsPageUseCase(materialRepo, memberRepo);
+
+    const result = await useCase.execute("org-1");
+
+    expect(result.data[0]?.serviceTypeIds).toEqual([]);
   });
 });

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Plus } from "lucide-react"
@@ -29,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/components/ui/select"
+import { AsyncCombobox } from "@/shared/components/ui/async-combobox"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Textarea } from "@/shared/components/ui/textarea"
@@ -44,7 +45,10 @@ import {
   SendAnamnesisInviteDialog,
   useAnamnesisPromptState,
 } from "@/features/anamnesis"
+import { useCustomerOptions } from "@/features/clients/hooks/use-customer-options"
 import type { CustomerOption } from "@/features/clients/types"
+import { useDebouncedValue } from "@/shared/hooks/use-debounced-value"
+import { useStickyOption } from "@/shared/hooks/use-async-options"
 import type { Member } from "@/features/organizations/types"
 import type { Material } from "@/features/stock/types"
 import type { MaterialFormValues } from "@/features/stock/schemas/stock.schemas"
@@ -76,6 +80,18 @@ const AGE_UNKNOWN_MESSAGE: ServiceErrorMessage = {
   variant: "warning",
 }
 
+// Estado indeterminado: o cliente já está selecionado (ex.: edição recém
+// aberta) mas seus dados completos (incluindo data de nascimento) ainda não
+// chegaram — nem da query de opções nem do seed da própria entidade. Nunca
+// tratar "não resolvido" como "sem restrição": omitir o aviso aqui seria uma
+// falha aberta num controle de domínio (verificação de maioridade).
+const AGE_VERIFICATION_PENDING_MESSAGE: ServiceErrorMessage = {
+  title: "Verificação de idade pendente",
+  description:
+    "Este tipo de serviço exige maioridade, mas os dados completos do cliente selecionado ainda não foram carregados. Aguarde um instante ou busque o cliente pelo nome no campo acima antes de finalizar o lançamento.",
+  variant: "warning",
+}
+
 const TYPE_CREATE = "__create__"
 
 function emptyValues(): ServiceFormValues {
@@ -98,10 +114,8 @@ interface ServiceFormProps {
   orgId: string
   service?: Service | null
   isOwner: boolean
-  customers: CustomerOption[]
   members: Member[]
   serviceTypes: ServiceType[]
-  materials: Material[]
   onCreateType: (name: string) => Promise<ServiceType>
   onCreateMaterial: (values: MaterialFormValues) => Promise<Material>
   onSubmit: (values: ServiceFormValues) => Promise<void>
@@ -113,10 +127,8 @@ export function ServiceForm({
   orgId,
   service,
   isOwner,
-  customers,
   members,
   serviceTypes,
-  materials,
   onCreateType,
   onCreateMaterial,
   onSubmit,
@@ -163,14 +175,16 @@ export function ServiceForm({
     } catch (err) {
       if (err instanceof ApiError && err.code === "INSUFFICIENT_STOCK") {
         const materialId = err.details?.materialId
-        const mat = materials.find((m) => m.id === materialId)
         const index = values.materials.findIndex(
           (line) => line.materialId === materialId,
         )
-        if (mat) {
+        // O nome vem do snapshot guardado na própria linha (materials não é
+        // mais uma lista completa carregada no formulário).
+        const line = index >= 0 ? values.materials[index] : undefined
+        if (line) {
           const available = err.details?.available ?? "0"
           const requested = err.details?.requested ?? "0"
-          const message = `Estoque insuficiente de "${mat.name}": disponível ${available}, necessário ${requested}.`
+          const message = `Estoque insuficiente de "${line.name ?? "material"}": disponível ${available}, necessário ${requested}.`
           setSubmitError({
             title: "Estoque insuficiente",
             description: message,
@@ -197,10 +211,41 @@ export function ServiceForm({
   const watchedServiceTypeId = form.watch("serviceTypeId")
   const watchedPerformedAt = form.watch("performedAt")
 
+  const [customerSearch, setCustomerSearch] = useState("")
+  const debouncedCustomerSearch = useDebouncedValue(customerSearch, 250)
+  const {
+    options: customerOptions,
+    truncated: customersTruncated,
+    loading: customersLoading,
+    isFetching: customersFetching,
+    error: customersError,
+    refetch: refetchCustomerOptions,
+  } = useCustomerOptions(orgId, { q: debouncedCustomerSearch })
+  // Seed com o que a própria entidade já carrega (customerId/customerName) —
+  // sem isso, em edição, o cliente só aparece resolvido depois que a query
+  // "fria" do formulário responder (ou nunca, se ele não estiver entre os
+  // primeiros 1000 sem busca). Não tem birthDate, então NÃO serve para a
+  // checagem de idade abaixo — só para exibição no trigger — daí o
+  // rastreamento de `customerIsSeedOnly`.
+  const customerSeed = useMemo<CustomerOption | undefined>(() => {
+    if (!service?.customerId) return undefined
+    return {
+      id: service.customerId,
+      name: service.customerName ?? "Cliente selecionado",
+      birthDate: "",
+    }
+  }, [service?.customerId, service?.customerName])
+  const selectedCustomer = useStickyOption(
+    customerOptions,
+    watchedCustomerId || undefined,
+    (c) => c.id,
+    customerSeed,
+  )
+  const customerIsSeedOnly = !!customerSeed && selectedCustomer === customerSeed
+
   const selectedServiceType = serviceTypes.find(
     (t) => t.id === watchedServiceTypeId,
   )
-  const selectedCustomer = customers.find((c) => c.id === watchedCustomerId)
 
   const {
     prompt: anamnesisPrompt,
@@ -225,15 +270,21 @@ export function ServiceForm({
   }, [linkableResponseId, anamnesisPromptLoading, service, form])
 
   let ageWarning: ServiceErrorMessage | null = null
-  if (selectedServiceType?.requiresAgeVerification && selectedCustomer) {
-    const check = checkAgeRequirement(
-      selectedCustomer.birthDate,
-      watchedPerformedAt ?? "",
-    )
-    if (check === "minor") {
-      ageWarning = AGE_VERIFICATION_REQUIRED_MESSAGE
-    } else if (check === "unknown") {
-      ageWarning = AGE_UNKNOWN_MESSAGE
+  if (selectedServiceType?.requiresAgeVerification && watchedCustomerId) {
+    if (!selectedCustomer || customerIsSeedOnly) {
+      // Cliente selecionado mas ainda não resolvido (seed sem birthDate ou
+      // nenhum dado disponível) — nunca tratar como "sem restrição".
+      ageWarning = AGE_VERIFICATION_PENDING_MESSAGE
+    } else {
+      const check = checkAgeRequirement(
+        selectedCustomer.birthDate,
+        watchedPerformedAt ?? "",
+      )
+      if (check === "minor") {
+        ageWarning = AGE_VERIFICATION_REQUIRED_MESSAGE
+      } else if (check === "unknown") {
+        ageWarning = AGE_UNKNOWN_MESSAGE
+      }
     }
   }
 
@@ -270,20 +321,26 @@ export function ServiceForm({
                       <FormLabel>
                         Cliente <span className="text-destructive">*</span>
                       </FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o cliente" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {customers.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <AsyncCombobox
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          options={customerOptions}
+                          selectedOption={selectedCustomer}
+                          loading={customersLoading}
+                          isFetching={customersFetching}
+                          truncated={customersTruncated}
+                          error={customersError}
+                          onRetry={refetchCustomerOptions}
+                          search={customerSearch}
+                          onSearchChange={setCustomerSearch}
+                          getOptionId={(c) => c.id}
+                          getOptionLabel={(c) => c.name}
+                          placeholder="Selecione o cliente"
+                          searchPlaceholder="Buscar cliente…"
+                          emptyLabel="Nenhum cliente encontrado."
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -452,7 +509,8 @@ export function ServiceForm({
                     Materiais consumidos
                   </h3>
                   <MaterialLines
-                    materials={materials}
+                    orgId={orgId}
+                    serviceTypeId={watchedServiceTypeId}
                     onCreateMaterial={onCreateMaterial}
                   />
                   {(form.formState.errors.materials?.root?.message ??

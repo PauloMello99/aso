@@ -195,4 +195,43 @@ describe("ListMaterialOptionsUseCase", () => {
     expect(result.data).toHaveLength(3);
     expect(result.truncated).toBe(false);
   });
+
+  it("repassa q e serviceTypeId ao repositório e mantém truncated com 1001 linhas", async () => {
+    const materialRepo = buildFakeMaterialRepo({
+      findOptionsByOrg: jest
+        .fn()
+        .mockResolvedValue(buildMaterials(MAX_OPTIONS + 1)),
+    });
+    const memberRepo = buildFakeMemberRepo();
+    const useCase = new ListMaterialOptionsUseCase(materialRepo, memberRepo);
+
+    const result = await useCase.execute("org-1", undefined, {
+      q: "tinta",
+      serviceTypeId: "service-1",
+    });
+
+    expect(materialRepo.findOptionsByOrg).toHaveBeenCalledWith("org-1", {
+      limit: MAX_OPTIONS,
+      search: "tinta",
+      serviceTypeId: "service-1",
+    });
+    expect(result.data).toHaveLength(MAX_OPTIONS);
+    expect(result.truncated).toBe(true);
+  });
+
+  it("sem q/serviceTypeId, envia search e serviceTypeId como undefined", async () => {
+    const materialRepo = buildFakeMaterialRepo({
+      findOptionsByOrg: jest.fn().mockResolvedValue(buildMaterials(3)),
+    });
+    const memberRepo = buildFakeMemberRepo();
+    const useCase = new ListMaterialOptionsUseCase(materialRepo, memberRepo);
+
+    await useCase.execute("org-1");
+
+    expect(materialRepo.findOptionsByOrg).toHaveBeenCalledWith("org-1", {
+      limit: MAX_OPTIONS,
+      search: undefined,
+      serviceTypeId: undefined,
+    });
+  });
 });
