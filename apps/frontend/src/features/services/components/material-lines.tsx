@@ -43,6 +43,8 @@ export function MaterialLines({
     truncated,
     loading,
     isFetching,
+    error,
+    refetch: refetchMaterialOptions,
   } = useMaterialOptions(orgId, { q: debouncedSearch, serviceTypeId })
 
   function appendMaterial(mat: Material) {
@@ -150,6 +152,8 @@ export function MaterialLines({
         loading={loading}
         isFetching={isFetching}
         truncated={truncated}
+        error={error}
+        onRetry={refetchMaterialOptions}
         search={search}
         onSearchChange={setSearch}
         getOptionId={(m) => m.id}

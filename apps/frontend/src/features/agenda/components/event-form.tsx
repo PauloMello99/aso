@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { addYears, format, parseISO } from "date-fns"
@@ -109,6 +109,8 @@ export function EventForm({
     truncated: customersTruncated,
     loading: customersLoading,
     isFetching: customersFetching,
+    error: customersError,
+    refetch: refetchCustomerOptions,
   } = useCustomerOptions(orgId, { q: debouncedCustomerSearch })
   const activeMembers = members.filter((m) => m.enabled)
 
@@ -120,11 +122,31 @@ export function EventForm({
   const type = form.watch("type")
   const allDay = form.watch("allDay")
   const watchedCustomerId = form.watch("customerId")
-  const customerComboboxOptions = [NO_CUSTOMER_OPTION, ...customers]
+  // Some a busca ativa oculta "Sem cliente" — do contrário ela é sempre a
+  // opção de índice 0 e sequestra o realinhamento de activeIndex do
+  // AsyncCombobox: digitar uma busca e apertar Enter selecionaria "Sem
+  // cliente" em vez do primeiro resultado (value continua "none" até uma
+  // escolha real ser feita).
+  const customerComboboxOptions = customerSearch
+    ? customers
+    : [NO_CUSTOMER_OPTION, ...customers]
+  // Seed com o próprio evento em edição — o backend não retorna
+  // customerName no calendário (CalendarEvent não tem esse campo), então o
+  // seed não tem um nome real; ainda assim é melhor que "Sem cliente"
+  // (mentira) enquanto o registro completo não resolve via customers.
+  const customerSeed = useMemo<CustomerOption | undefined>(() => {
+    if (!event?.customerId) return undefined
+    return {
+      id: event.customerId,
+      name: "Cliente selecionado (carregando…)",
+      birthDate: "",
+    }
+  }, [event?.customerId])
   const stickyCustomer = useStickyOption(
     customers,
     watchedCustomerId || undefined,
     (c) => c.id,
+    customerSeed,
   )
   const selectedCustomerOption = watchedCustomerId
     ? stickyCustomer
@@ -303,6 +325,8 @@ export function EventForm({
                           loading={customersLoading}
                           isFetching={customersFetching}
                           truncated={customersTruncated}
+                          error={customersError}
+                          onRetry={refetchCustomerOptions}
                           search={customerSearch}
                           onSearchChange={setCustomerSearch}
                           getOptionId={(c) => c.id}

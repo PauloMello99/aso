@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Plus } from "lucide-react"
@@ -46,6 +46,7 @@ import {
   useAnamnesisPromptState,
 } from "@/features/anamnesis"
 import { useCustomerOptions } from "@/features/clients/hooks/use-customer-options"
+import type { CustomerOption } from "@/features/clients/types"
 import { useDebouncedValue } from "@/shared/hooks/use-debounced-value"
 import { useStickyOption } from "@/shared/hooks/use-async-options"
 import type { Member } from "@/features/organizations/types"
@@ -76,6 +77,18 @@ const AGE_UNKNOWN_MESSAGE: ServiceErrorMessage = {
   title: "Data de nascimento não informada",
   description:
     "Este tipo de serviço exige maioridade e o cadastro do cliente não tem data de nascimento válida. Preencha a data no cadastro antes de lançar o serviço.",
+  variant: "warning",
+}
+
+// Estado indeterminado: o cliente já está selecionado (ex.: edição recém
+// aberta) mas seus dados completos (incluindo data de nascimento) ainda não
+// chegaram — nem da query de opções nem do seed da própria entidade. Nunca
+// tratar "não resolvido" como "sem restrição": omitir o aviso aqui seria uma
+// falha aberta num controle de domínio (verificação de maioridade).
+const AGE_VERIFICATION_PENDING_MESSAGE: ServiceErrorMessage = {
+  title: "Verificação de idade pendente",
+  description:
+    "Este tipo de serviço exige maioridade, mas os dados completos do cliente selecionado ainda não foram carregados. Aguarde um instante ou busque o cliente pelo nome no campo acima antes de finalizar o lançamento.",
   variant: "warning",
 }
 
@@ -205,12 +218,30 @@ export function ServiceForm({
     truncated: customersTruncated,
     loading: customersLoading,
     isFetching: customersFetching,
+    error: customersError,
+    refetch: refetchCustomerOptions,
   } = useCustomerOptions(orgId, { q: debouncedCustomerSearch })
+  // Seed com o que a própria entidade já carrega (customerId/customerName) —
+  // sem isso, em edição, o cliente só aparece resolvido depois que a query
+  // "fria" do formulário responder (ou nunca, se ele não estiver entre os
+  // primeiros 1000 sem busca). Não tem birthDate, então NÃO serve para a
+  // checagem de idade abaixo — só para exibição no trigger — daí o
+  // rastreamento de `customerIsSeedOnly`.
+  const customerSeed = useMemo<CustomerOption | undefined>(() => {
+    if (!service?.customerId) return undefined
+    return {
+      id: service.customerId,
+      name: service.customerName ?? "Cliente selecionado",
+      birthDate: "",
+    }
+  }, [service?.customerId, service?.customerName])
   const selectedCustomer = useStickyOption(
     customerOptions,
     watchedCustomerId || undefined,
     (c) => c.id,
+    customerSeed,
   )
+  const customerIsSeedOnly = !!customerSeed && selectedCustomer === customerSeed
 
   const selectedServiceType = serviceTypes.find(
     (t) => t.id === watchedServiceTypeId,
@@ -239,15 +270,21 @@ export function ServiceForm({
   }, [linkableResponseId, anamnesisPromptLoading, service, form])
 
   let ageWarning: ServiceErrorMessage | null = null
-  if (selectedServiceType?.requiresAgeVerification && selectedCustomer) {
-    const check = checkAgeRequirement(
-      selectedCustomer.birthDate,
-      watchedPerformedAt ?? "",
-    )
-    if (check === "minor") {
-      ageWarning = AGE_VERIFICATION_REQUIRED_MESSAGE
-    } else if (check === "unknown") {
-      ageWarning = AGE_UNKNOWN_MESSAGE
+  if (selectedServiceType?.requiresAgeVerification && watchedCustomerId) {
+    if (!selectedCustomer || customerIsSeedOnly) {
+      // Cliente selecionado mas ainda não resolvido (seed sem birthDate ou
+      // nenhum dado disponível) — nunca tratar como "sem restrição".
+      ageWarning = AGE_VERIFICATION_PENDING_MESSAGE
+    } else {
+      const check = checkAgeRequirement(
+        selectedCustomer.birthDate,
+        watchedPerformedAt ?? "",
+      )
+      if (check === "minor") {
+        ageWarning = AGE_VERIFICATION_REQUIRED_MESSAGE
+      } else if (check === "unknown") {
+        ageWarning = AGE_UNKNOWN_MESSAGE
+      }
     }
   }
 
@@ -293,6 +330,8 @@ export function ServiceForm({
                           loading={customersLoading}
                           isFetching={customersFetching}
                           truncated={customersTruncated}
+                          error={customersError}
+                          onRetry={refetchCustomerOptions}
                           search={customerSearch}
                           onSearchChange={setCustomerSearch}
                           getOptionId={(c) => c.id}

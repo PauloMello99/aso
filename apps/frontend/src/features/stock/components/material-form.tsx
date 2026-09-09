@@ -26,6 +26,9 @@ import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Switch } from "@/shared/components/ui/switch";
 import { Checkbox } from "@/shared/components/ui/checkbox";
+// Import profundo (não via barrel "@/features/services") de propósito: o
+// barrel não exporta useServiceTypes justamente para evitar o ciclo
+// services -> stock -> services (stock também é consumido por services).
 import { useServiceTypes } from "@/features/services/hooks/use-service-types";
 import {
   materialSchema,

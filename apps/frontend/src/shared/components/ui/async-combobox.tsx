@@ -8,9 +8,12 @@ import {
   PopoverTrigger,
 } from "@/shared/components/ui/popover"
 import { Input } from "@/shared/components/ui/input"
+import { Button } from "@/shared/components/ui/button"
 import { cn } from "@/shared/lib/utils"
+import { DEFAULT_OPTIONS_TRUNCATION_LIMIT } from "@/shared/lib/options-query"
 
 interface AsyncComboboxProps<T> {
+  id?: string
   value: string | undefined
   onValueChange: (value: string) => void
   options: T[]
@@ -18,6 +21,9 @@ interface AsyncComboboxProps<T> {
   loading: boolean
   isFetching: boolean
   truncated: boolean
+  truncatedLimit?: number
+  error?: string | null
+  onRetry?: () => void
   search: string
   onSearchChange: (search: string) => void
   getOptionId: (option: T) => string
@@ -28,9 +34,12 @@ interface AsyncComboboxProps<T> {
   emptyLabel?: string
   disabled?: boolean
   footer?: React.ReactNode
+  "aria-describedby"?: string
+  "aria-invalid"?: React.AriaAttributes["aria-invalid"]
 }
 
 export function AsyncCombobox<T>({
+  id,
   value,
   onValueChange,
   options,
@@ -38,6 +47,9 @@ export function AsyncCombobox<T>({
   loading,
   isFetching,
   truncated,
+  truncatedLimit = DEFAULT_OPTIONS_TRUNCATION_LIMIT,
+  error,
+  onRetry,
   search,
   onSearchChange,
   getOptionId,
@@ -48,11 +60,15 @@ export function AsyncCombobox<T>({
   emptyLabel = "Nenhum resultado.",
   disabled,
   footer,
+  "aria-describedby": ariaDescribedBy,
+  "aria-invalid": ariaInvalid,
 }: AsyncComboboxProps<T>) {
   const [open, setOpen] = React.useState(false)
   const [activeIndex, setActiveIndex] = React.useState(-1)
   const inputRef = React.useRef<HTMLInputElement>(null)
   const listRef = React.useRef<HTMLUListElement>(null)
+  const generatedId = React.useId()
+  const listboxId = `${generatedId}-listbox`
 
   // Sempre que a lista (busca) ou o valor mudam, realinha o item ativo com o
   // selecionado (ou o primeiro resultado) para que Enter tenha um alvo óbvio.
@@ -94,12 +110,21 @@ export function AsyncCombobox<T>({
     }
   }
 
+  const showingOptions = !loading && !error && options.length > 0
+  const activeOptionId =
+    showingOptions && activeIndex >= 0 && activeIndex < options.length
+      ? `${listboxId}-opt-${activeIndex}`
+      : undefined
+
   return (
     <Popover open={open} onOpenChange={(o) => !disabled && setOpen(o)}>
       <PopoverTrigger asChild>
         <button
           type="button"
+          id={id}
           disabled={disabled}
+          aria-describedby={ariaDescribedBy}
+          aria-invalid={ariaInvalid}
           className={cn(
             "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-foreground/[0.08] bg-foreground/[0.04] px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-colors",
             "focus:border-foreground/20 focus:ring-1 focus:ring-foreground/10",
@@ -130,6 +155,11 @@ export function AsyncCombobox<T>({
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/30" />
           <Input
             ref={inputRef}
+            role="combobox"
+            aria-expanded={open}
+            aria-controls={listboxId}
+            aria-autocomplete="list"
+            aria-activedescendant={activeOptionId}
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -141,10 +171,24 @@ export function AsyncCombobox<T>({
           )}
         </div>
 
-        <ul ref={listRef} role="listbox" className="max-h-64 overflow-y-auto p-1">
+        <ul
+          ref={listRef}
+          id={listboxId}
+          role="listbox"
+          className="max-h-64 overflow-y-auto p-1"
+        >
           {loading ? (
             <li className="px-2 py-6 text-center text-sm text-foreground/40">
               Carregando…
+            </li>
+          ) : error ? (
+            <li className="flex flex-col items-center gap-2 px-2 py-6 text-center text-sm text-destructive">
+              <span>{error}</span>
+              {onRetry && (
+                <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+                  Tentar novamente
+                </Button>
+              )}
             </li>
           ) : options.length === 0 ? (
             <li className="px-2 py-6 text-center text-sm text-foreground/40">
@@ -152,12 +196,13 @@ export function AsyncCombobox<T>({
             </li>
           ) : (
             options.map((option, index) => {
-              const id = getOptionId(option)
-              const isSelected = id === value
+              const optionId = getOptionId(option)
+              const isSelected = optionId === value
               const isActive = index === activeIndex
               return (
                 <li
-                  key={id}
+                  key={optionId}
+                  id={`${listboxId}-opt-${index}`}
                   data-index={index}
                   role="option"
                   aria-selected={isSelected}
@@ -180,7 +225,7 @@ export function AsyncCombobox<T>({
 
         {truncated && (
           <p className="border-t border-foreground/[0.06] px-2 py-1.5 text-xs text-foreground/40">
-            Mostrando os primeiros 1000 — refine a busca
+            Mostrando os primeiros {truncatedLimit} — refine a busca
           </p>
         )}
 

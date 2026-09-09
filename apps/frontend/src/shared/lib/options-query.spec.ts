@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { buildOptionsQuery } from "./options-query"
+import { buildOptionsQuery, normalizeOptionsParams } from "./options-query"
 
 describe("buildOptionsQuery", () => {
   it("returns empty string when there are no params", () => {
@@ -28,5 +28,30 @@ describe("buildOptionsQuery", () => {
 
   it("URL-encodes values", () => {
     expect(buildOptionsQuery({ q: "a b&c" })).toBe("?q=a%20b%26c")
+  })
+})
+
+describe("normalizeOptionsParams", () => {
+  it("returns an equivalent (same cardinality) object for equivalent querystrings", () => {
+    // Regressão: options(orgId) e options(orgId, { q: "" }) geravam chaves
+    // diferentes ({} vs { q: "" }) para a MESMA URL, duplicando o cache.
+    expect(normalizeOptionsParams({})).toEqual(
+      normalizeOptionsParams({ q: undefined }),
+    )
+    expect(normalizeOptionsParams({ q: "" })).toEqual(
+      normalizeOptionsParams({}),
+    )
+  })
+
+  it("drops undefined and empty string values", () => {
+    expect(normalizeOptionsParams({ q: undefined, serviceTypeId: "" })).toEqual(
+      {},
+    )
+  })
+
+  it("keeps non-empty values untouched", () => {
+    expect(normalizeOptionsParams({ q: "abc", serviceTypeId: "svc-1" })).toEqual(
+      { q: "abc", serviceTypeId: "svc-1" },
+    )
   })
 })

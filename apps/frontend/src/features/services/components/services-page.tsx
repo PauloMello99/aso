@@ -33,6 +33,7 @@ import { cashierErrorMessage } from "@/features/cashier/lib/error-messages"
 import { useServices } from "../hooks/use-services"
 import { useServiceTypes } from "../hooks/use-service-types"
 import { toCorrectPaymentBody } from "../lib/correct-payment-body"
+import { toCreateBody, toUpdateBody } from "../lib/service-body"
 import { ServiceList } from "./service-list"
 import { ServiceForm } from "./service-form"
 import { ServicePaymentCorrectionSheet } from "./service-payment-correction-sheet"
@@ -66,45 +67,6 @@ const EXPORT_COLUMNS = [
   { key: "paymentMethod", label: "Método" },
   { key: "status", label: "Status" },
 ]
-
-function toCreateBody(values: ServiceFormValues) {
-  return {
-    customerId: values.customerId,
-    serviceTypeId: values.serviceTypeId || null,
-    performedBy: values.performedBy || null,
-    description: values.description || null,
-    anamnesisResponseId: values.anamnesisResponseId,
-    amountCents: parseReaisToCents(values.amount),
-    paymentMethod: values.paymentMethod,
-    paymentStatus: values.paymentStatus,
-    performedAt: values.performedAt
-      ? new Date(values.performedAt).toISOString()
-      : undefined,
-    materials: values.materials.map((line) =>
-      line.shareable
-        ? { materialId: line.materialId, finished: !!line.finished }
-        : {
-            materialId: line.materialId,
-            quantity: line.quantity
-              ? Number(line.quantity.replace(",", "."))
-              : 0,
-          },
-    ),
-  }
-}
-
-function toUpdateBody(values: ServiceFormValues) {
-  return {
-    customerId: values.customerId,
-    serviceTypeId: values.serviceTypeId || null,
-    performedBy: values.performedBy || null,
-    description: values.description || null,
-    anamnesisResponseId: values.anamnesisResponseId,
-    performedAt: values.performedAt
-      ? new Date(values.performedAt).toISOString()
-      : undefined,
-  }
-}
 
 export function ServicesPage({ orgId }: ServicesPageProps) {
   const { org } = useCurrentOrg()
