@@ -45,6 +45,7 @@ import {
   resolveExportFormat,
 } from "../../../common/csv/csv.util";
 import { parsePageParam } from "../../../common/pagination/pagination";
+import { sanitizeSearchQuery } from "../../../common/lib/query-string.util";
 import { ListStockMovementsUseCase } from "../application/use-cases/list-stock-movements.use-case";
 import { RestockMaterialUseCase } from "../application/use-cases/restock-material.use-case";
 import { UpdateMaterialUseCase } from "../application/use-cases/update-material.use-case";
@@ -115,8 +116,14 @@ export class MaterialsController {
   async options(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @CurrentUser() user: AuthUser,
+    @Query("q") q?: string,
+    @Query("serviceTypeId", new ParseUUIDPipe({ optional: true }))
+    serviceTypeId?: string,
   ) {
-    return this.listMaterialOptions.execute(orgId, user.id);
+    return this.listMaterialOptions.execute(orgId, user.id, {
+      q: sanitizeSearchQuery(q),
+      serviceTypeId: serviceTypeId || undefined,
+    });
   }
 
   @Get()
@@ -140,7 +147,7 @@ export class MaterialsController {
       {
         categoryId,
         lowStockOnly: lowStock === "true",
-        name: q || undefined,
+        name: sanitizeSearchQuery(q),
         archived: archived === "true",
         shareable:
           shareable === "true"
@@ -179,7 +186,7 @@ export class MaterialsController {
       {
         categoryId: categoryId || undefined,
         lowStockOnly: lowStock === "true",
-        name: q || undefined,
+        name: sanitizeSearchQuery(q),
         archived: archived === "true",
         shareable:
           shareable === "true"

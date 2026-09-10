@@ -37,6 +37,7 @@ export function toMaterialListItemView(
     archivedAt,
     createdAt,
     updatedAt,
+    serviceTypeIds,
   } = material;
   return {
     id,
@@ -50,6 +51,7 @@ export function toMaterialListItemView(
     archivedAt,
     createdAt,
     updatedAt,
+    serviceTypeIds,
   };
 }
 

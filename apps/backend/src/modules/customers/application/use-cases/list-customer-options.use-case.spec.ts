@@ -78,6 +78,20 @@ describe("ListCustomerOptionsUseCase", () => {
     expect(customerRepo.findOptionsByOrg).toHaveBeenCalledWith("org-1", {
       enabledOnly: true,
       limit: MAX_OPTIONS,
+      search: undefined,
+    });
+  });
+
+  it("repassa q como search preservando enabledOnly: true", async () => {
+    const customerRepo = buildFakeCustomerRepo();
+    const useCase = new ListCustomerOptionsUseCase(customerRepo);
+
+    await useCase.execute("org-1", { q: "maria" });
+
+    expect(customerRepo.findOptionsByOrg).toHaveBeenCalledWith("org-1", {
+      enabledOnly: true,
+      limit: MAX_OPTIONS,
+      search: "maria",
     });
   });
 });
