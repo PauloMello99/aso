@@ -25,7 +25,7 @@ import {
   TableRow,
 } from "@/shared/components/ui/table"
 import { cn } from "@/shared/lib/utils"
-import { formatBRL } from "../lib/money"
+import { useMoneyFormatter } from "@/shared/hooks/use-money-formatter"
 import {
   PAYMENT_METHOD_LABELS,
   type Transaction,
@@ -113,6 +113,7 @@ export function StatusBadge({ view }: { view: TransactionView }) {
 }
 
 export function AmountCell({ t, struck }: { t: Transaction; struck: boolean }) {
+  const money = useMoneyFormatter()
   const isIncome = t.type === "income"
   return (
     <span
@@ -122,7 +123,7 @@ export function AmountCell({ t, struck }: { t: Transaction; struck: boolean }) {
         !struck && (isIncome ? "text-success" : "text-destructive"),
       )}
     >
-      {isIncome ? "+" : "−"} {formatBRL(t.netCents)}
+      {isIncome ? "+" : "−"} {money(t.netCents)}
     </span>
   )
 }
@@ -138,6 +139,7 @@ function MobileCard({
   onCorrect: (v: TransactionView) => void
   canManage: boolean
 }) {
+  const money = useMoneyFormatter()
   const t = view.entity
   const struck = view.reversed
   const isIncome = t.type === "income"
@@ -173,7 +175,7 @@ function MobileCard({
         <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-foreground/40">
           <span>{PAYMENT_METHOD_LABELS[t.paymentMethod]}</span>
           <span>{formatDate(t.transactedAt)}</span>
-          {t.feeCents > 0 && <span>taxa {formatBRL(t.feeCents)}</span>}
+          {t.feeCents > 0 && <span>taxa {money(t.feeCents)}</span>}
         </div>
         <div className="mt-2">
           <AmountCell t={t} struck={struck} />
@@ -193,6 +195,7 @@ export function TransactionList({
   onCorrect,
   canManage = false,
 }: TransactionListProps) {
+  const money = useMoneyFormatter()
   const categoryName = React.useMemo(() => {
     const map = new Map(categories.map((c) => [c.id, c.name]))
     return (id: string | null) => (id ? (map.get(id) ?? null) : null)
@@ -282,7 +285,7 @@ export function TransactionList({
                     <AmountCell t={t} struck={struck} />
                     {t.feeCents > 0 && (
                       <div className="text-xs text-foreground/30">
-                        taxa {formatBRL(t.feeCents)}
+                        taxa {money(t.feeCents)}
                       </div>
                     )}
                   </TableCell>

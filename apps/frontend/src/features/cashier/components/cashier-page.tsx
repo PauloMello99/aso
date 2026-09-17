@@ -2,7 +2,15 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Plus, RefreshCw, Search, ArrowLeftRight, Tag } from "lucide-react"
+import {
+  Plus,
+  RefreshCw,
+  Search,
+  ArrowLeftRight,
+  Tag,
+  Eye,
+  EyeOff,
+} from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import {
@@ -23,6 +31,7 @@ import {
   type ExportFormat,
 } from "@/shared/components/ui/export-menu"
 import { downloadExport } from "@/shared/lib/download-export"
+import { useHideValues } from "@/shared/components/hide-values-provider"
 import { useCurrentOrg } from "@/features/dashboard"
 import { useMembers } from "@/features/organizations/hooks/use-members"
 import {
@@ -96,6 +105,7 @@ export function CashierPage({ orgId }: CashierPageProps) {
   const { org } = useCurrentOrg()
   const isOwner = org.role === "owner"
   const { members } = useMembers(orgId)
+  const { hidden: valuesHidden, toggle: toggleHideValues } = useHideValues()
 
   const [filter, setFilter] = useState<TransactionsFilter>({})
   const [search, setSearch] = useState("")
@@ -213,8 +223,8 @@ export function CashierPage({ orgId }: CashierPageProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+      <div className="flex flex-col flex-wrap gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="basis-full lg:basis-auto lg:flex-1 min-w-0">
           <h1 className="text-xl font-semibold text-foreground">Caixa</h1>
           <p className="mt-0.5 text-sm text-foreground/40">
             {isOwner
@@ -222,7 +232,21 @@ export function CashierPage({ orgId }: CashierPageProps) {
               : "Seus lançamentos e saldo."}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex shrink-0 gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleHideValues}
+            className="shrink-0"
+            title={valuesHidden ? "Mostrar valores" : "Ocultar valores"}
+            aria-pressed={valuesHidden}
+          >
+            {valuesHidden ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -261,7 +285,7 @@ export function CashierPage({ orgId }: CashierPageProps) {
 
       <BalanceCards balance={balance} loading={balanceLoading} />
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/30" />
           <Input
@@ -273,45 +297,49 @@ export function CashierPage({ orgId }: CashierPageProps) {
             className="pl-9"
           />
         </div>
-        <Select
-          value={filter.type ?? "all"}
-          onValueChange={(v) =>
-            setFilter((f) => ({
-              ...f,
-              type: v === "all" ? undefined : (v as TransactionType),
-            }))
-          }
-        >
-          <SelectTrigger className="sm:w-40">
-            <SelectValue placeholder="Tipo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os tipos</SelectItem>
-            <SelectItem value="income">Entradas</SelectItem>
-            <SelectItem value="outcome">Saídas</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select
-          value={filter.paymentMethod ?? "all"}
-          onValueChange={(v) =>
-            setFilter((f) => ({
-              ...f,
-              paymentMethod: v === "all" ? undefined : (v as PaymentMethod),
-            }))
-          }
-        >
-          <SelectTrigger className="sm:w-48">
-            <SelectValue placeholder="Método" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os métodos</SelectItem>
-            {METHOD_ORDER.map((m) => (
-              <SelectItem key={m} value={m}>
-                {PAYMENT_METHOD_LABELS[m]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <FilterField label="Tipo" className="sm:w-40">
+          <Select
+            value={filter.type ?? "all"}
+            onValueChange={(v) =>
+              setFilter((f) => ({
+                ...f,
+                type: v === "all" ? undefined : (v as TransactionType),
+              }))
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os tipos</SelectItem>
+              <SelectItem value="income">Entradas</SelectItem>
+              <SelectItem value="outcome">Saídas</SelectItem>
+            </SelectContent>
+          </Select>
+        </FilterField>
+        <FilterField label="Método" className="sm:w-48">
+          <Select
+            value={filter.paymentMethod ?? "all"}
+            onValueChange={(v) =>
+              setFilter((f) => ({
+                ...f,
+                paymentMethod: v === "all" ? undefined : (v as PaymentMethod),
+              }))
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Método" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os métodos</SelectItem>
+              {METHOD_ORDER.map((m) => (
+                <SelectItem key={m} value={m}>
+                  {PAYMENT_METHOD_LABELS[m]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FilterField>
         <FilterPopover activeCount={advancedCount} onClear={clearAdvanced}>
           <div className="grid grid-cols-2 gap-2">
             <FilterField label="De">

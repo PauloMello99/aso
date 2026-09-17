@@ -28,24 +28,24 @@ export function KpiCard({
   return (
     <div
       className={cn(
-        "rounded-xl border p-4",
+        "min-w-0 rounded-xl border p-4",
         emphasis
           ? "border-primary-border bg-primary/[0.04]"
           : "border-border-subtle bg-surface-1",
         className,
       )}
     >
-      <div className="flex items-center gap-2">
-        <Icon className={cn("h-4 w-4", iconClassName)} />
-        <span className="text-xs text-text-muted">{label}</span>
+      <div className="flex min-w-0 items-center gap-2">
+        <Icon className={cn("h-4 w-4 shrink-0", iconClassName)} />
+        <span className="truncate text-xs text-text-muted">{label}</span>
       </div>
       {loading ? (
         <div className="mt-2 h-8 w-28 animate-pulse rounded bg-surface-2" />
       ) : (
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-2 flex min-w-0 items-center gap-2">
           <p
             className={cn(
-              "text-2xl font-semibold tabular-nums",
+              "truncate text-2xl font-semibold tabular-nums",
               negative ? "text-destructive" : "text-foreground",
             )}
           >

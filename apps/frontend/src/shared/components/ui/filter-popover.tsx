@@ -63,12 +63,14 @@ export function FilterPopover({
 export function FilterField({
   label,
   children,
+  className,
 }: {
   label: string
   children: React.ReactNode
+  className?: string
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className={cn("space-y-1.5", className)}>
       <span className="text-xs font-medium text-foreground/50">{label}</span>
       {children}
     </div>

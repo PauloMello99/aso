@@ -1570,6 +1570,36 @@ OR is_org_member(org_id)))`; as de INSERT exigem `org_id IS NOT NULL AND (...)` 
   Clientes (hoje só "Novo cliente"), `design` das 3 telas novas antes do
   `frontend-implementer` (regra já prevista no backlog).
 
+## Ambiente de preview / dev local (gotchas verificados 2026-09-16)
+
+- **`pnpm --filter backend dev` NÃO SOBE.** `nest start --watch` acusa **488 erros de
+  TypeScript** (`Property 'insert'/'select'/'transaction' does not exist on type
+  'NodePgDatabase<…>'`) em `subscriptions`, `support` e `user`. **`nest build` passa
+  limpo**, e `pnpm check-types` também — porque `check-types`/`build` usam
+  `tsconfig.build.json` e o dev usa `tsconfig.json`. É divergência de tsconfig,
+  **pré-existente**, não regressão de feature.
+  **Workaround para conseguir preview com API:** `pnpm build` e depois
+  `cd apps/backend && node dist/main` (o script `start` do backend). Sem isso o frontend
+  sobe mas todas as chamadas a `:3001` dão `ERR_CONNECTION_REFUSED` e a tela fica vazia.
+- **Login local sem digitar senha** (para verificação no preview): via GoTrue admin do
+  Supabase local — `POST /auth/v1/admin/generate_link` `{type:'magiclink', email}` →
+  pegar `email_otp` → `POST /auth/v1/verify` `{type:'email', email, token}` → montar
+  `StoredSession` e injetar em `localStorage['inkops_session']`. Shape exigido:
+  `{accessToken, refreshToken, expiresAt, user:{id, email, emailVerified}}`
+  (`features/auth/types/index.ts`). Atenção: `users.id` ≠ `auth.users.id` — a ligação é
+  `users.auth_id`, e não há trigger criando a linha em `public.users`.
+- **Nomes reais do schema** (erram com frequência): a coluna de tenant é **`org_id`**
+  (não `organization_id`) e a tabela de membros é **`org_memberships`** (não `org_members`).
+- **Tailwind: classe arbitrária só funciona se já existir no CSS compilado.** Testar um
+  fix no DevTools com uma classe inédita (ex.: `min-w-[14rem]`) dá **falso negativo** —
+  a regra não existe no bundle. Ao validar layout no navegador, use só classes já
+  presentes no projeto.
+- **Cabeçalho do Caixa (`cashier-page.tsx`)**: o bloco de título usa
+  `basis-full lg:basis-auto lg:flex-1`. O `lg:flex-1` é **inerte** — `basis-full` vence a
+  cascata, e é isso que mantém o subtítulo em 1 linha com as ações numa faixa própria
+  abaixo (< xl). Trocar por `min-w-0 flex-1` **reintroduz** o bug: o título é espremido a
+  63px e o subtítulo quebra em 4 linhas. Medido a 768/1024/1440. Não "limpe" essas classes.
+
 ### Pendências não bloqueantes para V1
 
 - Sistema de créditos do cliente (manter da v1 ou reprojetar?)
