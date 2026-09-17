@@ -1597,17 +1597,23 @@ OR is_org_member(org_id)))`; as de INSERT exigem `org_id IS NOT NULL AND (...)` 
 
 ## Ambiente de preview / dev local (gotchas verificados 2026-09-16)
 
-- **CORREÇÃO (2026-09-17) ao gotcha abaixo, registrado errado em 2026-09-16:** o que eu
-  tinha anotado como "`pnpm --filter backend dev` NÃO SOBE, 488 erros de TS, divergência
-  pré-existente entre `tsconfig.json` e `tsconfig.build.json`" **não se reproduziu** no
-  dia seguinte — `nest start --watch` compilou com **0 erros** e o Nest subiu normalmente
-  (`node.exe` ainda vivo de uma sessão anterior estava só ocupando a porta 3001, sem
-  relação com o erro de TS). Causa mais provável: cache de build incremental
-  (`tsconfig.tsbuildinfo`) desatualizado/corrompido no momento em que rodei
-  `nest start --watch` logo depois de várias execuções de `nest build`. **Não trate essa
-  divergência como fato do repo** — se `pnpm --filter backend dev` falhar de novo,
-  verifique primeiro se é o cache incremental (apagar `apps/backend/tsconfig.tsbuildinfo`
-  se existir) antes de assumir que dev e build usam configs incompatíveis.
+- **CORREÇÃO (2026-09-17), segunda tentativa — a primeira correção também estava errada.**
+  Não existe divergência de tsconfig no backend: `tsconfig.build.json` (que exclui só
+  `test`/`**/*spec.ts`) é usado por `nest build` E por `nest start --watch` (default do
+  Nest CLI, sem override em `nest-cli.json`) E por `check-types`
+  (`tsc --noEmit -p tsconfig.build.json`) — os três comandos leem o MESMO arquivo.
+  `incremental: false` está explícito na base `tsconfig.json`, e não há nenhum
+  `.tsbuildinfo` no disco (verificado). Os dois arquivos de tsconfig estão corretos e
+  não precisam de mudança.
+  **O que de fato causou os 488 erros em 2026-09-16:** o `preview_start` daquela sessão
+  retornou `reused: true` — já existia um `nest start --watch` de pé de ANTES da sessão
+  começar, vivo durante horas de escrita concorrente de vários agentes implementers. Um
+  processo de watch de longa duração pode perder sincronia com o disco e devolver uma
+  rajada de erros de tipo (no caso, `.insert`/`.select`/`.transaction` "não existem" no
+  tipo do Drizzle) sem que o código tenha problema real — um processo novo compila limpo.
+  **Regra prática:** se `pnpm --filter backend dev` mostrar uma rajada de erros do
+  Drizzle, REINICIE o processo antes de suspeitar de configuração. Evite deixar o watch
+  do backend vivo por uma sessão inteira de agentes escrevendo em paralelo.
 - **Login local sem digitar senha** (para verificação no preview): via GoTrue admin do
   Supabase local — `POST /auth/v1/admin/generate_link` `{type:'magiclink', email}` →
   pegar `email_otp` → `POST /auth/v1/verify` `{type:'email', email, token}` → montar
