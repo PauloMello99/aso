@@ -1597,15 +1597,17 @@ OR is_org_member(org_id)))`; as de INSERT exigem `org_id IS NOT NULL AND (...)` 
 
 ## Ambiente de preview / dev local (gotchas verificados 2026-09-16)
 
-- **`pnpm --filter backend dev` NÃO SOBE.** `nest start --watch` acusa **488 erros de
-  TypeScript** (`Property 'insert'/'select'/'transaction' does not exist on type
-  'NodePgDatabase<…>'`) em `subscriptions`, `support` e `user`. **`nest build` passa
-  limpo**, e `pnpm check-types` também — porque `check-types`/`build` usam
-  `tsconfig.build.json` e o dev usa `tsconfig.json`. É divergência de tsconfig,
-  **pré-existente**, não regressão de feature.
-  **Workaround para conseguir preview com API:** `pnpm build` e depois
-  `cd apps/backend && node dist/main` (o script `start` do backend). Sem isso o frontend
-  sobe mas todas as chamadas a `:3001` dão `ERR_CONNECTION_REFUSED` e a tela fica vazia.
+- **CORREÇÃO (2026-09-17) ao gotcha abaixo, registrado errado em 2026-09-16:** o que eu
+  tinha anotado como "`pnpm --filter backend dev` NÃO SOBE, 488 erros de TS, divergência
+  pré-existente entre `tsconfig.json` e `tsconfig.build.json`" **não se reproduziu** no
+  dia seguinte — `nest start --watch` compilou com **0 erros** e o Nest subiu normalmente
+  (`node.exe` ainda vivo de uma sessão anterior estava só ocupando a porta 3001, sem
+  relação com o erro de TS). Causa mais provável: cache de build incremental
+  (`tsconfig.tsbuildinfo`) desatualizado/corrompido no momento em que rodei
+  `nest start --watch` logo depois de várias execuções de `nest build`. **Não trate essa
+  divergência como fato do repo** — se `pnpm --filter backend dev` falhar de novo,
+  verifique primeiro se é o cache incremental (apagar `apps/backend/tsconfig.tsbuildinfo`
+  se existir) antes de assumir que dev e build usam configs incompatíveis.
 - **Login local sem digitar senha** (para verificação no preview): via GoTrue admin do
   Supabase local — `POST /auth/v1/admin/generate_link` `{type:'magiclink', email}` →
   pegar `email_otp` → `POST /auth/v1/verify` `{type:'email', email, token}` → montar
