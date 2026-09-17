@@ -29,8 +29,17 @@
 | ADR-0023 | Billing (catálogo Stripe, super_admin): `billing_plans` no banco vira fonte de verdade (sync não rotaciona mais preço automaticamente, só reporta `drift`); Price/Coupon são imutáveis no Stripe pós-criação — "editar" é sempre criar novo + `transfer_lookup_key` + arquivar separado (Price) ou editar só o Promotion Code (Coupon); discriminador anti-corrida no webhook evita persistir o Price arquivado de uma rotação                                                                                                                          | 2026-08-15 | Aceito (parcialmente superseded por ADR-0024) |
 | ADR-0024 | Billing multi-preço por intervalo (`billing_plan_prices`, migration 0048, índices únicos parciais `WHERE active`), migração automática de assinantes na rotação (`RotatePlanIntervalPriceUseCase`, sem transação cross-repository), reconciliação periódica via cron invertendo a direção do ADR-0023 (Stripe manda, `ReconcilePlanCatalogUseCase` self-throttled a cada 3 dias via `cron_job_state`), endpoint público `GET /public/billing/plans` (feature-flag `PUBLIC_PRICING_ENABLED`), landing com ISR (`numReplicas=1` do ADR-0011 torna seguro) | 2026-08-16 | Aceito                                        |
 | ADR-0025 | Campanhas de e-mail por gatilho (T6 Bloco A): módulo `campaigns` próprio (não reusa `NotificationService`), opt-out por cliente em `customer_email_preferences` (migration 0061, `unsubscribe_token` que nunca rotaciona), `org_campaign_settings` (migration 0062) + env `CAMPAIGNS_ENABLED` como gate — sem o módulo de Feature Flags (ADR-0009), `campaign_sends` (migration 0063) append-only sem FK nem RLS, copy custom texto-puro com allowlist de tokens, rodapé fixo via `footerOverride`, fuso `America/Sao_Paulo` nos gatilhos de data (D8) | 2026-09-01 | Aceito (parcialmente superseded pelo Addendum 2026-09 — rework T6) |
+| ADR-0026 | Pagamento a membro: `transactions` permanece **agnóstica** (nenhuma coluna de beneficiário), a marcação "esta transação é o pagamento do membro X" vive numa **entidade própria isolada e append-only** que referencia a transação; correção = linha de reversão + estorno no caixa na mesma ação (ADR-0010), nunca `UPDATE`/`DELETE`; tela do membro é só leitura, só o clique do owner em "Pagar" lança. **Reverte** `docs/planning/2026-08-19-meeting-backlog.md` item 3 ("não criar fluxo de pagamento real ao profissional") | 2026-09-16 | Aceito |
 
 ## Decisões/registros recentes (sem ADR)
+
+- **2026-09-15 → registrado em 2026-09-16 — REVERSÃO de escopo (reunião 15/09)**: o item 3
+  de `docs/planning/2026-08-19-meeting-backlog.md` (*"Nao criar um fluxo de pagamento real
+  ao profissional dentro do ASO nesta fatia"*) está **SUPERADO**. Passa a existir pagamento
+  ao profissional pelo ASO (botão "Pagar" → transação `outcome` no caixa), com valor **único
+  agregado, não vinculado a serviços específicos**, e a tela do funcionário é
+  **exclusivamente de leitura**. Detalhe completo e anti-escopo em **ADR-0026** — quem fizer
+  recall vai achar o doc de 19/08 e tentar "corrigir" o escopo de volta; não corrija.
 
 - **2026-06-22 — Roadmap & situação consolidados**: `roadmap.md` é a fonte de follow-up
   com stakeholders (módulos prontos + backlog tarefa a tarefa, _Planejar_ vs _Backlog_).
