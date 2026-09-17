@@ -90,9 +90,12 @@ especulativa. Arquivos pequenos, de responsabilidade única; entregas fatiadas p
   `onDelete` explícito; `index()`/`unique()` no argumento de config; `relations()` declaradas.
 - **Dinheiro sempre em centavos inteiros** (`amount_cents: integer`) — sem exceção. Caixa
   guarda bruto/taxa/líquido (`amount_gross_cents`/`fee_cents`/`amount_cents`).
-- **Migrator custom** (ADR-0003): `pnpm --filter backend db:generate|db:migrate|db:rollback|db:status`;
-  hash sha256 do SQL bruto ⇒ **nunca editar um `.sql` gerado**; todo `.sql` tem companheiro
-  `.down.sql` (regras no `/new-migration`).
+- **Migrator custom** (ADR-0003): `pnpm --filter backend db:migrate|db:rollback|db:status`.
+  **`db:generate` (`drizzle-kit generate`) não é usado** — quebrado desde a `0011`, e toda
+  migration `0003+` é **escrita à mão** (`.sql` + `.down.sql` + entrada manual em
+  `meta/_journal.json`, sem a qual `db:migrate` ignora a migration silenciosamente).
+  Hash sha256 do SQL bruto ⇒ **nunca editar um `.sql` já aplicado** (regras no
+  `/new-migration`).
 - **Multi-tenancy: single DB + RLS por organização** (ADR-0005): token `DRIZZLE` (role com
   RLS, claims por request via `rls.interceptor.ts` + `set_config` transacional) vs
   `DRIZZLE_ADMIN` (bypass RLS, só bootstrap/cron/guards). Gotcha: leituras
@@ -156,8 +159,9 @@ especulativa. Arquivos pequenos, de responsabilidade única; entregas fatiadas p
 7. TS strict sem `any`; `as unknown as` apenas para mocks em specs.
 8. Frontend: query keys só via `infrastructure/query/query-keys.ts`; classes Tailwind só via
    `cn()`; tokens de design (nunca cores hardcoded); mobile-first.
-9. Migrations: gerar via `pnpm --filter backend db:generate`, nunca editar o `.sql` gerado,
-   sempre criar o `.down.sql` companheiro.
+9. Migrations: escrever à mão (`db:generate` está quebrado e não é usado) — `.sql` +
+   `.down.sql` companheiro + entrada manual em `meta/_journal.json`; nunca editar um `.sql`
+   já aplicado.
 10. `organization_id` derivado da sessão — nunca aceito do cliente.
 11. Caixa é append-only (ADR-0010): correção vira errata, nunca UPDATE/DELETE de lançamento.
 12. Chamar `memory_search` (MCP `ink-memory`) antes de varrer código para perguntas de "onde/como funciona X".

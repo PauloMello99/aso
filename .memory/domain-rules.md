@@ -1210,12 +1210,18 @@ anamnesis_response_id IS NOT NULL`): `assertAnamnesisResponseLinkable` faz o
   sem entrada correspondente é **silenciosamente ignorada** por `db:migrate` (sem erro,
   simplesmente não aplica). Todo fluxo de migration manual (ver `env_migration_snapshot_gap`
   na memória de sessão) precisa desse passo extra antes de rodar `db:migrate`.
-- **`.claude/CLAUDE.md` está desatualizado ao listar `pnpm --filter backend db:generate`**
-  (`drizzle-kit generate`) no fluxo de migration: `drizzle-kit generate` **não é usado**
-  desde a migration `0003` — todas as migrations `0003+` são **escritas à mão** (`.sql` +
-  `.down.sql` + entrada manual em `meta/_journal.json`). As `0066` / `0067` / `0068`
-  (rework T6) seguiram esse fluxo manual. Editar os arquivos de `src/database/schema/` **não
-  gera nem altera** migration — o schema é espelho de leitura.
+- **`pnpm --filter backend db:generate` (`drizzle-kit generate`) não é usado** desde a
+  migration `0003` (quebrado desde a `0011`, sem snapshot) — todas as migrations `0003+`
+  são **escritas à mão** (`.sql` + `.down.sql` + entrada manual em `meta/_journal.json`).
+  As `0066` / `0067` / `0068` (rework T6) seguiram esse fluxo manual. Editar os arquivos de
+  `src/database/schema/` **não gera nem altera** migration — o schema é espelho de leitura.
+  **Saneado em 2026-09-16**: `.claude/CLAUDE.md` e `.codex/AGENTS.md` já alertavam; as
+  instruções stale que ainda mandavam rodar `db:generate` foram corrigidas em
+  `.claude/commands/new-migration.md`, `.claude/agents/backend-implementer.md`,
+  `.claude/agents/planner.md` e `docs/ai/development-style-profile.md`. As menções
+  remanescentes a `db:generate` já estão corretas e ficam como estão: `docs/gotchas.md` e
+  `docs/campaigns-local-testing.md` **alertam** contra o comando; `docs/planning/` e
+  `docs/product/` são registro histórico.
 - **Pendência dura fora do código**: `features/legal/constants/entity.ts` (`LEGAL_ENTITY`)
   tem placeholders `[PREENCHER: ...]` para razão social/CNPJ/endereço/encarregado — bloqueia
   o site de ir ao ar até serem preenchidos com dados reais (identificação do fornecedor,
@@ -1438,6 +1444,25 @@ passar (red → green → refactor).
 - **Backlog**: a adoção plena é um "ataque de testes" dedicado (ver `roadmap.md` → EPIC
   Qualidade & Testes). A regra entra em vigor já para **todo código novo**.
 - Código da v1 não é reaproveitado — apenas regras de negócio.
+
+**Estado da suíte (verificado 2026-09-16).** Existe suíte automatizada nas duas apps:
+backend Jest (`ts-jest`, jest 30, `.spec.ts` colocado por use-case/domínio/DTO) e frontend
+Vitest (`.spec.ts` junto de lib/schemas). `pnpm test` = `turbo run test` (`cache: false`).
+**Não** existe `test:e2e` (nem Playwright/Cypress); `apps/backend/test/` e
+`apps/frontend/e2e/` não existem. Validação padrão do projeto: **suíte direcionada →
+`check-types` → `lint` → `build`**. Filtros direcionados verificados:
+`pnpm --filter backend test --testPathPatterns=<regex>` / `-t "<nome>"` (jest 30 usa a flag
+no **plural** e **sem** `--`, que seria repassado literalmente) e
+`pnpm --filter frontend test <substring>` (vitest, posicional).
+
+**Gotcha — Jest do backend dentro de um git worktree em `.claude/worktrees/` no Windows.**
+`pnpm --filter backend test` retorna `No tests found` com `testMatch ... - 0 matches`,
+mesmo com os specs presentes: o `testMatch` de `apps/backend/jest.config.js` usa
+`<rootDir>`, interpolado para um caminho de separadores mistos
+(`C:/Repos/Pessoal/aso\.claude/worktrees/...`) que o glob não casa. Workaround verificado —
+`testMatch` relativo, sem `<rootDir>`:
+`pnpm --filter backend test --testMatch "**/src/**/*.spec.ts" --testPathPatterns=<regex>`.
+O Vitest do frontend não é afetado. Registrado em `.claude/agents/tester.md`.
 
 ### Support — canal de suporte B2B, Fatia A (2026-08-10, ADR-0021) + Fatia C (2026-08-15, ADR-0022)
 

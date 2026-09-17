@@ -57,9 +57,11 @@ apenas do estritamente necessário para editar com segurança.
 6. Estados explícitos em toda tela: `Skeleton` no loading, `EmptyState`/CTA quando vazio,
    erro tratado. Mobile-first: base ~375px com `sm:`/`md:`/`lg:` progressivos; sidebar como
    drawer no mobile (hamburger no header); padding `p-4 sm:p-6`; grids começam em 1 coluna.
-7. Se a área já tem specs colocados (Vitest), atualize/crie o teste (função pura sem depender
-   de `@repo/*` — linking quebrado no ambiente). Se um teste seria desejável mas o harness
-   não cobre, registre em `deviations_from_plan`.
+7. O frontend tem suíte Vitest (`.spec.ts` junto de lib/schemas, rodada por
+   `pnpm --filter frontend test`): crie/atualize o spec da lógica pura tocada (schema zod,
+   formatter, helper) — sem depender de `@repo/*` (linking quebrado no ambiente). Se a
+   mudança for só de composição visual (sem lógica pura testável), registre em
+   `deviations_from_plan` em vez de inventar teste de componente.
 8. Registre decisões não óbvias em `deviations_from_plan` (não em comentários no código).
 
 ## Critérios de conclusão
