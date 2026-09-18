@@ -5,11 +5,13 @@ import { PAYMENT_FEE_REPOSITORY } from "../domain/payment-fee.repository.interfa
 import { TRANSACTION_CATEGORY_REPOSITORY } from "../domain/transaction-category.repository.interface";
 import { MEMBER_COMMISSION_REPOSITORY } from "../domain/member-commission.repository.interface";
 import { MEMBER_PAYMENT_FEE_REPOSITORY } from "../domain/member-payment-fee.repository.interface";
+import { MEMBER_PAYMENT_REPOSITORY } from "../domain/member-payment.repository.interface";
 import { DrizzleTransactionRepository } from "./persistence/drizzle-transaction.repository";
 import { DrizzlePaymentFeeRepository } from "./persistence/drizzle-payment-fee.repository";
 import { DrizzleTransactionCategoryRepository } from "./persistence/drizzle-transaction-category.repository";
 import { DrizzleMemberCommissionRepository } from "./persistence/drizzle-member-commission.repository";
 import { DrizzleMemberPaymentFeeRepository } from "./persistence/drizzle-member-payment-fee.repository";
+import { DrizzleMemberPaymentRepository } from "./persistence/drizzle-member-payment.repository";
 
 @Module({
   imports: [DatabaseModule],
@@ -28,6 +30,10 @@ import { DrizzleMemberPaymentFeeRepository } from "./persistence/drizzle-member-
       provide: MEMBER_PAYMENT_FEE_REPOSITORY,
       useClass: DrizzleMemberPaymentFeeRepository,
     },
+    {
+      provide: MEMBER_PAYMENT_REPOSITORY,
+      useClass: DrizzleMemberPaymentRepository,
+    },
   ],
   exports: [
     TRANSACTION_REPOSITORY,
@@ -35,6 +41,7 @@ import { DrizzleMemberPaymentFeeRepository } from "./persistence/drizzle-member-
     TRANSACTION_CATEGORY_REPOSITORY,
     MEMBER_COMMISSION_REPOSITORY,
     MEMBER_PAYMENT_FEE_REPOSITORY,
+    MEMBER_PAYMENT_REPOSITORY,
   ],
 })
 export class CashierInfrastructureModule {}

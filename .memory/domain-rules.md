@@ -1627,6 +1627,13 @@ OR is_org_member(org_id)))`; as de INSERT exigem `org_id IS NOT NULL AND (...)` 
   fix no DevTools com uma classe inédita (ex.: `min-w-[14rem]`) dá **falso negativo** —
   a regra não existe no bundle. Ao validar layout no navegador, use só classes já
   presentes no projeto.
+- **`read_network_requests` (ferramenta do browser pane) acumula um buffer persistente
+  entre navegações — NÃO reflete só a página atual.** Requisições de uma sessão/usuário
+  anterior no mesmo tab continuam aparecendo depois de navegar/trocar de sessão, o que
+  pode simular um "bug" que já foi corrigido. Para confirmar o que a página ATUAL
+  disparou de verdade, use a Resource Timing API real do navegador via `javascript_tool`:
+  `performance.getEntriesByType('resource').map(e => e.name)` — só reflete a carga
+  corrente, é limpa a cada navegação.
 - **Cabeçalho do Caixa (`cashier-page.tsx`)**: o bloco de título usa
   `basis-full lg:basis-auto lg:flex-1`. O `lg:flex-1` é **inerte** — `basis-full` vence a
   cascata, e é isso que mantém o subtítulo em 1 linha com as ações numa faixa própria

@@ -4,9 +4,20 @@ export { DeleteOrgDialog } from "./components/delete-org-dialog"
 export { InviteMemberForm } from "./components/invite-member-form"
 export { MemberList } from "./components/member-list"
 export { OrgSettingsPage } from "./components/org-settings-page"
+export { MembersPage } from "./components/members-page"
+export { MemberDetailPage } from "./components/member-detail-page"
 export { useOrgMutations } from "./hooks/use-org-mutations"
 export { useMembers } from "./hooks/use-members"
-export type { OrgRole, InvitationStatus, Member, Invitation } from "./types"
+export { useMemberPayments } from "./hooks/use-member-payments"
+export type {
+  OrgRole,
+  InvitationStatus,
+  Member,
+  Invitation,
+  MemberPayment,
+  MemberPaymentView,
+  MemberPaymentSummary,
+} from "./types"
 export type {
   CreateOrgFormValues,
   UpdateOrgFormValues,

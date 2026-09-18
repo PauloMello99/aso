@@ -19,7 +19,7 @@ describe("getTourSteps", () => {
     const org = makeOrg({ role: "owner", permissions: [] })
     const steps = getTourSteps(org)
 
-    expect(steps).toHaveLength(12)
+    expect(steps).toHaveLength(13)
     expect(steps.map((s) => s.selector)).toEqual([
       null,
       '[data-tour="nav-overview"]',
@@ -29,6 +29,7 @@ describe("getTourSteps", () => {
       '[data-tour="nav-schedule"]',
       '[data-tour="nav-stock"]',
       '[data-tour="nav-cashier"]',
+      '[data-tour="nav-members"]',
       '[data-tour="nav-campaigns"]',
       '[data-tour="nav-settings"]',
       '[data-tour="nav-support"]',
@@ -40,12 +41,13 @@ describe("getTourSteps", () => {
     const org = makeOrg({ role: "employee", permissions: ["services"] })
     const steps = getTourSteps(org)
 
-    expect(steps).toHaveLength(7)
+    expect(steps).toHaveLength(8)
     expect(steps.map((s) => s.selector)).toEqual([
       null,
       '[data-tour="nav-overview"]',
       '[data-tour="nav-services"]',
       '[data-tour="nav-anamnesis"]',
+      '[data-tour="nav-members"]',
       '[data-tour="nav-settings"]',
       '[data-tour="nav-support"]',
       '[data-tour="user-menu"]',

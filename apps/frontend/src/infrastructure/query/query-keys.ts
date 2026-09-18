@@ -28,6 +28,10 @@ export const queryKeys = {
     all: (orgId: string) => ["members", orgId] as const,
     list: (orgId: string) => ["members", orgId, "list"] as const,
     invitations: (orgId: string) => ["members", orgId, "invitations"] as const,
+    payments: (orgId: string, userId: string) =>
+      ["members", orgId, "payments", userId] as const,
+    summary: (orgId: string, userId: string) =>
+      ["members", orgId, "summary", userId] as const,
   },
 
   materials: {

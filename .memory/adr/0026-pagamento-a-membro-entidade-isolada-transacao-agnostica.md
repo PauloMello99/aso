@@ -107,6 +107,72 @@ Não implementar, mesmo que a transcrição de 15/09 discuta:
 - notificação por WhatsApp (descartado; e-mail só);
 - caixa/carteira própria por funcionário (saldo org ↔ funcionário).
 
+## Addendum (2026-09-17) — `org_member_payments` (migration 0072)
+
+Schema aplicado: `org_member_payments` segue o padrão **LEDGER** (como `transactions`),
+não o padrão CONFIG (0051/0070) — sem `active`/`superseded_at`; "estornado" é
+**derivado** (existe uma linha com `reverses_payment_id` apontando para a original).
+`transaction_id` é `NOT NULL UNIQUE` (1 pagamento por transação); índice único parcial
+em `reverses_payment_id WHERE NOT NULL` (no máximo 1 estorno por linha). Trigger
+`BEFORE UPDATE` rejeita incondicionalmente (não há clamp — nada pode mudar depois de
+inserido). RLS: `SELECT` é por organização inteira (qualquer membro pode ler qualquer
+linha da própria org via RLS); a restrição "funcionário só vê a própria linha" é
+**camada de aplicação** (`resolveActor`), não RLS — mesmo padrão de
+`org_member_commissions`/`org_member_payment_fees`.
+
+**Escopo de organização reforçado em banco**: `transaction_id` e `reverses_payment_id`
+são FKs **compostas** com `org_id` (`(transaction_id, org_id) → transactions(id, org_id)`
+e `(reverses_payment_id, org_id) → org_member_payments(id, org_id)`), não simples —
+impede que uma org referencie transação/pagamento de outra org mesmo com um uuid
+adivinhado.
+
+**Decisão testada empiricamente: `transaction_id` é `ON DELETE RESTRICT`, e isso NÃO
+bloqueia a exclusão de organização.** Verificado por teste real (não por teoria de
+mecanismo): excluir uma org com transação + pagamento vinculados funciona, inclusive com
+uma cadeia de reversão (pagamento original + estorno, ambos na mesma org). Alternativas
+descartadas: `DEFERRABLE` (adiaria também a checagem do lado do INSERT, trocando
+fail-fast por proteção contra um risco que não se confirmou); handling explícito no
+`DeleteOrgUseCase` (o `DELETE` ali roda via `DRIZZLE`/`app_user`, e a tabela não tem
+policy de DELETE — um `DELETE` explícito afetaria 0 linhas **silenciosamente** antes de
+sequer chegar no FK, o que é pior que não fazer nada).
+
+**Gotcha de processo**: nesta fatia, duas explicações de "por que o DELETE funciona apesar
+do RESTRICT" circularam entre agentes e **as duas estavam erradas** (uma sobre ordem de
+`oid` de trigger, outra sobre um FK de precedente que na verdade é `SET NULL`, não
+`NO ACTION`). Nenhuma das duas está registrada aqui de propósito — o fato durável é só o
+resultado do teste + a decisão, não o mecanismo interno do Postgres que ninguém confirmou
+corretamente. Se este comportamento precisar ser reverificado no futuro, teste de novo
+empiricamente; não reaproveite uma explicação de mecanismo de sessões anteriores.
+
+## Addendum 2 (2026-09-18) — convenções fechadas durante os passos 6-13
+
+**`findReversedIds(orgId)` é ORG-WIDE, deliberadamente sem filtro por `user_id`** —
+espelha `drizzle-transaction.repository.ts:148`. `netPaidCents` também não filtra por
+`user_id` no `NOT EXISTS` (só por `p.id`). As duas leituras precisam concordar sobre o
+que é "estornado" usando a MESMA chave (o id do pagamento), não `user_id` — filtrar por
+`user_id` em qualquer uma delas isoladamente criaria divergência entre a listagem e o
+saldo devido. Defesa em profundidade real: o estorno **sempre copia** `userId` do
+pagamento original (nunca aceita de input), garantido por `expectedUserId` obrigatório
+nos use-cases de estorno/correção, validado contra `payment.userId` logo após o
+`findById` — um `paymentId` de outro beneficiário é tratado como "não encontrado"
+(`MemberPaymentNotFoundException`, 404), não como erro de autorização separado.
+
+**Status HTTP do estorno segue a distinção já estabelecida pelo caixa (ADR-0010):**
+alvo que JÁ é ele mesmo um estorno (`reversesPaymentId != null`) ⇒ **422**
+(`MemberPaymentNotReversibleException`, "não existe desestornar"); alvo que JÁ TEM um
+estorno apontando pra ele (segundo estorno) ⇒ **409**
+(`MemberPaymentAlreadyReversedException`). Mesma taxonomia de
+`TransactionNotReversibleException`/`TransactionAlreadyReversedException`.
+
+**`paymentMethod` do pagamento é exposto em `GET .../payments` sem entrar na entidade**
+— vem de um `innerJoin` com `transactions` no repositório, devolvido como campo irmão
+de `entity` no shape de retorno (`{ entity, reversed, paymentMethod }`), nunca como
+coluna de `org_member_payments`. Necessário para a UI de "corrigir pagamento" saber o
+método real (senão o relançamento nasceria sempre com um método arbitrário, deslocando
+o valor entre os buckets físico/digital do caixa). `innerJoin` (não `left`) é seguro
+porque a policy de `SELECT` de `transactions` e de `org_member_payments` usam o MESMO
+predicado org-wide — não há gap de visibilidade entre as duas tabelas.
+
 ## Consequências
 
 - O caixa continua um livro genérico; o domínio de membros evolui sem tocar em

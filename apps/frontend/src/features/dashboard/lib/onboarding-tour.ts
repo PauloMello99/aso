@@ -14,6 +14,7 @@ const NAV_STEP_DESCRIPTIONS: Record<string, string> = {
   schedule: "Organize horários e compromissos da equipe.",
   stock: "Controle materiais e itens disponíveis no estoque.",
   cashier: "Acompanhe entradas, saídas e saldo do caixa.",
+  members: "Veja e gerencie os membros da organização.",
   settings: "Ajuste preferências da organização e da sua conta.",
   support: "Abra chamados e acompanhe o atendimento da nossa equipe.",
 }

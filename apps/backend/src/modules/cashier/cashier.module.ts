@@ -22,7 +22,13 @@ import { CreateTransactionCategoryUseCase } from "./application/use-cases/create
 import { UpdateTransactionCategoryUseCase } from "./application/use-cases/update-transaction-category.use-case";
 import { DeleteTransactionCategoryUseCase } from "./application/use-cases/delete-transaction-category.use-case";
 import { TransferUseCase } from "./application/use-cases/transfer.use-case";
+import { CreateMemberPaymentUseCase } from "./application/use-cases/create-member-payment.use-case";
+import { ListMemberPaymentsUseCase } from "./application/use-cases/list-member-payments.use-case";
+import { GetMemberPaymentSummaryUseCase } from "./application/use-cases/get-member-payment-summary.use-case";
+import { ReverseMemberPaymentUseCase } from "./application/use-cases/reverse-member-payment.use-case";
+import { CorrectMemberPaymentUseCase } from "./application/use-cases/correct-member-payment.use-case";
 import { CashierController } from "./interface/cashier.controller";
+import { MemberPaymentsController } from "./interface/member-payments.controller";
 
 @Module({
   imports: [
@@ -32,7 +38,7 @@ import { CashierController } from "./interface/cashier.controller";
     AuthModule,
     SubscriptionsModule,
   ],
-  controllers: [CashierController],
+  controllers: [CashierController, MemberPaymentsController],
   providers: [
     ListTransactionsUseCase,
     ExportTransactionsUseCase,
@@ -52,6 +58,11 @@ import { CashierController } from "./interface/cashier.controller";
     UpdateTransactionCategoryUseCase,
     DeleteTransactionCategoryUseCase,
     TransferUseCase,
+    CreateMemberPaymentUseCase,
+    ListMemberPaymentsUseCase,
+    GetMemberPaymentSummaryUseCase,
+    ReverseMemberPaymentUseCase,
+    CorrectMemberPaymentUseCase,
   ],
   exports: [CashierInfrastructureModule],
 })
