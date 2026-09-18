@@ -20,7 +20,12 @@ import {
   IMemberPaymentFeeRepository,
   MEMBER_PAYMENT_FEE_REPOSITORY,
 } from "../../../cashier/domain/member-payment-fee.repository.interface";
-import { computeNet, resolveFee } from "../../../cashier/domain/fee-calculator";
+import {
+  computeNet,
+  resolveFee,
+  feeTierFor,
+  normalizeInstallments,
+} from "../../../cashier/domain/fee-calculator";
 import { computeCommission } from "../../../cashier/domain/commission-calculator";
 import {
   IMemberCommissionRepository,
@@ -77,19 +82,40 @@ export class RegisterPaymentUseCase {
 
     // Taxa de pagamento: a de quem EXECUTOU o serviço (`service.performedBy`, o
     // mesmo `users.id` usado pela comissão) tem prioridade; sem taxa própria
-    // ativa cai na taxa da ORG, como antes.
+    // ativa cai na taxa da ORG, como antes. Resolvida pela FAIXA de parcelas
+    // PERSISTIDA no serviço (`service.installments`, gravada por
+    // `CreateServiceUseCase`) — é exatamente o achado novo #1 do Bloco 3: sem
+    // isso, um serviço vendido em 6x mas pago só agora seria cobrado como à
+    // vista. Normalizado (mesmo padrão de `CreateTransactionUseCase`): um
+    // serviço em crédito criado ANTES do Bloco 3 tem `installments: null`, que
+    // `normalizeInstallments` converte para `1` — a taxa resolvida já seria a
+    // de 1x de qualquer forma (`feeTierFor` trata `null` como 1x), mas gravar
+    // `1` explícito no lançamento deixa o snapshot auto-descritivo em vez de
+    // ambíguo.
+    const normalizedInstallments = normalizeInstallments(
+      service.paymentMethod,
+      service.installments,
+    );
+    const tier = feeTierFor(service.paymentMethod, normalizedInstallments);
     const memberFee = service.performedBy
       ? await this.memberFeeRepo.findActiveByOrgUserAndMethod(
           input.orgId,
           service.performedBy,
           service.paymentMethod,
+          tier,
         )
       : null;
     const orgFee = await this.feeRepo.findByOrgAndMethod(
       input.orgId,
       service.paymentMethod,
+      tier,
     );
-    const resolved = resolveFee(service.paymentMethod, memberFee, orgFee);
+    const resolved = resolveFee(
+      service.paymentMethod,
+      normalizedInstallments,
+      memberFee,
+      orgFee,
+    );
     const { feeCents, netCents } = computeNet(
       service.amountCents,
       service.paymentMethod,
@@ -104,6 +130,7 @@ export class RegisterPaymentUseCase {
       feeCents,
       netCents,
       paymentMethod: service.paymentMethod,
+      installments: normalizedInstallments,
       feeConfigId: resolved.configId,
       feePercent: resolved.config?.percent ?? null,
       feeFixedCents: resolved.config?.fixedCents ?? null,

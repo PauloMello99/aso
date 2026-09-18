@@ -7,6 +7,7 @@ export interface MemberPaymentFeeEntityProps {
   paymentMethod: PaymentMethod;
   percent: string;
   fixedCents: number;
+  installments: number;
   active: boolean;
   supersededAt: Date | null;
   createdBy: string | null;
@@ -21,6 +22,7 @@ export class MemberPaymentFeeEntity {
   readonly paymentMethod: PaymentMethod;
   readonly percent: string;
   readonly fixedCents: number;
+  readonly installments: number;
   readonly active: boolean;
   readonly supersededAt: Date | null;
   readonly createdBy: string | null;
@@ -34,6 +36,7 @@ export class MemberPaymentFeeEntity {
     this.paymentMethod = props.paymentMethod;
     this.percent = props.percent;
     this.fixedCents = props.fixedCents;
+    this.installments = props.installments;
     this.active = props.active;
     this.supersededAt = props.supersededAt;
     this.createdBy = props.createdBy;

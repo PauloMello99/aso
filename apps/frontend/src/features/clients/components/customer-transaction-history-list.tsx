@@ -15,7 +15,8 @@ import {
   StatusBadge,
   formatDate,
 } from "@/features/cashier/components/transaction-list"
-import { PAYMENT_METHOD_LABELS, type TransactionView } from "@/features/cashier/types"
+import { formatPaymentMethod } from "@/features/cashier/lib/payment-method-label"
+import type { TransactionView } from "@/features/cashier/types"
 
 interface CustomerTransactionHistoryListProps {
   transactions: TransactionView[]
@@ -52,7 +53,7 @@ function TransactionCard({ view }: { view: TransactionView }) {
           <StatusBadge view={view} />
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-foreground/40">
-          <span>{PAYMENT_METHOD_LABELS[t.paymentMethod]}</span>
+          <span>{formatPaymentMethod(t.paymentMethod, t.installments)}</span>
           <span>{formatDate(t.transactedAt)}</span>
         </div>
         <div className="mt-2">
@@ -119,7 +120,7 @@ export function CustomerTransactionHistoryList({
                     </div>
                   </TableCell>
                   <TableCell className="text-foreground/50">
-                    {PAYMENT_METHOD_LABELS[t.paymentMethod]}
+                    {formatPaymentMethod(t.paymentMethod, t.installments)}
                   </TableCell>
                   <TableCell className="text-foreground/40">
                     {formatDate(t.transactedAt)}

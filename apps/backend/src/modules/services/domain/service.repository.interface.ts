@@ -30,6 +30,7 @@ export interface CreateServiceData {
   description?: string | null;
   amountCents: number;
   paymentMethod: PaymentMethod;
+  installments?: number | null;
   performedAt?: Date;
   anamnesisResponseId?: string | null;
 }
@@ -91,7 +92,11 @@ export interface IServiceRepository {
   markCanceled(id: string): Promise<void>;
   correctPayment(
     id: string,
-    data: { amountCents: number; paymentMethod: PaymentMethod },
+    data: {
+      amountCents: number;
+      paymentMethod: PaymentMethod;
+      installments?: number | null;
+    },
     transactionId: string,
     commission: CommissionSnapshot,
   ): Promise<void>;

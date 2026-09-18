@@ -83,4 +83,34 @@ describe("CreateServiceDto obrigatoriedade de campos", () => {
 
     expect(errors).toHaveLength(0);
   });
+
+  it("aceita credit_card com installments 6", async () => {
+    const errors = await validate(
+      buildDto({ paymentMethod: "credit_card", installments: 6 }),
+    );
+
+    expect(errors.find((e) => e.property === "installments")).toBeUndefined();
+  });
+
+  it("aceita credit_card sem installments informado", async () => {
+    const errors = await validate(buildDto({ paymentMethod: "credit_card" }));
+
+    expect(errors.find((e) => e.property === "installments")).toBeUndefined();
+  });
+
+  it("rejeita cash com installments (não parcelável)", async () => {
+    const errors = await validate(
+      buildDto({ paymentMethod: "cash", installments: 3 }),
+    );
+
+    expect(errors.find((e) => e.property === "installments")).toBeDefined();
+  });
+
+  it("rejeita installments acima do teto MAX_INSTALLMENTS=12", async () => {
+    const errors = await validate(
+      buildDto({ paymentMethod: "credit_card", installments: 13 }),
+    );
+
+    expect(errors.find((e) => e.property === "installments")).toBeDefined();
+  });
 });

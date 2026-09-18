@@ -16,6 +16,7 @@ export interface CreateTransactionBody {
   type: TransactionType
   grossCents: number
   paymentMethod: PaymentMethod
+  installments?: number
   categoryId?: string | null
   transactedAt?: string
 }

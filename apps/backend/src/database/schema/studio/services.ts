@@ -5,6 +5,7 @@ import {
   timestamp,
   integer,
   numeric,
+  smallint,
   unique,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -41,6 +42,10 @@ export const services = pgTable("services", {
   description: text("description"),
   amountCents: integer("amount_cents").notNull().default(0),
   paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  // Número de parcelas do crédito resolvido na criação/cobrança do serviço.
+  // NULL = método sem parcelamento OU linha gravada antes da 0074, quando
+  // essa dimensão nem existia (nunca inventar 1 nesse caso).
+  installments: smallint("installments"),
   // Snapshot desnormalizado da comissão do profissional no momento do
   // atendimento. commissionConfigId é só auditoria (aponta pra linha de
   // config que gerou o snapshot) — NUNCA lido para cálculo, porque a config

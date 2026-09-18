@@ -20,6 +20,7 @@ export interface CreateServiceBody {
   anamnesisResponseId?: string | null
   amountCents: number
   paymentMethod: ServicePaymentMethod
+  installments?: number
   paymentStatus: "paid" | "pending"
   performedAt?: string
   materials: ServiceMaterialBody[]

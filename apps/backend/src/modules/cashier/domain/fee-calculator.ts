@@ -7,6 +7,9 @@ const FEE_ELIGIBLE_METHODS: ReadonlySet<PaymentMethod> = new Set([
   "debit_card",
 ]);
 
+/** Teto OFERECIDO na UI para número de parcelas (CHECK do banco permite até 24). */
+export const MAX_INSTALLMENTS = 12;
+
 export interface FeeConfig {
   percent: string;
   fixedCents: number;
@@ -37,6 +40,34 @@ export function isFeeEligible(method: PaymentMethod): boolean {
   return FEE_ELIGIBLE_METHODS.has(method);
 }
 
+/**
+ * Valor de `installments` a PERSISTIR em `transactions`/`services`.
+ * NÃO faz clamp de faixa fora de alcance — isso é responsabilidade de
+ * rejeição do DTO (camada de interface), não desta função de domínio.
+ */
+export function normalizeInstallments(
+  method: PaymentMethod,
+  raw: number | null | undefined,
+): number | null {
+  if (method !== "credit_card") {
+    return null;
+  }
+
+  return raw ?? 1;
+}
+
+/**
+ * Chave de BUSCA na config de taxa: reconcilia o `installments` NOT NULL
+ * DEFAULT 1 das tabelas de config com o valor nullable das tabelas de
+ * negócio (`transactions`/`services`).
+ */
+export function feeTierFor(
+  method: PaymentMethod,
+  installments: number | null,
+): number {
+  return method === "credit_card" ? (installments ?? 1) : 1;
+}
+
 export type FeeSource = "member" | "org" | "none";
 
 export interface ResolvedFee {
@@ -47,6 +78,7 @@ export interface ResolvedFee {
 
 export function resolveFee(
   method: PaymentMethod,
+  installments: number | null,
   memberFee: MemberPaymentFeeEntity | null,
   orgFee: PaymentFeeEntity | null,
 ): ResolvedFee {
@@ -54,7 +86,9 @@ export function resolveFee(
     return { config: null, source: "none", configId: null };
   }
 
-  if (memberFee && memberFee.active) {
+  const tier = feeTierFor(method, installments);
+
+  if (memberFee && memberFee.active && memberFee.installments === tier) {
     return {
       config: { percent: memberFee.percent, fixedCents: memberFee.fixedCents },
       source: "member",
@@ -62,7 +96,7 @@ export function resolveFee(
     };
   }
 
-  if (orgFee) {
+  if (orgFee && orgFee.installments === tier) {
     return {
       config: { percent: orgFee.percent, fixedCents: orgFee.fixedCents },
       source: "org",

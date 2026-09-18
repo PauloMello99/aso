@@ -104,7 +104,13 @@ function ServiceDetailContent({
           <Field label="Valor" value={formatBRL(service.amountCents)} />
           <Field
             label="Método de pagamento"
-            value={SERVICE_PAYMENT_METHOD_LABELS[service.paymentMethod]}
+            value={
+              service.paymentMethod === "credit_card" &&
+              service.installments !== null &&
+              service.installments > 1
+                ? `${SERVICE_PAYMENT_METHOD_LABELS[service.paymentMethod]} · ${service.installments}x`
+                : SERVICE_PAYMENT_METHOD_LABELS[service.paymentMethod]
+            }
           />
         </div>
       </section>

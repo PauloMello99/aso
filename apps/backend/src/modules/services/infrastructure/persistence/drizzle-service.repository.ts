@@ -68,6 +68,7 @@ function toDomain(
     description: row.description ?? null,
     amountCents: row.amountCents,
     paymentMethod: row.paymentMethod as PaymentMethod,
+    installments: row.installments ?? null,
     commissionConfigId: row.commissionConfigId ?? null,
     commissionPercent: row.commissionPercent ?? null,
     commissionMode: (row.commissionMode as CommissionMode | null) ?? null,
@@ -105,6 +106,7 @@ export class DrizzleServiceRepository implements IServiceRepository {
           description: data.description ?? null,
           amountCents: data.amountCents,
           paymentMethod: data.paymentMethod,
+          installments: data.installments ?? null,
           anamnesisResponseId: data.anamnesisResponseId ?? null,
           ...(data.performedAt ? { performedAt: data.performedAt } : {}),
         })
@@ -313,7 +315,11 @@ export class DrizzleServiceRepository implements IServiceRepository {
 
   async correctPayment(
     id: string,
-    data: { amountCents: number; paymentMethod: PaymentMethod },
+    data: {
+      amountCents: number;
+      paymentMethod: PaymentMethod;
+      installments?: number | null;
+    },
     transactionId: string,
     commission: CommissionSnapshot,
   ): Promise<void> {
@@ -322,6 +328,7 @@ export class DrizzleServiceRepository implements IServiceRepository {
       .set({
         amountCents: data.amountCents,
         paymentMethod: data.paymentMethod,
+        installments: data.installments ?? null,
         paymentTransactionId: transactionId,
         commissionConfigId: commission.configId,
         commissionPercent: commission.percent,

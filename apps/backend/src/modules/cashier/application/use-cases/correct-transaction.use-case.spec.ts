@@ -127,10 +127,142 @@ describe("CorrectTransactionUseCase", () => {
           feeFixedCents: original.feeFixedCents,
           feeSource: original.feeSource,
           feeConfigId: original.feeConfigId,
+          installments: original.installments,
         },
       }),
     );
     expect(result).toEqual({ reversal, replacement });
+  });
+
+  it("propaga a faixa de parcelas do lançamento original para o snapshot de taxa (correção mantendo 6x)", async () => {
+    const original = buildTransaction({
+      paymentMethod: "credit_card",
+      installments: 6,
+      feePercent: "3.50",
+      feeFixedCents: 0,
+      feeSource: "org",
+      feeConfigId: "fee-6x",
+    });
+    const reversal = buildTransaction({
+      id: "tx-2",
+      type: "outcome",
+      description: "Estorno: Venda balcão",
+      reversesTransactionId: original.id,
+    });
+    const replacement = buildTransaction({
+      id: "tx-3",
+      paymentMethod: "credit_card",
+      installments: 6,
+      grossCents: 15000,
+      netCents: 14475,
+    });
+
+    const transactionRepo = buildFakeTransactionRepo({
+      findById: jest.fn().mockResolvedValue(original),
+    });
+    const serviceRepo = buildFakeServiceRepo();
+    const reverseTransaction = {
+      execute: jest.fn().mockResolvedValue(reversal),
+    } as unknown as jest.Mocked<ReverseTransactionUseCase>;
+    const createTransaction = {
+      execute: jest.fn().mockResolvedValue(replacement),
+    } as unknown as jest.Mocked<CreateTransactionUseCase>;
+
+    const useCase = new CorrectTransactionUseCase(
+      transactionRepo,
+      serviceRepo,
+      reverseTransaction,
+      createTransaction,
+    );
+
+    await useCase.execute({
+      orgId: "org-1",
+      transactionId: original.id,
+      correctedBy: "user-2",
+      description: "Venda balcão (corrigida)",
+      type: "income",
+      grossCents: 15000,
+      paymentMethod: "credit_card",
+      installments: 6,
+    });
+
+    expect(createTransaction.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentMethod: "credit_card",
+        installments: 6,
+        originalFee: expect.objectContaining({
+          paymentMethod: "credit_card",
+          installments: 6,
+          feeConfigId: "fee-6x",
+        }),
+      }),
+    );
+  });
+
+  it("repassa a faixa CORRIGIDA (diferente da original) quando a correção muda 6x para 1x", async () => {
+    const original = buildTransaction({
+      paymentMethod: "credit_card",
+      installments: 6,
+      feePercent: "3.50",
+      feeFixedCents: 0,
+      feeSource: "org",
+      feeConfigId: "fee-6x",
+    });
+    const reversal = buildTransaction({
+      id: "tx-2",
+      type: "outcome",
+      description: "Estorno: Venda balcão",
+      reversesTransactionId: original.id,
+    });
+    const replacement = buildTransaction({
+      id: "tx-3",
+      paymentMethod: "credit_card",
+      installments: 1,
+      grossCents: 15000,
+    });
+
+    const transactionRepo = buildFakeTransactionRepo({
+      findById: jest.fn().mockResolvedValue(original),
+    });
+    const serviceRepo = buildFakeServiceRepo();
+    const reverseTransaction = {
+      execute: jest.fn().mockResolvedValue(reversal),
+    } as unknown as jest.Mocked<ReverseTransactionUseCase>;
+    const createTransaction = {
+      execute: jest.fn().mockResolvedValue(replacement),
+    } as unknown as jest.Mocked<CreateTransactionUseCase>;
+
+    const useCase = new CorrectTransactionUseCase(
+      transactionRepo,
+      serviceRepo,
+      reverseTransaction,
+      createTransaction,
+    );
+
+    await useCase.execute({
+      orgId: "org-1",
+      transactionId: original.id,
+      correctedBy: "user-2",
+      description: "Venda balcão (corrigida)",
+      type: "income",
+      grossCents: 15000,
+      paymentMethod: "credit_card",
+      installments: 1,
+    });
+
+    // CorrectTransactionUseCase apenas REPASSA os dois valores (faixa original
+    // no snapshot, faixa corrigida no input direto) — quem decide reusar ou
+    // reprecificar comparando as faixas é CreateTransactionUseCase (passo 10).
+    expect(createTransaction.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentMethod: "credit_card",
+        installments: 1,
+        originalFee: expect.objectContaining({
+          paymentMethod: "credit_card",
+          installments: 6,
+        }),
+      }),
+    );
   });
 
   it("lança TransactionNotFoundException quando a transação não existe", async () => {

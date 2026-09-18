@@ -18,6 +18,7 @@ export interface ServiceEntityProps {
   description: string | null;
   amountCents: number;
   paymentMethod: PaymentMethod;
+  installments?: number | null;
   commissionConfigId: string | null;
   commissionPercent: string | null;
   commissionMode: CommissionMode | null;
@@ -45,6 +46,7 @@ export class ServiceEntity {
   readonly description: string | null;
   readonly amountCents: number;
   readonly paymentMethod: PaymentMethod;
+  readonly installments: number | null;
   readonly commissionConfigId: string | null;
   readonly commissionPercent: string | null;
   readonly commissionMode: CommissionMode | null;
@@ -71,6 +73,7 @@ export class ServiceEntity {
     this.description = props.description;
     this.amountCents = props.amountCents;
     this.paymentMethod = props.paymentMethod;
+    this.installments = props.installments ?? null;
     this.commissionConfigId = props.commissionConfigId;
     this.commissionPercent = props.commissionPercent;
     this.commissionMode = props.commissionMode;

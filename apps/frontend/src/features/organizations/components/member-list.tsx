@@ -37,10 +37,19 @@ import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { Switch } from "@/shared/components/ui/switch";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/shared/components/ui/table";
 import { cn } from "@/shared/lib/utils";
 import { MODULE_KEYS, type ModuleKey } from "@/features/dashboard/lib/nav";
 import {
   COMMISSION_MODE_LABELS,
+  MAX_INSTALLMENTS,
   commissionErrorMessage,
   commissionItemSchema,
   memberFeesSchema,
@@ -83,6 +92,7 @@ interface MemberListProps {
   invitations: Invitation[];
   currentUserEmail: string;
   isOwner: boolean;
+  onOpenMember: (member: Member) => void;
   onUpdateRole: (memberId: string, role: OrgRole) => Promise<void>;
   onRemove: (memberId: string) => Promise<void>;
   onToggleStatus: (memberId: string, enabled: boolean) => Promise<void>;
@@ -114,104 +124,152 @@ const commissionFieldsSchema = commissionItemSchema.omit({ userId: true });
 // Mesma validação de percentual do diálogo de comissão (vazio permitido, 0–100).
 const feePercentSchema = commissionItemSchema.shape.percent;
 
-// União literal local: FEE_ELIGIBLE_METHODS de cashier é PaymentMethod[]; aqui o
-// domínio é só crédito/débito.
-const FEE_METHODS = ["credit_card", "debit_card"] as const;
-
 const FEE_METHOD_LABEL: Record<FeeEligibleMethod, string> = {
   credit_card: "Crédito",
   debit_card: "Débito",
 };
 
-interface FeeFieldValues {
-  percent: string;
-  fixed: string;
+// 13 linhas configuráveis do diálogo por-membro: 12 faixas de crédito
+// (1..MAX_INSTALLMENTS, mesma constante/teto de payment-fees-form.tsx) + 1
+// linha fixa de débito (installments sempre 1, não editável — CHECK do banco
+// proíbe installments>1 fora de credit_card). Ordem fixa, usada para alinhar
+// por índice com `feesRows`.
+const CREDIT_CARD_INSTALLMENTS = Array.from(
+  { length: MAX_INSTALLMENTS },
+  (_, i) => i + 1,
+);
+
+interface FeeRow {
+  paymentMethod: FeeEligibleMethod;
+  installments: number;
 }
 
-type FeeFieldMap = Record<FeeEligibleMethod, FeeFieldValues>;
+const FEE_ROWS: FeeRow[] = [
+  ...CREDIT_CARD_INSTALLMENTS.map((installments) => ({
+    paymentMethod: "credit_card" as const,
+    installments,
+  })),
+  { paymentMethod: "debit_card" as const, installments: 1 },
+];
 
-function emptyFeeFieldMap(): FeeFieldMap {
-  return {
-    credit_card: { percent: "", fixed: "" },
-    debit_card: { percent: "", fixed: "" },
-  };
+function feeRowLabel(paymentMethod: FeeEligibleMethod, installments: number) {
+  if (paymentMethod === "debit_card") return FEE_METHOD_LABEL.debit_card;
+  return installments === 1
+    ? "Crédito 1x (à vista)"
+    : `Crédito ${installments}x`;
+}
+
+interface FeeRowState extends FeeRow {
+  percent: string;
+  fixed: string;
+  // Placeholders (taxa herdada da org para esta faixa); vazio quando a org
+  // também não configurou.
+  inheritedPercent: string;
+  inheritedFixed: string;
+  configured: boolean;
+  source: FeeSource;
+}
+
+function emptyFeeRows(): FeeRowState[] {
+  return FEE_ROWS.map((entry) => ({
+    ...entry,
+    percent: "",
+    fixed: "",
+    inheritedPercent: "",
+    inheritedFixed: "",
+    configured: false,
+    source: "none",
+  }));
 }
 
 // Semeia o diálogo de taxa a partir das linhas planas de memberFees (uma por
-// membro × método elegível). Override próprio (source === "member") popula os
-// campos editáveis; herança (org/none) vai só para os placeholders.
-function computeFeeSeed(rows: MemberPaymentFee[], userId: string) {
-  const draft = emptyFeeFieldMap();
-  const inherited = emptyFeeFieldMap();
-  const configured: Record<FeeEligibleMethod, boolean> = {
-    credit_card: false,
-    debit_card: false,
-  };
-  const source: Record<FeeEligibleMethod, FeeSource> = {
-    credit_card: "none",
-    debit_card: "none",
-  };
-  for (const method of FEE_METHODS) {
-    const row = rows.find(
-      (f) => f.userId === userId && f.paymentMethod === method,
+// membro × método × faixa). Override próprio (source === "member") popula o
+// campo editável; herança (org/none) vai só para o placeholder.
+function computeFeeSeed(
+  rows: MemberPaymentFee[],
+  userId: string,
+): FeeRowState[] {
+  return FEE_ROWS.map((entry) => {
+    const match = rows.find(
+      (f) =>
+        f.userId === userId &&
+        f.paymentMethod === entry.paymentMethod &&
+        f.installments === entry.installments,
     );
-    if (!row) continue;
-    source[method] = row.source;
-    configured[method] = row.source === "member";
-    const values: FeeFieldValues = {
-      percent: row.percent,
-      fixed: centsToReaisInput(row.fixedCents),
-    };
-    if (row.source === "member") {
-      draft[method] = values;
-    } else {
-      inherited[method] = values;
+    if (!match) {
+      return {
+        ...entry,
+        percent: "",
+        fixed: "",
+        inheritedPercent: "",
+        inheritedFixed: "",
+        configured: false,
+        source: "none",
+      };
     }
-  }
-  return { draft, inherited, configured, source };
+    const isOwn = match.source === "member";
+    return {
+      ...entry,
+      percent: isOwn ? match.percent : "",
+      fixed: isOwn ? centsToReaisInput(match.fixedCents) : "",
+      inheritedPercent: isOwn ? "" : match.percent,
+      inheritedFixed: isOwn ? "" : centsToReaisInput(match.fixedCents),
+      configured: isOwn,
+      source: match.source,
+    };
+  });
 }
 
-function feeFieldsError(fields: FeeFieldMap): string | null {
-  for (const method of FEE_METHODS) {
-    const { percent, fixed } = fields[method];
-    const percentResult = feePercentSchema.safeParse(percent);
+function feeFieldsError(rows: FeeRowState[]): string | null {
+  for (const row of rows) {
+    const percentResult = feePercentSchema.safeParse(row.percent);
     if (!percentResult.success) {
-      return percentResult.error.issues[0]?.message ?? "Percentual inválido";
+      const message =
+        percentResult.error.issues[0]?.message ?? "Percentual inválido";
+      return `${feeRowLabel(row.paymentMethod, row.installments)}: ${message}`;
     }
-    if (fixed.trim() !== "" && Number.isNaN(parseReaisToCents(fixed))) {
-      return "Valor fixo inválido";
+    if (row.fixed.trim() !== "" && Number.isNaN(parseReaisToCents(row.fixed))) {
+      const label = feeRowLabel(row.paymentMethod, row.installments);
+      return `${label}: Valor fixo inválido`;
     }
   }
   return null;
 }
 
-// Guard anti-override-fantasma (espelha confirmCommission): campos preenchidos
-// viram upsert em `fees`; campos limpos de um método que TINHA override próprio
-// viram `deactivations` (remove o override, volta ao fallback da org); campos
-// limpos e sem override prévio são omitidos dos dois — salvar sem preencher não
-// cria taxa por membro em 0.
+// Guard anti-override-fantasma (espelha confirmCommission): faixas preenchidas
+// viram upsert em `fees`; faixas limpas que TINHAM override próprio viram
+// `deactivations` (remove o override daquela faixa, volta ao fallback da org);
+// faixas limpas e sem override prévio são omitidas dos dois — salvar sem
+// preencher não cria taxa por membro em 0. Só as linhas TOCADAS entram no
+// payload (delta), nunca as 13 — decisão do passo 8: aqui, ao contrário da
+// tela de config da ORG, ausência de override já cai corretamente no
+// fallback da organização.
 function buildFeePayload(
   userId: string,
-  fields: FeeFieldMap,
-  configured: Record<FeeEligibleMethod, boolean>,
+  rows: FeeRowState[],
 ): {
   fees: MemberPaymentFeeInput[];
   deactivations: MemberPaymentFeeDeactivation[];
 } {
   const fees: MemberPaymentFeeInput[] = [];
   const deactivations: MemberPaymentFeeDeactivation[] = [];
-  for (const method of FEE_METHODS) {
-    const percent = fields[method].percent.trim();
-    const fixed = fields[method].fixed.trim();
+  for (const row of rows) {
+    const percent = row.percent.trim();
+    const fixed = row.fixed.trim();
     if (percent === "" && fixed === "") {
-      if (configured[method]) {
-        deactivations.push({ userId, paymentMethod: method });
+      if (row.configured) {
+        deactivations.push({
+          userId,
+          paymentMethod: row.paymentMethod,
+          installments: row.installments,
+        });
       }
       continue;
     }
     fees.push({
       userId,
-      paymentMethod: method,
+      paymentMethod: row.paymentMethod,
+      installments: row.installments,
       percent: percent === "" ? "0" : percent.replace(",", "."),
       fixedCents: fixed === "" ? 0 : parseReaisToCents(fixed),
     });
@@ -224,6 +282,7 @@ export function MemberList({
   invitations,
   currentUserEmail,
   isOwner,
+  onOpenMember,
   onUpdateRole,
   onRemove,
   onToggleStatus,
@@ -261,15 +320,7 @@ export function MemberList({
     string | null
   >(null);
   const [feesDialog, setFeesDialog] = useState<Member | null>(null);
-  const [feesDraft, setFeesDraft] = useState<FeeFieldMap>(emptyFeeFieldMap);
-  const [feesInherited, setFeesInherited] =
-    useState<FeeFieldMap>(emptyFeeFieldMap);
-  const [feesConfigured, setFeesConfigured] = useState<
-    Record<FeeEligibleMethod, boolean>
-  >({ credit_card: false, debit_card: false });
-  const [feesMethodSource, setFeesMethodSource] = useState<
-    Record<FeeEligibleMethod, FeeSource>
-  >({ credit_card: "none", debit_card: "none" });
+  const [feesRows, setFeesRows] = useState<FeeRowState[]>(emptyFeeRows);
   const [feesTouched, setFeesTouched] = useState(false);
   const [feesFieldError, setFeesFieldError] = useState<string | null>(null);
   const [feesSubmitError, setFeesSubmitError] = useState<string | null>(null);
@@ -315,11 +366,7 @@ export function MemberList({
   }, [commissions, commissionDialogUserId, commissionTouched]);
 
   function openFees(member: Member) {
-    const seed = computeFeeSeed(memberFees, member.userId);
-    setFeesDraft(seed.draft);
-    setFeesInherited(seed.inherited);
-    setFeesConfigured(seed.configured);
-    setFeesMethodSource(seed.source);
+    setFeesRows(computeFeeSeed(memberFees, member.userId));
     setFeesTouched(false);
     setFeesFieldError(null);
     setFeesSubmitError(null);
@@ -329,29 +376,38 @@ export function MemberList({
   // Mesma re-semeadura do diálogo de comissão: source/configured/inherited
   // sempre acompanham o servidor (o guard anti-fantasma depende de saber se havia
   // override próprio); os campos editáveis só re-semeiam enquanto o owner não
-  // mexeu, para não descartar uma edição em andamento.
+  // mexeu, para não descartar uma edição em andamento. `computeFeeSeed` sempre
+  // itera FEE_ROWS na mesma ordem fixa, então a linha de índice `i` da nova
+  // semeadura e a linha de índice `i` do draft anterior sempre representam a
+  // mesma faixa (método + parcelas) — seguro alinhar por índice.
   const feesDialogUserId = feesDialog?.userId;
   useEffect(() => {
     if (!feesDialogUserId) return;
-    const seed = computeFeeSeed(memberFees, feesDialogUserId);
-    setFeesConfigured(seed.configured);
-    setFeesMethodSource(seed.source);
-    setFeesInherited(seed.inherited);
-    if (feesTouched) return;
-    setFeesDraft(seed.draft);
+    const seedRows = computeFeeSeed(memberFees, feesDialogUserId);
+    if (!feesTouched) {
+      setFeesRows(seedRows);
+      return;
+    }
+    setFeesRows((prev) =>
+      seedRows.map((seedRow, i) => {
+        const draftRow = prev[i];
+        return draftRow
+          ? { ...seedRow, percent: draftRow.percent, fixed: draftRow.fixed }
+          : seedRow;
+      }),
+    );
   }, [memberFees, feesDialogUserId, feesTouched]);
 
   function handleFeeFieldChange(
-    method: FeeEligibleMethod,
+    idx: number,
     field: "percent" | "fixed",
     value: string,
   ) {
     setFeesTouched(true);
-    const next: FeeFieldMap = {
-      ...feesDraft,
-      [method]: { ...feesDraft[method], [field]: value },
-    };
-    setFeesDraft(next);
+    const next: FeeRowState[] = feesRows.map((row, i) =>
+      i === idx ? { ...row, [field]: value } : row,
+    );
+    setFeesRows(next);
     setFeesFieldError(feeFieldsError(next));
   }
 
@@ -434,8 +490,7 @@ export function MemberList({
     try {
       const { fees, deactivations } = buildFeePayload(
         feesDialog.userId,
-        feesDraft,
-        feesConfigured,
+        feesRows,
       );
       // Nada preenchido e nenhum override prévio: não chama a API.
       if (fees.length > 0 || deactivations.length > 0) {
@@ -449,8 +504,7 @@ export function MemberList({
         try {
           await onUpdateMemberFees({
             fees: parsed.data.fees.length > 0 ? parsed.data.fees : undefined,
-            deactivations:
-              deactivations.length > 0 ? deactivations : undefined,
+            deactivations: deactivations.length > 0 ? deactivations : undefined,
           });
         } catch (err) {
           setFeesSubmitError(
@@ -506,11 +560,19 @@ export function MemberList({
     }
   }
 
-  const feeDraftEmpty = FEE_METHODS.every(
-    (m) =>
-      feesDraft[m].percent.trim() === "" && feesDraft[m].fixed.trim() === "",
+  const feeDraftEmpty = feesRows.every(
+    (row) => row.percent.trim() === "" && row.fixed.trim() === "",
   );
-  const feeHasPriorOverride = FEE_METHODS.some((m) => feesConfigured[m]);
+  const feeHasPriorOverride = feesRows.some((row) => row.configured);
+  // Índices originais preservados (necessários para handleFeeFieldChange),
+  // separados só para render: tabela de crédito (12 faixas) + card de débito
+  // (1 linha, sem faixa).
+  const creditFeeRows = feesRows
+    .map((row, idx) => ({ row, idx }))
+    .filter(({ row }) => row.paymentMethod === "credit_card");
+  const debitFeeRow = feesRows
+    .map((row, idx) => ({ row, idx }))
+    .find(({ row }) => row.paymentMethod === "debit_card");
 
   return (
     <div className="grid gap-6">
@@ -525,8 +587,9 @@ export function MemberList({
             return (
               <div
                 key={member.memberId}
+                onClick={() => onOpenMember(member)}
                 className={cn(
-                  "flex items-center gap-3 p-3 sm:px-4",
+                  "flex cursor-pointer items-center gap-3 p-3 sm:px-4",
                   i < members.length - 1 && "border-b border-border-subtle",
                 )}
               >
@@ -893,13 +956,85 @@ export function MemberList({
             </DialogDescription>
           </DialogHeader>
           <div className="grid max-h-[60vh] gap-4 overflow-y-auto pr-1">
-            {FEE_METHODS.map((method) => (
-              <div
-                key={method}
-                className="grid gap-2 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3"
-              >
+            <div className="grid gap-2 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3">
+              <p className="text-sm font-medium text-foreground">
+                {FEE_METHOD_LABEL.credit_card}
+              </p>
+              <Table className="table-fixed">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-[22%] whitespace-normal px-1.5 py-1.5">
+                      Parcelas
+                    </TableHead>
+                    <TableHead className="w-[39%] whitespace-normal px-1.5 py-1.5">
+                      Percentual (%)
+                    </TableHead>
+                    <TableHead className="w-[39%] whitespace-normal px-1.5 py-1.5">
+                      Valor fixo (R$)
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {creditFeeRows.map(({ row, idx }) => (
+                    <TableRow
+                      key={`${row.paymentMethod}-${row.installments}`}
+                      className="hover:bg-transparent"
+                    >
+                      <TableCell className="px-1.5 py-1.5 text-xs whitespace-normal text-foreground/60">
+                        {row.installments === 1
+                          ? "1x (à vista)"
+                          : `${row.installments}x`}
+                      </TableCell>
+                      <TableCell className="px-1.5 py-1.5">
+                        <Input
+                          placeholder={
+                            memberFeesLoading
+                              ? "Carregando…"
+                              : row.inheritedPercent || "Sem taxa"
+                          }
+                          inputMode="decimal"
+                          autoComplete="off"
+                          disabled={memberFeesLoading || !!memberFeesError}
+                          className="px-2 text-xs"
+                          value={row.percent}
+                          onChange={(e) =>
+                            handleFeeFieldChange(idx, "percent", e.target.value)
+                          }
+                        />
+                      </TableCell>
+                      <TableCell className="px-1.5 py-1.5">
+                        <Input
+                          placeholder={
+                            memberFeesLoading
+                              ? "Carregando…"
+                              : row.inheritedFixed || "Sem taxa"
+                          }
+                          inputMode="decimal"
+                          autoComplete="off"
+                          disabled={memberFeesLoading || !!memberFeesError}
+                          className="px-2 text-xs"
+                          value={row.fixed}
+                          onChange={(e) =>
+                            handleFeeFieldChange(idx, "fixed", e.target.value)
+                          }
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <p className="text-xs text-foreground/50">
+                Em branco = herda a taxa da organização para aquela faixa (o
+                número mostrado no campo é a taxa herdada; &quot;Sem taxa&quot;
+                = a organização também não configurou). Preencha só as faixas em
+                que este funcionário deve ter uma taxa diferente.
+              </p>
+            </div>
+
+            {debitFeeRow && (
+              <div className="grid gap-2 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3">
                 <p className="text-sm font-medium text-foreground">
-                  {FEE_METHOD_LABEL[method]}
+                  {FEE_METHOD_LABEL.debit_card}
                 </p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="grid gap-1.5">
@@ -908,14 +1043,18 @@ export function MemberList({
                       placeholder={
                         memberFeesLoading
                           ? "Carregando…"
-                          : feesInherited[method].percent || "0,00"
+                          : debitFeeRow.row.inheritedPercent || "0,00"
                       }
                       inputMode="decimal"
                       autoComplete="off"
                       disabled={memberFeesLoading || !!memberFeesError}
-                      value={feesDraft[method].percent}
+                      value={debitFeeRow.row.percent}
                       onChange={(e) =>
-                        handleFeeFieldChange(method, "percent", e.target.value)
+                        handleFeeFieldChange(
+                          debitFeeRow.idx,
+                          "percent",
+                          e.target.value,
+                        )
                       }
                     />
                   </div>
@@ -925,27 +1064,31 @@ export function MemberList({
                       placeholder={
                         memberFeesLoading
                           ? "Carregando…"
-                          : feesInherited[method].fixed || "0,00"
+                          : debitFeeRow.row.inheritedFixed || "0,00"
                       }
                       inputMode="decimal"
                       autoComplete="off"
                       disabled={memberFeesLoading || !!memberFeesError}
-                      value={feesDraft[method].fixed}
+                      value={debitFeeRow.row.fixed}
                       onChange={(e) =>
-                        handleFeeFieldChange(method, "fixed", e.target.value)
+                        handleFeeFieldChange(
+                          debitFeeRow.idx,
+                          "fixed",
+                          e.target.value,
+                        )
                       }
                     />
                   </div>
                 </div>
                 <p className="text-xs text-foreground/50">
-                  {feesMethodSource[method] === "member"
+                  {debitFeeRow.row.source === "member"
                     ? "Taxa própria deste funcionário. Limpe os dois campos e salve para remover e voltar à taxa da organização."
-                    : feesMethodSource[method] === "org"
+                    : debitFeeRow.row.source === "org"
                       ? "Herdado da organização."
                       : "Sem taxa configurada para este método."}
                 </p>
               </div>
-            ))}
+            )}
 
             {feesFieldError && (
               <p className="text-xs text-destructive">{feesFieldError}</p>
@@ -1032,40 +1175,78 @@ function MemberActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0"
+          onClick={(e) => e.stopPropagation()}
+        >
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {member.role === "employee" && (
-          <DropdownMenuItem onClick={onPermissions}>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              onPermissions();
+            }}
+          >
             <SlidersHorizontal className="mr-2 h-4 w-4" />
             Permissões
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem onClick={onCommission}>
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.stopPropagation();
+            onCommission();
+          }}
+        >
           <Percent className="mr-2 h-4 w-4" />
           Comissão
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onFees}>
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.stopPropagation();
+            onFees();
+          }}
+        >
           <CreditCard className="mr-2 h-4 w-4" />
           Taxas de cartão
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onClassification}>
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.stopPropagation();
+            onClassification();
+          }}
+        >
           <Tag className="mr-2 h-4 w-4" />
           Classificação
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onChangeRole(nextRole)}>
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.stopPropagation();
+            onChangeRole(nextRole);
+          }}
+        >
           <ShieldCheck className="mr-2 h-4 w-4" />
           {nextRoleLabel}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onToggleStatus}>
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleStatus();
+          }}
+        >
           <Power className="mr-2 h-4 w-4" />
           {member.enabled ? "Desativar" : "Ativar"}
         </DropdownMenuItem>
         <DropdownMenuItem
           className="text-destructive focus:text-destructive"
-          onClick={onRemove}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
         >
           <UserMinus className="mr-2 h-4 w-4" />
           Remover

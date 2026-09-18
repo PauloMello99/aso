@@ -519,6 +519,13 @@
       "when": 1782006300000,
       "tag": "0073_member_payment_category",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1782006400000,
+      "tag": "0074_installment_payment_fees",
+      "breakpoints": true
     }
   ]
 }

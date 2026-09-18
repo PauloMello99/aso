@@ -6,12 +6,40 @@ import {
   IsInt,
   IsString,
   Matches,
+  Max,
   Min,
+  Validate,
   ValidateNested,
+  ValidationArguments,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
 } from "class-validator";
 import { PAYMENT_METHODS } from "./create-transaction.dto";
+import { MAX_INSTALLMENTS } from "../../domain/fee-calculator";
 
 const PERCENT_PATTERN = /^\d+(\.\d{1,2})?$/;
+
+/**
+ * Espelha o CHECK do banco (`org_payment_fees_installments_check`,
+ * migration 0074): `installments = 1 OR payment_method = 'credit_card'`.
+ */
+@ValidatorConstraint({
+  name: "orgInstallmentsRequiresCreditCard",
+  async: false,
+})
+class InstallmentsRequiresCreditCardConstraint
+  implements ValidatorConstraintInterface
+{
+  validate(value: unknown, args: ValidationArguments): boolean {
+    if (typeof value !== "number") return false;
+    const paymentMethod = (args.object as PaymentFeeItemDto).paymentMethod;
+    return value === 1 || paymentMethod === "credit_card";
+  }
+
+  defaultMessage(): string {
+    return "installments greater than 1 requires paymentMethod credit_card";
+  }
+}
 
 export class PaymentFeeItemDto {
   @IsIn(PAYMENT_METHODS)
@@ -24,6 +52,12 @@ export class PaymentFeeItemDto {
   @IsInt()
   @Min(0)
   fixedCents!: number;
+
+  @IsInt()
+  @Min(1)
+  @Max(MAX_INSTALLMENTS)
+  @Validate(InstallmentsRequiresCreditCardConstraint)
+  installments!: number;
 }
 
 export class UpsertFeesDto {

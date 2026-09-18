@@ -45,6 +45,7 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
         amountGrossCents: data.grossCents,
         feeCents: data.feeCents,
         paymentMethod: data.paymentMethod,
+        installments: data.installments ?? null,
         categoryId: data.categoryId ?? null,
         feeConfigId: data.feeConfigId ?? null,
         feePercent: data.feePercent ?? null,

@@ -7,6 +7,7 @@ import type { PaymentFee, PaymentMethod } from "../types"
 
 export interface UpsertFeeItem {
   paymentMethod: PaymentMethod
+  installments: number
   percent: string
   fixedCents: number
 }

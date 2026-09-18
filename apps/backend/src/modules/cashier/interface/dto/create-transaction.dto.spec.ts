@@ -35,4 +35,48 @@ describe("CreateTransactionDto", () => {
 
     expect(errors.find((e) => e.property === "paymentMethod")).toBeDefined();
   });
+
+  it("aceita credit_card com installments 6", async () => {
+    const dto = plainToInstance(
+      CreateTransactionDto,
+      buildInput({ paymentMethod: "credit_card", installments: 6 }),
+    );
+
+    const errors = await validate(dto);
+
+    expect(errors.find((e) => e.property === "installments")).toBeUndefined();
+  });
+
+  it("aceita credit_card sem installments informado", async () => {
+    const dto = plainToInstance(
+      CreateTransactionDto,
+      buildInput({ paymentMethod: "credit_card" }),
+    );
+
+    const errors = await validate(dto);
+
+    expect(errors.find((e) => e.property === "installments")).toBeUndefined();
+  });
+
+  it("rejeita cash com installments (não parcelável)", async () => {
+    const dto = plainToInstance(
+      CreateTransactionDto,
+      buildInput({ paymentMethod: "cash", installments: 3 }),
+    );
+
+    const errors = await validate(dto);
+
+    expect(errors.find((e) => e.property === "installments")).toBeDefined();
+  });
+
+  it("rejeita installments acima do teto MAX_INSTALLMENTS=12", async () => {
+    const dto = plainToInstance(
+      CreateTransactionDto,
+      buildInput({ paymentMethod: "credit_card", installments: 13 }),
+    );
+
+    const errors = await validate(dto);
+
+    expect(errors.find((e) => e.property === "installments")).toBeDefined();
+  });
 });

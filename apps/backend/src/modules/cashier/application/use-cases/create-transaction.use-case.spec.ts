@@ -85,6 +85,7 @@ function buildMemberFee(
     paymentMethod: "credit_card",
     percent: "3.50",
     fixedCents: 50,
+    installments: 1,
     active: true,
     supersededAt: null,
     createdBy: "owner-1",
@@ -103,6 +104,7 @@ function buildOrgFee(
     paymentMethod: "credit_card",
     percent: "2.00",
     fixedCents: 10,
+    installments: 1,
     createdAt: new Date("2026-01-01T00:00:00Z"),
     updatedAt: new Date("2026-01-01T00:00:00Z"),
     ...overrides,
@@ -201,6 +203,7 @@ describe("CreateTransactionUseCase", () => {
         netCents: 10000,
         feeSource: "none",
         paymentMethod: "cash",
+        installments: null,
         categoryId: null,
         attributedTo: "other-user",
         source: "manual",
@@ -285,7 +288,7 @@ describe("CreateTransactionUseCase", () => {
     expect(metadata).not.toHaveProperty("description");
   });
 
-  it("no caminho de correção (trustedCreatedBy definido) não consulta a taxa do membro e usa a taxa da org", async () => {
+  it("no caminho de correção (trustedCreatedBy definido) consulta a taxa do membro (sem override configurado) e cai na taxa da org", async () => {
     const transactionRepo = buildFakeTransactionRepo({
       create: jest.fn().mockResolvedValue(buildTransaction({ id: "tx-5" })),
     });
@@ -315,7 +318,12 @@ describe("CreateTransactionUseCase", () => {
       paymentMethod: "credit_card",
     });
 
-    expect(memberFeeRepo.findActiveByOrgUserAndMethod).not.toHaveBeenCalled();
+    expect(memberFeeRepo.findActiveByOrgUserAndMethod).toHaveBeenCalledWith(
+      "org-1",
+      "user-1",
+      "credit_card",
+      1,
+    );
     expect(transactionRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
         feeCents: 450,
@@ -388,7 +396,7 @@ describe("CreateTransactionUseCase", () => {
     );
   });
 
-  it("correção com método de pagamento DIFERENTE do original: descarta o snapshot e reprecifica pela ORG", async () => {
+  it("correção com método de pagamento DIFERENTE do original: descarta o snapshot, consulta a taxa do membro (sem override) e reprecifica pela ORG", async () => {
     const transactionRepo = buildFakeTransactionRepo({
       create: jest.fn().mockResolvedValue(buildTransaction({ id: "tx-11" })),
     });
@@ -429,7 +437,12 @@ describe("CreateTransactionUseCase", () => {
       paymentMethod: "debit_card",
     });
 
-    expect(memberFeeRepo.findActiveByOrgUserAndMethod).not.toHaveBeenCalled();
+    expect(memberFeeRepo.findActiveByOrgUserAndMethod).toHaveBeenCalledWith(
+      "org-1",
+      "user-1",
+      "debit_card",
+      1,
+    );
     // 2.00% de 10000 = 200, + 10 fixos = 210 (taxa da ORG para o novo método)
     expect(transactionRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -582,6 +595,7 @@ describe("CreateTransactionUseCase", () => {
       "org-1",
       "user-1",
       "credit_card",
+      1,
     );
     // 3.50% de 10000 = 350, + 50 fixos = 400
     expect(transactionRepo.create).toHaveBeenCalledWith(
@@ -726,6 +740,296 @@ describe("CreateTransactionUseCase", () => {
         feePercent: null,
         feeFixedCents: null,
         feeSource: "none",
+      }),
+    );
+  });
+
+  it("crédito 6x usa a taxa configurada da ORG para a faixa de 6x, não a de 1x", async () => {
+    const transactionRepo = buildFakeTransactionRepo({
+      create: jest.fn().mockResolvedValue(buildTransaction({ id: "tx-14" })),
+    });
+    const feeRepo = buildFakeFeeRepo({
+      findByOrgAndMethod: jest
+        .fn()
+        .mockImplementation((_orgId: string, _method: string, tier: number) =>
+          Promise.resolve(
+            tier === 6
+              ? buildOrgFee({ installments: 6, percent: "4.00", fixedCents: 20 })
+              : buildOrgFee({ installments: 1, percent: "2.00", fixedCents: 10 }),
+          ),
+        ),
+    });
+    const memberFeeRepo = buildFakeMemberFeeRepo();
+    const memberRepo = buildFakeMemberRepo();
+    const auditService = buildFakeAuditService();
+    const useCase = new CreateTransactionUseCase(
+      transactionRepo,
+      feeRepo,
+      memberFeeRepo,
+      memberRepo,
+      auditService,
+    );
+
+    await useCase.execute({
+      orgId: "org-1",
+      authId: "auth-owner-1",
+      description: "Sessão paga em 6x no cartão",
+      type: "income",
+      grossCents: 10000,
+      paymentMethod: "credit_card",
+      installments: 6,
+    });
+
+    expect(feeRepo.findByOrgAndMethod).toHaveBeenCalledWith(
+      "org-1",
+      "credit_card",
+      6,
+    );
+    // 4.00% de 10000 = 400, + 20 fixos = 420 (taxa da faixa de 6x, não a de 1x)
+    expect(transactionRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        installments: 6,
+        feeCents: 420,
+        netCents: 9580,
+        feePercent: "4.00",
+        feeFixedCents: 20,
+        feeSource: "org",
+      }),
+    );
+  });
+
+  it("crédito sem installments informado usa a taxa de 1x (comportamento atual preservado)", async () => {
+    const transactionRepo = buildFakeTransactionRepo({
+      create: jest.fn().mockResolvedValue(buildTransaction({ id: "tx-15" })),
+    });
+    const feeRepo = buildFakeFeeRepo({
+      findByOrgAndMethod: jest
+        .fn()
+        .mockImplementation((_orgId: string, _method: string, tier: number) =>
+          Promise.resolve(
+            tier === 6
+              ? buildOrgFee({ installments: 6, percent: "4.00", fixedCents: 20 })
+              : buildOrgFee({ installments: 1, percent: "2.00", fixedCents: 10 }),
+          ),
+        ),
+    });
+    const memberFeeRepo = buildFakeMemberFeeRepo();
+    const memberRepo = buildFakeMemberRepo();
+    const auditService = buildFakeAuditService();
+    const useCase = new CreateTransactionUseCase(
+      transactionRepo,
+      feeRepo,
+      memberFeeRepo,
+      memberRepo,
+      auditService,
+    );
+
+    await useCase.execute({
+      orgId: "org-1",
+      authId: "auth-owner-1",
+      description: "Sessão paga à vista no cartão",
+      type: "income",
+      grossCents: 10000,
+      paymentMethod: "credit_card",
+    });
+
+    expect(feeRepo.findByOrgAndMethod).toHaveBeenCalledWith(
+      "org-1",
+      "credit_card",
+      1,
+    );
+    expect(transactionRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        installments: 1,
+        feeCents: 210,
+        netCents: 9790,
+        feePercent: "2.00",
+        feeFixedCents: 10,
+        feeSource: "org",
+      }),
+    );
+  });
+
+  it("correção que MUDA de faixa (1x→6x) descarta o snapshot e reprecifica pela ORG na faixa nova", async () => {
+    const transactionRepo = buildFakeTransactionRepo({
+      create: jest.fn().mockResolvedValue(buildTransaction({ id: "tx-16" })),
+    });
+    const feeRepo = buildFakeFeeRepo({
+      findByOrgAndMethod: jest
+        .fn()
+        .mockResolvedValue(
+          buildOrgFee({ installments: 6, percent: "4.00", fixedCents: 20 }),
+        ),
+    });
+    const memberFeeRepo = buildFakeMemberFeeRepo();
+    const memberRepo = buildFakeMemberRepo();
+    const auditService = buildFakeAuditService();
+    const useCase = new CreateTransactionUseCase(
+      transactionRepo,
+      feeRepo,
+      memberFeeRepo,
+      memberRepo,
+      auditService,
+    );
+
+    await useCase.execute({
+      orgId: "org-1",
+      authId: "auth-system",
+      trustedCreatedBy: "user-1",
+      originalFee: {
+        paymentMethod: "credit_card",
+        feePercent: "2.00",
+        feeFixedCents: 10,
+        feeSource: "org",
+        feeConfigId: null,
+        installments: 1,
+      },
+      description: "Correção de 1x para 6x",
+      type: "income",
+      grossCents: 10000,
+      paymentMethod: "credit_card",
+      installments: 6,
+    });
+
+    expect(feeRepo.findByOrgAndMethod).toHaveBeenCalledWith(
+      "org-1",
+      "credit_card",
+      6,
+    );
+    // 4.00% de 10000 = 400, + 20 fixos = 420 (taxa da NOVA faixa, não o snapshot 1x)
+    expect(transactionRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        installments: 6,
+        feeCents: 420,
+        netCents: 9580,
+        feePercent: "4.00",
+        feeFixedCents: 20,
+        feeSource: "org",
+      }),
+    );
+  });
+
+  it("correção que MUDA de faixa (6x→1x) honra o override de taxa do MEMBRO configurado para a faixa nova, não a taxa da ORG", async () => {
+    const transactionRepo = buildFakeTransactionRepo({
+      create: jest.fn().mockResolvedValue(buildTransaction({ id: "tx-18" })),
+    });
+    const feeRepo = buildFakeFeeRepo({
+      findByOrgAndMethod: jest
+        .fn()
+        .mockResolvedValue(
+          buildOrgFee({ installments: 1, percent: "2.00", fixedCents: 10 }),
+        ),
+    });
+    const memberFeeRepo = buildFakeMemberFeeRepo({
+      findActiveByOrgUserAndMethod: jest
+        .fn()
+        .mockResolvedValue(
+          buildMemberFee({ installments: 1, percent: "1.00", fixedCents: 0 }),
+        ),
+    });
+    const memberRepo = buildFakeMemberRepo();
+    const auditService = buildFakeAuditService();
+    const useCase = new CreateTransactionUseCase(
+      transactionRepo,
+      feeRepo,
+      memberFeeRepo,
+      memberRepo,
+      auditService,
+    );
+
+    await useCase.execute({
+      orgId: "org-1",
+      authId: "auth-system",
+      trustedCreatedBy: "user-1",
+      originalFee: {
+        paymentMethod: "credit_card",
+        feePercent: "4.00",
+        feeFixedCents: 20,
+        feeSource: "org",
+        feeConfigId: null,
+        installments: 6,
+      },
+      description: "Correção de 6x para 1x",
+      type: "income",
+      grossCents: 10000,
+      paymentMethod: "credit_card",
+      installments: 1,
+    });
+
+    expect(memberFeeRepo.findActiveByOrgUserAndMethod).toHaveBeenCalledWith(
+      "org-1",
+      "user-1",
+      "credit_card",
+      1,
+    );
+    // 1.00% de 10000 = 100 (taxa do MEMBRO para 1x, não a da ORG de 2.00%)
+    expect(transactionRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        installments: 1,
+        feeCents: 100,
+        netCents: 9900,
+        feeConfigId: "member-fee-1",
+        feePercent: "1.00",
+        feeFixedCents: 0,
+        feeSource: "member",
+      }),
+    );
+  });
+
+  it("correção que MANTÉM a mesma faixa (6x) reusa o snapshot original sem reprecificar", async () => {
+    const transactionRepo = buildFakeTransactionRepo({
+      create: jest.fn().mockResolvedValue(buildTransaction({ id: "tx-17" })),
+    });
+    const feeRepo = buildFakeFeeRepo({
+      // Taxa vigente da faixa de 6x mudou desde o lançamento original — não pode
+      // ser consultada nem aplicada; o snapshot precisa prevalecer.
+      findByOrgAndMethod: jest
+        .fn()
+        .mockResolvedValue(
+          buildOrgFee({ installments: 6, percent: "9.00", fixedCents: 999 }),
+        ),
+    });
+    const memberFeeRepo = buildFakeMemberFeeRepo();
+    const memberRepo = buildFakeMemberRepo();
+    const auditService = buildFakeAuditService();
+    const useCase = new CreateTransactionUseCase(
+      transactionRepo,
+      feeRepo,
+      memberFeeRepo,
+      memberRepo,
+      auditService,
+    );
+
+    await useCase.execute({
+      orgId: "org-1",
+      authId: "auth-system",
+      trustedCreatedBy: "user-1",
+      originalFee: {
+        paymentMethod: "credit_card",
+        feePercent: "4.00",
+        feeFixedCents: 20,
+        feeSource: "org",
+        feeConfigId: null,
+        installments: 6,
+      },
+      description: "Correção de valor mantendo 6x",
+      type: "income",
+      grossCents: 12000,
+      paymentMethod: "credit_card",
+      installments: 6,
+    });
+
+    expect(feeRepo.findByOrgAndMethod).not.toHaveBeenCalled();
+    expect(memberFeeRepo.findActiveByOrgUserAndMethod).not.toHaveBeenCalled();
+    // 4.00% de 12000 = 480, + 20 fixos = 500 (snapshot original da faixa 6x)
+    expect(transactionRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        installments: 6,
+        feeCents: 500,
+        netCents: 11500,
+        feePercent: "4.00",
+        feeFixedCents: 20,
+        feeSource: "org",
       }),
     );
   });

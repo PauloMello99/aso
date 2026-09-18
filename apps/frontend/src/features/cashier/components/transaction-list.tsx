@@ -26,11 +26,11 @@ import {
 } from "@/shared/components/ui/table"
 import { cn } from "@/shared/lib/utils"
 import { useMoneyFormatter } from "@/shared/hooks/use-money-formatter"
-import {
-  PAYMENT_METHOD_LABELS,
-  type Transaction,
-  type TransactionCategory,
-  type TransactionView,
+import { formatPaymentMethod } from "../lib/payment-method-label"
+import type {
+  Transaction,
+  TransactionCategory,
+  TransactionView,
 } from "../types"
 
 interface TransactionListProps {
@@ -173,7 +173,7 @@ function MobileCard({
           )}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-foreground/40">
-          <span>{PAYMENT_METHOD_LABELS[t.paymentMethod]}</span>
+          <span>{formatPaymentMethod(t.paymentMethod, t.installments)}</span>
           <span>{formatDate(t.transactedAt)}</span>
           {t.feeCents > 0 && <span>taxa {money(t.feeCents)}</span>}
         </div>
@@ -276,7 +276,7 @@ export function TransactionList({
                     )}
                   </TableCell>
                   <TableCell className="text-foreground/50">
-                    {PAYMENT_METHOD_LABELS[t.paymentMethod]}
+                    {formatPaymentMethod(t.paymentMethod, t.installments)}
                   </TableCell>
                   <TableCell className="text-foreground/40">
                     {formatDate(t.transactedAt)}

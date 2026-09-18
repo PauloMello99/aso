@@ -93,6 +93,15 @@ function toApiBody(values: TransactionFormValues | CorrectionFormValues) {
     type: values.type as TransactionType,
     grossCents: parseReaisToCents(values.amount),
     paymentMethod: values.paymentMethod as PaymentMethod,
+    // Espelha InstallmentsRequiresCreditCardConstraint do backend: fora do
+    // crédito o form já reseta o campo, mas essa checagem é a rede de
+    // segurança na borda de saída. `?? 1` cobre transações de crédito
+    // legadas (installments null, pré-migration 0074) reabertas na
+    // correção sem que o usuário troque a faixa.
+    installments:
+      values.paymentMethod === "credit_card"
+        ? (values.installments ?? 1)
+        : undefined,
     categoryId: values.categoryId || null,
     createdBy: "createdBy" in values ? values.createdBy || null : null,
     transactedAt: values.transactedAt
@@ -481,6 +490,7 @@ export function CashierPage({ orgId }: CashierPageProps) {
                 ? ({
                     amountCents: active.entity.grossCents,
                     paymentMethod: active.entity.paymentMethod,
+                    installments: active.entity.installments,
                     dateISO: active.entity.transactedAt,
                   } satisfies ServicePaymentCorrectionTarget)
                 : null

@@ -20,6 +20,7 @@ import { AuditService } from "../../../audit/audit.service";
 export interface UpsertMemberPaymentFeeItem {
   userId: string;
   paymentMethod: PaymentMethod;
+  installments: number;
   percent: string;
   fixedCents: number;
 }
@@ -27,6 +28,7 @@ export interface UpsertMemberPaymentFeeItem {
 export interface MemberPaymentFeeDeactivationItem {
   userId: string;
   paymentMethod: PaymentMethod;
+  installments: number;
 }
 
 export interface UpsertMemberPaymentFeesInput {
@@ -84,6 +86,7 @@ export class UpsertMemberPaymentFeesUseCase {
     const changes: Array<{
       userId: string;
       paymentMethod: PaymentMethod;
+      installments: number;
       previousPercent: string | null;
       previousFixedCents: number | null;
       percent: string | null;
@@ -95,6 +98,7 @@ export class UpsertMemberPaymentFeesUseCase {
         input.orgId,
         item.userId,
         item.paymentMethod,
+        item.installments,
       );
 
       const normalizedPercent = item.percent.trim();
@@ -110,6 +114,7 @@ export class UpsertMemberPaymentFeesUseCase {
         orgId: input.orgId,
         userId: item.userId,
         paymentMethod: item.paymentMethod,
+        installments: item.installments,
         percent: normalizedPercent,
         fixedCents: item.fixedCents,
         createdBy,
@@ -118,6 +123,7 @@ export class UpsertMemberPaymentFeesUseCase {
       changes.push({
         userId: item.userId,
         paymentMethod: item.paymentMethod,
+        installments: item.installments,
         previousPercent: active?.percent ?? null,
         previousFixedCents: active?.fixedCents ?? null,
         percent: normalizedPercent,
@@ -130,6 +136,7 @@ export class UpsertMemberPaymentFeesUseCase {
         input.orgId,
         item.userId,
         item.paymentMethod,
+        item.installments,
       );
 
       if (active === null) continue;
@@ -138,11 +145,13 @@ export class UpsertMemberPaymentFeesUseCase {
         input.orgId,
         item.userId,
         item.paymentMethod,
+        item.installments,
       );
 
       changes.push({
         userId: item.userId,
         paymentMethod: item.paymentMethod,
+        installments: item.installments,
         previousPercent: active.percent,
         previousFixedCents: active.fixedCents,
         percent: null,

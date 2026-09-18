@@ -24,7 +24,15 @@ export interface Service {
   createdBy: string | null
   description: string | null
   amountCents: number
+  // Comissão já calculada e persistida pelo backend no momento do pagamento
+  // (computeCommission, gross/net) — nunca recalcular no frontend a partir de
+  // percent/mode, que reabriria a divergência que o backend já resolveu.
+  commissionCents: number
   paymentMethod: ServicePaymentMethod
+  // NULL = método sem parcelamento ou serviço criado antes da migration 0074.
+  // Persistido na criação para resolver a taxa correta no momento do
+  // pagamento de um serviço pendente (register-payment.use-case.ts).
+  installments: number | null
   performedAt: string
   canceledAt: string | null
   createdAt: string

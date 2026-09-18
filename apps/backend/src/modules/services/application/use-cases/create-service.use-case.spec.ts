@@ -125,6 +125,7 @@ function buildMemberPaymentFee(
     paymentMethod: "credit_card",
     percent: "5.00",
     fixedCents: 0,
+    installments: 1,
     active: true,
     supersededAt: null,
     createdBy: "owner-1",
@@ -913,7 +914,7 @@ describe("CreateServiceUseCase", () => {
         feeRepo: buildFakeFeeRepo({
           findByOrgAndMethod: jest
             .fn()
-            .mockResolvedValue({ percent: "10.00", fixedCents: 0 }),
+            .mockResolvedValue({ percent: "10.00", fixedCents: 0, installments: 1 }),
         }),
       });
 
@@ -923,6 +924,7 @@ describe("CreateServiceUseCase", () => {
         "org-1",
         "user-1",
         "credit_card",
+        1,
       );
       expect(transactionRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -950,6 +952,105 @@ describe("CreateServiceUseCase", () => {
           feeFixedCents: null,
           feeSource: "none",
         }),
+      );
+    });
+
+    it("pago NA CRIAÇÃO em crédito 6x usa a taxa de 6x (não a de 1x) e a comissão net reflete o líquido menor (comportamento pretendido, Bloco 3)", async () => {
+      const { useCase, transactionRepo, serviceRepo, feeRepo } =
+        buildPaidUseCase({
+          feeRepo: buildFakeFeeRepo({
+            findByOrgAndMethod: jest
+              .fn()
+              .mockResolvedValue({ percent: "20.00", fixedCents: 0, installments: 6 }),
+          }),
+          commissionRepo: buildFakeCommissionRepo({
+            findActiveByOrgAndUser: jest
+              .fn()
+              .mockResolvedValue(buildCommission({ percent: "30.00", mode: "net" })),
+          }),
+        });
+
+      await useCase.execute({ ...paidInput, installments: 6 });
+
+      expect(feeRepo.findByOrgAndMethod).toHaveBeenCalledWith(
+        "org-1",
+        "credit_card",
+        6,
+      );
+      // taxa de 6x (20%): fee 2000, líquido 8000
+      expect(transactionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          installments: 6,
+          feeCents: 2000,
+          netCents: 8000,
+          feePercent: "20.00",
+          feeSource: "org",
+        }),
+      );
+      // comissão net: 30% de 8000 (líquido pós-taxa de 6x, MENOR do que seria
+      // com a taxa de 1x) = 2400 — consequência PRETENDIDA, não bug a corrigir.
+      expect(serviceRepo.setPaymentTransaction).toHaveBeenCalledWith(
+        "service-1",
+        "tx-1",
+        expect.objectContaining({ baseCents: 8000, commissionCents: 2400 }),
+      );
+    });
+  });
+
+  describe("persistência de installments para resolução diferida no pagamento (achado novo #1, Bloco 3)", () => {
+    it("serviço PENDENTE criado em crédito 6x persiste installments mesmo sem pagamento imediato", async () => {
+      const material = buildMaterial({ shareable: false, stockQuantity: "10" });
+      const created = buildService({
+        paymentMethod: "credit_card",
+        installments: 6,
+      });
+      const { useCase, serviceRepo } = buildUseCase({
+        materialRepo: buildFakeMaterialRepo({
+          findById: jest.fn().mockResolvedValue(material),
+        }),
+        serviceRepo: buildFakeServiceRepo({
+          create: jest.fn().mockResolvedValue(created),
+          findById: jest.fn().mockResolvedValue(created),
+        }),
+      });
+
+      await useCase.execute({
+        ...baseInput,
+        paymentMethod: "credit_card",
+        paymentStatus: "pending",
+        installments: 6,
+        materials: [{ materialId: material.id, quantity: 2 }],
+      });
+
+      expect(serviceRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ installments: 6 }),
+        expect.any(Array),
+      );
+    });
+
+    it("método não-crédito: installments é normalizado para null mesmo se enviado", async () => {
+      const material = buildMaterial({ shareable: false, stockQuantity: "10" });
+      const created = buildService({ paymentMethod: "cash" });
+      const { useCase, serviceRepo } = buildUseCase({
+        materialRepo: buildFakeMaterialRepo({
+          findById: jest.fn().mockResolvedValue(material),
+        }),
+        serviceRepo: buildFakeServiceRepo({
+          create: jest.fn().mockResolvedValue(created),
+          findById: jest.fn().mockResolvedValue(created),
+        }),
+      });
+
+      await useCase.execute({
+        ...baseInput,
+        paymentMethod: "cash",
+        paymentStatus: "pending",
+        materials: [{ materialId: material.id, quantity: 2 }],
+      });
+
+      expect(serviceRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ installments: null }),
+        expect.any(Array),
       );
     });
   });

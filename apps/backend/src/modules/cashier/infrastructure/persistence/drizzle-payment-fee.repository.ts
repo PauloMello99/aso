@@ -34,6 +34,7 @@ export class DrizzlePaymentFeeRepository implements IPaymentFeeRepository {
   async findByOrgAndMethod(
     orgId: string,
     method: PaymentMethod,
+    installments: number,
   ): Promise<PaymentFeeEntity | null> {
     const [row] = await this.db
       .select()
@@ -42,6 +43,7 @@ export class DrizzlePaymentFeeRepository implements IPaymentFeeRepository {
         and(
           eq(schema.orgPaymentFees.orgId, orgId),
           eq(schema.orgPaymentFees.paymentMethod, method),
+          eq(schema.orgPaymentFees.installments, installments),
         ),
       )
       .limit(1);
@@ -54,6 +56,7 @@ export class DrizzlePaymentFeeRepository implements IPaymentFeeRepository {
       .values({
         orgId: data.orgId,
         paymentMethod: data.paymentMethod,
+        installments: data.installments,
         percent: data.percent,
         fixedCents: data.fixedCents,
       })
@@ -61,6 +64,7 @@ export class DrizzlePaymentFeeRepository implements IPaymentFeeRepository {
         target: [
           schema.orgPaymentFees.orgId,
           schema.orgPaymentFees.paymentMethod,
+          schema.orgPaymentFees.installments,
         ],
         set: {
           percent: data.percent,

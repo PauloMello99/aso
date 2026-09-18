@@ -6,6 +6,11 @@ export type PaymentMethod =
   | "credit_card"
   | "debit_card"
 
+// Teto de parcelas OFERECIDO na UI (o CHECK do banco permite até 24 — ver
+// fee-calculator.ts no backend, mesma constante). Só cartão de crédito aceita
+// installments > 1.
+export const MAX_INSTALLMENTS = 12
+
 export interface Transaction {
   id: string
   orgId: string
@@ -16,6 +21,7 @@ export interface Transaction {
   grossCents: number
   feeCents: number
   paymentMethod: PaymentMethod
+  installments: number | null
   categoryId: string | null
   reversesTransactionId: string | null
   transactedAt: string
@@ -56,6 +62,7 @@ export interface PaymentFee {
   paymentMethod: PaymentMethod
   percent: string
   fixedCents: number
+  installments: number
   createdAt: string
   updatedAt: string
 }
@@ -134,6 +141,7 @@ export interface MemberPaymentFee {
   name: string
   role: "owner" | "employee"
   paymentMethod: FeeEligibleMethod
+  installments: number
   percent: string
   fixedCents: number
   source: FeeSource
@@ -143,15 +151,17 @@ export interface MemberPaymentFee {
 export interface MemberPaymentFeeInput {
   userId: string
   paymentMethod: FeeEligibleMethod
+  installments: number
   percent: string
   fixedCents: number
 }
 
-// Remove o override próprio do membro para aquele método (volta ao fallback da
-// taxa da org). Vai no campo opcional `deactivations` do PUT /cashier/member-fees.
+// Remove o override próprio do membro para aquela faixa (método + parcelas).
+// Vai no campo opcional `deactivations` do PUT /cashier/member-fees.
 export interface MemberPaymentFeeDeactivation {
   userId: string
   paymentMethod: FeeEligibleMethod
+  installments: number
 }
 
 // Corpo do PUT /cashier/member-fees: ambos opcionais (um payload só com

@@ -1081,7 +1081,7 @@ export type Database = {
           address: string
           address_line2: string | null
           birth_date: string
-          city: string
+          city: string | null
           country: string | null
           created_at: string
           created_by: string | null
@@ -1091,12 +1091,12 @@ export type Database = {
           id: string
           name: string
           notes: string | null
-          number: string
+          number: string | null
           org_id: string
           origin_id: string | null
           phone: string | null
           postal_code: string | null
-          state: string
+          state: string | null
           updated_at: string
           user_id: string | null
         }
@@ -1104,7 +1104,7 @@ export type Database = {
           address: string
           address_line2?: string | null
           birth_date: string
-          city: string
+          city?: string | null
           country?: string | null
           created_at?: string
           created_by?: string | null
@@ -1114,12 +1114,12 @@ export type Database = {
           id?: string
           name: string
           notes?: string | null
-          number: string
+          number?: string | null
           org_id: string
           origin_id?: string | null
           phone?: string | null
           postal_code?: string | null
-          state: string
+          state?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -1127,7 +1127,7 @@ export type Database = {
           address?: string
           address_line2?: string | null
           birth_date?: string
-          city?: string
+          city?: string | null
           country?: string | null
           created_at?: string
           created_by?: string | null
@@ -1137,12 +1137,12 @@ export type Database = {
           id?: string
           name?: string
           notes?: string | null
-          number?: string
+          number?: string | null
           org_id?: string
           origin_id?: string | null
           phone?: string | null
           postal_code?: string | null
-          state?: string
+          state?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -1404,6 +1404,7 @@ export type Database = {
           created_by: string | null
           fixed_cents: number
           id: string
+          installments: number
           org_id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           percent: number
@@ -1417,6 +1418,7 @@ export type Database = {
           created_by?: string | null
           fixed_cents?: number
           id?: string
+          installments?: number
           org_id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           percent?: number
@@ -1430,6 +1432,7 @@ export type Database = {
           created_by?: string | null
           fixed_cents?: number
           id?: string
+          installments?: number
           org_id?: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
           percent?: number
@@ -1444,6 +1447,70 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_member_payments: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          org_id: string
+          period_end: string | null
+          period_start: string | null
+          reverses_payment_id: string | null
+          transaction_id: string
+          user_id: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          org_id: string
+          period_end?: string | null
+          period_start?: string | null
+          reverses_payment_id?: string | null
+          transaction_id: string
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          org_id?: string
+          period_end?: string | null
+          period_start?: string | null
+          reverses_payment_id?: string | null
+          transaction_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_member_payments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_member_payments_reverses_org_fk"
+            columns: ["reverses_payment_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "org_member_payments"
+            referencedColumns: ["id", "org_id"]
+          },
+          {
+            foreignKeyName: "org_member_payments_transaction_org_fk"
+            columns: ["transaction_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id", "org_id"]
           },
         ]
       }
@@ -1499,6 +1566,7 @@ export type Database = {
           created_at: string
           fixed_cents: number
           id: string
+          installments: number
           org_id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           percent: number
@@ -1508,6 +1576,7 @@ export type Database = {
           created_at?: string
           fixed_cents?: number
           id?: string
+          installments?: number
           org_id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           percent?: number
@@ -1517,6 +1586,7 @@ export type Database = {
           created_at?: string
           fixed_cents?: number
           id?: string
+          installments?: number
           org_id?: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
           percent?: number
@@ -1699,6 +1769,7 @@ export type Database = {
           customer_id: string | null
           description: string | null
           id: string
+          installments: number | null
           org_id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           payment_transaction_id: string | null
@@ -1721,6 +1792,7 @@ export type Database = {
           customer_id?: string | null
           description?: string | null
           id?: string
+          installments?: number | null
           org_id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           payment_transaction_id?: string | null
@@ -1743,6 +1815,7 @@ export type Database = {
           customer_id?: string | null
           description?: string | null
           id?: string
+          installments?: number | null
           org_id?: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
           payment_transaction_id?: string | null
@@ -2405,6 +2478,7 @@ export type Database = {
           fee_percent: number | null
           fee_source: string | null
           id: string
+          installments: number | null
           org_id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           reverses_transaction_id: string | null
@@ -2424,6 +2498,7 @@ export type Database = {
           fee_percent?: number | null
           fee_source?: string | null
           id?: string
+          installments?: number | null
           org_id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           reverses_transaction_id?: string | null
@@ -2443,6 +2518,7 @@ export type Database = {
           fee_percent?: number | null
           fee_source?: string | null
           id?: string
+          installments?: number | null
           org_id?: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
           reverses_transaction_id?: string | null
@@ -2616,12 +2692,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2645,11 +2721,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2670,11 +2746,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2695,11 +2771,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2712,11 +2788,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

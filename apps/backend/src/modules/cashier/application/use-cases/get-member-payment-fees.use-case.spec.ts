@@ -17,6 +17,7 @@ function buildMemberFee(
     paymentMethod: "credit_card",
     percent: "3.50",
     fixedCents: 50,
+    installments: 1,
     active: true,
     supersededAt: null,
     createdBy: "owner-1",
@@ -35,6 +36,7 @@ function buildOrgFee(
     paymentMethod: "credit_card",
     percent: "2.00",
     fixedCents: 10,
+    installments: 1,
     createdAt: new Date("2026-01-01T00:00:00Z"),
     updatedAt: new Date("2026-01-01T00:00:00Z"),
     ...overrides,
@@ -137,12 +139,16 @@ describe("GetMemberPaymentFeesUseCase", () => {
     });
 
     const row = result.find(
-      (r) => r.userId === "user-1" && r.paymentMethod === "credit_card",
+      (r) =>
+        r.userId === "user-1" &&
+        r.paymentMethod === "credit_card" &&
+        r.installments === 1,
     );
     expect(row).toEqual(
       expect.objectContaining({
         userId: "user-1",
         paymentMethod: "credit_card",
+        installments: 1,
         percent: "3.50",
         fixedCents: 50,
         source: "member",
@@ -179,12 +185,152 @@ describe("GetMemberPaymentFeesUseCase", () => {
     });
 
     const row = result.find(
-      (r) => r.userId === "user-1" && r.paymentMethod === "credit_card",
+      (r) =>
+        r.userId === "user-1" &&
+        r.paymentMethod === "credit_card" &&
+        r.installments === 1,
     );
     expect(row).toEqual(
       expect.objectContaining({
         percent: "2.00",
         fixedCents: 10,
+        source: "org",
+        configured: false,
+      }),
+    );
+  });
+
+  it("fallback para taxa da org é POR FAIXA: 6x sem override do membro usa a taxa de 6x da org, não a de 1x", async () => {
+    const employee = buildMember({ userId: "user-1" });
+    const memberRepo = buildFakeMemberRepo({
+      findByAuthId: jest.fn().mockResolvedValue(OWNER),
+      findAllByOrg: jest.fn().mockResolvedValue([OWNER, employee]),
+    });
+    const memberFeeRepo = buildFakeMemberFeeRepo();
+    const orgFeeRepo = buildFakeOrgFeeRepo({
+      findByOrg: jest.fn().mockResolvedValue([
+        buildOrgFee({
+          paymentMethod: "credit_card",
+          installments: 1,
+          percent: "2.00",
+          fixedCents: 10,
+        }),
+        buildOrgFee({
+          id: "org-fee-6",
+          paymentMethod: "credit_card",
+          installments: 6,
+          percent: "8.00",
+          fixedCents: 20,
+        }),
+      ]),
+    });
+    const useCase = new GetMemberPaymentFeesUseCase(
+      memberFeeRepo,
+      orgFeeRepo,
+      memberRepo,
+    );
+
+    const result = await useCase.execute({
+      orgId: "org-1",
+      authId: "auth-owner",
+    });
+
+    const tier6 = result.find(
+      (r) =>
+        r.userId === "user-1" &&
+        r.paymentMethod === "credit_card" &&
+        r.installments === 6,
+    );
+    expect(tier6).toEqual(
+      expect.objectContaining({
+        percent: "8.00",
+        fixedCents: 20,
+        source: "org",
+        configured: false,
+      }),
+    );
+
+    const tier1 = result.find(
+      (r) =>
+        r.userId === "user-1" &&
+        r.paymentMethod === "credit_card" &&
+        r.installments === 1,
+    );
+    expect(tier1).toEqual(
+      expect.objectContaining({
+        percent: "2.00",
+        fixedCents: 10,
+        source: "org",
+      }),
+    );
+  });
+
+  it("desativar a faixa 6x do membro não afeta a faixa 1x dele na leitura: 1x continua 'member', 6x cai no fallback da org", async () => {
+    const employee = buildMember({ userId: "user-1" });
+    const memberRepo = buildFakeMemberRepo({
+      findByAuthId: jest.fn().mockResolvedValue(OWNER),
+      findAllByOrg: jest.fn().mockResolvedValue([OWNER, employee]),
+    });
+    // Só a faixa 1x tem override ativo — a 6x foi desativada e não aparece
+    // em findActiveByOrg.
+    const memberFeeRepo = buildFakeMemberFeeRepo({
+      findActiveByOrg: jest.fn().mockResolvedValue([
+        buildMemberFee({
+          userId: "user-1",
+          paymentMethod: "credit_card",
+          installments: 1,
+          percent: "3.50",
+          fixedCents: 50,
+        }),
+      ]),
+    });
+    const orgFeeRepo = buildFakeOrgFeeRepo({
+      findByOrg: jest.fn().mockResolvedValue([
+        buildOrgFee({
+          id: "org-fee-6",
+          paymentMethod: "credit_card",
+          installments: 6,
+          percent: "8.00",
+          fixedCents: 0,
+        }),
+      ]),
+    });
+    const useCase = new GetMemberPaymentFeesUseCase(
+      memberFeeRepo,
+      orgFeeRepo,
+      memberRepo,
+    );
+
+    const result = await useCase.execute({
+      orgId: "org-1",
+      authId: "auth-owner",
+    });
+
+    const tier1 = result.find(
+      (r) =>
+        r.userId === "user-1" &&
+        r.paymentMethod === "credit_card" &&
+        r.installments === 1,
+    );
+    expect(tier1).toEqual(
+      expect.objectContaining({
+        percent: "3.50",
+        fixedCents: 50,
+        source: "member",
+        configured: true,
+      }),
+    );
+
+    const tier6 = result.find(
+      (r) =>
+        r.userId === "user-1" &&
+        r.paymentMethod === "credit_card" &&
+        r.installments === 6,
+    );
+    expect(tier6).toEqual(
+      expect.objectContaining({
+        percent: "8.00",
+        fixedCents: 0,
         source: "org",
         configured: false,
       }),
@@ -209,7 +355,10 @@ describe("GetMemberPaymentFeesUseCase", () => {
     });
 
     const row = result.find(
-      (r) => r.userId === "user-1" && r.paymentMethod === "debit_card",
+      (r) =>
+        r.userId === "user-1" &&
+        r.paymentMethod === "debit_card" &&
+        r.installments === 1,
     );
     expect(row).toEqual(
       expect.objectContaining({
@@ -242,15 +391,18 @@ describe("GetMemberPaymentFeesUseCase", () => {
 
     const result = await useCase.execute({ orgId: "org-1", authId: "auth-1" });
 
-    expect(result).toHaveLength(2);
+    // 12 faixas de crédito (1..MAX_INSTALLMENTS) + 1 faixa única de débito.
+    expect(result).toHaveLength(13);
     expect(result.every((r) => r.userId === "user-1")).toBe(true);
-    expect(result.map((r) => r.paymentMethod).sort()).toEqual([
-      "credit_card",
-      "debit_card",
-    ]);
+    expect(
+      result.filter((r) => r.paymentMethod === "credit_card"),
+    ).toHaveLength(12);
+    expect(
+      result.filter((r) => r.paymentMethod === "debit_card"),
+    ).toHaveLength(1);
   });
 
-  it("owner: recebe linhas de todos os membros enabled (uma por método elegível)", async () => {
+  it("owner: recebe linhas de todos os membros enabled (produto cartesiano método × faixa por membro)", async () => {
     const employee1 = buildMember({ userId: "user-1" });
     const employee2 = buildMember({
       memberId: "member-2",
@@ -280,7 +432,8 @@ describe("GetMemberPaymentFeesUseCase", () => {
       authId: "auth-owner",
     });
 
-    expect(result).toHaveLength(6);
+    // 3 membros enabled × 13 linhas (12 faixas de crédito + 1 de débito).
+    expect(result).toHaveLength(39);
     expect([...new Set(result.map((r) => r.userId))].sort()).toEqual(
       ["owner-1", "user-1", "user-2"].sort(),
     );
@@ -324,7 +477,10 @@ describe("GetMemberPaymentFeesUseCase", () => {
     });
 
     const row = result.find(
-      (r) => r.userId === "user-1" && r.paymentMethod === "credit_card",
+      (r) =>
+        r.userId === "user-1" &&
+        r.paymentMethod === "credit_card" &&
+        r.installments === 1,
     );
     expect(row).toEqual(
       expect.objectContaining({

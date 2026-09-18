@@ -8,6 +8,7 @@ import type { Service, ServicePaymentMethod } from "../types"
 export interface CorrectPaymentBody {
   grossCents: number
   paymentMethod: ServicePaymentMethod
+  installments?: number
   description?: string
   transactedAt?: string
 }

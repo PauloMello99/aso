@@ -204,6 +204,7 @@ export class CashierController {
       type: dto.type,
       grossCents: dto.grossCents,
       paymentMethod: dto.paymentMethod,
+      installments: dto.installments ?? null,
       categoryId: dto.categoryId ?? null,
       transactedAt: dto.transactedAt ? new Date(dto.transactedAt) : undefined,
     });
@@ -239,6 +240,7 @@ export class CashierController {
       type: dto.type,
       grossCents: dto.grossCents,
       paymentMethod: dto.paymentMethod,
+      installments: dto.installments,
       transactedAt: dto.transactedAt ? new Date(dto.transactedAt) : undefined,
     });
   }
@@ -329,12 +331,14 @@ export class CashierController {
       fees: (dto.fees ?? []).map((item) => ({
         userId: item.userId,
         paymentMethod: item.paymentMethod,
+        installments: item.installments,
         percent: item.percent,
         fixedCents: item.fixedCents,
       })),
       deactivations: (dto.deactivations ?? []).map((item) => ({
         userId: item.userId,
         paymentMethod: item.paymentMethod,
+        installments: item.installments,
       })),
     });
   }

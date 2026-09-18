@@ -75,6 +75,13 @@ function toCreateBody(values: ServiceFormValues) {
     anamnesisResponseId: values.anamnesisResponseId,
     amountCents: parseReaisToCents(values.amount),
     paymentMethod: values.paymentMethod,
+    // Espelha InstallmentsRequiresCreditCardConstraint do backend: fora do
+    // crédito o form já reseta o campo, mas essa checagem é a rede de
+    // segurança na borda de saída. `?? 1` garante uma faixa explícita.
+    installments:
+      values.paymentMethod === "credit_card"
+        ? (values.installments ?? 1)
+        : undefined,
     paymentStatus: values.paymentStatus,
     performedAt: values.performedAt
       ? new Date(values.performedAt).toISOString()
@@ -489,6 +496,7 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
           correctingPayment && {
             amountCents: correctingPayment.amountCents,
             paymentMethod: correctingPayment.paymentMethod,
+            installments: correctingPayment.installments,
             dateISO: correctingPayment.performedAt,
           }
         }

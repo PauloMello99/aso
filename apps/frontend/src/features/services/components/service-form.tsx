@@ -39,6 +39,7 @@ import {
   AlertTitle,
 } from "@/shared/components/ui/alert"
 import { centsToReaisInput } from "@/features/cashier/lib/money"
+import { MAX_INSTALLMENTS } from "@/features/cashier/types"
 import { ApiError } from "@/infrastructure/api/client"
 import {
   SendAnamnesisInviteDialog,
@@ -77,6 +78,12 @@ const AGE_UNKNOWN_MESSAGE: ServiceErrorMessage = {
 }
 
 const TYPE_CREATE = "__create__"
+
+// Mesmas faixas oferecidas no form de lançamento do caixa (transaction-form.tsx).
+const INSTALLMENT_OPTIONS = Array.from(
+  { length: MAX_INSTALLMENTS },
+  (_, i) => i + 1,
+)
 
 function emptyValues(): ServiceFormValues {
   return {
@@ -144,6 +151,7 @@ export function ServiceForm({
         description: service.description ?? "",
         amount: centsToReaisInput(service.amountCents),
         paymentMethod: service.paymentMethod,
+        installments: service.installments ?? undefined,
         paymentStatus: service.paymentTransactionId ? "paid" : "pending",
         performedAt: service.performedAt ? service.performedAt.slice(0, 10) : "",
         materials: [],
@@ -196,6 +204,7 @@ export function ServiceForm({
   const watchedCustomerId = form.watch("customerId")
   const watchedServiceTypeId = form.watch("serviceTypeId")
   const watchedPerformedAt = form.watch("performedAt")
+  const watchedPaymentMethod = form.watch("paymentMethod")
 
   const selectedServiceType = serviceTypes.find(
     (t) => t.id === watchedServiceTypeId,
@@ -505,7 +514,19 @@ export function ServiceForm({
                       <FormItem>
                         <FormLabel>Método de pagamento</FormLabel>
                         <Select
-                          onValueChange={field.onChange}
+                          onValueChange={(v) => {
+                            field.onChange(v)
+                            // Parcelamento só existe em cartão de crédito
+                            // (CHECK do banco) — trocar de método fora do
+                            // crédito não deve deixar um valor de parcela
+                            // "fantasma". Feito no handler (não num
+                            // useEffect que observa o watch) para não correr
+                            // atrás de um form.reset no mesmo commit.
+                            form.setValue(
+                              "installments",
+                              v === "credit_card" ? 1 : undefined,
+                            )
+                          }}
                           value={field.value}
                         >
                           <FormControl>
@@ -525,6 +546,36 @@ export function ServiceForm({
                       </FormItem>
                     )}
                   />
+
+                  {watchedPaymentMethod === "credit_card" && (
+                    <FormField
+                      control={form.control}
+                      name="installments"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Parcelas</FormLabel>
+                          <Select
+                            onValueChange={(v) => field.onChange(Number(v))}
+                            value={String(field.value ?? 1)}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {INSTALLMENT_OPTIONS.map((n) => (
+                                <SelectItem key={n} value={String(n)}>
+                                  {n === 1 ? "1x (à vista)" : `${n}x`}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
 
                   <FormField
                     control={form.control}

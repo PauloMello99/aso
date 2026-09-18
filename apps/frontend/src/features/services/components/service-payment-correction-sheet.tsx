@@ -32,6 +32,7 @@ import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { DatePicker } from "@/shared/components/ui/date-picker"
 import { centsToReaisInput, formatBRL } from "@/features/cashier/lib/money"
+import { MAX_INSTALLMENTS } from "@/features/cashier/types"
 import {
   correctServicePaymentSchema,
   type CorrectServicePaymentFormValues,
@@ -42,9 +43,18 @@ import {
   type ServicePaymentMethod,
 } from "../types"
 
+// Mesmas faixas oferecidas nos demais seletores de parcelas (transaction-form,
+// service-form).
+const INSTALLMENT_OPTIONS = Array.from(
+  { length: MAX_INSTALLMENTS },
+  (_, i) => i + 1,
+)
+
 export interface ServicePaymentCorrectionTarget {
   amountCents: number
   paymentMethod: ServicePaymentMethod
+  // NULL = método original sem parcelamento (à vista ou não-crédito).
+  installments?: number | null
   /**
    * O Service (backend) só expõe `paymentTransactionId`, não a data da
    * transação de pagamento — por isso services-page.tsx pré-popula com
@@ -75,6 +85,7 @@ export function ServicePaymentCorrectionSheet({
     defaultValues: {
       amount: "",
       paymentMethod: "cash",
+      installments: undefined,
       description: "",
       transactedAt: "",
     },
@@ -82,6 +93,7 @@ export function ServicePaymentCorrectionSheet({
 
   const amountCents = target?.amountCents
   const paymentMethod = target?.paymentMethod
+  const installments = target?.installments
   const dateISO = target?.dateISO
 
   useEffect(() => {
@@ -89,11 +101,14 @@ export function ServicePaymentCorrectionSheet({
       form.reset({
         amount: centsToReaisInput(amountCents),
         paymentMethod,
+        installments: installments ?? undefined,
         description: "",
         transactedAt: dateISO ? dateISO.slice(0, 10) : "",
       })
     }
-  }, [open, amountCents, paymentMethod, dateISO, form])
+  }, [open, amountCents, paymentMethod, installments, dateISO, form])
+
+  const watchedPaymentMethod = form.watch("paymentMethod")
 
   const handleSubmit = form.handleSubmit(async (values) => {
     await onSubmit(values)
@@ -160,7 +175,22 @@ export function ServicePaymentCorrectionSheet({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Método de pagamento</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select
+                      onValueChange={(v) => {
+                        field.onChange(v)
+                        // Parcelamento só existe em cartão de crédito (CHECK
+                        // do banco) — trocar de método fora do crédito não
+                        // deve deixar um valor de parcela "fantasma". Feito
+                        // no handler (não num useEffect que observa o watch)
+                        // para não correr atrás do form.reset que popula a
+                        // faixa original no mesmo commit em que a sheet abre.
+                        form.setValue(
+                          "installments",
+                          v === "credit_card" ? 1 : undefined,
+                        )
+                      }}
+                      value={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue />
@@ -178,6 +208,36 @@ export function ServicePaymentCorrectionSheet({
                   </FormItem>
                 )}
               />
+
+              {watchedPaymentMethod === "credit_card" && (
+                <FormField
+                  control={form.control}
+                  name="installments"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Parcelas</FormLabel>
+                      <Select
+                        onValueChange={(v) => field.onChange(Number(v))}
+                        value={String(field.value ?? 1)}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {INSTALLMENT_OPTIONS.map((n) => (
+                            <SelectItem key={n} value={String(n)}>
+                              {n === 1 ? "1x (à vista)" : `${n}x`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <FormField
                 control={form.control}
