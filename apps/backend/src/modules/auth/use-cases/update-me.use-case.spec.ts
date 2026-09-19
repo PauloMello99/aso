@@ -35,6 +35,7 @@ function buildFakeUserRepo(
     create: jest.fn(),
     update: jest.fn().mockResolvedValue(buildUser()),
     delete: jest.fn(),
+    mergeOnboardingSeen: jest.fn().mockResolvedValue(undefined),
     ...overrides,
   } as unknown as jest.Mocked<IUserRepository>;
 }
@@ -147,6 +148,99 @@ describe("UpdateMeUseCase", () => {
       expect.objectContaining({
         metadata: { fields: expect.arrayContaining(["onboardingCompletedAt"]) },
       }),
+    );
+  });
+
+  it("onboardingSeen sozinho: faz merge, sem update e sem audit, e devolve o usuário relido", async () => {
+    const reloaded = buildUser({ name: "Relido" });
+    const { useCase, userRepo, auditService } = buildUseCase({
+      userRepo: buildFakeUserRepo({
+        findByAuthId: jest
+          .fn()
+          .mockResolvedValueOnce(buildUser())
+          .mockResolvedValueOnce(reloaded),
+      }),
+    });
+
+    const result = await useCase.execute(authUser, {
+      onboardingSeen: { caixa: 1 },
+    });
+
+    expect(userRepo.mergeOnboardingSeen).toHaveBeenCalledWith(authUser.id, {
+      caixa: 1,
+    });
+    expect(userRepo.update).not.toHaveBeenCalled();
+    expect(auditService.log).not.toHaveBeenCalled();
+    expect(result).toBe(reloaded);
+  });
+
+  it("onboardingSeen vazio sozinho: sem merge, sem update e sem audit", async () => {
+    const { useCase, userRepo, auditService } = buildUseCase();
+
+    await useCase.execute(authUser, { onboardingSeen: {} });
+
+    expect(userRepo.mergeOnboardingSeen).not.toHaveBeenCalled();
+    expect(userRepo.update).not.toHaveBeenCalled();
+    expect(auditService.log).not.toHaveBeenCalled();
+  });
+
+  it("onboardingSeen null (defensivo): não lança TypeError, sem merge, sem update e sem audit", async () => {
+    const { useCase, userRepo, auditService } = buildUseCase();
+
+    await expect(
+      useCase.execute(authUser, {
+        onboardingSeen: null as unknown as Record<string, number>,
+      }),
+    ).resolves.toBeDefined();
+
+    expect(userRepo.mergeOnboardingSeen).not.toHaveBeenCalled();
+    expect(userRepo.update).not.toHaveBeenCalled();
+    expect(auditService.log).not.toHaveBeenCalled();
+  });
+
+  it("onboardingSeen vazio com outro campo: update normal, sem merge", async () => {
+    const { useCase, userRepo } = buildUseCase();
+
+    await useCase.execute(authUser, { name: "Novo", onboardingSeen: {} });
+
+    expect(userRepo.mergeOnboardingSeen).not.toHaveBeenCalled();
+    expect(userRepo.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("faz MERGE de onboardingSeen via repo (nunca pelo update de perfil)", async () => {
+    const { useCase, userRepo } = buildUseCase();
+
+    await useCase.execute(authUser, {
+      name: "Novo Nome",
+      onboardingSeen: { caixa: 1 },
+    });
+
+    expect(userRepo.mergeOnboardingSeen).toHaveBeenCalledWith(authUser.id, {
+      caixa: 1,
+    });
+    const call = userRepo.update.mock.calls[0]![1] as Record<string, unknown>;
+    expect(call).not.toHaveProperty("onboardingSeen");
+  });
+
+  it("não chama o merge quando onboardingSeen é omitido", async () => {
+    const { useCase, userRepo } = buildUseCase();
+
+    await useCase.execute(authUser, { name: "Novo Nome" });
+
+    expect(userRepo.mergeOnboardingSeen).not.toHaveBeenCalled();
+  });
+
+  it("onboardingSeen não altera onboardingCompletedAt", async () => {
+    const { useCase, userRepo } = buildUseCase();
+
+    await useCase.execute(authUser, {
+      name: "Novo Nome",
+      onboardingSeen: { caixa: 1 },
+    });
+
+    expect(userRepo.update).toHaveBeenCalledWith(
+      authUser.id,
+      expect.objectContaining({ onboardingCompletedAt: undefined }),
     );
   });
 

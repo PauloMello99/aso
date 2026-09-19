@@ -1,0 +1,25 @@
+-- 0080 — Mapa de tours de onboarding modular já vistos pelo usuário.
+--
+-- onboarding_seen guarda { "<nav href>": <version int> }: a versão do tour de cada
+-- módulo que o usuário já viu. O merge (||) faz o lado direito vencer por chave; o
+-- cliente sempre envia a constante module.version, então um bundle antigo pode
+-- rebaixar a versão (aceito: o tour reaparece uma vez).
+-- jsonb em users, e não tabela própria: é estado 1:1 com o usuário, sem leitura
+-- cross-user PELO APP (queries de membros projetam colunas explícitas). No banco,
+-- users_select_same_org (0015) expõe a linha a pares de org, por isso a coluna só
+-- guarda um marcador NÃO sensível.
+-- NENHUMA policy nova: users_select/users_update (0000) já escopam a própria
+-- linha (auth.uid() = auth_id OR is_super_admin()). A RLS não confina por coluna:
+-- o confinamento (forma/tamanho das chaves e valores) é aplicacional.
+-- Escrita SEMPRE com merge no servidor
+-- (coalesce(onboarding_seen, '{}'::jsonb) || $novo::jsonb), nunca substituição:
+-- duas abas/dispositivos não se sobrescrevem.
+-- SEM backfill: users.onboarding_completed_at (0028) permanece intacto e vira o
+-- baseline legado do onboarding.
+-- Rollback perde o progresso modular: efeito máximo = tours de módulos reaparecem
+-- uma vez.
+-- Teto no próprio dado (uso legítimo ~200 B): defesa em profundidade contra
+-- crescimento ilimitado via chamadas repetidas com chaves diferentes. Trade-off:
+-- a violação surge como erro do PG (sem DomainException).
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS "onboarding_seen" jsonb NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE public.users ADD CONSTRAINT users_onboarding_seen_bounded CHECK (octet_length(onboarding_seen::text) <= 4096);

@@ -10,6 +10,7 @@ export interface UpdateMeBody {
   email?: string
   avatarUrl?: string | null
   onboardingCompletedAt?: string | null
+  onboardingSeen?: Record<string, number>
 }
 
 export function useMe() {
@@ -17,7 +18,10 @@ export function useMe() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.me,
-    queryFn: () => apiRequest<Me>("/auth/me"),
+    queryFn: async () => {
+      const me = await apiRequest<Me>("/auth/me")
+      return { ...me, onboardingSeen: me.onboardingSeen ?? {} }
+    },
   })
 
   const updateMutation = useMutation({
@@ -27,7 +31,10 @@ export function useMe() {
         body: JSON.stringify(body),
       }),
     onSuccess: (updated) => {
-      queryClient.setQueryData(queryKeys.me, updated)
+      queryClient.setQueryData(queryKeys.me, {
+        ...updated,
+        onboardingSeen: updated.onboardingSeen ?? {},
+      })
     },
   })
 

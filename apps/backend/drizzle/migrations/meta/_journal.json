@@ -561,6 +561,13 @@
       "when": 1782006900000,
       "tag": "0079_user_changelog_seen",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1782007000000,
+      "tag": "0080_user_onboarding_seen",
+      "breakpoints": true
     }
   ]
 }

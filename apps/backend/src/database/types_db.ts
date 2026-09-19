@@ -2571,6 +2571,7 @@ export type Database = {
           id: string
           name: string
           onboarding_completed_at: string | null
+          onboarding_seen: Json
           phone: string | null
           platform_role: Database["public"]["Enums"]["platform_role"]
           terms_accepted_at: string | null
@@ -2588,6 +2589,7 @@ export type Database = {
           id?: string
           name: string
           onboarding_completed_at?: string | null
+          onboarding_seen?: Json
           phone?: string | null
           platform_role?: Database["public"]["Enums"]["platform_role"]
           terms_accepted_at?: string | null
@@ -2605,6 +2607,7 @@ export type Database = {
           id?: string
           name?: string
           onboarding_completed_at?: string | null
+          onboarding_seen?: Json
           phone?: string | null
           platform_role?: Database["public"]["Enums"]["platform_role"]
           terms_accepted_at?: string | null

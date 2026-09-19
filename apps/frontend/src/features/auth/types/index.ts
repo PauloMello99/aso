@@ -15,6 +15,7 @@ export interface Me {
   birthDate: string | null
   gender: "male" | "female" | "other" | null
   onboardingCompletedAt: string | null
+  onboardingSeen: Record<string, number>
   termsAcceptedAt: string | null
   termsVersion: string | null
   createdAt: string

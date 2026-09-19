@@ -17,6 +17,7 @@ export interface UpdateMeInput {
   email?: string;
   avatarUrl?: string | null;
   onboardingCompletedAt?: string | null;
+  onboardingSeen?: Record<string, number>;
 }
 
 @Injectable()
@@ -34,6 +35,29 @@ export class UpdateMeUseCase {
     const emailChanged = !!input.email && input.email !== current.email;
     if (emailChanged) {
       await this.auth.updateEmail(authUser.id, input.email!);
+    }
+
+    // Decisão intencional (fatia 5.2-A): PATCH /auth/me {} (nenhum campo) retorna
+    // o usuário atual sem update nem audit (antes chamava update e gravava audit).
+    const hasSeenToMerge =
+      input.onboardingSeen != null &&
+      Object.keys(input.onboardingSeen).length > 0;
+    if (hasSeenToMerge) {
+      await this.userRepo.mergeOnboardingSeen(
+        authUser.id,
+        input.onboardingSeen!,
+      );
+    }
+
+    const hasProfileFields = Object.keys(input).some(
+      (k) =>
+        k !== "onboardingSeen" && input[k as keyof UpdateMeInput] !== undefined,
+    );
+    if (!hasProfileFields) {
+      if (!hasSeenToMerge) return current;
+      const reloaded = await this.userRepo.findByAuthId(authUser.id);
+      if (!reloaded) throw new UserNotFoundException(authUser.id);
+      return reloaded;
     }
 
     const updated = await this.userRepo.update(authUser.id, {

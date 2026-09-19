@@ -15,6 +15,7 @@ export interface UserEntityProps {
   termsAcceptedAt: Date | null;
   termsVersion: string | null;
   changelogSeenVersion?: number | null;
+  onboardingSeen?: Record<string, number>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -48,6 +49,7 @@ export class UserEntity {
   readonly termsAcceptedAt: Date | null;
   readonly termsVersion: string | null;
   readonly changelogSeenVersion: number | null;
+  readonly onboardingSeen: Record<string, number>;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 
@@ -65,6 +67,7 @@ export class UserEntity {
     this.termsAcceptedAt = props.termsAcceptedAt;
     this.termsVersion = props.termsVersion;
     this.changelogSeenVersion = props.changelogSeenVersion ?? null;
+    this.onboardingSeen = props.onboardingSeen ?? {};
     this.createdAt = props.createdAt;
     this.updatedAt = props.updatedAt;
   }

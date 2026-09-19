@@ -94,6 +94,18 @@ export class DrizzleUserRepository implements IUserRepository {
       .where(eq(schema.users.authId, authId));
   }
 
+  async mergeOnboardingSeen(
+    authId: string,
+    seen: Record<string, number>,
+  ): Promise<void> {
+    await this.db
+      .update(schema.users)
+      .set({
+        onboardingSeen: sql`coalesce(${schema.users.onboardingSeen}, '{}'::jsonb) || ${JSON.stringify(seen)}::jsonb`,
+      })
+      .where(eq(schema.users.authId, authId));
+  }
+
   async update(authId: string, data: UpdateUserData): Promise<UserEntity> {
     const [row] = await this.db
       .update(schema.users)
