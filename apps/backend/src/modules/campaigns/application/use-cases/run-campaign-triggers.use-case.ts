@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { CRON_JOBS } from "../../../../common/cron/cron-jobs";
@@ -5,6 +6,7 @@ import {
   CRON_JOB_STATE_REPOSITORY,
   ICronJobStateRepository,
 } from "../../../../common/cron/cron-job-state.repository.interface";
+import { EmailAllowlistService } from "../../../mail/application/email-allowlist.service";
 import { resolveCampaignCopy } from "../../domain/campaign-copy";
 import {
   CAMPAIGN_MAILER,
@@ -42,12 +44,24 @@ const POST_SERVICE_SINCE_HOURS = 48;
 const POST_SERVICE_UNTIL_HOURS = 24;
 const HOUR_MS = 60 * 60 * 1000;
 
+/**
+ * Mesmo estilo de mascaramento do gate de defesa-em-profundidade no
+ * `ResendEmailSender` (passo 1 de D-4.1): mantém só o domínio no log, nunca
+ * a parte local — dá contexto suficiente pra diagnosticar em staging sem
+ * expor o endereço completo do cliente.
+ */
+function maskEmailDomain(email: string): string {
+  const atIndex = email.indexOf("@");
+  return atIndex === -1 ? "(sem @)" : email.slice(atIndex);
+}
+
 export interface RunCampaignTriggersResult {
   skipped: boolean;
   reason?: string;
   sent: number;
   failed: number;
   retried: number;
+  blocked: number;
 }
 
 /**
@@ -73,6 +87,21 @@ export interface RunCampaignTriggersResult {
  * canal desligado, então um lote nessa condição gravaria a linha `sent` e
  * queimaria o `dedupe_key` sem entregar nada — e reivindicar o tick antes
  * consumiria a janela de 20h à toa.
+ *
+ * Gate de allowlist (D-4.1): checado por ALVO, como PRIMEIRA coisa dentro do
+ * `try` de cada loop — antes até de `prefRepo.ensureForCustomer` — pra não
+ * deixar rastro nenhum (nem o token de descadastro é criado pra um alvo
+ * bloqueado). Existe um gate equivalente dentro do `ResendEmailSender`
+ * (defesa em profundidade), mas ele sozinho não basta aqui:
+ * `IEmailSender.send` retorna `false` (nunca lança) quando bloqueia, então
+ * se o único gate fosse lá este use-case creria que o e-mail saiu e gravaria
+ * `sent` — queimando o `dedupe_key` pra sempre sem entrega real — ou, no
+ * passe de retry, gravaria `failed` e alimentaria `findRetriable`,
+ * consumindo tentativas à toa. Por isso o alvo bloqueado aqui não chama nem
+ * `sendCampaign` nem `sendRepo.record`: não deixa NENHUM rastro em
+ * `campaign_sends` nem em `customer_email_preferences`. Consequência aceita: em
+ * staging, um alvo bloqueado é re-selecionado e re-logado a cada execução do
+ * cron (barulho de log a cada ~20h), sem poluir estado — intencional.
  */
 @Injectable()
 export class RunCampaignTriggersUseCase {
@@ -90,6 +119,7 @@ export class RunCampaignTriggersUseCase {
     private readonly mailer: ICampaignMailer,
     @Inject(CRON_JOB_STATE_REPOSITORY)
     private readonly cronJobStateRepo: ICronJobStateRepository,
+    private readonly allowlist: EmailAllowlistService,
   ) {}
 
   async execute(): Promise<RunCampaignTriggersResult> {
@@ -104,6 +134,7 @@ export class RunCampaignTriggersUseCase {
         sent: 0,
         failed: 0,
         retried: 0,
+        blocked: 0,
       };
     }
 
@@ -121,6 +152,7 @@ export class RunCampaignTriggersUseCase {
         sent: 0,
         failed: 0,
         retried: 0,
+        blocked: 0,
       };
     }
 
@@ -137,6 +169,7 @@ export class RunCampaignTriggersUseCase {
         sent: 0,
         failed: 0,
         retried: 0,
+        blocked: 0,
       };
     }
 
@@ -163,6 +196,7 @@ export class RunCampaignTriggersUseCase {
     let sent = 0;
     let failed = 0;
     let retried = 0;
+    let blocked = 0;
 
     // Passe de retry PRIMEIRO — linhas `failed` cuja última tentativa continua
     // sendo a falha e `attempt < MAX_ATTEMPTS`. Roda antes do loop principal de
@@ -177,7 +211,24 @@ export class RunCampaignTriggersUseCase {
 
     for (const row of retriable) {
       let delivered = false;
+      // Gerado ANTES do envio: o MESMO UUID viaja como tag `campaign_send_id`
+      // pro provedor (Resend ecoa em todo evento `email.*`) E vira a PK da
+      // linha gravada abaixo (sent OU failed) — é a única cola que permite ao
+      // webhook de bounce (D-4.2, ainda não despachado) achar a linha certa
+      // depois. Declarado fora do `try` para continuar visível no `catch`.
+      const sendId = randomUUID();
       try {
+        // Gate de allowlist (ver doc da classe): checado ANTES de qualquer
+        // outro trabalho, para não deixar rastro (nem o token de
+        // descadastro é criado para um alvo bloqueado).
+        if (!this.allowlist.isAllowed(row.customerEmail)) {
+          blocked += 1;
+          this.logger.warn(
+            `Retry de campanha ${row.trigger} bloqueado pela allowlist de e-mail para o cliente ${row.customerId} (org ${row.orgId}), domínio ${maskEmailDomain(row.customerEmail)}`,
+          );
+          continue;
+        }
+
         const { unsubscribeToken } = await this.prefRepo.ensureForCustomer(
           row.customerId,
           row.orgId,
@@ -199,10 +250,12 @@ export class RunCampaignTriggersUseCase {
           customerName: row.customerName,
           orgName: row.orgName,
           unsubscribeUrl,
+          campaignSendId: sendId,
         });
         delivered = true;
 
         await this.sendRepo.record({
+          id: sendId,
           orgId: row.orgId,
           customerId: row.customerId,
           trigger: row.trigger,
@@ -216,7 +269,9 @@ export class RunCampaignTriggersUseCase {
         if (delivered) {
           // Retry ENTREGUE, só o INSERT `sent` falhou: não marcar `failed` um
           // e-mail que saiu. Não incrementa contador; o dedupe re-seleciona no
-          // próximo run.
+          // próximo run. Consequência (D-4.2): um bounce desse e-mail cairá no
+          // ramo "linha não encontrada" do webhook (`sendId` nunca virou uma
+          // linha `sent`), sem quebrar nada, só sem correlação.
           this.logger.warn(
             `Retry de campanha ${row.trigger} entregue ao cliente ${row.customerId} (org ${row.orgId}), mas o registro 'sent' falhou: ${message}`,
           );
@@ -224,6 +279,7 @@ export class RunCampaignTriggersUseCase {
         }
         await this.recordFailureSafe(
           {
+            id: sendId,
             orgId: row.orgId,
             customerId: row.customerId,
             trigger: row.trigger,
@@ -262,7 +318,24 @@ export class RunCampaignTriggersUseCase {
         // derruba o lote. NÃO re-checa opt-out em memória — o filtro está no
         // SQL do helper que produziu `target`.
         let delivered = false;
+        // Gerado ANTES do envio: o MESMO UUID viaja como tag `campaign_send_id`
+        // pro provedor (Resend ecoa em todo evento `email.*`) E vira a PK da
+        // linha gravada abaixo (sent OU failed) — é a única cola que permite ao
+        // webhook de bounce (D-4.2, ainda não despachado) achar a linha certa
+        // depois. Declarado fora do `try` para continuar visível no `catch`.
+        const sendId = randomUUID();
         try {
+          // Gate de allowlist (ver doc da classe): checado ANTES de
+          // qualquer outro trabalho, para não deixar rastro (nem o token de
+          // descadastro é criado para um alvo bloqueado).
+          if (!this.allowlist.isAllowed(target.customerEmail)) {
+            blocked += 1;
+            this.logger.warn(
+              `Campanha ${trigger} bloqueada pela allowlist de e-mail para o cliente ${target.customerId} (org ${target.orgId}), domínio ${maskEmailDomain(target.customerEmail)}`,
+            );
+            continue;
+          }
+
           const { unsubscribeToken } = await this.prefRepo.ensureForCustomer(
             target.customerId,
             target.orgId,
@@ -284,10 +357,12 @@ export class RunCampaignTriggersUseCase {
             customerName: target.customerName,
             orgName: target.orgName,
             unsubscribeUrl,
+            campaignSendId: sendId,
           });
           delivered = true;
 
           await this.sendRepo.record({
+            id: sendId,
             orgId: target.orgId,
             customerId: target.customerId,
             trigger,
@@ -303,6 +378,9 @@ export class RunCampaignTriggersUseCase {
             // Entrega OK, só o INSERT `sent` falhou: NÃO gravar `failed` (o
             // `findRetriable` casaria e reenviaria um e-mail já entregue). Não
             // incrementa contador; o dedupe re-seleciona no próximo run.
+            // Consequência (D-4.2): um bounce desse e-mail cairá no ramo
+            // "linha não encontrada" do webhook (`sendId` nunca virou uma
+            // linha `sent`), sem quebrar nada, só sem correlação.
             this.logger.warn(
               `Campanha ${trigger} entregue ao cliente ${target.customerId} (org ${target.orgId}), mas o registro 'sent' falhou: ${message}`,
             );
@@ -310,6 +388,7 @@ export class RunCampaignTriggersUseCase {
           }
           await this.recordFailureSafe(
             {
+              id: sendId,
               orgId: target.orgId,
               customerId: target.customerId,
               trigger,
@@ -329,9 +408,9 @@ export class RunCampaignTriggersUseCase {
     }
 
     this.logger.log(
-      `Campanhas (retry antes do loop): retried=${retried} sent=${sent} failed=${failed}`,
+      `Campanhas (retry antes do loop): retried=${retried} sent=${sent} failed=${failed} blocked=${blocked}`,
     );
-    return { skipped: false, sent, failed, retried };
+    return { skipped: false, sent, failed, retried, blocked };
   }
 
   /**

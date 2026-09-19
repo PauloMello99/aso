@@ -75,6 +75,17 @@ Sem Redis. Sem Vercel/Render.
 `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `FRONTEND_URL`, `CRON_SECRET`. E-mail (opcional):
 `NOTIFICATIONS_EMAIL_ENABLED`, `RESEND_API_KEY`, `NOTIFICATIONS_FROM_EMAIL`.
 
+> **`APP_ENVIRONMENT` (obrigatório em produção, ADR-0028).** Trava de allowlist de e-mail:
+> `enforcing = APP_ENVIRONMENT !== "production"`. **Produção precisa de `APP_ENVIRONMENT=production`
+> ANTES do deploy** — com a var ausente/qualquer outro valor a allowlist fica ATIVA e, com
+> `EMAIL_ALLOWLIST` vazia, **todo e-mail (reset de senha, convite, campanhas) deixa de sair**, sem erro
+> (só WARN). Staging: `APP_ENVIRONMENT=staging` + `EMAIL_ALLOWLIST=<e-mails separados por vírgula>`
+> (lista vazia bloqueia tudo, por decisão). Confira o log de boot do `EmailAllowlistService`
+> ("Allowlist de e-mail ENFORCING/DESLIGADA") após cada deploy.
+> **`RESEND_DELIVERY_WEBHOOK_SECRET`**: segredo do endpoint `POST /webhooks/campaign-delivery`
+> (bounce de campanhas), criado à mão no painel do Resend e **distinto** de `RESEND_WEBHOOK_SECRET`
+> (inbound do suporte); sem ele todo bounce responde 401.
+
 > `DATABASE_URL` = role `postgres` (migrações/admin, BYPASSRLS) — use a **Session pooler** do
 > Supabase (IPv4, porta 5432) para o container alcançar o banco.
 > `DATABASE_APP_URL` = role `app_user` (runtime, NOBYPASSRLS; criado pela migration 0003).

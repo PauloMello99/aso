@@ -27,6 +27,7 @@ export class CampaignMailerMailServiceAdapter implements ICampaignMailer {
       customerName: input.customerName,
       orgName: input.orgName,
       unsubscribeUrl: input.unsubscribeUrl,
+      tags: { campaign_send_id: input.campaignSendId },
     });
   }
 }

@@ -29,9 +29,15 @@ import type { TiptapDoc } from "../../../modules/campaigns/domain/campaign-body"
 //     contrato de idempotência. Sem FK para organizations/customers por decisão:
 //     é log histórico de comunicação; CASCADE apagaria a prova do envio e
 //     RESTRICT colidiria com o direito de eliminação da LGPD. Orfanar os UUIDs ao
-//     apagar o cliente = pseudonimização (comportamento desejado). Sem FK nem RLS
-//     aqui, a integridade de (org_id, customer_id) é responsabilidade da query de
-//     gatilho — ver cabeçalho da migration 0063.
+//     apagar o cliente = pseudonimização (comportamento desejado) — isso continua
+//     valendo integralmente. A integridade de (org_id, customer_id) é
+//     responsabilidade da query de gatilho — ver cabeçalho da migration 0063.
+//     RLS: nasceu SEM NENHUMA policy (0063, "log puramente administrativo"); a
+//     migration 0076 SUPERSEDE essa parte para LEITURA — adiciona
+//     "campaign_sends_select" (is_super_admin() OR is_org_owner(org_id)) para o
+//     relatório de entrega (4.3) expor o log ao dono da própria org. A ESCRITA
+//     continua exclusiva do DRIZZLE_ADMIN: 0076 não cria policy de
+//     INSERT/UPDATE/DELETE, então o caráter append-only não muda.
 //   - campaigns (T6 rework, migration 0066): N linhas por org, UMA por gatilho
 //     (UNIQUE org_id, trigger). Substituiu a antiga "org_campaign_settings" (0062,
 //     1 linha/org, colunas por gatilho), dropada pela 0067. "subject"/"body" NULL =

@@ -2,6 +2,7 @@ import { Logger } from "@nestjs/common";
 import type { ConfigService } from "@nestjs/config";
 import { RunCampaignTriggersUseCase } from "./run-campaign-triggers.use-case";
 import type { ICronJobStateRepository } from "../../../../common/cron/cron-job-state.repository.interface";
+import type { EmailAllowlistService } from "../../../mail/application/email-allowlist.service";
 import type { ICampaignMailer } from "../../domain/campaign-mailer.port";
 import type {
   ICampaignSendRepository,
@@ -81,6 +82,18 @@ function buildCronJobStateRepo(
   } as unknown as jest.Mocked<ICronJobStateRepository>;
 }
 
+// Allowlist ON por padrão (`isAllowed` sempre `true`) — os testes existentes
+// não precisam saber que a trava existe. Os 3 casos dedicados de 4.1
+// sobrescrevem `isAllowed` para simular na lista / fora / lista vazia.
+function buildAllowlist(
+  overrides: Partial<jest.Mocked<EmailAllowlistService>> = {},
+): jest.Mocked<EmailAllowlistService> {
+  return {
+    isAllowed: jest.fn().mockReturnValue(true),
+    ...overrides,
+  } as unknown as jest.Mocked<EmailAllowlistService>;
+}
+
 function buildTarget(overrides: Partial<CampaignTarget> = {}): CampaignTarget {
   return {
     orgId: "org-1",
@@ -122,6 +135,7 @@ interface Deps {
   prefRepo: jest.Mocked<ICustomerEmailPreferenceRepository>;
   mailer: jest.Mocked<ICampaignMailer>;
   cronJobStateRepo: jest.Mocked<ICronJobStateRepository>;
+  allowlist: jest.Mocked<EmailAllowlistService>;
 }
 
 function setup(overrides: Partial<Deps> = {}): Deps & {
@@ -134,6 +148,7 @@ function setup(overrides: Partial<Deps> = {}): Deps & {
     prefRepo: overrides.prefRepo ?? buildPrefRepo(),
     mailer: overrides.mailer ?? buildMailer(),
     cronJobStateRepo: overrides.cronJobStateRepo ?? buildCronJobStateRepo(),
+    allowlist: overrides.allowlist ?? buildAllowlist(),
   };
   const useCase = new RunCampaignTriggersUseCase(
     deps.config,
@@ -142,6 +157,7 @@ function setup(overrides: Partial<Deps> = {}): Deps & {
     deps.prefRepo,
     deps.mailer,
     deps.cronJobStateRepo,
+    deps.allowlist,
   );
   return { ...deps, useCase };
 }
@@ -164,6 +180,7 @@ describe("RunCampaignTriggersUseCase", () => {
       sent: 0,
       failed: 0,
       retried: 0,
+      blocked: 0,
     });
     expect(targetRepo.findBirthdayTargets).not.toHaveBeenCalled();
     expect(sendRepo.record).not.toHaveBeenCalled();
@@ -223,7 +240,35 @@ describe("RunCampaignTriggersUseCase", () => {
     expect(sendRepo.record).toHaveBeenCalledWith(
       expect.objectContaining({ attempt: 1, status: "sent", trigger: "birthday" }),
     );
-    expect(result).toEqual({ skipped: false, sent: 2, failed: 0, retried: 0 });
+    expect(result).toEqual({
+      skipped: false,
+      sent: 2,
+      failed: 0,
+      retried: 0,
+      blocked: 0,
+    });
+  });
+
+  it("gera um UUID por alvo e usa o MESMO valor como tag do mailer e como id de campaign_sends (D-4.2)", async () => {
+    const targetRepo = buildTargetRepo({
+      findBirthdayTargets: jest
+        .fn()
+        .mockResolvedValue([buildTarget({ customerId: "cus-1" })]),
+    });
+    const { useCase, mailer, sendRepo } = setup({ targetRepo });
+
+    await useCase.execute();
+
+    // Captura o valor REAL gerado por randomUUID() em vez de comparar contra
+    // um UUID fixo — o objetivo é provar que os dois valores são o MESMO,
+    // não só que "algum" id foi passado (`objectContaining` não afirma isso).
+    const mailerArg = mailer.sendCampaign.mock.calls[0]?.[0];
+    const recordArg = sendRepo.record.mock.calls[0]?.[0];
+    expect(typeof mailerArg?.campaignSendId).toBe("string");
+    expect(mailerArg?.campaignSendId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+    expect(recordArg?.id).toBe(mailerArg?.campaignSendId);
   });
 
   it("um envio que lança não derruba o lote: grava 'failed' e segue", async () => {
@@ -255,7 +300,20 @@ describe("RunCampaignTriggersUseCase", () => {
         error: "provider 500",
       }),
     );
-    expect(result).toEqual({ skipped: false, sent: 2, failed: 1, retried: 0 });
+    // O caminho `failed` também grava `id` com o MESMO UUID que foi tentado
+    // como tag no mailer (o sendId é gerado ANTES do envio, então sobrevive
+    // mesmo quando `sendCampaign` lança).
+    const failedMailerArg = mailer.sendCampaign.mock.calls[1]?.[0];
+    const failedRecordArg = sendRepo.record.mock.calls[1]?.[0];
+    expect(typeof failedMailerArg?.campaignSendId).toBe("string");
+    expect(failedRecordArg?.id).toBe(failedMailerArg?.campaignSendId);
+    expect(result).toEqual({
+      skipped: false,
+      sent: 2,
+      failed: 1,
+      retried: 0,
+      blocked: 0,
+    });
   });
 
   it("passa o assunto custom interpolado ao mailer quando há subjectOverride", async () => {
@@ -323,7 +381,20 @@ describe("RunCampaignTriggersUseCase", () => {
         trigger: "birthday",
       }),
     );
-    expect(result).toEqual({ skipped: false, sent: 1, failed: 0, retried: 1 });
+    // Mesmo no passe de retry, o UUID gerado é o MESMO entre a tag do mailer
+    // e o `id` da linha `sent` (D-4.2) — capturado do mock, não comparado
+    // contra um valor fixo (`randomUUID()` não é determinístico).
+    const retryMailerArg = mailer.sendCampaign.mock.calls[0]?.[0];
+    const retryRecordArg = sendRepo.record.mock.calls[0]?.[0];
+    expect(typeof retryMailerArg?.campaignSendId).toBe("string");
+    expect(retryRecordArg?.id).toBe(retryMailerArg?.campaignSendId);
+    expect(result).toEqual({
+      skipped: false,
+      sent: 1,
+      failed: 0,
+      retried: 1,
+      blocked: 0,
+    });
   });
 
   it("não grava 'failed' quando a entrega deu certo mas o registro 'sent' lança (Medium 1)", async () => {
@@ -347,7 +418,13 @@ describe("RunCampaignTriggersUseCase", () => {
     expect(sendRepo.record).not.toHaveBeenCalledWith(
       expect.objectContaining({ status: "failed" }),
     );
-    expect(result).toEqual({ skipped: false, sent: 0, failed: 0, retried: 0 });
+    expect(result).toEqual({
+      skipped: false,
+      sent: 0,
+      failed: 0,
+      retried: 0,
+      blocked: 0,
+    });
     expect(warnSpy).toHaveBeenCalled();
   });
 
@@ -384,7 +461,13 @@ describe("RunCampaignTriggersUseCase", () => {
       expect.objectContaining({ to: "dois@x.com" }),
     );
     expect(sendRepo.record).toHaveBeenCalledTimes(2);
-    expect(result).toEqual({ skipped: false, sent: 1, failed: 1, retried: 0 });
+    expect(result).toEqual({
+      skipped: false,
+      sent: 1,
+      failed: 1,
+      retried: 0,
+      blocked: 0,
+    });
     expect(warnSpy).toHaveBeenCalled();
   });
 
@@ -443,5 +526,135 @@ describe("RunCampaignTriggersUseCase", () => {
     expect(birthdayArg?.referenceDate).toBeInstanceOf(Date);
     const inactivityArg = targetRepo.findInactivityTargets.mock.calls[0]?.[0];
     expect(inactivityArg?.referenceDate).toBeInstanceOf(Date);
+  });
+
+  describe("gate de allowlist de e-mail (4.1)", () => {
+    it("destinatário NA allowlist (ou allowlist desligada/produção): envia e grava 'sent', blocked=0", async () => {
+      const targetRepo = buildTargetRepo({
+        findBirthdayTargets: jest
+          .fn()
+          .mockResolvedValue([
+            buildTarget({ customerId: "cus-1", customerEmail: "ana@x.com" }),
+          ]),
+      });
+      const allowlist = buildAllowlist({
+        isAllowed: jest.fn().mockReturnValue(true),
+      });
+      const { useCase, mailer, sendRepo } = setup({ targetRepo, allowlist });
+
+      const result = await useCase.execute();
+
+      expect(allowlist.isAllowed).toHaveBeenCalledWith("ana@x.com");
+      expect(mailer.sendCampaign).toHaveBeenCalledTimes(1);
+      expect(sendRepo.record).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "sent" }),
+      );
+      expect(result).toEqual({
+        skipped: false,
+        sent: 1,
+        failed: 0,
+        retried: 0,
+        blocked: 0,
+      });
+    });
+
+    it("destinatário FORA da allowlist: não envia, não grava, blocked=1", async () => {
+      const targetRepo = buildTargetRepo({
+        findBirthdayTargets: jest
+          .fn()
+          .mockResolvedValue([
+            buildTarget({ customerId: "cus-1", customerEmail: "fora@x.com" }),
+          ]),
+      });
+      const allowlist = buildAllowlist({
+        isAllowed: jest.fn().mockReturnValue(false),
+      });
+      const warnSpy = jest
+        .spyOn(Logger.prototype, "warn")
+        .mockImplementation(() => undefined);
+      const { useCase, mailer, sendRepo, prefRepo } = setup({
+        targetRepo,
+        allowlist,
+      });
+
+      const result = await useCase.execute();
+
+      expect(mailer.sendCampaign).not.toHaveBeenCalled();
+      expect(sendRepo.record).not.toHaveBeenCalled();
+      // Bloqueado não deixa rastro nenhum: nem o token de descadastro é
+      // criado.
+      expect(prefRepo.ensureForCustomer).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        skipped: false,
+        sent: 0,
+        failed: 0,
+        retried: 0,
+        blocked: 1,
+      });
+      // Loga só o domínio mascarado (mesmo estilo do `ResendEmailSender`),
+      // nunca o e-mail completo do alvo.
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("bloqueada pela allowlist de e-mail"),
+      );
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("@x.com"));
+      expect(warnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("fora@x.com"),
+      );
+    });
+
+    it("allowlist VAZIA com enforcing ativo: bloqueia todos os alvos elegíveis, nenhum registro gravado", async () => {
+      const targetRepo = buildTargetRepo({
+        findBirthdayTargets: jest
+          .fn()
+          .mockResolvedValue([
+            buildTarget({ customerId: "cus-1", customerEmail: "um@x.com" }),
+            buildTarget({ customerId: "cus-2", customerEmail: "dois@x.com" }),
+          ]),
+      });
+      // Allowlist enforcing + vazia: `isAllowed` nunca permite ninguém
+      // (fail-safe do `EmailAllowlistService` real).
+      const allowlist = buildAllowlist({
+        isAllowed: jest.fn().mockReturnValue(false),
+      });
+      const { useCase, mailer, sendRepo, prefRepo } = setup({
+        targetRepo,
+        allowlist,
+      });
+
+      const result = await useCase.execute();
+
+      expect(mailer.sendCampaign).not.toHaveBeenCalled();
+      expect(sendRepo.record).not.toHaveBeenCalled();
+      expect(prefRepo.ensureForCustomer).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        skipped: false,
+        sent: 0,
+        failed: 0,
+        retried: 0,
+        blocked: 2,
+      });
+    });
+
+    it("gate também se aplica ao passe de retry: alvo retriável fora da allowlist não reenvia nem re-grava", async () => {
+      const sendRepo = buildSendRepo({
+        findRetriable: jest
+          .fn()
+          .mockResolvedValue([
+            buildRetriable({ customerEmail: "retry-fora@x.com" }),
+          ]),
+      });
+      const allowlist = buildAllowlist({
+        isAllowed: jest.fn().mockReturnValue(false),
+      });
+      const { useCase, mailer, prefRepo } = setup({ sendRepo, allowlist });
+
+      const result = await useCase.execute();
+
+      expect(mailer.sendCampaign).not.toHaveBeenCalled();
+      expect(sendRepo.record).not.toHaveBeenCalled();
+      expect(prefRepo.ensureForCustomer).not.toHaveBeenCalled();
+      expect(result.blocked).toBe(1);
+      expect(result.retried).toBe(0);
+    });
   });
 });

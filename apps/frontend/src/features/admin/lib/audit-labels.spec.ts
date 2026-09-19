@@ -20,9 +20,16 @@ describe("audit-labels", () => {
     expect(AUDIT_ACTION_VARIANTS.campaign_settings_updated).toBe("secondary")
   })
 
-  it("cobre os 18 valores de auditActionEnum nos dois mapas", () => {
-    expect(Object.keys(AUDIT_ACTION_LABELS)).toHaveLength(18)
-    expect(Object.keys(AUDIT_ACTION_VARIANTS)).toHaveLength(18)
+  it("rotula a ação campaign_email_bounced emitida quando o e-mail de campanha é rejeitado", () => {
+    expect(AUDIT_ACTION_LABELS.campaign_email_bounced).toBe(
+      "Campanha: e-mail rejeitado",
+    )
+    expect(AUDIT_ACTION_VARIANTS.campaign_email_bounced).toBe("secondary")
+  })
+
+  it("cobre os 19 valores de auditActionEnum nos dois mapas", () => {
+    expect(Object.keys(AUDIT_ACTION_LABELS)).toHaveLength(19)
+    expect(Object.keys(AUDIT_ACTION_VARIANTS)).toHaveLength(19)
     for (const action of AUDIT_ACTION_OPTIONS) {
       expect(AUDIT_ACTION_LABELS[action]).toBeTruthy()
       expect(AUDIT_ACTION_VARIANTS[action]).toBeTruthy()

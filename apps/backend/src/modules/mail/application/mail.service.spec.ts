@@ -123,6 +123,30 @@ describe("MailService.sendCampaignByTrigger", () => {
       expect(html).not.toContain("possui uma conta no ASO");
     }
   });
+
+  it("propaga input.tags até o sender quando informado", async () => {
+    const sender = buildSender();
+    const service = new MailService(sender, buildConfig());
+
+    await service.sendCampaignByTrigger({
+      ...baseInput,
+      trigger: "birthday",
+      tags: { campaign_send_id: "abc-123" },
+    });
+
+    expect(firstSendArg(sender).tags).toEqual({
+      campaign_send_id: "abc-123",
+    });
+  });
+
+  it("não envia tags ao sender quando input.tags não é informado (campo opcional, sem quebra)", async () => {
+    const sender = buildSender();
+    const service = new MailService(sender, buildConfig());
+
+    await service.sendCampaignByTrigger({ ...baseInput, trigger: "birthday" });
+
+    expect(firstSendArg(sender).tags).toBeUndefined();
+  });
 });
 
 describe("MailService — rodapé padrão dos e-mails transacionais", () => {

@@ -6,6 +6,7 @@ export interface SendEmailInput {
   html: string;
   text?: string;
   replyTo?: string;
+  tags?: Record<string, string>;
 }
 
 export interface IEmailSender {

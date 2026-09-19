@@ -128,6 +128,7 @@ export interface SendCampaignByTriggerInput {
   customerName: string;
   orgName: string;
   unsubscribeUrl: string;
+  tags?: Record<string, string>;
 }
 
 @Injectable()
@@ -328,6 +329,8 @@ export class MailService {
       input.to,
       input.subject,
       this.renderCampaignTemplate(input),
+      undefined,
+      input.tags,
     );
   }
 
@@ -358,6 +361,7 @@ export class MailService {
     subject: string,
     element: ReactElement,
     replyTo?: string,
+    tags?: Record<string, string>,
   ): Promise<boolean> {
     const [html, text] = await Promise.all([
       render(element),
@@ -369,6 +373,7 @@ export class MailService {
       html,
       text,
       ...(replyTo ? { replyTo } : {}),
+      ...(tags ? { tags } : {}),
     });
   }
 }

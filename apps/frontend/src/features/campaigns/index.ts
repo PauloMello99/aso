@@ -3,6 +3,19 @@ export { CampaignsListPage } from "./components/campaigns-list-page"
 
 export { useEmailPreferences, useUnsubscribe } from "./hooks/use-email-preferences"
 export { useCampaigns } from "./hooks/use-campaigns"
+export { useCampaignDeliveryReport } from "./hooks/use-campaign-delivery-report"
+
+export {
+  campaignDeliveryReportResponseSchema,
+  campaignDeliveryReportRowSchema,
+  campaignDeliveryReportSummarySchema,
+} from "./schemas/campaign-delivery-report.schema"
+export type {
+  CampaignDeliveryReportResponse,
+  CampaignDeliveryReportRow,
+  CampaignDeliveryReportSummary,
+  CampaignDeliveryStatus,
+} from "./schemas/campaign-delivery-report.schema"
 
 export { unsubscribeBodySchema } from "./schemas/email-preferences.schema"
 export type { UnsubscribeBody } from "./schemas/email-preferences.schema"

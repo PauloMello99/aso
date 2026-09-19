@@ -26,6 +26,13 @@ export interface SendCampaignInput {
   customerName: string;
   orgName: string;
   unsubscribeUrl: string;
+  /**
+   * UUID pré-gerado pelo caller (o mesmo que vira o `id` da linha `sent` em
+   * `campaign_sends`) — propagado como tag `campaign_send_id` ao provedor
+   * para o webhook de bounce (D-4.2) conseguir correlacionar o evento de
+   * volta à linha gravada aqui.
+   */
+  campaignSendId: string;
 }
 
 export interface ICampaignMailer {

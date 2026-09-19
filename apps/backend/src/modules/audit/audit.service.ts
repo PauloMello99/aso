@@ -29,7 +29,8 @@ export type AuditAction =
   | "cashier_fees_updated"
   | "cashier_commissions_updated"
   | "org_admin_access"
-  | "campaign_settings_updated";
+  | "campaign_settings_updated"
+  | "campaign_email_bounced";
 
 export interface AuditEntry {
   actorId: string | null;

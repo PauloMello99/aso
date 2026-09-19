@@ -526,6 +526,20 @@
       "when": 1782006400000,
       "tag": "0074_installment_payment_fees",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1782006500000,
+      "tag": "0075_audit_action_campaign_bounce",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1782006600000,
+      "tag": "0076_campaign_sends_owner_select",
+      "breakpoints": true
     }
   ]
 }

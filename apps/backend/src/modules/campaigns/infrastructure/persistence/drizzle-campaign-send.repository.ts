@@ -1,10 +1,13 @@
 // Injeta DRIZZLE_ADMIN (não DRIZZLE) de propósito: este repositório serve o cron
 // cross-org de campanhas, que roda sem contexto de request — sob ADR-0005 o pool
 // DRIZZLE resolveria zero linhas SEM erro (bug silencioso). `campaign_sends` não
-// tem RLS nem FK; a integridade de (org_id, customer_id) é responsabilidade da
-// query de gatilho que originou a linha (ver drizzle-campaign-target.repository).
+// tem FK; a integridade de (org_id, customer_id) é responsabilidade da query de
+// gatilho que originou a linha (ver drizzle-campaign-target.repository). RLS está
+// habilitado e, desde a migration 0076, há policy de SELECT (owner/super_admin) —
+// a ESCRITA continua sem nenhuma policy, só DRIZZLE_ADMIN (bypassrls) grava.
+import { randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
-import { sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import {
   DRIZZLE_ADMIN,
   type DrizzleDB,
@@ -13,8 +16,10 @@ import * as schema from "../../../../database/schema";
 import type { TiptapDoc } from "../../domain/campaign-body";
 import type {
   ICampaignSendRepository,
+  RecordCampaignBounceInput,
   RecordCampaignSendInput,
   RetriableCampaignSend,
+  SentCampaignSend,
 } from "../../domain/campaign-send.repository.interface";
 
 // `type` (não `interface`): o parâmetro TRow de db.execute exige
@@ -44,6 +49,7 @@ export class DrizzleCampaignSendRepository implements ICampaignSendRepository {
     await this.db
       .insert(schema.campaignSends)
       .values({
+        id: input.id,
         orgId: input.orgId,
         customerId: input.customerId,
         trigger: input.trigger,
@@ -60,6 +66,63 @@ export class DrizzleCampaignSendRepository implements ICampaignSendRepository {
           schema.campaignSends.status,
         ],
       });
+  }
+
+  async recordBounce(input: RecordCampaignBounceInput): Promise<boolean> {
+    // Linha NOVA (append-only, decisão (a) da migration 0063) com `id`
+    // gerado aqui — DIFERENTE de `input.sentRowId` (o `id` da linha `sent`
+    // original, que já tem status distinto e não é tocado). ON CONFLICT DO
+    // NOTHING sobre a mesma unique (dedupe_key, attempt, status): como
+    // `status` aqui é 'bounced', só colide com outra linha 'bounced' já
+    // registrada para o mesmo (dedupe_key, attempt) — reentrega do webhook.
+    // `sent_at` segue o valor da linha `sent` original (CHECK
+    // campaign_sends_sent_at_check não restringe 'bounced').
+    const rows = await this.db
+      .insert(schema.campaignSends)
+      .values({
+        id: randomUUID(),
+        orgId: input.orgId,
+        customerId: input.customerId,
+        trigger: input.trigger,
+        status: "bounced",
+        attempt: input.attempt,
+        dedupeKey: input.dedupeKey,
+        error: input.reason,
+        sentAt: input.sentAt,
+      })
+      .onConflictDoNothing({
+        target: [
+          schema.campaignSends.dedupeKey,
+          schema.campaignSends.attempt,
+          schema.campaignSends.status,
+        ],
+      })
+      .returning({ id: schema.campaignSends.id });
+
+    // Conflito => nenhuma linha devolvida => reentrega (não inseriu).
+    return rows.length > 0;
+  }
+
+  async findSentById(id: string): Promise<SentCampaignSend | null> {
+    const [row] = await this.db
+      .select({
+        orgId: schema.campaignSends.orgId,
+        customerId: schema.campaignSends.customerId,
+        trigger: schema.campaignSends.trigger,
+        dedupeKey: schema.campaignSends.dedupeKey,
+        attempt: schema.campaignSends.attempt,
+        sentAt: schema.campaignSends.sentAt,
+      })
+      .from(schema.campaignSends)
+      .where(
+        and(
+          eq(schema.campaignSends.id, id),
+          eq(schema.campaignSends.status, "sent"),
+        ),
+      )
+      .limit(1);
+
+    return row ?? null;
   }
 
   async findRetriable(
