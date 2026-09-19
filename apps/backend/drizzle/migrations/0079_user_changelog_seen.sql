@@ -1,0 +1,15 @@
+-- 0079 — Marcador da última versão do changelog vista pelo usuário.
+--
+-- changelog_seen_version guarda a maior version do changelog (registry em código)
+-- que o usuário já viu. NULL = nunca viu nada (banner aparece).
+-- Coluna em users, e não tabela própria: é estado 1:1 com o usuário, sem leitura
+-- cross-user PELO APP (queries de membros projetam colunas explícitas), e não
+-- existe helper current_user_id() que justificaria uma tabela com policy
+-- dedicada. No banco, users_select_same_org (0015) expõe a linha a pares de org,
+-- por isso a coluna só guarda um marcador NÃO sensível.
+-- NENHUMA policy nova: users_select/users_update (0000) já escopam a própria
+-- linha (auth.uid() = auth_id OR is_super_admin()).
+-- O valor é CLAMPADO no servidor (nunca acima da última version publicada); o
+-- cliente apenas sinaliza que viu.
+-- Rollback perde o marcador: o banner reaparece uma vez para cada usuário.
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS "changelog_seen_version" integer;

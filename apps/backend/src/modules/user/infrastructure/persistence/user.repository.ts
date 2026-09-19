@@ -82,6 +82,18 @@ export class DrizzleUserRepository implements IUserRepository {
     await this.admin.delete(schema.users).where(eq(schema.users.authId, authId));
   }
 
+  async updateChangelogSeenVersion(
+    authId: string,
+    version: number,
+  ): Promise<void> {
+    await this.db
+      .update(schema.users)
+      .set({
+        changelogSeenVersion: sql`GREATEST(COALESCE(${schema.users.changelogSeenVersion}, 0), ${version})`,
+      })
+      .where(eq(schema.users.authId, authId));
+  }
+
   async update(authId: string, data: UpdateUserData): Promise<UserEntity> {
     const [row] = await this.db
       .update(schema.users)

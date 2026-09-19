@@ -28,6 +28,7 @@ import {
 } from "@/features/billing"
 import type { OrgSummary } from "@/features/dashboard/hooks/use-orgs"
 import type { BreadcrumbItem } from "@/features/dashboard/components/top-header"
+import { ChangelogBanner } from "@/features/changelog"
 import { Seo } from "@/shared/components/seo"
 
 interface OrgLayoutProps {
@@ -190,6 +191,11 @@ export function OrgLayout({ children }: OrgLayoutProps) {
             />
             <main className="flex-1 overflow-y-auto">
               <div className="mx-auto w-full max-w-7xl p-4 sm:p-6">
+                <ChangelogBanner
+                  role={org.role}
+                  permissions={org.permissions}
+                  className="mb-4 sm:mb-6"
+                />
                 {children}
               </div>
             </main>

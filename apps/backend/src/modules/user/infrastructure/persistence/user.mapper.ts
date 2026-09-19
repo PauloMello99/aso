@@ -16,6 +16,7 @@ export class UserMapper {
       onboardingCompletedAt: row.onboardingCompletedAt ?? null,
       termsAcceptedAt: row.termsAcceptedAt ?? null,
       termsVersion: row.termsVersion ?? null,
+      changelogSeenVersion: row.changelogSeenVersion ?? null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });

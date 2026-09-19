@@ -164,6 +164,11 @@ export const queryKeys = {
       ["public-campaigns", "preferences", token] as const,
   },
 
+  changelog: {
+    all: ["changelog"] as const,
+    list: () => ["changelog", "list"] as const,
+  },
+
   publicBilling: {
     plans: () => ["public-billing", "plans"] as const,
   },

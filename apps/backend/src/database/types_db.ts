@@ -2564,6 +2564,7 @@ export type Database = {
           auth_id: string
           avatar_url: string | null
           birth_date: string | null
+          changelog_seen_version: number | null
           created_at: string
           email: string
           gender: Database["public"]["Enums"]["gender"] | null
@@ -2580,6 +2581,7 @@ export type Database = {
           auth_id: string
           avatar_url?: string | null
           birth_date?: string | null
+          changelog_seen_version?: number | null
           created_at?: string
           email: string
           gender?: Database["public"]["Enums"]["gender"] | null
@@ -2596,6 +2598,7 @@ export type Database = {
           auth_id?: string
           avatar_url?: string | null
           birth_date?: string | null
+          changelog_seen_version?: number | null
           created_at?: string
           email?: string
           gender?: Database["public"]["Enums"]["gender"] | null
