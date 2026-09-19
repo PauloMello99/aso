@@ -33,6 +33,7 @@ function buildFakeMaterialRepo(
     create: jest.fn(),
     update: jest.fn(),
     updateStockQuantity: jest.fn(),
+    syncLowStockMarker: jest.fn(),
     touchLastUsed: jest.fn(),
     setArchived: jest.fn(),
     isLinkedToService: jest.fn(),

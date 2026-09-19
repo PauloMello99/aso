@@ -865,6 +865,13 @@ encodeURIComponent(nome)`. Para listagens, usar `createSignedUrls` (plural) — 
 - **Ajuste de estoque**: o form separa **direção** (`Select` Adição/Remoção) + **quantidade** (input só-número); o `quantityDelta` com sinal é montado na submissão (`stock-page handleAdjust`). Backend continua recebendo `quantityDelta` assinado.
 - **Excluir material**: bloqueado se vinculado a algum serviço — `DeleteMaterialUseCase` checa `service_materials` e lança `MATERIAL_IN_USE_BY_SERVICES` (409). Frontend mostra a mensagem no `handleDelete`.
 
+#### Alerta de estoque baixo (2026-09-19, ADR-0029, migrations 0077/0078)
+
+- Disparado pelas **escritas de estoque** (nunca cron): todo estoque passa por `IMaterialRepository.updateStockQuantity` → `{ material, crossedLowStock }`. **Nunca** escrever `stock_quantity` por outro caminho — o marcador `low_stock_alerted_at` (recalculado no mesmo UPDATE, com `FOR UPDATE`) é o que garante 1 alerta por episódio.
+- Quem chama `updateStockQuantity` deve chamar `LowStockAlertService.scheduleIfAny(orgId, crossed[])` **uma vez após o loop** (agrupa por operação). Só `minimumQuantity` alterado em `update-material` chama `syncLowStockMarker`.
+- `scheduleIfAny` usa `registerPostCommit` com dispatch **destacado (não awaited)** — não "corrigir" para await; nunca injetar `DRIZZLE` no dispatch (só pool ADMIN/HTTP). Notificação `low_stock` para os donos, in-app + e-mail (e-mail fora de produção só p/ allowlist, ADR-0028).
+- Migration com `ADD VALUE` de enum: o valor não pode ser usado por outra migration do mesmo lote pendente (migrator = 1 transação).
+
 ### Agenda — implementada (2026-06-15)
 
 - **Agenda por membro**: cada membro gerencia a **própria** agenda. `calendar_events.assigned_to` (FK `users.id`, NOT NULL) é o dono do horário. `owner` pode **criar** evento em nome de um membro (`assignedTo` no create, só na criação); **editar/excluir de terceiro continua bloqueado** mesmo para owner (`CALENDAR_EVENT_FORBIDDEN`, 403) — corrigido 2026-07-17, a nota anterior ("ninguém cria evento de outro, nem owner") estava desatualizada frente ao código.

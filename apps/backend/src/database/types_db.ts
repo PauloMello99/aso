@@ -1200,6 +1200,7 @@ export type Database = {
           created_at: string
           id: string
           last_used_at: string | null
+          low_stock_alerted_at: string | null
           minimum_quantity: number
           name: string
           org_id: string
@@ -1214,6 +1215,7 @@ export type Database = {
           created_at?: string
           id?: string
           last_used_at?: string | null
+          low_stock_alerted_at?: string | null
           minimum_quantity?: number
           name: string
           org_id: string
@@ -1228,6 +1230,7 @@ export type Database = {
           created_at?: string
           id?: string
           last_used_at?: string | null
+          low_stock_alerted_at?: string | null
           minimum_quantity?: number
           name?: string
           org_id?: string
@@ -2660,6 +2663,7 @@ export type Database = {
         | "agenda_reminder"
         | "member_unavailability"
         | "stock_check_reminder"
+        | "low_stock"
       org_role: "owner" | "employee"
       payment_method: "cash" | "bank_transfer" | "credit_card" | "debit_card"
       platform_role: "super_admin" | "user"
@@ -2853,6 +2857,7 @@ export const Constants = {
         "agenda_reminder",
         "member_unavailability",
         "stock_check_reminder",
+        "low_stock",
       ],
       org_role: ["owner", "employee"],
       payment_method: ["cash", "bank_transfer", "credit_card", "debit_card"],

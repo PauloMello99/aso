@@ -1,4 +1,8 @@
-export type NotificationType = "agenda_reminder" | "member_unavailability"
+export type NotificationType =
+  | "agenda_reminder"
+  | "member_unavailability"
+  | "stock_check_reminder"
+  | "low_stock"
 
 export interface AppNotification {
   id: string

@@ -61,6 +61,11 @@ import {
   IAnamnesisFormRepository,
   ANAMNESIS_FORM_REPOSITORY,
 } from "../../../anamnesis/domain/anamnesis-form.repository.interface";
+import {
+  LowStockAlertService,
+  LowStockItem,
+  toLowStockItem,
+} from "../../../materials/application/low-stock-alert.service";
 import { resolvePerformer } from "./resolve-performer";
 import { resolveMembership } from "./resolve-membership";
 import { assertPerformedAtNotFuture } from "./assert-performed-at-not-future";
@@ -116,6 +121,7 @@ export class CreateServiceUseCase {
     private readonly anamnesisFormRepo: IAnamnesisFormRepository,
     @Inject(MEMBER_COMMISSION_REPOSITORY)
     private readonly commissionRepo: IMemberCommissionRepository,
+    private readonly lowStockAlerts: LowStockAlertService,
   ) {}
 
   async execute(input: CreateServiceInput): Promise<ServiceEntity> {
@@ -229,8 +235,14 @@ export class CreateServiceUseCase {
       toRecord,
     );
 
+    const crossed: LowStockItem[] = [];
     for (const debit of debits) {
-      await this.materialRepo.updateStockQuantity(debit.materialId, debit.delta);
+      const { material: updated, crossedLowStock } =
+        await this.materialRepo.updateStockQuantity(
+          debit.materialId,
+          debit.delta,
+        );
+      if (crossedLowStock) crossed.push(toLowStockItem(updated));
       await this.movementRepo.create({
         orgId: input.orgId,
         materialId: debit.materialId,
@@ -241,6 +253,7 @@ export class CreateServiceUseCase {
       });
       await this.materialRepo.touchLastUsed(debit.materialId);
     }
+    this.lowStockAlerts.scheduleIfAny(input.orgId, crossed);
 
     if (input.paymentStatus === "paid") {
       // Taxa de pagamento: a de quem EXECUTOU o serviço (`performedBy`, o mesmo

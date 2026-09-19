@@ -1,4 +1,5 @@
 import { CreateServiceUseCase } from "./create-service.use-case";
+import { LowStockAlertService } from "../../../materials/application/low-stock-alert.service";
 import { IServiceRepository } from "../../domain/service.repository.interface";
 import { ServiceEntity } from "../../domain/service.entity";
 import { IServiceTypeRepository } from "../../domain/service-type.repository.interface";
@@ -28,6 +29,10 @@ import { AnamnesisFormVersionEntity } from "../../../anamnesis/domain/anamnesis-
 import { AnamnesisResponseNotFoundException } from "../../../anamnesis/domain/exceptions/anamnesis-response-not-found.exception";
 import { AnamnesisResponseNotLinkableException } from "../../../anamnesis/domain/exceptions/anamnesis-response-not-linkable.exception";
 import { AnamnesisResponseOutdatedException } from "../../../anamnesis/domain/exceptions/anamnesis-response-outdated.exception";
+
+jest.mock("../../../../database/database.module", () => ({
+  registerPostCommit: jest.fn(),
+}));
 
 function buildService(
   overrides: Partial<Parameters<typeof ServiceEntity.create>[0]> = {},
@@ -328,7 +333,10 @@ function buildFakeMaterialRepo(
     findAllByOrg: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
-    updateStockQuantity: jest.fn(),
+    updateStockQuantity: jest
+      .fn()
+      .mockResolvedValue({ material: buildMaterial(), crossedLowStock: false }),
+    syncLowStockMarker: jest.fn(),
     touchLastUsed: jest.fn(),
     setArchived: jest.fn(),
     isLinkedToService: jest.fn(),
@@ -398,7 +406,14 @@ function buildFakeCommissionRepo(
   } as unknown as jest.Mocked<IMemberCommissionRepository>;
 }
 
+function buildFakeLowStockAlerts(): jest.Mocked<LowStockAlertService> {
+  return {
+    scheduleIfAny: jest.fn(),
+  } as unknown as jest.Mocked<LowStockAlertService>;
+}
+
 interface Fakes {
+  lowStockAlerts: jest.Mocked<LowStockAlertService>;
   serviceRepo: jest.Mocked<IServiceRepository>;
   serviceTypeRepo: jest.Mocked<IServiceTypeRepository>;
   customerRepo: jest.Mocked<ICustomerRepository>;
@@ -427,6 +442,7 @@ function buildUseCase(overrides: Partial<Fakes> = {}) {
     anamnesisResponseRepo: buildFakeAnamnesisResponseRepo(),
     anamnesisFormRepo: buildFakeAnamnesisFormRepo(),
     commissionRepo: buildFakeCommissionRepo(),
+    lowStockAlerts: buildFakeLowStockAlerts(),
     ...overrides,
   };
   const useCase = new CreateServiceUseCase(
@@ -442,6 +458,7 @@ function buildUseCase(overrides: Partial<Fakes> = {}) {
     fakes.anamnesisResponseRepo,
     fakes.anamnesisFormRepo,
     fakes.commissionRepo,
+    fakes.lowStockAlerts,
   );
   return { useCase, ...fakes };
 }
@@ -626,6 +643,75 @@ describe("CreateServiceUseCase", () => {
         materials: [{ materialId: "material-1", quantity: 1 }],
       }),
     ).rejects.toBeInstanceOf(ServiceAgeVerificationRequiredException);
+  });
+
+  describe("alerta de estoque baixo", () => {
+    it("acumula os materiais que cruzaram o mínimo e agenda UM alerta com todos", async () => {
+      const m1 = buildMaterial({ id: "m1", name: "A", stockQuantity: "10" });
+      const m2 = buildMaterial({ id: "m2", name: "B", stockQuantity: "10" });
+      const created = buildService();
+      const { useCase, lowStockAlerts } = buildUseCase({
+        materialRepo: buildFakeMaterialRepo({
+          findById: jest
+            .fn()
+            .mockImplementation((id: string) =>
+              Promise.resolve(id === "m1" ? m1 : m2),
+            ),
+          updateStockQuantity: jest
+            .fn()
+            .mockImplementation((id: string) =>
+              Promise.resolve({
+                material: buildMaterial({
+                  id,
+                  name: id === "m1" ? "A" : "B",
+                  stockQuantity: "1",
+                  minimumQuantity: "2",
+                }),
+                crossedLowStock: true,
+              }),
+            ),
+        }),
+        serviceRepo: buildFakeServiceRepo({
+          create: jest.fn().mockResolvedValue(created),
+          findById: jest.fn().mockResolvedValue(created),
+        }),
+      });
+
+      await useCase.execute({
+        ...baseInput,
+        materials: [
+          { materialId: "m1", quantity: 9 },
+          { materialId: "m2", quantity: 9 },
+        ],
+      });
+
+      expect(lowStockAlerts.scheduleIfAny).toHaveBeenCalledTimes(1);
+      expect(lowStockAlerts.scheduleIfAny).toHaveBeenCalledWith("org-1", [
+        expect.objectContaining({ id: "m1", stockQuantity: "1" }),
+        expect.objectContaining({ id: "m2", stockQuantity: "1" }),
+      ]);
+    });
+
+    it("sem cruzamento, agenda com lista vazia", async () => {
+      const material = buildMaterial({ stockQuantity: "10" });
+      const created = buildService();
+      const { useCase, lowStockAlerts } = buildUseCase({
+        materialRepo: buildFakeMaterialRepo({
+          findById: jest.fn().mockResolvedValue(material),
+        }),
+        serviceRepo: buildFakeServiceRepo({
+          create: jest.fn().mockResolvedValue(created),
+          findById: jest.fn().mockResolvedValue(created),
+        }),
+      });
+
+      await useCase.execute({
+        ...baseInput,
+        materials: [{ materialId: material.id, quantity: 2 }],
+      });
+
+      expect(lowStockAlerts.scheduleIfAny).toHaveBeenCalledWith("org-1", []);
+    });
   });
 
   describe("vínculo de resposta de anamnese (M10b)", () => {

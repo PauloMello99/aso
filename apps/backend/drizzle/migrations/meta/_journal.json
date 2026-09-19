@@ -540,6 +540,20 @@
       "when": 1782006600000,
       "tag": "0076_campaign_sends_owner_select",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1782006700000,
+      "tag": "0077_materials_low_stock_alerted_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1782006800000,
+      "tag": "0078_low_stock_notification_type",
+      "breakpoints": true
     }
   ]
 }

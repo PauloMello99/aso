@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
 import { CashierInfrastructureModule } from "../cashier/infrastructure/cashier-infrastructure.module";
 import { MaterialsInfrastructureModule } from "../materials/infrastructure/materials-infrastructure.module";
+import { LowStockAlertsModule } from "../materials/low-stock-alerts.module";
 import { CustomersInfrastructureModule } from "../customers/infrastructure/customers-infrastructure.module";
 import { OrgsInfrastructureModule } from "../organizations/infrastructure/orgs-infrastructure.module";
 import { AnamnesisInfrastructureModule } from "../anamnesis/infrastructure/anamnesis-infrastructure.module";
@@ -30,6 +31,7 @@ import { ServicesController } from "./interface/services.controller";
     ServicesInfrastructureModule,
     CashierInfrastructureModule,
     MaterialsInfrastructureModule,
+    LowStockAlertsModule,
     CustomersInfrastructureModule,
     OrgsInfrastructureModule,
     AnamnesisInfrastructureModule,

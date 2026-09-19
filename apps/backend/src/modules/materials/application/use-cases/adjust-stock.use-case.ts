@@ -9,6 +9,10 @@ import {
   IStockMovementRepository,
   STOCK_MOVEMENT_REPOSITORY,
 } from "../../domain/stock-movement.repository.interface";
+import {
+  LowStockAlertService,
+  toLowStockItem,
+} from "../low-stock-alert.service";
 
 export interface AdjustStockInput {
   orgId: string;
@@ -25,6 +29,7 @@ export class AdjustStockUseCase {
     private readonly materialRepo: IMaterialRepository,
     @Inject(STOCK_MOVEMENT_REPOSITORY)
     private readonly movementRepo: IStockMovementRepository,
+    private readonly lowStockAlerts: LowStockAlertService,
   ) {}
 
   async execute(input: AdjustStockInput): Promise<MaterialEntity> {
@@ -47,10 +52,16 @@ export class AdjustStockUseCase {
       await this.materialRepo.touchLastUsed(input.materialId);
     }
 
-    return this.materialRepo.updateStockQuantity(
-      input.materialId,
-      input.quantityDelta,
+    const { material: updated, crossedLowStock } =
+      await this.materialRepo.updateStockQuantity(
+        input.materialId,
+        input.quantityDelta,
+      );
+    this.lowStockAlerts.scheduleIfAny(
+      input.orgId,
+      crossedLowStock ? [toLowStockItem(updated)] : [],
     );
+    return updated;
   }
 }
 
