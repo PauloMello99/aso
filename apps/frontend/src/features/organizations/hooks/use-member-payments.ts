@@ -19,6 +19,9 @@ export function useMemberPayments(
   orgId: string,
   userId: string | undefined,
   enabled = true,
+  // Resumo segue bloqueado para membro desabilitado (só o histórico foi
+  // liberado no backend) — por padrão acompanha `enabled`.
+  summaryEnabled = enabled,
 ) {
   const queryClient = useQueryClient()
 
@@ -37,7 +40,7 @@ export function useMemberPayments(
       apiRequest<MemberPaymentSummary>(
         `/orgs/${orgId}/members/${userId}/payment-summary`,
       ),
-    enabled: !!orgId && !!userId && enabled,
+    enabled: !!orgId && !!userId && summaryEnabled,
   })
 
   // Um pagamento a membro também lança uma transação de caixa (dupla

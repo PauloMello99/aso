@@ -25,6 +25,14 @@ export interface MemberPaymentSummary {
   accruedCommissionCents: number;
   paidNetCents: number;
   balanceDueCents: number;
+  /** Receita bruta dos servicos pagos e nao cancelados do membro (vitalicio). */
+  grossRevenueCents: number;
+  /** Taxas retidas (snapshot da transacao de pagamento) nesses servicos. */
+  feesCents: number;
+  /** Liquido do estudio = bruta - taxas - comissao acumulada (pode ser < 0). */
+  studioNetCents: number;
+  /** Custo do material consumido nos servicos nao cancelados do membro. */
+  materialCostCents: number;
 }
 
 @Injectable()
@@ -57,20 +65,35 @@ export class GetMemberPaymentSummaryUseCase {
     // resolvido, nunca null: `null` agregaria a comissao da ORG INTEIRA
     // (doc-comment em service.repository.interface.ts) e vazaria a comissao
     // de todos os membros para qualquer leitor deste endpoint.
-    const [accruedCommissionCents, paidNetCents] = await Promise.all([
+    // Mesmo escopo temporal e mesmo performedBy para os totais de servico:
+    // bruta/taxas/material vem dos snapshots persistidos (nada recalculado).
+    const from = new Date(0);
+    const to = new Date();
+    const [accruedCommissionCents, paidNetCents, totals] = await Promise.all([
       this.serviceRepo.commissionCentsByPeriod(
         input.orgId,
-        new Date(0),
-        new Date(),
+        from,
+        to,
         input.targetUserId,
       ),
       this.memberPaymentRepo.netPaidCents(input.orgId, input.targetUserId),
+      this.serviceRepo.memberTotalsByPeriod(
+        input.orgId,
+        from,
+        to,
+        input.targetUserId,
+      ),
     ]);
 
     return {
       accruedCommissionCents,
       paidNetCents,
       balanceDueCents: Math.max(0, accruedCommissionCents - paidNetCents),
+      grossRevenueCents: totals.grossRevenueCents,
+      feesCents: totals.feesCents,
+      studioNetCents:
+        totals.grossRevenueCents - totals.feesCents - accruedCommissionCents,
+      materialCostCents: totals.materialCostCents,
     };
   }
 }

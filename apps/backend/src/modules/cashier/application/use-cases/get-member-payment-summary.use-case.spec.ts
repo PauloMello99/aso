@@ -75,6 +75,11 @@ function buildFakeServiceRepo(
     countAndRevenueByType: jest.fn(),
     countAndRevenueByProfessional: jest.fn(),
     commissionCentsByPeriod: jest.fn().mockResolvedValue(0),
+    memberTotalsByPeriod: jest.fn().mockResolvedValue({
+      grossRevenueCents: 0,
+      feesCents: 0,
+      materialCostCents: 0,
+    }),
     ...overrides,
   } as unknown as jest.Mocked<IServiceRepository>;
 }
@@ -112,7 +117,100 @@ describe("GetMemberPaymentSummaryUseCase", () => {
       accruedCommissionCents: 10000,
       paidNetCents: 3000,
       balanceDueCents: 7000,
+      grossRevenueCents: 0,
+      feesCents: 0,
+      studioNetCents: -10000,
+      materialCostCents: 0,
     });
+  });
+
+  it("soma bruta/taxas/material dos snapshots e calcula o líquido do estúdio (bruta - taxas - comissão)", async () => {
+    const memberRepo = buildFakeMemberRepo({
+      findByAuthId: jest.fn().mockResolvedValue(buildMember()),
+    });
+    const memberPaymentRepo = buildFakeMemberPaymentRepo({
+      netPaidCents: jest.fn().mockResolvedValue(2000),
+    });
+    const serviceRepo = buildFakeServiceRepo({
+      commissionCentsByPeriod: jest.fn().mockResolvedValue(4000),
+      memberTotalsByPeriod: jest.fn().mockResolvedValue({
+        grossRevenueCents: 20000,
+        feesCents: 700,
+        materialCostCents: 1500,
+      }),
+    });
+    const useCase = new GetMemberPaymentSummaryUseCase(
+      memberPaymentRepo,
+      memberRepo,
+      serviceRepo,
+    );
+
+    const result = await useCase.execute({
+      orgId: "org-1",
+      authId: "auth-O",
+      targetUserId: "user-A",
+    });
+
+    expect(serviceRepo.memberTotalsByPeriod).toHaveBeenCalledWith(
+      "org-1",
+      expect.any(Date),
+      expect.any(Date),
+      "user-A",
+    );
+    expect(result).toEqual({
+      accruedCommissionCents: 4000,
+      paidNetCents: 2000,
+      balanceDueCents: 2000,
+      grossRevenueCents: 20000,
+      feesCents: 700,
+      studioNetCents: 15300,
+      materialCostCents: 1500,
+    });
+  });
+
+  it("funcionário só recebe os totais do PRÓPRIO id (memberTotalsByPeriod escopado ao ator) e nunca com null", async () => {
+    const memberRepo = buildFakeMemberRepo({
+      findByAuthId: jest.fn().mockResolvedValue(
+        buildMember({ memberId: "member-A", userId: "user-A", role: "employee" }),
+      ),
+    });
+    const serviceRepo = buildFakeServiceRepo();
+    const useCase = new GetMemberPaymentSummaryUseCase(
+      buildFakeMemberPaymentRepo(),
+      memberRepo,
+      serviceRepo,
+    );
+
+    await useCase.execute({
+      orgId: "org-1",
+      authId: "auth-A",
+      targetUserId: "user-A",
+    });
+
+    expect(serviceRepo.memberTotalsByPeriod.mock.calls[0]![3]).toBe("user-A");
+  });
+
+  it("funcionário lendo o resumo de OUTRO membro não dispara memberTotalsByPeriod", async () => {
+    const memberRepo = buildFakeMemberRepo({
+      findByAuthId: jest.fn().mockResolvedValue(
+        buildMember({ memberId: "member-A", userId: "user-A", role: "employee" }),
+      ),
+    });
+    const serviceRepo = buildFakeServiceRepo();
+    const useCase = new GetMemberPaymentSummaryUseCase(
+      buildFakeMemberPaymentRepo(),
+      memberRepo,
+      serviceRepo,
+    );
+
+    await expect(
+      useCase.execute({
+        orgId: "org-1",
+        authId: "auth-A",
+        targetUserId: "user-B",
+      }),
+    ).rejects.toBeInstanceOf(CashierForbiddenException);
+    expect(serviceRepo.memberTotalsByPeriod).not.toHaveBeenCalled();
   });
 
   it("funcionário lendo o resumo de OUTRO membro recebe CashierForbiddenException", async () => {
@@ -226,6 +324,10 @@ describe("GetMemberPaymentSummaryUseCase", () => {
       accruedCommissionCents: 10000,
       paidNetCents: 0,
       balanceDueCents: 10000,
+      grossRevenueCents: 0,
+      feesCents: 0,
+      studioNetCents: -10000,
+      materialCostCents: 0,
     });
   });
 

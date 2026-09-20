@@ -31,7 +31,8 @@ import {
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { DatePicker } from "@/shared/components/ui/date-picker"
-import { centsToReaisInput, formatBRL } from "@/features/cashier/lib/money"
+import { centsToReaisInput } from "@/features/cashier/lib/money"
+import { useMoneyFormatter } from "@/shared/hooks/use-money-formatter"
 import { PAYMENT_METHOD_LABELS, type PaymentMethod } from "@/features/cashier/types"
 import {
   memberPaymentFormSchema,
@@ -69,6 +70,7 @@ export function PayMemberDialog({
   original = null,
   onSubmit,
 }: PayMemberDialogProps) {
+  const money = useMoneyFormatter()
   const form = useForm<MemberPaymentFormValues>({
     resolver: zodResolver(memberPaymentFormSchema),
     defaultValues: {
@@ -126,9 +128,11 @@ export function PayMemberDialog({
             <SheetBody className="flex flex-col gap-4 py-6">
               {mode === "create" && suggestedAmountCents > 0 && (
                 <div className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-3 text-sm">
-                  <span className="text-foreground/50">Saldo devido: </span>
+                  <span className="text-foreground/50">
+                    Saldo devido total (comissão acumulada − já pago):{" "}
+                  </span>
                   <span className="font-medium tabular-nums text-foreground">
-                    {formatBRL(suggestedAmountCents)}
+                    {money(suggestedAmountCents)}
                   </span>
                 </div>
               )}
@@ -206,16 +210,17 @@ export function PayMemberDialog({
                 )}
               />
 
-              <div className="grid grid-cols-2 gap-3">
+              <p className="-mb-2 text-xs text-foreground/40">
+                Período de referência (opcional, apenas informativo — não
+                altera o valor sugerido).
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="periodStart"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>
-                        Período (de){" "}
-                        <span className="text-xs text-foreground/30">(opcional)</span>
-                      </FormLabel>
+                      <FormLabel>Período de referência (de)</FormLabel>
                       <FormControl>
                         <DatePicker
                           value={field.value}
@@ -232,10 +237,7 @@ export function PayMemberDialog({
                   name="periodEnd"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>
-                        Período (até){" "}
-                        <span className="text-xs text-foreground/30">(opcional)</span>
-                      </FormLabel>
+                      <FormLabel>Período de referência (até)</FormLabel>
                       <FormControl>
                         <DatePicker
                           value={field.value}

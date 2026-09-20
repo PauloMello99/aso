@@ -1,6 +1,7 @@
 "use client";
 
-import { MoreVertical, Pencil, Undo2 } from "lucide-react";
+import { useState } from "react";
+import { FileDown, MoreVertical, Pencil, Undo2 } from "lucide-react";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -17,8 +18,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/shared/components/ui/table";
+import { ListPagination } from "@/shared/components/ui/list-pagination";
 import { cn } from "@/shared/lib/utils";
-import { formatBRL } from "@/features/cashier/lib/money";
+import { useMoneyFormatter } from "@/shared/hooks/use-money-formatter";
 import type { MemberPaymentView } from "../types";
 
 function formatDate(iso: string): string {
@@ -47,16 +49,33 @@ function canMutate(view: MemberPaymentView): boolean {
   return !view.entity.reversesPaymentId && !view.reversed;
 }
 
+// Recibo: baixável para qualquer pagamento que não seja a linha de estorno em
+// si — pagamento já estornado continua baixável (o PDF sai marcado ESTORNADO).
+function canDownloadReceipt(view: MemberPaymentView): boolean {
+  return !view.entity.reversesPaymentId;
+}
+
 function ActionMenu({
   view,
   onReverse,
   onCorrect,
+  canCorrect,
+  canManage,
+  onDownloadReceipt,
+  receiptDownloadingId,
 }: {
   view: MemberPaymentView;
   onReverse: (v: MemberPaymentView) => void;
   onCorrect: (v: MemberPaymentView) => void;
+  canCorrect: boolean;
+  canManage: boolean;
+  onDownloadReceipt?: (v: MemberPaymentView) => void;
+  receiptDownloadingId?: string | null;
 }) {
-  if (!canMutate(view)) return null;
+  const showReceipt = !!onDownloadReceipt && canDownloadReceipt(view);
+  const showManage = canManage && canMutate(view);
+  if (!showReceipt && !showManage) return null;
+  const receiptBusy = receiptDownloadingId === view.entity.id;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -71,21 +90,36 @@ function ActionMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[170px]">
-        <DropdownMenuItem onClick={() => onCorrect(view)}>
-          <Pencil className="h-3.5 w-3.5 shrink-0" />
-          Corrigir valor
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          variant="destructive"
-          onClick={() => onReverse(view)}
-        >
-          <Undo2 className="h-3.5 w-3.5 shrink-0" />
-          Estornar
-        </DropdownMenuItem>
+        {showReceipt && (
+          <DropdownMenuItem
+            disabled={receiptBusy}
+            onClick={() => onDownloadReceipt?.(view)}
+          >
+            <FileDown className="h-3.5 w-3.5 shrink-0" />
+            {receiptBusy ? "Baixando…" : "Baixar recibo"}
+          </DropdownMenuItem>
+        )}
+        {showManage && canCorrect && (
+          <DropdownMenuItem onClick={() => onCorrect(view)}>
+            <Pencil className="h-3.5 w-3.5 shrink-0" />
+            Corrigir valor
+          </DropdownMenuItem>
+        )}
+        {showManage && (
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => onReverse(view)}
+          >
+            <Undo2 className="h-3.5 w-3.5 shrink-0" />
+            Estornar
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
+
+const PAGE_SIZE = 10;
 
 interface MemberPaymentListProps {
   payments: MemberPaymentView[];
@@ -96,6 +130,13 @@ interface MemberPaymentListProps {
   // transaction-list.tsx: onReverse/onCorrect são exigidos mesmo com
   // canManage=false (o menu de ações nunca renderiza nesse caso).
   canManage?: boolean;
+  // Membro desabilitado: o backend ainda permite estornar, mas bloqueia
+  // correção (que relança um novo pagamento).
+  canCorrect?: boolean;
+  // Recibo em PDF: disponível também para o funcionário na própria tela (o
+  // backend autoriza owner ou o próprio beneficiário).
+  onDownloadReceipt?: (v: MemberPaymentView) => void;
+  receiptDownloadingId?: string | null;
 }
 
 export function MemberPaymentList({
@@ -103,7 +144,18 @@ export function MemberPaymentList({
   onReverse,
   onCorrect,
   canManage = false,
+  canCorrect = true,
+  onDownloadReceipt,
+  receiptDownloadingId = null,
 }: MemberPaymentListProps) {
+  const money = useMoneyFormatter();
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(payments.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = payments.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
   if (payments.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-foreground/[0.08] py-16 text-center">
@@ -117,7 +169,7 @@ export function MemberPaymentList({
   return (
     <>
       <div className="grid gap-3 sm:hidden">
-        {payments.map((v) => {
+        {pageItems.map((v) => {
           const struck = v.reversed;
           return (
             <div
@@ -154,12 +206,18 @@ export function MemberPaymentList({
                       : "text-foreground",
                   )}
                 >
-                  {formatBRL(v.entity.amountCents)}
+                  {money(v.entity.amountCents)}
                 </div>
               </div>
-              {canManage && (
-                <ActionMenu view={v} onReverse={onReverse} onCorrect={onCorrect} />
-              )}
+              <ActionMenu
+                view={v}
+                onReverse={onReverse}
+                onCorrect={onCorrect}
+                canCorrect={canCorrect}
+                canManage={canManage}
+                onDownloadReceipt={onDownloadReceipt}
+                receiptDownloadingId={receiptDownloadingId}
+              />
             </div>
           );
         })}
@@ -176,7 +234,7 @@ export function MemberPaymentList({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {payments.map((v) => {
+            {pageItems.map((v) => {
               const struck = v.reversed;
               return (
                 <TableRow
@@ -186,8 +244,9 @@ export function MemberPaymentList({
                   <TableCell className="pl-4">
                     <div className="flex items-center gap-2">
                       <span
+                        title={v.entity.description ?? undefined}
                         className={cn(
-                          "font-medium",
+                          "block max-w-[20rem] truncate font-medium",
                           struck
                             ? "text-foreground/40 line-through"
                             : "text-foreground",
@@ -209,17 +268,19 @@ export function MemberPaymentList({
                         : "text-foreground",
                     )}
                   >
-                    {formatBRL(v.entity.amountCents)}
+                    {money(v.entity.amountCents)}
                   </TableCell>
                   <TableCell className="pr-4">
                     <div className="flex justify-end">
-                      {canManage && (
-                        <ActionMenu
-                          view={v}
-                          onReverse={onReverse}
-                          onCorrect={onCorrect}
-                        />
-                      )}
+                      <ActionMenu
+                        view={v}
+                        onReverse={onReverse}
+                        onCorrect={onCorrect}
+                        canCorrect={canCorrect}
+                        canManage={canManage}
+                        onDownloadReceipt={onDownloadReceipt}
+                        receiptDownloadingId={receiptDownloadingId}
+                      />
                     </div>
                   </TableCell>
                 </TableRow>
@@ -228,6 +289,14 @@ export function MemberPaymentList({
           </TableBody>
         </Table>
       </div>
+
+      <ListPagination
+        page={currentPage}
+        totalPages={totalPages}
+        totalItems={payments.length}
+        itemsLabel="pagamentos"
+        onPageChange={setPage}
+      />
     </>
   );
 }

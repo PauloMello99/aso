@@ -6,6 +6,8 @@ import { TRANSACTION_CATEGORY_REPOSITORY } from "../domain/transaction-category.
 import { MEMBER_COMMISSION_REPOSITORY } from "../domain/member-commission.repository.interface";
 import { MEMBER_PAYMENT_FEE_REPOSITORY } from "../domain/member-payment-fee.repository.interface";
 import { MEMBER_PAYMENT_REPOSITORY } from "../domain/member-payment.repository.interface";
+import { MEMBER_DOCUMENT_GENERATOR } from "../domain/ports/member-document-generator.port";
+import { PdfKitMemberDocumentGenerator } from "./providers/pdfkit-member-document.generator";
 import { DrizzleTransactionRepository } from "./persistence/drizzle-transaction.repository";
 import { DrizzlePaymentFeeRepository } from "./persistence/drizzle-payment-fee.repository";
 import { DrizzleTransactionCategoryRepository } from "./persistence/drizzle-transaction-category.repository";
@@ -34,6 +36,10 @@ import { DrizzleMemberPaymentRepository } from "./persistence/drizzle-member-pay
       provide: MEMBER_PAYMENT_REPOSITORY,
       useClass: DrizzleMemberPaymentRepository,
     },
+    {
+      provide: MEMBER_DOCUMENT_GENERATOR,
+      useClass: PdfKitMemberDocumentGenerator,
+    },
   ],
   exports: [
     TRANSACTION_REPOSITORY,
@@ -42,6 +48,7 @@ import { DrizzleMemberPaymentRepository } from "./persistence/drizzle-member-pay
     MEMBER_COMMISSION_REPOSITORY,
     MEMBER_PAYMENT_FEE_REPOSITORY,
     MEMBER_PAYMENT_REPOSITORY,
+    MEMBER_DOCUMENT_GENERATOR,
   ],
 })
 export class CashierInfrastructureModule {}

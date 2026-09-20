@@ -23,6 +23,7 @@ import {
   CreateServiceMaterialData,
   IServiceRepository,
   ListServicesFilter,
+  MemberServiceTotals,
   ServiceGroupRow,
   UpdateServiceData,
 } from "../../domain/service.repository.interface";
@@ -477,6 +478,47 @@ export class DrizzleServiceRepository implements IServiceRepository {
         AND performed_at <= ${to}${performedByFilter}
     `);
     return Number(rows[0]?.commission_cents ?? 0);
+  }
+
+  async memberTotalsByPeriod(
+    orgId: string,
+    from: Date,
+    to: Date,
+    performedBy: string,
+  ): Promise<MemberServiceTotals> {
+    const [paid, material] = await Promise.all([
+      this.db.execute<{ gross_cents: string; fees_cents: string }>(sql`
+        SELECT COALESCE(SUM(s.amount_cents), 0)::bigint AS gross_cents,
+          COALESCE(SUM(t.fee_cents), 0)::bigint AS fees_cents
+        FROM services s
+        JOIN transactions t ON t.id = s.payment_transaction_id
+        WHERE s.org_id = ${orgId}
+          AND s.performed_by = ${performedBy}
+          AND s.canceled_at IS NULL
+          AND s.performed_at >= ${from}
+          AND s.performed_at <= ${to}
+      `),
+      this.db.execute<{ cost_cents: string }>(sql`
+        SELECT COALESCE(
+          ROUND(SUM(sm.quantity * m.cost_per_unit) * 100),
+          0
+        )::bigint AS cost_cents
+        FROM service_materials sm
+        JOIN services s ON s.id = sm.service_id
+        JOIN materials m ON m.id = sm.material_id
+        WHERE s.org_id = ${orgId}
+          AND s.performed_by = ${performedBy}
+          AND s.canceled_at IS NULL
+          AND s.performed_at >= ${from}
+          AND s.performed_at <= ${to}
+          AND m.cost_per_unit IS NOT NULL
+      `),
+    ]);
+    return {
+      grossRevenueCents: Number(paid.rows[0]?.gross_cents ?? 0),
+      feesCents: Number(paid.rows[0]?.fees_cents ?? 0),
+      materialCostCents: Number(material.rows[0]?.cost_cents ?? 0),
+    };
   }
 
   private async findMaterials(

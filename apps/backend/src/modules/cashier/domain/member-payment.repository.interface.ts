@@ -23,6 +23,25 @@ export interface MemberPaymentWithMethod {
 export interface IMemberPaymentRepository {
   create(data: CreateMemberPaymentData): Promise<MemberPaymentEntity>;
   findById(id: string, orgId: string): Promise<MemberPaymentEntity | null>;
+  /**
+   * true se a transacao e a transacao de caixa de um pagamento a membro
+   * (org_member_payments.transaction_id) — inclui a perna de estorno, que
+   * tambem e gravada nesta tabela. Usado por ReverseTransactionUseCase /
+   * CorrectTransactionUseCase para recusar o estorno/correcao direto pelo
+   * Caixa (a entidade nao ecoaria e o saldo devido ficaria errado).
+   */
+  existsByTransactionId(
+    transactionId: string,
+    orgId: string,
+  ): Promise<boolean>;
+  /**
+   * Subconjunto de `transactionIds` que pertence a algum pagamento a membro
+   * (uma unica query — evita N+1 na listagem do Caixa).
+   */
+  findTransactionIdsWithPayment(
+    orgId: string,
+    transactionIds: string[],
+  ): Promise<Set<string>>;
   findAllByOrgAndUser(
     orgId: string,
     userId: string,

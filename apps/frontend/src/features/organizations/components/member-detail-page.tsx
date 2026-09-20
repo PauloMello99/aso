@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowLeft, FileText, Loader2 } from "lucide-react";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Separator } from "@/shared/components/ui/separator";
@@ -26,13 +26,19 @@ import {
 import { useServices } from "@/features/services/hooks/use-services";
 import { useTransactions } from "@/features/cashier/hooks/use-transactions";
 import { TransactionList } from "@/features/cashier/components/transaction-list";
-import { formatBRL } from "@/features/cashier/lib/money";
+import type { TransactionView } from "@/features/cashier/types";
+import { useMoneyFormatter } from "@/shared/hooks/use-money-formatter";
+import { ListPagination } from "@/shared/components/ui/list-pagination";
+import type { ServicesFilter } from "@/features/services/types";
 import { ApiError } from "@/infrastructure/api/client";
 import { useMembers } from "../hooks/use-members";
 import { useMemberPayments } from "../hooks/use-member-payments";
 import { MemberServiceList } from "./member-service-list";
 import { MemberPaymentList } from "./member-payment-list";
 import { PayMemberDialog } from "./pay-member-dialog";
+import { MemberReportDialog } from "./member-report-dialog";
+import { downloadAuthenticatedFile } from "@/shared/lib/download-file";
+import { buildMemberServicesFilter } from "../lib/member-services-period";
 import { toMemberPaymentBody } from "../schemas/member-payment.schemas";
 import type { MemberPaymentFormValues } from "../schemas/member-payment.schemas";
 import { MEMBER_CLASSIFICATION_LABELS } from "../types";
@@ -62,6 +68,44 @@ function noop() {
   // botões nunca renderizam) — sem ação nesta tela, que é só leitura.
 }
 
+const TRANSACTIONS_PAGE_SIZE = 10;
+
+// Paginação client-side (o endpoint de transações não pagina), no mesmo padrão
+// de MemberServiceList.
+function PaginatedTransactionList({
+  transactions,
+}: {
+  transactions: TransactionView[];
+}) {
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(
+    1,
+    Math.ceil(transactions.length / TRANSACTIONS_PAGE_SIZE),
+  );
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = transactions.slice(
+    (currentPage - 1) * TRANSACTIONS_PAGE_SIZE,
+    currentPage * TRANSACTIONS_PAGE_SIZE,
+  );
+  return (
+    <div className="space-y-3">
+      <TransactionList
+        transactions={pageItems}
+        onReverse={noop}
+        onCorrect={noop}
+        canManage={false}
+      />
+      <ListPagination
+        page={currentPage}
+        totalPages={totalPages}
+        totalItems={transactions.length}
+        itemsLabel="transações"
+        onPageChange={setPage}
+      />
+    </div>
+  );
+}
+
 const MEMBER_PAYMENT_ERROR_MESSAGES: Record<string, string> = {
   MEMBER_PAYMENT_NOT_FOUND: "Pagamento não encontrado.",
   MEMBER_PAYMENT_ALREADY_REVERSED: "Este pagamento já foi estornado.",
@@ -72,6 +116,11 @@ const MEMBER_PAYMENT_ERROR_MESSAGES: Record<string, string> = {
   MEMBER_PAYMENT_CATEGORY_NOT_FOUND:
     "Categoria de pagamento a funcionário não configurada para esta organização.",
   CASHIER_FORBIDDEN: "Você não tem permissão para realizar esta ação.",
+  TRANSACTION_IS_MEMBER_PAYMENT:
+    "Este lançamento é um pagamento a membro — estorne ou corrija pela tela do membro.",
+  TRANSACTION_ALREADY_REVERSED: "Este lançamento já foi estornado.",
+  MEMBER_REPORT_INVALID_PERIOD:
+    "Período inválido: a data final não pode ser anterior à data inicial.",
 };
 
 function memberPaymentErrorMessage(err: unknown): string {
@@ -85,6 +134,22 @@ function memberPaymentErrorMessage(err: unknown): string {
   }
   if (err instanceof Error) return err.message;
   return "Não foi possível concluir esta ação.";
+}
+
+const RECEIPT_ERROR_MESSAGES: Record<string, string> = {
+  CASHIER_FORBIDDEN: "Você não tem permissão para gerar este documento.",
+  MEMBER_PAYMENT_NOT_FOUND: "Pagamento não encontrado.",
+  PAYMENT_MEMBER_NOT_FOUND:
+    "Este membro não está habilitado para receber pagamentos.",
+  ORGANIZATION_NOT_FOUND: "Organização não encontrada.",
+};
+
+function receiptErrorMessage(err: unknown): string {
+  if (err instanceof ApiError && err.code) {
+    const mapped = RECEIPT_ERROR_MESSAGES[err.code];
+    if (mapped) return mapped;
+  }
+  return "Não foi possível baixar o recibo. Tente novamente.";
 }
 
 interface ReverseMemberPaymentDialogProps {
@@ -105,6 +170,7 @@ function ReverseMemberPaymentDialog({
   target,
   onConfirm,
 }: ReverseMemberPaymentDialogProps) {
+  const money = useMoneyFormatter();
   const [loading, setLoading] = useState(false);
 
   async function handleConfirm() {
@@ -136,7 +202,7 @@ function ReverseMemberPaymentDialog({
               {target.entity.description ?? "Pagamento"}
             </p>
             <p className="mt-0.5 tabular-nums text-foreground/40">
-              {formatBRL(target.entity.amountCents)}
+              {money(target.entity.amountCents)}
             </p>
           </div>
         )}
@@ -175,12 +241,12 @@ function SummaryCard({
   loading?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4">
-      <span className="text-xs text-foreground/40">{label}</span>
+    <div className="min-w-0 rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-3 sm:p-4">
+      <span className="text-xs leading-tight text-foreground/40">{label}</span>
       {loading ? (
         <div className="mt-2 h-7 w-20 animate-pulse rounded bg-foreground/[0.06]" />
       ) : (
-        <p className="mt-2 text-xl font-semibold tabular-nums text-foreground sm:text-2xl">
+        <p className="mt-2 whitespace-nowrap text-base font-semibold tabular-nums text-foreground sm:text-lg">
           {value}
         </p>
       )}
@@ -247,6 +313,9 @@ export function MemberDetailPage({
   // `ensureBeneficiary` no backend, então continuam disponíveis mesmo para
   // membro desabilitado (histórico pode existir de quando estava habilitado).
   const canFetchPayments = shouldFetchDetails && member?.enabled === true;
+  // O histórico de pagamentos agora é listável mesmo para membro desabilitado
+  // (permite estornar); o resumo continua restrito a habilitados.
+  const canFetchPaymentHistory = shouldFetchDetails;
 
   const { commissions, loading: commissionsLoading } = useMemberCommissions(
     orgId,
@@ -267,7 +336,15 @@ export function MemberDetailPage({
     createPayment,
     reversePayment,
     correctPayment,
-  } = useMemberPayments(orgId, userId, canFetchPayments);
+  } = useMemberPayments(
+    orgId,
+    userId,
+    canFetchPaymentHistory,
+    canFetchPayments,
+  );
+
+  const money = useMoneyFormatter();
+  const [serviceFilter, setServiceFilter] = useState<ServicesFilter>({});
 
   const [payDialogOpen, setPayDialogOpen] = useState(false);
   const [correctTarget, setCorrectTarget] = useState<MemberPaymentView | null>(
@@ -276,6 +353,10 @@ export function MemberDetailPage({
   const [reverseTarget, setReverseTarget] = useState<MemberPaymentView | null>(
     null,
   );
+  const [receiptDownloadingId, setReceiptDownloadingId] = useState<
+    string | null
+  >(null);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
 
   // Diferente de handleCorrectPayment/handleReversePayment: re-lança depois
   // do alert() para que PayMemberDialog NÃO chame onOpenChange(false) (só
@@ -300,6 +381,23 @@ export function MemberDetailPage({
     }
   }
 
+  // Recibo: segue o padrão local (alert) para erros; o botão do item fica
+  // desabilitado enquanto baixa.
+  async function handleDownloadReceipt(view: MemberPaymentView) {
+    if (!userId || receiptDownloadingId) return;
+    setReceiptDownloadingId(view.entity.id);
+    try {
+      await downloadAuthenticatedFile(
+        `/orgs/${orgId}/members/${userId}/payments/${view.entity.id}/receipt`,
+        "recibo-pagamento.pdf",
+      );
+    } catch (err) {
+      alert(receiptErrorMessage(err));
+    } finally {
+      setReceiptDownloadingId(null);
+    }
+  }
+
   async function handleReversePayment() {
     if (!reverseTarget) return;
     try {
@@ -315,7 +413,7 @@ export function MemberDetailPage({
     error: servicesError,
   } = useServices(
     canAccessServices && shouldFetchDetails ? orgId : "",
-    userId ? { performedBy: userId } : undefined,
+    userId ? buildMemberServicesFilter(serviceFilter, userId) : undefined,
   );
 
   const {
@@ -381,11 +479,26 @@ export function MemberDetailPage({
   }
 
   const commission = commissions.find((c) => c.userId === member.userId);
+  // Faixa à vista (1x) é a exibida; faixas parceladas com override próprio
+  // são só contadas ("+N faixas parceladas").
   const fees = FEE_METHODS.map((method) => ({
     method,
     fee: memberFees.find(
-      (f) => f.userId === member.userId && f.paymentMethod === method,
+      (f) =>
+        f.userId === member.userId &&
+        f.paymentMethod === method &&
+        f.installments === 1,
     ),
+    extraTiers:
+      method === "credit_card"
+        ? memberFees.filter(
+            (f) =>
+              f.userId === member.userId &&
+              f.paymentMethod === method &&
+              f.installments > 1 &&
+              f.source === "member",
+          ).length
+        : 0,
   }));
 
   return (
@@ -409,6 +522,17 @@ export function MemberDetailPage({
             {member.userEmail}
           </p>
         </div>
+        {member.enabled && userId && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={() => setReportDialogOpen(true)}
+          >
+            <FileText className="h-4 w-4 shrink-0" />
+            Exportar relatório
+          </Button>
+        )}
       </div>
 
       {/* Resumo */}
@@ -450,21 +574,31 @@ export function MemberDetailPage({
               />
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {fees.map(({ method, fee }) => (
+              {fees.map(({ method, fee, extraTiers }) => (
                 <Field
                   key={method}
-                  label={`Taxa de ${FEE_METHOD_LABEL[method]}`}
+                  label={`Taxa de ${FEE_METHOD_LABEL[method]}${
+                    method === "credit_card" ? " à vista (1x)" : ""
+                  }`}
                   value={
                     memberFeesLoading
                       ? "Carregando…"
                       : fee
-                        ? `${fee.percent}% + ${formatBRL(fee.fixedCents)} (${
+                        ? `${fee.percent}% + ${money(fee.fixedCents)} (${
                             fee.source === "member"
                               ? "própria"
                               : fee.source === "org"
                                 ? "herdada da organização"
                                 : "sem taxa"
-                          })`
+                          })${
+                            extraTiers > 0
+                              ? ` · +${extraTiers} ${
+                                  extraTiers === 1
+                                    ? "faixa parcelada"
+                                    : "faixas parceladas"
+                                }`
+                              : ""
+                          }`
                         : "—"
                   }
                 />
@@ -494,29 +628,57 @@ export function MemberDetailPage({
             Membro desabilitado — o resumo de comissão acumulada, total pago e
             saldo devido não fica disponível enquanto o acesso estiver
             suspenso. A comissão configurada continua visível no Resumo,
-            acima.
+            acima, e o histórico de pagamentos abaixo permite estornar
+            pagamentos já feitos.
           </p>
         ) : summaryError && summaryError.status !== 403 ? (
           <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
             {summaryError.message}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <SummaryCard
-              label="Comissão acumulada"
-              value={formatBRL(summary?.accruedCommissionCents ?? 0)}
-              loading={summaryLoading}
-            />
-            <SummaryCard
-              label="Total já pago"
-              value={formatBRL(summary?.paidNetCents ?? 0)}
-              loading={summaryLoading}
-            />
-            <SummaryCard
-              label="Saldo devido"
-              value={formatBRL(summary?.balanceDueCents ?? 0)}
-              loading={summaryLoading}
-            />
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <SummaryCard
+                label="Comissão acumulada"
+                value={money(summary?.accruedCommissionCents ?? 0)}
+                loading={summaryLoading}
+              />
+              <SummaryCard
+                label="Total já pago"
+                value={money(summary?.paidNetCents ?? 0)}
+                loading={summaryLoading}
+              />
+              <SummaryCard
+                label="Saldo devido"
+                value={money(summary?.balanceDueCents ?? 0)}
+                loading={summaryLoading}
+              />
+              <SummaryCard
+                label="Receita bruta"
+                value={money(summary?.grossRevenueCents ?? 0)}
+                loading={summaryLoading}
+              />
+              <SummaryCard
+                label="Taxas"
+                value={money(summary?.feesCents ?? 0)}
+                loading={summaryLoading}
+              />
+              <SummaryCard
+                label="Líquido do estúdio"
+                value={money(summary?.studioNetCents ?? 0)}
+                loading={summaryLoading}
+              />
+              <SummaryCard
+                label="Custo de material"
+                value={money(summary?.materialCostCents ?? 0)}
+                loading={summaryLoading}
+              />
+            </div>
+            <p className="text-xs text-foreground/40">
+              Receita bruta e taxas consideram apenas serviços pagos; o custo
+              de material considera todos os serviços não cancelados do membro.
+              Líquido do estúdio = receita bruta − taxas − comissão.
+            </p>
           </div>
         )}
       </section>
@@ -528,14 +690,14 @@ export function MemberDetailPage({
           <p className="text-sm text-foreground/40">
             Sem permissão para ver serviços (módulo Serviços).
           </p>
-        ) : servicesError ? (
-          <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
-            {servicesError}
-          </div>
-        ) : servicesLoading ? (
-          <SectionSkeleton />
         ) : (
-          <MemberServiceList services={services} />
+          <MemberServiceList
+            services={services}
+            loading={servicesLoading}
+            error={servicesError}
+            filter={serviceFilter}
+            onFilterChange={setServiceFilter}
+          />
         )}
       </section>
 
@@ -544,12 +706,7 @@ export function MemberDetailPage({
         <h2 className="text-sm font-medium text-foreground">
           Pagamentos ao membro
         </h2>
-        {!member.enabled ? (
-          <p className="text-sm text-foreground/40">
-            Membro desabilitado — histórico de pagamentos não fica disponível
-            enquanto o acesso estiver suspenso.
-          </p>
-        ) : paymentsError && paymentsError.status !== 403 ? (
+        {paymentsError && paymentsError.status !== 403 ? (
           <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
             {paymentsError.message}
           </div>
@@ -559,8 +716,11 @@ export function MemberDetailPage({
           <MemberPaymentList
             payments={payments}
             canManage={isOwner}
+            canCorrect={member.enabled}
             onReverse={setReverseTarget}
             onCorrect={setCorrectTarget}
+            onDownloadReceipt={handleDownloadReceipt}
+            receiptDownloadingId={receiptDownloadingId}
           />
         )}
       </section>
@@ -590,14 +750,18 @@ export function MemberDetailPage({
             </p>
           </div>
         ) : (
-          <TransactionList
-            transactions={transactions}
-            onReverse={noop}
-            onCorrect={noop}
-            canManage={false}
-          />
+          <PaginatedTransactionList transactions={transactions} />
         )}
       </section>
+
+      {userId && (
+        <MemberReportDialog
+          open={reportDialogOpen}
+          onOpenChange={setReportDialogOpen}
+          orgId={orgId}
+          userId={userId}
+        />
+      )}
 
       {isOwner && (
         <>

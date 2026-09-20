@@ -3,6 +3,8 @@ import { ITransactionRepository } from "../../domain/transaction.repository.inte
 import { TransactionEntity } from "../../domain/transaction.entity";
 import { TransactionNotFoundException } from "../../domain/exceptions/transaction-not-found.exception";
 import { TransactionIsServicePaymentException } from "../../domain/exceptions/transaction-is-service-payment.exception";
+import { TransactionIsMemberPaymentException } from "../../domain/exceptions/transaction-is-member-payment.exception";
+import { IMemberPaymentRepository } from "../../domain/member-payment.repository.interface";
 import { IServiceRepository } from "../../../services/domain/service.repository.interface";
 import { ReverseTransactionUseCase } from "./reverse-transaction.use-case";
 import { CreateTransactionUseCase } from "./create-transaction.use-case";
@@ -64,6 +66,21 @@ function buildFakeServiceRepo(
   } as unknown as jest.Mocked<IServiceRepository>;
 }
 
+function buildFakeMemberPaymentRepo(
+  overrides: Partial<jest.Mocked<IMemberPaymentRepository>> = {},
+): jest.Mocked<IMemberPaymentRepository> {
+  return {
+    create: jest.fn(),
+    findById: jest.fn(),
+    existsByTransactionId: jest.fn().mockResolvedValue(false),
+    findTransactionIdsWithPayment: jest.fn().mockResolvedValue(new Set()),
+    findAllByOrgAndUser: jest.fn(),
+    findReversedIds: jest.fn(),
+    netPaidCents: jest.fn(),
+    ...overrides,
+  } as unknown as jest.Mocked<IMemberPaymentRepository>;
+}
+
 describe("CorrectTransactionUseCase", () => {
   it("estorna a original e cria o lançamento corrigido preservando a autoria", async () => {
     const original = buildTransaction();
@@ -95,6 +112,7 @@ describe("CorrectTransactionUseCase", () => {
       serviceRepo,
       reverseTransaction,
       createTransaction,
+      buildFakeMemberPaymentRepo(),
     );
 
     const result = await useCase.execute({
@@ -173,6 +191,7 @@ describe("CorrectTransactionUseCase", () => {
       serviceRepo,
       reverseTransaction,
       createTransaction,
+      buildFakeMemberPaymentRepo(),
     );
 
     await useCase.execute({
@@ -237,6 +256,7 @@ describe("CorrectTransactionUseCase", () => {
       serviceRepo,
       reverseTransaction,
       createTransaction,
+      buildFakeMemberPaymentRepo(),
     );
 
     await useCase.execute({
@@ -282,6 +302,7 @@ describe("CorrectTransactionUseCase", () => {
       serviceRepo,
       reverseTransaction,
       createTransaction,
+      buildFakeMemberPaymentRepo(),
     );
 
     await expect(
@@ -318,6 +339,7 @@ describe("CorrectTransactionUseCase", () => {
       serviceRepo,
       reverseTransaction,
       createTransaction,
+      buildFakeMemberPaymentRepo(),
     );
 
     await expect(
@@ -330,6 +352,47 @@ describe("CorrectTransactionUseCase", () => {
         paymentMethod: "cash",
       }),
     ).rejects.toBeInstanceOf(TransactionIsServicePaymentException);
+    expect(reverseTransaction.execute).not.toHaveBeenCalled();
+    expect(createTransaction.execute).not.toHaveBeenCalled();
+  });
+
+  it("lança TransactionIsMemberPaymentException e não mexe no caixa quando a transação é pagamento a membro", async () => {
+    const original = buildTransaction({ type: "outcome" });
+    const transactionRepo = buildFakeTransactionRepo({
+      findById: jest.fn().mockResolvedValue(original),
+    });
+    const memberPaymentRepo = buildFakeMemberPaymentRepo({
+      existsByTransactionId: jest.fn().mockResolvedValue(true),
+    });
+    const reverseTransaction = {
+      execute: jest.fn(),
+    } as unknown as jest.Mocked<ReverseTransactionUseCase>;
+    const createTransaction = {
+      execute: jest.fn(),
+    } as unknown as jest.Mocked<CreateTransactionUseCase>;
+
+    const useCase = new CorrectTransactionUseCase(
+      transactionRepo,
+      buildFakeServiceRepo(),
+      reverseTransaction,
+      createTransaction,
+      memberPaymentRepo,
+    );
+
+    await expect(
+      useCase.execute({
+        orgId: "org-1",
+        transactionId: original.id,
+        description: "x",
+        type: "outcome",
+        grossCents: 15000,
+        paymentMethod: "cash",
+      }),
+    ).rejects.toBeInstanceOf(TransactionIsMemberPaymentException);
+    expect(memberPaymentRepo.existsByTransactionId).toHaveBeenCalledWith(
+      original.id,
+      "org-1",
+    );
     expect(reverseTransaction.execute).not.toHaveBeenCalled();
     expect(createTransaction.execute).not.toHaveBeenCalled();
   });

@@ -67,4 +67,11 @@ export interface MemberPaymentSummary {
   accruedCommissionCents: number
   paidNetCents: number
   balanceDueCents: number
+  // gross/fees cobrem só serviços PAGOS; materialCost cobre todos os serviços
+  // não cancelados do membro. studioNet = gross − fees − comissão (pode ser
+  // negativo). Não derivar margem subtraindo material de studioNet.
+  grossRevenueCents: number
+  feesCents: number
+  materialCostCents: number
+  studioNetCents: number
 }

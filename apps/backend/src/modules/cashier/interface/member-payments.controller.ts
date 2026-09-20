@@ -6,8 +6,11 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
+  Res,
   UseGuards,
 } from "@nestjs/common";
+import type { Response } from "express";
 import { AuthGuard } from "../../auth/guards/auth.guard";
 import { OrgMembershipGuard } from "../../auth/guards/org-membership.guard";
 import { OrgModuleGuard } from "../../auth/guards/org-module.guard";
@@ -26,7 +29,11 @@ import { ListMemberPaymentsUseCase } from "../application/use-cases/list-member-
 import { GetMemberPaymentSummaryUseCase } from "../application/use-cases/get-member-payment-summary.use-case";
 import { ReverseMemberPaymentUseCase } from "../application/use-cases/reverse-member-payment.use-case";
 import { CorrectMemberPaymentUseCase } from "../application/use-cases/correct-member-payment.use-case";
+import { GetMemberPaymentReceiptUseCase } from "../application/use-cases/get-member-payment-receipt.use-case";
+import { GetMemberReportUseCase } from "../application/use-cases/get-member-report.use-case";
+import type { MemberDocumentFile } from "../application/use-cases/get-member-payment-receipt.use-case";
 import { CreateMemberPaymentDto } from "./dto/create-member-payment.dto";
+import { MemberReportQueryDto } from "./dto/member-report-query.dto";
 
 const DEFAULT_DESCRIPTION = "Pagamento a funcionário";
 
@@ -53,7 +60,18 @@ export class MemberPaymentsController {
     private readonly getMemberPaymentSummary: GetMemberPaymentSummaryUseCase,
     private readonly reverseMemberPayment: ReverseMemberPaymentUseCase,
     private readonly correctMemberPayment: CorrectMemberPaymentUseCase,
+    private readonly getMemberPaymentReceipt: GetMemberPaymentReceiptUseCase,
+    private readonly getMemberReport: GetMemberReportUseCase,
   ) {}
+
+  private sendPdf(res: Response, file: MemberDocumentFile): void {
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${file.filename}"`,
+    );
+    res.send(file.buffer);
+  }
 
   // Confirma que :userId e de fato um membro habilitado da org ANTES de
   // qualquer leitura escopada por ator — sem isso, um uuid desconhecido
@@ -64,14 +82,18 @@ export class MemberPaymentsController {
   // consultando MEMBER_REPOSITORY (DRIZZLE, RLS-scoped) veria zero linhas
   // sempre e bloquearia ate o owner com 404. O metodo do controller, por
   // rodar DENTRO de next.handle(), ja tem a claims context ativa.
+  //
+  // Aceita membro DESABILITADO de proposito (F11): so leitura (list/summary)
+  // passa por aqui. O dinheiro de um pagamento ja feito ja saiu, e o owner
+  // precisa enxergar o historico para ESTORNAR (reverse nao chama este
+  // metodo nem exige enabled). Novo pagamento e correcao/relancamento seguem
+  // exigindo membro habilitado em CreateMemberPaymentUseCase.
   private async ensureBeneficiary(
     orgId: string,
     userId: string,
   ): Promise<void> {
     const members = await this.memberRepo.findAllByOrg(orgId);
-    const beneficiary = members.find(
-      (member) => member.userId === userId && member.enabled,
-    );
+    const beneficiary = members.find((member) => member.userId === userId);
     if (!beneficiary) throw new PaymentMemberNotFoundException(userId);
   }
 
@@ -101,6 +123,43 @@ export class MemberPaymentsController {
       authId: user.id,
       targetUserId: userId,
     });
+  }
+
+  // Autorizacao (owner qualquer membro; funcionario so o proprio) e existencia
+  // do beneficiario sao resolvidas dentro do use-case (resolveActor).
+  @Get("payments/:paymentId/receipt")
+  async receipt(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("userId", ParseUUIDPipe) userId: string,
+    @Param("paymentId", ParseUUIDPipe) paymentId: string,
+    @CurrentUser() user: AuthUser,
+    @Res() res: Response,
+  ): Promise<void> {
+    const file = await this.getMemberPaymentReceipt.execute({
+      orgId,
+      authId: user.id,
+      targetUserId: userId,
+      paymentId,
+    });
+    this.sendPdf(res, file);
+  }
+
+  @Get("report")
+  async report(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("userId", ParseUUIDPipe) userId: string,
+    @Query() query: MemberReportQueryDto,
+    @CurrentUser() user: AuthUser,
+    @Res() res: Response,
+  ): Promise<void> {
+    const file = await this.getMemberReport.execute({
+      orgId,
+      authId: user.id,
+      targetUserId: userId,
+      from: query.from,
+      to: query.to,
+    });
+    this.sendPdf(res, file);
   }
 
   @Post("payments")

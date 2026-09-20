@@ -6,6 +6,11 @@ import {
 } from "../../domain/transaction.repository.interface";
 import { TransactionNotFoundException } from "../../domain/exceptions/transaction-not-found.exception";
 import { TransactionIsServicePaymentException } from "../../domain/exceptions/transaction-is-service-payment.exception";
+import { TransactionIsMemberPaymentException } from "../../domain/exceptions/transaction-is-member-payment.exception";
+import {
+  IMemberPaymentRepository,
+  MEMBER_PAYMENT_REPOSITORY,
+} from "../../domain/member-payment.repository.interface";
 import {
   IServiceRepository,
   SERVICE_REPOSITORY,
@@ -41,6 +46,8 @@ export class CorrectTransactionUseCase {
     private readonly serviceRepo: IServiceRepository,
     private readonly reverseTransaction: ReverseTransactionUseCase,
     private readonly createTransaction: CreateTransactionUseCase,
+    @Inject(MEMBER_PAYMENT_REPOSITORY)
+    private readonly memberPaymentRepo: IMemberPaymentRepository,
   ) {}
 
   async execute(
@@ -56,6 +63,18 @@ export class CorrectTransactionUseCase {
       await this.serviceRepo.existsByPaymentTransactionId(input.transactionId)
     ) {
       throw new TransactionIsServicePaymentException(input.transactionId);
+    }
+
+    // Sem flag de bypass aqui: nenhum use-case de member-payment corrige via
+    // CorrectTransactionUseCase (CorrectMemberPaymentUseCase estorna pelo
+    // ReverseMemberPaymentUseCase e relanca via CreateMemberPaymentUseCase).
+    if (
+      await this.memberPaymentRepo.existsByTransactionId(
+        input.transactionId,
+        input.orgId,
+      )
+    ) {
+      throw new TransactionIsMemberPaymentException(input.transactionId);
     }
 
     const reversal = await this.reverseTransaction.execute({

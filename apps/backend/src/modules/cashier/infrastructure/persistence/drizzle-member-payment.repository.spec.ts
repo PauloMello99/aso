@@ -1,5 +1,6 @@
 import { DrizzleMemberPaymentRepository } from "./drizzle-member-payment.repository";
 import type { DrizzleDB } from "../../../../database/database.module";
+import { MemberPaymentAlreadyReversedException } from "../../domain/exceptions/member-payment-already-reversed.exception";
 
 const paymentRow = {
   id: "mp-1",
@@ -97,6 +98,81 @@ describe("DrizzleMemberPaymentRepository", () => {
       );
       expect(result.id).toBe("mp-1");
       expect(result.amountCents).toBe(5000);
+    });
+  });
+
+  describe("create (estorno concorrente, F8)", () => {
+    function buildFailingInsertDb(error: unknown): DrizzleDB {
+      const returning = jest.fn().mockRejectedValue(error);
+      const values = jest.fn().mockReturnValue({ returning });
+      return { insert: jest.fn().mockReturnValue({ values }) } as unknown as DrizzleDB;
+    }
+    const reversalData = {
+      orgId: "org-1",
+      userId: "user-1",
+      transactionId: "txn-2",
+      amountCents: 5000,
+      reversesPaymentId: "mp-1",
+      createdBy: "owner-1",
+    };
+
+    it("mapeia 23505 do indice org_member_payments_reverses_uq (também embrulhado em cause) para MemberPaymentAlreadyReversedException", async () => {
+      const pgError = {
+        code: "23505",
+        constraint: "org_member_payments_reverses_uq",
+      };
+      const direct = new DrizzleMemberPaymentRepository(
+        buildFailingInsertDb(pgError),
+      );
+      await expect(direct.create(reversalData)).rejects.toBeInstanceOf(
+        MemberPaymentAlreadyReversedException,
+      );
+
+      const wrapped = new DrizzleMemberPaymentRepository(
+        buildFailingInsertDb(Object.assign(new Error("query failed"), { cause: pgError })),
+      );
+      await expect(wrapped.create(reversalData)).rejects.toBeInstanceOf(
+        MemberPaymentAlreadyReversedException,
+      );
+    });
+
+    it("NÃO mascara outros erros: 23505 de outra constraint e erros genéricos propagam", async () => {
+      const otherUnique = { code: "23505", constraint: "outra_uq" };
+      const repoA = new DrizzleMemberPaymentRepository(
+        buildFailingInsertDb(otherUnique),
+      );
+      await expect(repoA.create(reversalData)).rejects.toBe(otherUnique);
+
+      const boom = new Error("boom");
+      const repoB = new DrizzleMemberPaymentRepository(buildFailingInsertDb(boom));
+      await expect(repoB.create(reversalData)).rejects.toBe(boom);
+    });
+  });
+
+  describe("existsByTransactionId / findTransactionIdsWithPayment", () => {
+    it("existsByTransactionId: true quando há linha, false quando não há", async () => {
+      const found = new DrizzleMemberPaymentRepository(
+        buildSelectDb([{ id: "mp-1" }]).db,
+      );
+      const missing = new DrizzleMemberPaymentRepository(buildSelectDb([]).db);
+
+      await expect(found.existsByTransactionId("txn-1", "org-1")).resolves.toBe(true);
+      await expect(missing.existsByTransactionId("txn-1", "org-1")).resolves.toBe(false);
+    });
+
+    it("findTransactionIdsWithPayment: devolve o conjunto e não consulta o banco com lista vazia", async () => {
+      const { db, select } = buildSelectDb([{ transactionId: "txn-1" }]);
+      const repo = new DrizzleMemberPaymentRepository(db);
+
+      await expect(
+        repo.findTransactionIdsWithPayment("org-1", ["txn-1", "txn-2"]),
+      ).resolves.toEqual(new Set(["txn-1"]));
+
+      select.mockClear();
+      await expect(repo.findTransactionIdsWithPayment("org-1", [])).resolves.toEqual(
+        new Set(),
+      );
+      expect(select).not.toHaveBeenCalled();
     });
   });
 

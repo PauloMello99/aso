@@ -49,6 +49,29 @@ describe("memberPaymentFormSchema", () => {
     ).toBe(true)
   })
 
+  it("rejeita período invertido (fim antes do início) no campo periodEnd", () => {
+    const result = memberPaymentFormSchema.safeParse(
+      buildFormValues({ periodStart: "2026-02-01", periodEnd: "2026-01-31" }),
+    )
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues[0]?.path).toEqual(["periodEnd"])
+    }
+  })
+
+  it("aceita período com início igual ao fim ou com apenas um dos lados", () => {
+    expect(
+      memberPaymentFormSchema.safeParse(
+        buildFormValues({ periodStart: "2026-01-31", periodEnd: "2026-01-31" }),
+      ).success,
+    ).toBe(true)
+    expect(
+      memberPaymentFormSchema.safeParse(
+        buildFormValues({ periodEnd: "2026-01-31" }),
+      ).success,
+    ).toBe(true)
+  })
+
   it("rejeita período em formato inválido", () => {
     expect(
       memberPaymentFormSchema.safeParse(

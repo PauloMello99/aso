@@ -27,6 +27,8 @@ import { ListMemberPaymentsUseCase } from "./application/use-cases/list-member-p
 import { GetMemberPaymentSummaryUseCase } from "./application/use-cases/get-member-payment-summary.use-case";
 import { ReverseMemberPaymentUseCase } from "./application/use-cases/reverse-member-payment.use-case";
 import { CorrectMemberPaymentUseCase } from "./application/use-cases/correct-member-payment.use-case";
+import { GetMemberPaymentReceiptUseCase } from "./application/use-cases/get-member-payment-receipt.use-case";
+import { GetMemberReportUseCase } from "./application/use-cases/get-member-report.use-case";
 import { CashierController } from "./interface/cashier.controller";
 import { MemberPaymentsController } from "./interface/member-payments.controller";
 
@@ -63,6 +65,8 @@ import { MemberPaymentsController } from "./interface/member-payments.controller
     GetMemberPaymentSummaryUseCase,
     ReverseMemberPaymentUseCase,
     CorrectMemberPaymentUseCase,
+    GetMemberPaymentReceiptUseCase,
+    GetMemberReportUseCase,
   ],
   exports: [CashierInfrastructureModule],
 })

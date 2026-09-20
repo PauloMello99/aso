@@ -31,13 +31,22 @@ const dateString = z
 // Usado tanto para registrar um pagamento novo quanto para corrigir um
 // existente (mesmo shape aceito pelos dois endpoints no backend, ver
 // create-member-payment.dto.ts).
-export const memberPaymentFormSchema = z.object({
-  amount: moneyString,
-  paymentMethod: z.enum(PAYMENT_METHODS),
-  description: z.string().max(500).optional().or(z.literal("")),
-  periodStart: dateString,
-  periodEnd: dateString,
-})
+export const memberPaymentFormSchema = z
+  .object({
+    amount: moneyString,
+    paymentMethod: z.enum(PAYMENT_METHODS),
+    description: z.string().max(500).optional().or(z.literal("")),
+    periodStart: dateString,
+    periodEnd: dateString,
+  })
+  .refine(
+    // yyyy-MM-dd compara corretamente como string (ordem lexicográfica).
+    (v) => !v.periodStart || !v.periodEnd || v.periodStart <= v.periodEnd,
+    {
+      message: "A data final não pode ser anterior à data inicial",
+      path: ["periodEnd"],
+    },
+  )
 
 export type MemberPaymentFormValues = z.infer<typeof memberPaymentFormSchema>
 

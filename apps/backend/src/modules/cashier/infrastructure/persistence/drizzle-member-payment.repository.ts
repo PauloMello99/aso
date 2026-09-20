@@ -13,7 +13,7 @@
 // ha a classe de problema (RLS bloqueando um ator legitimo) que motivou
 // aquela excecao.
 import { Inject, Injectable } from "@nestjs/common";
-import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { DRIZZLE, DrizzleDB } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
 import {
@@ -25,28 +25,93 @@ import {
   MemberPaymentWithMethod,
 } from "../../domain/member-payment.repository.interface";
 import { PaymentMethod } from "../../domain/transaction.entity";
+import { MemberPaymentAlreadyReversedException } from "../../domain/exceptions/member-payment-already-reversed.exception";
 import { MemberPaymentMapper } from "./member-payment.mapper";
+
+const REVERSES_UNIQUE_INDEX = "org_member_payments_reverses_uq";
+
+// O driver pode entregar o erro do pg direto ou embrulhado em `cause`
+// (DrizzleQueryError). So a violacao de UNICIDADE do indice de estorno e
+// mapeada — qualquer outro erro (inclusive outro 23505) segue propagando.
+function pgErrorFields(error: unknown): { code?: unknown; constraint?: unknown } {
+  if (typeof error !== "object" || error === null) return {};
+  return error as { code?: unknown; constraint?: unknown };
+}
+
+function isReversesUniqueViolation(error: unknown): boolean {
+  const candidates: unknown[] = [error];
+  if (typeof error === "object" && error !== null && "cause" in error) {
+    candidates.push((error as { cause?: unknown }).cause);
+  }
+  return candidates.some((candidate) => {
+    const { code, constraint } = pgErrorFields(candidate);
+    return code === "23505" && constraint === REVERSES_UNIQUE_INDEX;
+  });
+}
 
 @Injectable()
 export class DrizzleMemberPaymentRepository implements IMemberPaymentRepository {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   async create(data: CreateMemberPaymentData): Promise<MemberPaymentEntity> {
-    const [row] = await this.db
-      .insert(schema.orgMemberPayments)
-      .values({
-        orgId: data.orgId,
-        userId: data.userId,
-        transactionId: data.transactionId,
-        amountCents: data.amountCents,
-        periodStart: data.periodStart ?? null,
-        periodEnd: data.periodEnd ?? null,
-        description: data.description ?? null,
-        reversesPaymentId: data.reversesPaymentId ?? null,
-        createdBy: data.createdBy ?? null,
-      })
-      .returning();
-    return MemberPaymentMapper.toDomain(row!);
+    try {
+      const [row] = await this.db
+        .insert(schema.orgMemberPayments)
+        .values({
+          orgId: data.orgId,
+          userId: data.userId,
+          transactionId: data.transactionId,
+          amountCents: data.amountCents,
+          periodStart: data.periodStart ?? null,
+          periodEnd: data.periodEnd ?? null,
+          description: data.description ?? null,
+          reversesPaymentId: data.reversesPaymentId ?? null,
+          createdBy: data.createdBy ?? null,
+        })
+        .returning();
+      return MemberPaymentMapper.toDomain(row!);
+    } catch (error) {
+      // Duplo estorno concorrente: os dois passam pelo findReversedIds vazio e
+      // o segundo INSERT estoura no indice unico parcial (F8) — vira 409, nao 500.
+      if (data.reversesPaymentId && isReversesUniqueViolation(error)) {
+        throw new MemberPaymentAlreadyReversedException(data.reversesPaymentId);
+      }
+      throw error;
+    }
+  }
+
+  async existsByTransactionId(
+    transactionId: string,
+    orgId: string,
+  ): Promise<boolean> {
+    const rows = await this.db
+      .select({ id: schema.orgMemberPayments.id })
+      .from(schema.orgMemberPayments)
+      .where(
+        and(
+          eq(schema.orgMemberPayments.transactionId, transactionId),
+          eq(schema.orgMemberPayments.orgId, orgId),
+        ),
+      )
+      .limit(1);
+    return rows.length > 0;
+  }
+
+  async findTransactionIdsWithPayment(
+    orgId: string,
+    transactionIds: string[],
+  ): Promise<Set<string>> {
+    if (transactionIds.length === 0) return new Set();
+    const rows = await this.db
+      .select({ transactionId: schema.orgMemberPayments.transactionId })
+      .from(schema.orgMemberPayments)
+      .where(
+        and(
+          eq(schema.orgMemberPayments.orgId, orgId),
+          inArray(schema.orgMemberPayments.transactionId, transactionIds),
+        ),
+      );
+    return new Set(rows.map((row) => row.transactionId));
   }
 
   async findById(

@@ -596,41 +596,45 @@ export function MemberList({
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-xs font-semibold uppercase text-primary-text sm:h-9 sm:w-9">
                   {member.userName.charAt(0)}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">
-                    {member.userName}
-                    {isSelf && (
-                      <span className="ml-1 text-xs text-foreground/30">
-                        (você)
-                      </span>
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+                  <div className="min-w-0 sm:flex-1">
+                    <p className="truncate text-sm font-medium">
+                      {member.userName}
+                      {isSelf && (
+                        <span className="ml-1 text-xs text-foreground/30">
+                          (você)
+                        </span>
+                      )}
+                    </p>
+                    <p className="truncate text-xs text-foreground/50">
+                      {member.userEmail}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0 sm:flex-nowrap sm:gap-3">
+                    {!member.enabled && (
+                      <Badge
+                        variant="ghost"
+                        className="shrink-0 bg-surface-2 text-text-muted"
+                      >
+                        Suspenso
+                      </Badge>
                     )}
-                  </p>
-                  <p className="truncate text-xs text-foreground/50">
-                    {member.userEmail}
-                  </p>
+                    {member.classification != null && (
+                      <Badge
+                        variant="ghost"
+                        className="shrink-0 bg-surface-2 text-text-muted"
+                      >
+                        {MEMBER_CLASSIFICATION_LABELS[member.classification]}
+                      </Badge>
+                    )}
+                    <Badge
+                      variant={member.role === "owner" ? "brand" : "secondary"}
+                      className="shrink-0"
+                    >
+                      {ROLE_LABEL[member.role]}
+                    </Badge>
+                  </div>
                 </div>
-                {!member.enabled && (
-                  <Badge
-                    variant="ghost"
-                    className="shrink-0 bg-surface-2 text-text-muted"
-                  >
-                    Suspenso
-                  </Badge>
-                )}
-                {member.classification != null && (
-                  <Badge
-                    variant="ghost"
-                    className="shrink-0 bg-surface-2 text-text-muted"
-                  >
-                    {MEMBER_CLASSIFICATION_LABELS[member.classification]}
-                  </Badge>
-                )}
-                <Badge
-                  variant={member.role === "owner" ? "brand" : "secondary"}
-                  className="shrink-0"
-                >
-                  {ROLE_LABEL[member.role]}
-                </Badge>
                 {isOwner && !isSelf && (
                   <MemberActions
                     member={member}

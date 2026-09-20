@@ -74,6 +74,9 @@ export class ReverseMemberPaymentUseCase {
       orgId: input.orgId,
       transactionId: payment.transactionId,
       authId: input.authId,
+      // Caminho legitimo: aqui o estorno da transacao e acompanhado do estorno
+      // da entidade (linha abaixo), entao a guarda do Caixa nao se aplica.
+      allowMemberPayment: true,
     });
 
     // amountCents e userId NUNCA vem de input — sempre copiados do pagamento

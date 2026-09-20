@@ -41,6 +41,7 @@ export interface TransactionView {
   entity: Transaction
   reversed: boolean
   serviceId: string | null
+  isMemberPayment: boolean
 }
 
 export interface Balance {

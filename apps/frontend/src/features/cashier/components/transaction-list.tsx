@@ -49,6 +49,9 @@ export function formatDate(iso: string): string {
   })
 }
 
+const MEMBER_PAYMENT_HINT =
+  "Pagamento a membro: estorne ou corrija pela tela do membro."
+
 function canMutate(view: TransactionView): boolean {
   return !view.entity.reversesTransactionId && !view.reversed
 }
@@ -78,14 +81,26 @@ function ActionMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[170px]">
-        <DropdownMenuItem onClick={() => onCorrect(view)}>
+        <DropdownMenuItem
+          disabled={view.isMemberPayment}
+          onClick={() => !view.isMemberPayment && onCorrect(view)}
+        >
           <Pencil className="h-3.5 w-3.5 shrink-0" />
-          Corrigir (errata)
+          <span className="flex flex-col">
+            Corrigir (errata)
+            {view.isMemberPayment && (
+              <span className="text-xs font-normal text-foreground/40">
+                {MEMBER_PAYMENT_HINT}
+              </span>
+            )}
+          </span>
         </DropdownMenuItem>
         <DropdownMenuItem
           variant="destructive"
-          disabled={isServicePayment}
-          onClick={() => !isServicePayment && onReverse(view)}
+          disabled={isServicePayment || view.isMemberPayment}
+          onClick={() =>
+            !isServicePayment && !view.isMemberPayment && onReverse(view)
+          }
         >
           <Undo2 className="h-3.5 w-3.5 shrink-0" />
           <span className="flex flex-col">
@@ -93,6 +108,11 @@ function ActionMenu({
             {isServicePayment && (
               <span className="text-xs font-normal text-foreground/40">
                 Estorno pelo serviço (cancele o serviço)
+              </span>
+            )}
+            {!isServicePayment && view.isMemberPayment && (
+              <span className="text-xs font-normal text-foreground/40">
+                {MEMBER_PAYMENT_HINT}
               </span>
             )}
           </span>
@@ -161,7 +181,7 @@ function MobileCard({
           )}
           <span
             className={cn(
-              "truncate font-medium",
+              "min-w-0 max-w-full truncate font-medium",
               struck ? "text-foreground/40 line-through" : "text-foreground",
             )}
           >
@@ -215,7 +235,7 @@ export function TransactionList({
 
   return (
     <>
-      <div className="grid gap-3 sm:hidden">
+      <div className="grid grid-cols-1 gap-3 sm:hidden">
         {transactions.map((v) => (
           <MobileCard
             key={v.entity.id}
@@ -253,8 +273,9 @@ export function TransactionList({
                         <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-destructive" />
                       )}
                       <span
+                        title={t.description}
                         className={cn(
-                          "font-medium",
+                          "block max-w-[12rem] truncate font-medium",
                           struck ? "text-foreground/40 line-through" : "text-foreground",
                         )}
                       >
@@ -268,8 +289,14 @@ export function TransactionList({
                   </TableCell>
                   <TableCell>
                     {categoryName(t.categoryId) ? (
-                      <Badge variant="secondary">
-                        {categoryName(t.categoryId)}
+                      <Badge
+                        variant="secondary"
+                        title={categoryName(t.categoryId) ?? undefined}
+                        className="max-w-[7rem]"
+                      >
+                        <span className="truncate">
+                          {categoryName(t.categoryId)}
+                        </span>
                       </Badge>
                     ) : (
                       <span className="text-foreground/20">—</span>

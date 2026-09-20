@@ -13,12 +13,20 @@ import {
   IServiceRepository,
   SERVICE_REPOSITORY,
 } from "../../../services/domain/service.repository.interface";
+import {
+  IMemberPaymentRepository,
+  MEMBER_PAYMENT_REPOSITORY,
+} from "../../domain/member-payment.repository.interface";
 import { resolveActor } from "./resolve-actor";
 
 export interface TransactionView {
   entity: TransactionEntity;
   reversed: boolean;
   serviceId: string | null;
+  /** Analogo de `serviceId !== null`: a transacao e a de um pagamento a
+   * membro (inclui a perna de estorno) — estorno/correcao so pela tela do
+   * membro. */
+  isMemberPayment: boolean;
 }
 
 export interface ListTransactionsInput {
@@ -36,6 +44,8 @@ export class ListTransactionsUseCase {
     private readonly memberRepo: IMemberRepository,
     @Inject(SERVICE_REPOSITORY)
     private readonly serviceRepo: IServiceRepository,
+    @Inject(MEMBER_PAYMENT_REPOSITORY)
+    private readonly memberPaymentRepo: IMemberPaymentRepository,
   ) {}
 
   async execute(input: ListTransactionsInput): Promise<TransactionView[]> {
@@ -53,16 +63,24 @@ export class ListTransactionsUseCase {
       this.transactionRepo.findReversedIds(input.orgId),
     ]);
 
-    const serviceIdsByTransactionId =
-      await this.serviceRepo.findServiceIdsByTransactionIds(
-        input.orgId,
-        transactions.map((t) => t.id),
-      );
+    const transactionIds = transactions.map((t) => t.id);
+    const [serviceIdsByTransactionId, memberPaymentTransactionIds] =
+      await Promise.all([
+        this.serviceRepo.findServiceIdsByTransactionIds(
+          input.orgId,
+          transactionIds,
+        ),
+        this.memberPaymentRepo.findTransactionIdsWithPayment(
+          input.orgId,
+          transactionIds,
+        ),
+      ]);
 
     return transactions.map((entity) => ({
       entity,
       reversed: reversedIds.has(entity.id),
       serviceId: serviceIdsByTransactionId.get(entity.id) ?? null,
+      isMemberPayment: memberPaymentTransactionIds.has(entity.id),
     }));
   }
 }

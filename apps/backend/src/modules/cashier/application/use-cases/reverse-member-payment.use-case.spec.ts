@@ -138,6 +138,7 @@ describe("ReverseMemberPaymentUseCase", () => {
       orgId: "org-1",
       transactionId: original.transactionId,
       authId: "auth-owner",
+      allowMemberPayment: true,
     });
     const call = memberPaymentRepo.create.mock.calls[0]![0];
     expect(call.transactionId).toBe(reversalTransaction.id);
@@ -174,6 +175,39 @@ describe("ReverseMemberPaymentUseCase", () => {
     expect(call.userId).toBe(original.userId);
     expect(call.userId).not.toBe("user-owner");
     expect(call.createdBy).toBe("user-owner");
+  });
+
+  it("permite estornar pagamento de beneficiário DESABILITADO (o dinheiro já saiu): não consulta a lista de membros", async () => {
+    const original = buildPayment();
+    const memberRepo = buildFakeMemberRepo({
+      findAllByOrg: jest.fn().mockResolvedValue([
+        buildMember({
+          memberId: "member-1",
+          userId: original.userId,
+          role: "employee",
+          enabled: false,
+        }),
+      ]),
+    });
+    const memberPaymentRepo = buildFakeMemberPaymentRepo({
+      findById: jest.fn().mockResolvedValue(original),
+    });
+    const reverseTransaction = buildFakeReverseTransactionUseCase();
+    const useCase = new ReverseMemberPaymentUseCase(
+      memberPaymentRepo,
+      memberRepo,
+      reverseTransaction,
+    );
+
+    await useCase.execute({
+      orgId: "org-1",
+      authId: "auth-owner",
+      paymentId: original.id,
+      expectedUserId: original.userId,
+    });
+
+    expect(memberRepo.findAllByOrg).not.toHaveBeenCalled();
+    expect(memberPaymentRepo.create).toHaveBeenCalledTimes(1);
   });
 
   it("lança CashierForbiddenException quando o ator não é owner, sem chamar o repositório de pagamento", async () => {
