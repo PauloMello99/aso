@@ -16,6 +16,7 @@ import {
 } from "class-validator";
 import { PAYMENT_METHODS } from "./create-transaction.dto";
 import { MAX_INSTALLMENTS } from "../../domain/fee-calculator";
+import { MAX_AMOUNT_CENTS } from "../../domain/money-limits";
 
 const PERCENT_PATTERN = /^\d+(\.\d{1,2})?$/;
 
@@ -51,6 +52,7 @@ export class PaymentFeeItemDto {
 
   @IsInt()
   @Min(0)
+  @Max(MAX_AMOUNT_CENTS)
   fixedCents!: number;
 
   @IsInt()

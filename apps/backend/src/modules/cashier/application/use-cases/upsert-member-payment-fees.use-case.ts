@@ -15,6 +15,7 @@ import {
 import { PaymentMethod } from "../../domain/transaction.entity";
 import { CashierForbiddenException } from "../../domain/exceptions/cashier-forbidden.exception";
 import { FeeMemberNotFoundException } from "../../domain/exceptions/fee-member-not-found.exception";
+import { MemberFeeDuplicateKeyException } from "../../domain/exceptions/member-fee-duplicate-key.exception";
 import { AuditService } from "../../../audit/audit.service";
 
 export interface UpsertMemberPaymentFeeItem {
@@ -81,6 +82,19 @@ export class UpsertMemberPaymentFeesUseCase {
       if (!memberIds.has(item.userId)) {
         throw new FeeMemberNotFoundException(item.userId);
       }
+    }
+
+    const seenKeys = new Set<string>();
+    for (const item of [...input.fees, ...(input.deactivations ?? [])]) {
+      const key = `${item.userId}|${item.paymentMethod}|${item.installments}`;
+      if (seenKeys.has(key)) {
+        throw new MemberFeeDuplicateKeyException(
+          item.userId,
+          item.paymentMethod,
+          item.installments,
+        );
+      }
+      seenKeys.add(key);
     }
 
     const changes: Array<{

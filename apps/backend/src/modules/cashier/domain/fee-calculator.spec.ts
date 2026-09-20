@@ -5,6 +5,7 @@ import {
   resolveFee,
 } from "./fee-calculator";
 import type { FeeConfig } from "./fee-calculator";
+import { InvalidFeePercentException } from "./exceptions/invalid-fee-percent.exception";
 import { MemberPaymentFeeEntity } from "./member-payment-fee.entity";
 import type { MemberPaymentFeeEntityProps } from "./member-payment-fee.entity";
 import { PaymentFeeEntity } from "./payment-fee.entity";
@@ -195,6 +196,21 @@ describe("computeNet", () => {
     expect(computeNet(10000, "credit_card", fee)).toEqual({
       feeCents: 50,
       netCents: 9950,
+    });
+  });
+
+  it("throws InvalidFeePercentException when the percent is malformed instead of treating it as 0%", () => {
+    const fee: FeeConfig = { percent: "abc", fixedCents: 0 };
+    expect(() => computeNet(10000, "credit_card", fee)).toThrow(
+      InvalidFeePercentException,
+    );
+  });
+
+  it("does not validate the percent for non-eligible methods", () => {
+    const fee: FeeConfig = { percent: "abc", fixedCents: 0 };
+    expect(computeNet(10000, "cash", fee)).toEqual({
+      feeCents: 0,
+      netCents: 10000,
     });
   });
 });

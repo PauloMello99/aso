@@ -23,6 +23,24 @@ describe("CreateTransactionDto", () => {
     expect(errors.find((e) => e.property === "paymentMethod")).toBeUndefined();
   });
 
+  it("rejeita grossCents acima do teto int32 e aceita o teto exato", async () => {
+    const over = plainToInstance(
+      CreateTransactionDto,
+      buildInput({ grossCents: 2147483648 }),
+    );
+    const exact = plainToInstance(
+      CreateTransactionDto,
+      buildInput({ grossCents: 2147483647 }),
+    );
+
+    expect(
+      (await validate(over)).find((e) => e.property === "grossCents"),
+    ).toBeDefined();
+    expect(
+      (await validate(exact)).find((e) => e.property === "grossCents"),
+    ).toBeUndefined();
+  });
+
   it("rejeita 'credits' (removido do enum)", async () => {
     const dto = plainToInstance(
       CreateTransactionDto,

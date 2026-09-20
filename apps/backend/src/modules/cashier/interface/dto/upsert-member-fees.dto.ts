@@ -17,6 +17,7 @@ import {
   ValidatorConstraintInterface,
 } from "class-validator";
 import { MAX_INSTALLMENTS } from "../../domain/fee-calculator";
+import { MAX_AMOUNT_CENTS } from "../../domain/money-limits";
 
 export const FEE_ELIGIBLE_PAYMENT_METHODS = [
   "credit_card",
@@ -85,6 +86,7 @@ export class MemberFeeItemDto {
 
   @IsInt()
   @Min(0)
+  @Max(MAX_AMOUNT_CENTS)
   fixedCents!: number;
 
   @IsInt()

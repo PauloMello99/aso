@@ -26,6 +26,14 @@ describe("CreateServiceDto obrigatoriedade de campos", () => {
     expect(errors).toHaveLength(0);
   });
 
+  it("rejeita amountCents acima do teto int32 e aceita o teto exato", async () => {
+    const over = await validate(buildDto({ amountCents: 2147483648 }));
+    const exact = await validate(buildDto({ amountCents: 2147483647 }));
+
+    expect(over.find((e) => e.property === "amountCents")).toBeDefined();
+    expect(exact.find((e) => e.property === "amountCents")).toBeUndefined();
+  });
+
   it("rejeita quando serviceTypeId não é enviado (N14)", async () => {
     const errors = await validate(buildDto({ serviceTypeId: undefined }));
 

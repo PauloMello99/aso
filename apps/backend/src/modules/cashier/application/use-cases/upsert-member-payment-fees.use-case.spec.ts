@@ -6,6 +6,7 @@ import { IMemberRepository } from "../../../organizations/domain/member.reposito
 import { MemberEntity } from "../../../organizations/domain/member.entity";
 import { CashierForbiddenException } from "../../domain/exceptions/cashier-forbidden.exception";
 import { FeeMemberNotFoundException } from "../../domain/exceptions/fee-member-not-found.exception";
+import { MemberFeeDuplicateKeyException } from "../../domain/exceptions/member-fee-duplicate-key.exception";
 import { AuditService } from "../../../audit/audit.service";
 
 function buildFee(
@@ -782,5 +783,68 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
       fixedCents: 0,
       createdBy: "owner-1",
     });
+  });
+
+  it("lança MemberFeeDuplicateKeyException quando a mesma chave (userId, método, faixa) está em fees e deactivations, sem escrever nada", async () => {
+    const memberFeeRepo = buildFakeMemberFeeRepo();
+    const auditService = buildFakeAuditService();
+    const useCase = new UpsertMemberPaymentFeesUseCase(
+      memberFeeRepo,
+      buildFakeOrgRepo(),
+      buildFakeMemberRepo(),
+      auditService,
+    );
+
+    await expect(
+      useCase.execute({
+        orgId: "org-1",
+        authId: "owner-1",
+        fees: [
+          {
+            userId: "user-1",
+            paymentMethod: "credit_card",
+            installments: 6,
+            percent: "8.00",
+            fixedCents: 0,
+          },
+        ],
+        deactivations: [
+          {
+            userId: "user-1",
+            paymentMethod: "credit_card",
+            installments: 6,
+          },
+        ],
+      }),
+    ).rejects.toBeInstanceOf(MemberFeeDuplicateKeyException);
+    expect(memberFeeRepo.supersede).not.toHaveBeenCalled();
+    expect(memberFeeRepo.deactivate).not.toHaveBeenCalled();
+    expect(auditService.logByAuthId).not.toHaveBeenCalled();
+  });
+
+  it("lança MemberFeeDuplicateKeyException quando a mesma chave se repete dentro de fees", async () => {
+    const memberFeeRepo = buildFakeMemberFeeRepo();
+    const useCase = new UpsertMemberPaymentFeesUseCase(
+      memberFeeRepo,
+      buildFakeOrgRepo(),
+      buildFakeMemberRepo(),
+      buildFakeAuditService(),
+    );
+    const item = {
+      userId: "user-1",
+      paymentMethod: "credit_card" as const,
+      installments: 1,
+      percent: "3.50",
+      fixedCents: 0,
+    };
+
+    await expect(
+      useCase.execute({
+        orgId: "org-1",
+        authId: "owner-1",
+        fees: [item, { ...item, percent: "4.00" }],
+      }),
+    ).rejects.toBeInstanceOf(MemberFeeDuplicateKeyException);
+    expect(memberFeeRepo.supersede).not.toHaveBeenCalled();
   });
 });

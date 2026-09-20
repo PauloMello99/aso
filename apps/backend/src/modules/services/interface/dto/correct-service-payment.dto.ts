@@ -14,6 +14,7 @@ import {
 } from "class-validator";
 import { SERVICE_PAYMENT_METHODS } from "./create-service.dto";
 import { MAX_INSTALLMENTS } from "../../../cashier/domain/fee-calculator";
+import { MAX_AMOUNT_CENTS } from "../../../cashier/domain/money-limits";
 
 /**
  * `installments > 1` só é aceito com `paymentMethod = 'credit_card'` (mesmo
@@ -42,6 +43,7 @@ class InstallmentsRequiresCreditCardConstraint
 export class CorrectServicePaymentDto {
   @IsInt()
   @Min(1)
+  @Max(MAX_AMOUNT_CENTS)
   grossCents!: number;
 
   @IsIn(SERVICE_PAYMENT_METHODS)

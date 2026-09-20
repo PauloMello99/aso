@@ -17,6 +17,7 @@ import {
   ValidateNested,
 } from "class-validator";
 import { MAX_INSTALLMENTS } from "../../../cashier/domain/fee-calculator";
+import { MAX_AMOUNT_CENTS } from "../../../cashier/domain/money-limits";
 
 export const SERVICE_PAYMENT_METHODS = [
   "cash",
@@ -90,6 +91,7 @@ export class CreateServiceDto {
 
   @IsInt()
   @Min(0)
+  @Max(MAX_AMOUNT_CENTS)
   amountCents!: number;
 
   @IsIn(SERVICE_PAYMENT_METHODS)

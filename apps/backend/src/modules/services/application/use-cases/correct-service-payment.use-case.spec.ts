@@ -981,5 +981,147 @@ describe("CorrectServicePaymentUseCase", () => {
         expect.anything(),
       );
     });
+
+    it("mesmo método e mesma faixa após mudança de taxa da org: mantém o snapshot antigo e não consulta a config vigente", async () => {
+      const service = buildService({
+        paymentTransactionId: "tx-1",
+        paymentMethod: "credit_card",
+        installments: 6,
+      });
+      const original = buildTransaction({
+        id: "tx-1",
+        paymentMethod: "credit_card",
+        installments: 6,
+        grossCents: 10000,
+        feeCents: 800,
+        netCents: 9200,
+        feeConfigId: null,
+        feePercent: "8.00",
+        feeFixedCents: 0,
+        feeSource: "org",
+      });
+      const reversal = buildTransaction({ id: "tx-2", type: "outcome" });
+      const replacement = buildTransaction({ id: "tx-3" });
+      // taxa VIGENTE da org já mudou para 20% — não pode ser usada
+      const currentOrgFee = { percent: "20.00", fixedCents: 0, installments: 6 };
+
+      const { useCase, transactionRepo, feeRepo, memberFeeRepo } = buildUseCase({
+        serviceRepo: buildFakeServiceRepo({
+          findById: jest
+            .fn()
+            .mockResolvedValueOnce(service)
+            .mockResolvedValueOnce(service),
+        }),
+        transactionRepo: buildFakeTransactionRepo({
+          findById: jest.fn().mockResolvedValue(original),
+          findReversalOf: jest.fn().mockResolvedValue(null),
+          create: jest
+            .fn()
+            .mockResolvedValueOnce(reversal)
+            .mockResolvedValueOnce(replacement),
+        }),
+        feeRepo: buildFakeFeeRepo({
+          findByOrgAndMethod: jest.fn().mockResolvedValue(currentOrgFee),
+        }),
+      });
+
+      await useCase.execute({
+        ...baseInput,
+        installments: 6,
+        description: "Só a descrição",
+      });
+
+      expect(feeRepo.findByOrgAndMethod).not.toHaveBeenCalled();
+      expect(memberFeeRepo.findActiveByOrgUserAndMethod).not.toHaveBeenCalled();
+      // snapshot 8% sobre o novo bruto 15000 => taxa 1200, líquido 13800
+      expect(transactionRepo.create).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          grossCents: 15000,
+          feeCents: 1200,
+          netCents: 13800,
+          installments: 6,
+          feeConfigId: null,
+          feePercent: "8.00",
+          feeFixedCents: 0,
+          feeSource: "org",
+        }),
+      );
+    });
+
+    it("mudança de faixa: usa a config vigente da nova faixa, com prioridade do override do membro", async () => {
+      const service = buildService({
+        paymentTransactionId: "tx-1",
+        paymentMethod: "credit_card",
+        installments: 1,
+        performedBy: "user-1",
+      });
+      const original = buildTransaction({
+        id: "tx-1",
+        paymentMethod: "credit_card",
+        installments: 1,
+        feePercent: "3.00",
+        feeFixedCents: 0,
+        feeSource: "org",
+      });
+      const reversal = buildTransaction({ id: "tx-2", type: "outcome" });
+      const replacement = buildTransaction({ id: "tx-3" });
+      const memberFee6x = buildMemberPaymentFee({
+        id: "member-fee-6x",
+        installments: 6,
+        percent: "12.00",
+        fixedCents: 0,
+      });
+      const orgFee6x = { percent: "18.00", fixedCents: 0, installments: 6 };
+
+      const { useCase, transactionRepo, memberFeeRepo, feeRepo } = buildUseCase({
+        serviceRepo: buildFakeServiceRepo({
+          findById: jest
+            .fn()
+            .mockResolvedValueOnce(service)
+            .mockResolvedValueOnce(service),
+        }),
+        transactionRepo: buildFakeTransactionRepo({
+          findById: jest.fn().mockResolvedValue(original),
+          findReversalOf: jest.fn().mockResolvedValue(null),
+          create: jest
+            .fn()
+            .mockResolvedValueOnce(reversal)
+            .mockResolvedValueOnce(replacement),
+        }),
+        feeRepo: buildFakeFeeRepo({
+          findByOrgAndMethod: jest.fn().mockResolvedValue(orgFee6x),
+        }),
+        memberFeeRepo: buildFakeMemberFeeRepo({
+          findActiveByOrgUserAndMethod: jest.fn().mockResolvedValue(memberFee6x),
+        }),
+      });
+
+      await useCase.execute({ ...baseInput, installments: 6 });
+
+      expect(memberFeeRepo.findActiveByOrgUserAndMethod).toHaveBeenCalledWith(
+        "org-1",
+        "user-1",
+        "credit_card",
+        6,
+      );
+      expect(feeRepo.findByOrgAndMethod).toHaveBeenCalledWith(
+        "org-1",
+        "credit_card",
+        6,
+      );
+      // membro 12% sobre 15000 => 1800
+      expect(transactionRepo.create).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          feeCents: 1800,
+          netCents: 13200,
+          feeConfigId: "member-fee-6x",
+          feePercent: "12.00",
+          feeSource: "member",
+          installments: 6,
+        }),
+      );
+    });
   });
 });

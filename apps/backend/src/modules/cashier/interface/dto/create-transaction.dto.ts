@@ -13,6 +13,7 @@ import {
   ValidatorConstraintInterface,
 } from "class-validator";
 import { MAX_INSTALLMENTS } from "../../domain/fee-calculator";
+import { MAX_AMOUNT_CENTS } from "../../domain/money-limits";
 
 export const PAYMENT_METHODS = [
   "cash",
@@ -60,6 +61,7 @@ export class CreateTransactionDto {
 
   @IsInt()
   @Min(1)
+  @Max(MAX_AMOUNT_CENTS)
   grossCents!: number;
 
   @IsIn(PAYMENT_METHODS)

@@ -1,6 +1,7 @@
 import type { MemberPaymentFeeEntity } from "./member-payment-fee.entity";
 import type { PaymentFeeEntity } from "./payment-fee.entity";
 import type { PaymentMethod } from "./transaction.entity";
+import { InvalidFeePercentException } from "./exceptions/invalid-fee-percent.exception";
 
 const FEE_ELIGIBLE_METHODS: ReadonlySet<PaymentMethod> = new Set([
   "credit_card",
@@ -29,7 +30,10 @@ export function computeNet(
     return { feeCents: 0, netCents: grossCents };
   }
 
-  const percent = Number.parseFloat(fee.percent) || 0;
+  const percent = Number.parseFloat(fee.percent);
+  if (Number.isNaN(percent)) {
+    throw new InvalidFeePercentException(fee.percent);
+  }
   const rawFee = Math.round((grossCents * percent) / 100) + (fee.fixedCents || 0);
   const feeCents = Math.max(0, Math.min(rawFee, grossCents));
 

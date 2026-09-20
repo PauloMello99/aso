@@ -13,6 +13,7 @@ import {
 } from "class-validator";
 import { PAYMENT_METHODS, TRANSACTION_TYPES } from "./create-transaction.dto";
 import { MAX_INSTALLMENTS } from "../../domain/fee-calculator";
+import { MAX_AMOUNT_CENTS } from "../../domain/money-limits";
 
 /**
  * `installments > 1` só é aceito com `paymentMethod = 'credit_card'` (mesmo
@@ -47,6 +48,7 @@ export class CorrectTransactionDto {
 
   @IsInt()
   @Min(1)
+  @Max(MAX_AMOUNT_CENTS)
   grossCents!: number;
 
   @IsIn(PAYMENT_METHODS)

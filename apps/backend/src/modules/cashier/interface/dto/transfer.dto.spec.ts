@@ -22,6 +22,22 @@ describe("TransferDto", () => {
     expect(errors).toHaveLength(0);
   });
 
+  it("rejeita amountCents acima do teto int32 e aceita o teto exato", async () => {
+    const over = plainToInstance(
+      TransferDto,
+      buildInput({ amountCents: 2147483648 }),
+    );
+    const exact = plainToInstance(
+      TransferDto,
+      buildInput({ amountCents: 2147483647 }),
+    );
+
+    expect(
+      (await validate(over)).find((e) => e.property === "amountCents"),
+    ).toBeDefined();
+    expect(await validate(exact)).toHaveLength(0);
+  });
+
   it("rejeita fromMethod fora de cash/bank_transfer (ex.: credit_card)", async () => {
     const dto = plainToInstance(
       TransferDto,
