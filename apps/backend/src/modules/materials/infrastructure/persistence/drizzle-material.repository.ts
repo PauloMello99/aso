@@ -166,6 +166,7 @@ export class DrizzleMaterialRepository implements IMaterialRepository {
           costPerUnit: schema.materials.costPerUnit,
           shareable: schema.materials.shareable,
           lastUsedAt: schema.materials.lastUsedAt,
+          lowStockAlertedAt: schema.materials.lowStockAlertedAt,
           archivedAt: schema.materials.archivedAt,
           createdAt: schema.materials.createdAt,
           updatedAt: schema.materials.updatedAt,

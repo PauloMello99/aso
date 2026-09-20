@@ -70,6 +70,12 @@ function noop() {
 
 const TRANSACTIONS_PAGE_SIZE = 10;
 
+// As listagens de serviços/transações passaram a ser paginadas no servidor
+// (default 50, teto 200); esta tela pagina no cliente sobre o array inteiro,
+// então pede o teto. Acima de 200 itens o histórico do membro é truncado —
+// migrar para paginação servidor-side é follow-up (ver ADR-0026 de paginação).
+const MEMBER_LIST_LIMIT = 200;
+
 // Paginação client-side (o endpoint de transações não pagina), no mesmo padrão
 // de MemberServiceList.
 function PaginatedTransactionList({
@@ -413,7 +419,9 @@ export function MemberDetailPage({
     error: servicesError,
   } = useServices(
     canAccessServices && shouldFetchDetails ? orgId : "",
-    userId ? buildMemberServicesFilter(serviceFilter, userId) : undefined,
+    userId
+      ? { ...buildMemberServicesFilter(serviceFilter, userId), limit: MEMBER_LIST_LIMIT }
+      : undefined,
   );
 
   const {
@@ -422,7 +430,7 @@ export function MemberDetailPage({
     error: transactionsError,
   } = useTransactions(
     canAccessCashier && shouldFetchDetails ? orgId : "",
-    userId ? { createdBy: userId } : undefined,
+    userId ? { createdBy: userId, limit: MEMBER_LIST_LIMIT } : undefined,
   );
 
   if (!routerReady || membersLoading || authLoading) {

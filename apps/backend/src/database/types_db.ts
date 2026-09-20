@@ -1222,6 +1222,52 @@ export type Database = {
           },
         ]
       }
+      material_service_types: {
+        Row: {
+          created_at: string
+          id: string
+          material_id: string
+          org_id: string
+          service_type_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          material_id: string
+          org_id: string
+          service_type_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          material_id?: string
+          org_id?: string
+          service_type_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_service_types_material_id_org_id_fk"
+            columns: ["material_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id", "org_id"]
+          },
+          {
+            foreignKeyName: "material_service_types_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_service_types_service_type_id_org_id_fk"
+            columns: ["service_type_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "service_types"
+            referencedColumns: ["id", "org_id"]
+          },
+        ]
+      }
       materials: {
         Row: {
           archived_at: string | null
