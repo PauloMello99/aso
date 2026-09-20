@@ -16,6 +16,10 @@ import {
 import { resolveMemberPaymentCategoryId } from "../../domain/member-payment-category";
 import { CashierForbiddenException } from "../../domain/exceptions/cashier-forbidden.exception";
 import { PaymentMemberNotFoundException } from "../../domain/exceptions/payment-member-not-found.exception";
+import {
+  MEMBER_PAYMENT_DEFAULT_DESCRIPTION,
+  buildMemberPaymentTransactionDescription,
+} from "../../domain/member-payment-description";
 import { resolveActor } from "./resolve-actor";
 import { CreateTransactionUseCase } from "./create-transaction.use-case";
 
@@ -26,7 +30,8 @@ export interface CreateMemberPaymentInput {
   userId: string;
   amountCents: number;
   paymentMethod: PaymentMethod;
-  description: string;
+  /** Observacao do owner; ausente/vazia => descricao default. */
+  description?: string | null;
   periodStart?: string | null;
   periodEnd?: string | null;
   transactedAt?: Date;
@@ -77,6 +82,7 @@ export class CreateMemberPaymentUseCase {
     // comentario no topo de drizzle-member-payment.repository.ts. Um
     // .transaction() aqui seria redundante (viraria SAVEPOINT via Proxy) e nao
     // deve ser "consertado" depois achando que falta.
+    const note = input.description?.trim() || null;
     const transaction = await this.createTransactionUseCase.execute({
       orgId: input.orgId,
       authId: input.authId,
@@ -84,7 +90,13 @@ export class CreateMemberPaymentUseCase {
       grossCents: input.amountCents,
       paymentMethod: input.paymentMethod,
       categoryId,
-      description: input.description,
+      description: buildMemberPaymentTransactionDescription({
+        beneficiaryName:
+          beneficiary.userName.trim() || beneficiary.userEmail,
+        periodStart: input.periodStart,
+        periodEnd: input.periodEnd,
+        note,
+      }),
       transactedAt: input.transactedAt,
     });
 
@@ -95,7 +107,7 @@ export class CreateMemberPaymentUseCase {
       amountCents: input.amountCents,
       periodStart: input.periodStart,
       periodEnd: input.periodEnd,
-      description: input.description,
+      description: note ?? MEMBER_PAYMENT_DEFAULT_DESCRIPTION,
       reversesPaymentId: null,
       createdBy: actor.userId,
     });

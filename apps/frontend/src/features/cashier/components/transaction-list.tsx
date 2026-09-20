@@ -181,7 +181,7 @@ function MobileCard({
           )}
           <span
             className={cn(
-              "min-w-0 max-w-full truncate font-medium",
+              "min-w-0 max-w-full line-clamp-3 break-words font-medium",
               struck ? "text-foreground/40 line-through" : "text-foreground",
             )}
           >
@@ -275,7 +275,7 @@ export function TransactionList({
                       <span
                         title={t.description}
                         className={cn(
-                          "block max-w-[12rem] truncate font-medium",
+                          "line-clamp-2 max-w-[20rem] whitespace-normal break-words font-medium",
                           struck ? "text-foreground/40 line-through" : "text-foreground",
                         )}
                       >

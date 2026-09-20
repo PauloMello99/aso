@@ -35,8 +35,6 @@ import type { MemberDocumentFile } from "../application/use-cases/get-member-pay
 import { CreateMemberPaymentDto } from "./dto/create-member-payment.dto";
 import { MemberReportQueryDto } from "./dto/member-report-query.dto";
 
-const DEFAULT_DESCRIPTION = "Pagamento a funcionário";
-
 // :userId aqui e SEMPRE users.id (o BENEFICIARIO do pagamento) — diferente
 // de orgs.controller.ts, que usa :memberId (id da org_membership). Os dois
 // NAO sao intercambiaveis: nunca passe um id de membership para uma rota
@@ -176,7 +174,7 @@ export class MemberPaymentsController {
       userId,
       amountCents: dto.amountCents,
       paymentMethod: dto.paymentMethod,
-      description: dto.description ?? DEFAULT_DESCRIPTION,
+      description: dto.description,
       periodStart: dto.periodStart ?? null,
       periodEnd: dto.periodEnd ?? null,
     });
@@ -214,7 +212,7 @@ export class MemberPaymentsController {
       expectedUserId: userId,
       amountCents: dto.amountCents,
       paymentMethod: dto.paymentMethod,
-      description: dto.description ?? DEFAULT_DESCRIPTION,
+      description: dto.description,
       periodStart: dto.periodStart ?? null,
       periodEnd: dto.periodEnd ?? null,
     });
