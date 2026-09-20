@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { Search } from "lucide-react";
 import { useMoneyFormatter } from "@/shared/hooks/use-money-formatter";
-import { ListPagination } from "@/shared/components/ui/list-pagination";
+import { PaginationBar } from "@/shared/components/pagination-bar";
 import { Input } from "@/shared/components/ui/input";
 import {
   Select,
@@ -40,9 +40,11 @@ import {
   type ServicesFilter,
   type ServiceStatus,
 } from "@/features/services/types";
-import { formatMemberServicesPeriod } from "../lib/member-services-period";
+import {
+  formatMemberServicesPeriod,
+  patchServicesFilter,
+} from "../lib/member-services-period";
 
-const PAGE_SIZE = 10;
 const STATUS_VALUES: ServiceStatus[] = ["pending", "paid", "canceled"];
 
 // Variante somente-leitura de CustomerServiceHistoryList (clients feature),
@@ -51,11 +53,16 @@ const STATUS_VALUES: ServiceStatus[] = ["pending", "paid", "canceled"];
 // com a tela de detalhe do membro (só leitura).
 interface MemberServiceListProps {
   services: Service[];
+  // `total`/`page`/`pages` vêm do envelope paginado da API (`total` é o real,
+  // não o tamanho da página).
+  total: number;
+  page: number;
+  pages: number;
   loading: boolean;
   error: string | null;
   // Filtro controlado pela página (ela injeta `performedBy` fixo do membro ao
-  // chamar useServices). Filtragem no servidor; paginação é client-side porque
-  // o endpoint não pagina.
+  // chamar useServices). Filtragem e paginação no servidor; `filter.page` é
+  // resetado para 1 a cada mudança de filtro.
   filter: ServicesFilter;
   onFilterChange: Dispatch<SetStateAction<ServicesFilter>>;
 }
@@ -91,6 +98,9 @@ function ServiceCard({ service }: { service: Service }) {
 
 export function MemberServiceList({
   services,
+  total,
+  page,
+  pages,
   loading,
   error,
   filter,
@@ -98,7 +108,6 @@ export function MemberServiceList({
 }: MemberServiceListProps) {
   const money = useMoneyFormatter();
   const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
 
   const advancedCount =
     (filter.from ? 1 : 0) +
@@ -107,8 +116,11 @@ export function MemberServiceList({
   const hasFilters = advancedCount > 0 || !!filter.status || !!filter.q;
 
   function updateFilter(patch: Partial<ServicesFilter>) {
-    onFilterChange((f) => ({ ...f, ...patch }));
-    setPage(1);
+    onFilterChange((f) => patchServicesFilter(f, patch));
+  }
+
+  function goToPage(next: number) {
+    onFilterChange((f) => ({ ...f, page: next }));
   }
 
   function applySearch() {
@@ -120,13 +132,6 @@ export function MemberServiceList({
   function clearAdvanced() {
     updateFilter({ from: undefined, to: undefined, paymentMethod: undefined });
   }
-
-  const totalPages = Math.max(1, Math.ceil(services.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const pageItems = services.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
-  );
 
   return (
     <div className="space-y-3">
@@ -211,8 +216,8 @@ export function MemberServiceList({
 
       {!error && !loading && (
         <p className="text-xs text-foreground/40">
-          {formatMemberServicesPeriod(filter)} · {services.length}{" "}
-          {services.length === 1 ? "serviço" : "serviços"}
+          {formatMemberServicesPeriod(filter)} · {total}{" "}
+          {total === 1 ? "serviço" : "serviços"}
         </p>
       )}
 
@@ -240,7 +245,7 @@ export function MemberServiceList({
       ) : (
         <>
           <div className="grid gap-3 sm:hidden">
-            {pageItems.map((s) => (
+            {services.map((s) => (
               <ServiceCard key={s.id} service={s} />
             ))}
           </div>
@@ -258,7 +263,7 @@ export function MemberServiceList({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pageItems.map((s) => {
+                {services.map((s) => {
                   const status = serviceStatus(s);
                   return (
                     <TableRow key={s.id}>
@@ -297,12 +302,12 @@ export function MemberServiceList({
             </Table>
           </div>
 
-          <ListPagination
-            page={currentPage}
-            totalPages={totalPages}
-            totalItems={services.length}
-            itemsLabel="serviços"
-            onPageChange={setPage}
+          <PaginationBar
+            page={page}
+            pages={pages}
+            total={total}
+            onPageChange={goToPage}
+            itemLabel="serviço"
           />
         </>
       )}

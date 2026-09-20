@@ -8,6 +8,9 @@ import { dayEndIso, dayStartIso } from "@/shared/lib/day-bounds"
  */
 export const ALL_SERVICES_FROM = "1970-01-01"
 
+/** Tamanho de página (servidor) das listas de serviços/transações do membro. */
+export const MEMBER_LIST_PAGE_SIZE = 10
+
 export function buildMemberServicesFilter(
   filter: ServicesFilter,
   userId: string,
@@ -17,7 +20,17 @@ export function buildMemberServicesFilter(
     from: dayStartIso(filter.from || ALL_SERVICES_FROM),
     to: filter.to ? dayEndIso(filter.to) : undefined,
     performedBy: userId,
+    page: filter.page ?? 1,
+    limit: MEMBER_LIST_PAGE_SIZE,
   }
+}
+
+/** Aplica uma mudança de filtro e volta para a página 1 (paginação no servidor). */
+export function patchServicesFilter(
+  filter: ServicesFilter,
+  patch: Partial<ServicesFilter>,
+): ServicesFilter {
+  return { ...filter, ...patch, page: 1 }
 }
 
 function formatIsoDay(iso: string): string {

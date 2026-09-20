@@ -26,9 +26,8 @@ import {
 import { useServices } from "@/features/services/hooks/use-services";
 import { useTransactions } from "@/features/cashier/hooks/use-transactions";
 import { TransactionList } from "@/features/cashier/components/transaction-list";
-import type { TransactionView } from "@/features/cashier/types";
 import { useMoneyFormatter } from "@/shared/hooks/use-money-formatter";
-import { ListPagination } from "@/shared/components/ui/list-pagination";
+import { PaginationBar } from "@/shared/components/pagination-bar";
 import type { ServicesFilter } from "@/features/services/types";
 import { ApiError } from "@/infrastructure/api/client";
 import { useMembers } from "../hooks/use-members";
@@ -38,7 +37,10 @@ import { MemberPaymentList } from "./member-payment-list";
 import { PayMemberDialog } from "./pay-member-dialog";
 import { MemberReportDialog } from "./member-report-dialog";
 import { downloadAuthenticatedFile } from "@/shared/lib/download-file";
-import { buildMemberServicesFilter } from "../lib/member-services-period";
+import {
+  buildMemberServicesFilter,
+  MEMBER_LIST_PAGE_SIZE,
+} from "../lib/member-services-period";
 import { toMemberPaymentBody } from "../schemas/member-payment.schemas";
 import type { MemberPaymentFormValues } from "../schemas/member-payment.schemas";
 import { MEMBER_CLASSIFICATION_LABELS } from "../types";
@@ -68,49 +70,6 @@ function noop() {
   // botões nunca renderizam) — sem ação nesta tela, que é só leitura.
 }
 
-const TRANSACTIONS_PAGE_SIZE = 10;
-
-// As listagens de serviços/transações passaram a ser paginadas no servidor
-// (default 50, teto 200); esta tela pagina no cliente sobre o array inteiro,
-// então pede o teto. Acima de 200 itens o histórico do membro é truncado —
-// migrar para paginação servidor-side é follow-up (ver ADR-0026 de paginação).
-const MEMBER_LIST_LIMIT = 200;
-
-// Paginação client-side (o endpoint de transações não pagina), no mesmo padrão
-// de MemberServiceList.
-function PaginatedTransactionList({
-  transactions,
-}: {
-  transactions: TransactionView[];
-}) {
-  const [page, setPage] = useState(1);
-  const totalPages = Math.max(
-    1,
-    Math.ceil(transactions.length / TRANSACTIONS_PAGE_SIZE),
-  );
-  const currentPage = Math.min(page, totalPages);
-  const pageItems = transactions.slice(
-    (currentPage - 1) * TRANSACTIONS_PAGE_SIZE,
-    currentPage * TRANSACTIONS_PAGE_SIZE,
-  );
-  return (
-    <div className="space-y-3">
-      <TransactionList
-        transactions={pageItems}
-        onReverse={noop}
-        onCorrect={noop}
-        canManage={false}
-      />
-      <ListPagination
-        page={currentPage}
-        totalPages={totalPages}
-        totalItems={transactions.length}
-        itemsLabel="transações"
-        onPageChange={setPage}
-      />
-    </div>
-  );
-}
 
 const MEMBER_PAYMENT_ERROR_MESSAGES: Record<string, string> = {
   MEMBER_PAYMENT_NOT_FOUND: "Pagamento não encontrado.",
@@ -351,6 +310,7 @@ export function MemberDetailPage({
 
   const money = useMoneyFormatter();
   const [serviceFilter, setServiceFilter] = useState<ServicesFilter>({});
+  const [transactionsPage, setTransactionsPage] = useState(1);
 
   const [payDialogOpen, setPayDialogOpen] = useState(false);
   const [correctTarget, setCorrectTarget] = useState<MemberPaymentView | null>(
@@ -415,22 +375,32 @@ export function MemberDetailPage({
 
   const {
     services,
+    total: servicesTotal,
+    page: servicesPage,
+    pages: servicesPages,
     loading: servicesLoading,
     error: servicesError,
   } = useServices(
     canAccessServices && shouldFetchDetails ? orgId : "",
-    userId
-      ? { ...buildMemberServicesFilter(serviceFilter, userId), limit: MEMBER_LIST_LIMIT }
-      : undefined,
+    userId ? buildMemberServicesFilter(serviceFilter, userId) : undefined,
   );
 
   const {
     transactions,
+    total: transactionsTotal,
+    page: transactionsCurrentPage,
+    pages: transactionsPages,
     loading: transactionsLoading,
     error: transactionsError,
   } = useTransactions(
     canAccessCashier && shouldFetchDetails ? orgId : "",
-    userId ? { createdBy: userId, limit: MEMBER_LIST_LIMIT } : undefined,
+    userId
+      ? {
+          createdBy: userId,
+          page: transactionsPage,
+          limit: MEMBER_LIST_PAGE_SIZE,
+        }
+      : undefined,
   );
 
   if (!routerReady || membersLoading || authLoading) {
@@ -701,6 +671,9 @@ export function MemberDetailPage({
         ) : (
           <MemberServiceList
             services={services}
+            total={servicesTotal}
+            page={servicesPage}
+            pages={servicesPages}
             loading={servicesLoading}
             error={servicesError}
             filter={serviceFilter}
@@ -758,7 +731,21 @@ export function MemberDetailPage({
             </p>
           </div>
         ) : (
-          <PaginatedTransactionList transactions={transactions} />
+          <div className="space-y-3">
+            <TransactionList
+              transactions={transactions}
+              onReverse={noop}
+              onCorrect={noop}
+              canManage={false}
+            />
+            <PaginationBar
+              page={transactionsCurrentPage}
+              pages={transactionsPages}
+              total={transactionsTotal}
+              onPageChange={setTransactionsPage}
+              itemLabel="transação"
+            />
+          </div>
         )}
       </section>
 

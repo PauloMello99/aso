@@ -19,6 +19,8 @@ import { useCustomerOrigins } from "../hooks/use-customer-origins"
 import { useServices } from "@/features/services/hooks/use-services"
 import { ServiceDetailSheet } from "@/features/services/components/service-detail-sheet"
 import { useTransactions } from "@/features/cashier/hooks/use-transactions"
+import { ALL_SERVICES_FROM } from "@/features/organizations/lib/member-services-period"
+import { dayStartIso } from "@/shared/lib/day-bounds"
 import { AttachmentsSection } from "./attachments-section"
 import { CustomerAnamnesisList } from "./customer-anamnesis-list"
 import { CustomerForm } from "./customer-form"
@@ -77,7 +79,14 @@ export function CustomerDetailPage({
     error: servicesError,
   } = useServices(
     customerId ? orgId : "",
-    customerId ? { customerId, page: servicesPage, limit: 10 } : undefined,
+    customerId
+      ? {
+          customerId,
+          from: dayStartIso(ALL_SERVICES_FROM),
+          page: servicesPage,
+          limit: 10,
+        }
+      : undefined,
   )
   const {
     transactions,
@@ -178,7 +187,7 @@ export function CustomerDetailPage({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 max-w-full space-y-6">
       <BackLink orgSlug={orgSlug} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -302,7 +311,7 @@ export function CustomerDetailPage({
         </section>
       )}
 
-      <section className="space-y-3">
+      <section className="min-w-0 max-w-full space-y-3">
         <h2 className="text-sm font-medium text-foreground">Serviços</h2>
         {servicesError ? (
           <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
@@ -327,7 +336,7 @@ export function CustomerDetailPage({
         )}
       </section>
 
-      <section className="space-y-3">
+      <section className="min-w-0 max-w-full space-y-3">
         <h2 className="text-sm font-medium text-foreground">Transações</h2>
         {transactionsError ? (
           <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">

@@ -4,6 +4,8 @@ import {
   ALL_SERVICES_FROM,
   buildMemberServicesFilter,
   formatMemberServicesPeriod,
+  MEMBER_LIST_PAGE_SIZE,
+  patchServicesFilter,
 } from "./member-services-period"
 
 describe("buildMemberServicesFilter", () => {
@@ -12,6 +14,8 @@ describe("buildMemberServicesFilter", () => {
       from: dayStartIso(ALL_SERVICES_FROM),
       to: undefined,
       performedBy: "u1",
+      page: 1,
+      limit: MEMBER_LIST_PAGE_SIZE,
     })
   })
 
@@ -23,7 +27,15 @@ describe("buildMemberServicesFilter", () => {
       to: undefined,
       status: "paid",
       performedBy: "u1",
+      page: 1,
+      limit: MEMBER_LIST_PAGE_SIZE,
     })
+  })
+
+  it("keeps the requested page and forces the server page size", () => {
+    const out = buildMemberServicesFilter({ page: 3, limit: 200 }, "u1")
+    expect(out.page).toBe(3)
+    expect(out.limit).toBe(MEMBER_LIST_PAGE_SIZE)
   })
 
   it("falls back to the full history when from was cleared to undefined", () => {
@@ -38,6 +50,21 @@ describe("buildMemberServicesFilter", () => {
 
   it("does not let the caller override the member", () => {
     expect(buildMemberServicesFilter({ performedBy: "other" }, "u1").performedBy).toBe("u1")
+  })
+})
+
+describe("patchServicesFilter", () => {
+  it("merges the patch and resets to page 1", () => {
+    expect(
+      patchServicesFilter({ status: "paid", page: 4 }, { q: "ana" }),
+    ).toEqual({ status: "paid", q: "ana", page: 1 })
+  })
+
+  it("lets the patch clear a field", () => {
+    expect(patchServicesFilter({ status: "paid", page: 2 }, { status: undefined })).toEqual({
+      status: undefined,
+      page: 1,
+    })
   })
 })
 

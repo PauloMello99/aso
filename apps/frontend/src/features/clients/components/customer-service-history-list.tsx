@@ -33,22 +33,26 @@ function ServiceCard({
     <div
       onClick={() => onSelect?.(service)}
       className={cn(
-        "flex items-start justify-between gap-3 rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4",
+        "flex min-w-0 max-w-full items-start justify-between gap-3 rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4",
         onSelect && "cursor-pointer",
       )}
     >
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="truncate font-medium text-foreground">
+          <span className="min-w-0 max-w-full truncate font-medium text-foreground">
             {service.typeName ?? "—"}
           </span>
           <StatusBadge status={status} />
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-foreground/40">
           <span>{formatDate(service.performedAt)}</span>
-          {service.employeeName && <span>{service.employeeName}</span>}
+          {service.employeeName && (
+            <span className="min-w-0 max-w-full break-words">
+              {service.employeeName}
+            </span>
+          )}
         </div>
-        <div className="mt-2 font-semibold tabular-nums text-foreground">
+        <div className="mt-2 break-words font-semibold tabular-nums text-foreground">
           {formatBRL(service.amountCents)}
         </div>
       </div>
@@ -72,7 +76,7 @@ export function CustomerServiceHistoryList({
 
   return (
     <>
-      <div className="grid gap-3 sm:hidden">
+      <div className="grid grid-cols-1 gap-3 sm:hidden">
         {services.map((s) => (
           <ServiceCard key={s.id} service={s} onSelect={onSelect} />
         ))}

@@ -29,7 +29,7 @@ function TransactionCard({ view }: { view: TransactionView }) {
   return (
     <div
       className={cn(
-        "flex items-start justify-between gap-3 rounded-xl border p-4",
+        "flex min-w-0 max-w-full items-start justify-between gap-3 rounded-xl border p-4",
         struck
           ? "border-foreground/[0.04] bg-foreground/[0.01]"
           : "border-foreground/[0.06] bg-foreground/[0.02]",
@@ -44,7 +44,7 @@ function TransactionCard({ view }: { view: TransactionView }) {
           )}
           <span
             className={cn(
-              "truncate font-medium",
+              "min-w-0 max-w-full truncate font-medium",
               struck ? "text-foreground/40 line-through" : "text-foreground",
             )}
           >
@@ -56,7 +56,7 @@ function TransactionCard({ view }: { view: TransactionView }) {
           <span>{formatPaymentMethod(t.paymentMethod, t.installments)}</span>
           <span>{formatDate(t.transactedAt)}</span>
         </div>
-        <div className="mt-2">
+        <div className="mt-2 break-words">
           <AmountCell t={t} struck={struck} />
         </div>
       </div>
@@ -79,7 +79,7 @@ export function CustomerTransactionHistoryList({
 
   return (
     <>
-      <div className="grid gap-3 sm:hidden">
+      <div className="grid grid-cols-1 gap-3 sm:hidden">
         {transactions.map((v) => (
           <TransactionCard key={v.entity.id} view={v} />
         ))}
