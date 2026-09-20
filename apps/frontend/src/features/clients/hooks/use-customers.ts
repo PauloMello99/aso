@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { apiRequest } from "@/infrastructure/api/client"
 import { queryKeys } from "@/infrastructure/query/query-keys"
+import { dayEndIso, dayStartIso } from "@/shared/lib/day-bounds"
 import type { Customer, CustomersFilter, Gender } from "../types"
 
 export function useCustomers(orgId: string, filter?: CustomersFilter) {
@@ -17,8 +18,8 @@ export function useCustomers(orgId: string, filter?: CustomersFilter) {
       if (filter?.status) params.set("status", filter.status)
       if (filter?.originId) params.set("originId", filter.originId)
       if (filter?.gender) params.set("gender", filter.gender)
-      if (filter?.from) params.set("from", filter.from)
-      if (filter?.to) params.set("to", filter.to)
+      if (filter?.from) params.set("from", dayStartIso(filter.from))
+      if (filter?.to) params.set("to", dayEndIso(filter.to))
       if (filter?.birthMonth) params.set("birthMonth", String(filter.birthMonth))
       if (filter?.city) params.set("city", filter.city)
       if (filter?.state) params.set("state", filter.state)

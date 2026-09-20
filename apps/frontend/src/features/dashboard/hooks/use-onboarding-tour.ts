@@ -98,6 +98,7 @@ export function useOnboardingTour({ me, org, setMobileOpen }: UseOnboardingTourP
 
       const tourDriver = driver({
         showProgress: true,
+        progressText: "{{current}} de {{total}}",
         allowClose: true,
         nextBtnText: "Próximo",
         prevBtnText: "Anterior",

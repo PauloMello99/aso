@@ -31,6 +31,9 @@ export interface ICampaignDeliveryReportRepository {
    * SELECT (migration 0076) é por linha e não escopa a organização: um dono
    * de mais de uma org veria linhas de todas elas se o filtro explícito
    * `WHERE org_id = :orgId` não estivesse na query.
+   *
+   * Estado EFETIVO por (dedupe_key, attempt): uma linha `sent` que tem uma
+   * `bounced` correspondente NÃO é devolvida (o item é a linha bounced).
    */
   findDeliveryReport(
     orgId: string,

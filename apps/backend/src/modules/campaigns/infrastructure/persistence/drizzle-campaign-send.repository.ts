@@ -14,6 +14,7 @@ import {
 } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
 import type { TiptapDoc } from "../../domain/campaign-body";
+import { isUuid } from "../../domain/is-uuid";
 import type {
   ICampaignSendRepository,
   RecordCampaignBounceInput,
@@ -104,6 +105,11 @@ export class DrizzleCampaignSendRepository implements ICampaignSendRepository {
   }
 
   async findSentById(id: string): Promise<SentCampaignSend | null> {
+    // Defesa em profundidade: id não-UUID faria o cast do Postgres lançar.
+    if (!isUuid(id)) {
+      return null;
+    }
+
     const [row] = await this.db
       .select({
         orgId: schema.campaignSends.orgId,

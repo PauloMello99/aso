@@ -109,8 +109,9 @@ export function CustomerTransactionHistoryList({
                         <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-destructive" />
                       )}
                       <span
+                        title={t.description}
                         className={cn(
-                          "font-medium",
+                          "block max-w-[20rem] truncate font-medium",
                           struck ? "text-foreground/40 line-through" : "text-foreground",
                         )}
                       >

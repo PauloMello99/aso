@@ -6,6 +6,8 @@ import type {
 } from "../../domain/campaign-send.repository.interface";
 import { HandleCampaignBounceUseCase } from "./handle-campaign-bounce.use-case";
 
+const SENT_ROW_ID = "550e8400-e29b-41d4-a716-446655440001";
+
 function buildFakeSent(
   overrides: Partial<SentCampaignSend> = {},
 ): SentCampaignSend {
@@ -80,6 +82,21 @@ describe("HandleCampaignBounceUseCase", () => {
     expect(sendRepo.recordBounce).not.toHaveBeenCalled();
   });
 
+  it("tag campaign_send_id não-UUID: não consulta o repositório, retorna handled:false/not_found (F1)", async () => {
+    const sendRepo = buildSendRepo();
+    const auditService = buildFakeAuditService();
+    const useCase = new HandleCampaignBounceUseCase(sendRepo, auditService);
+
+    const result = await useCase.execute(
+      buildEvent({ tags: { campaign_send_id: "not-a-uuid'; --" } }),
+    );
+
+    expect(result).toEqual({ handled: false, reason: "not_found" });
+    expect(sendRepo.findSentById).not.toHaveBeenCalled();
+    expect(sendRepo.recordBounce).not.toHaveBeenCalled();
+    expect(auditService.log).not.toHaveBeenCalled();
+  });
+
   it("linha sent não encontrada: não escreve nada, retorna handled:false/not_found", async () => {
     const sendRepo = buildSendRepo({
       findSentById: jest.fn().mockResolvedValue(null),
@@ -109,7 +126,7 @@ describe("HandleCampaignBounceUseCase", () => {
     const auditService = buildFakeAuditService();
     const useCase = new HandleCampaignBounceUseCase(sendRepo, auditService);
     const event = buildEvent({
-      tags: { campaign_send_id: "sent-row-1" },
+      tags: { campaign_send_id: SENT_ROW_ID },
       bounceMessage: "cliente@example.com is not a valid recipient",
     });
 
@@ -117,7 +134,7 @@ describe("HandleCampaignBounceUseCase", () => {
 
     expect(result).toEqual({ handled: true });
     expect(sendRepo.recordBounce).toHaveBeenCalledWith({
-      sentRowId: "sent-row-1",
+      sentRowId: SENT_ROW_ID,
       orgId: "org-9",
       customerId: "customer-9",
       trigger: "birthday",
@@ -133,7 +150,7 @@ describe("HandleCampaignBounceUseCase", () => {
     expect(entry.orgId).toBe("org-9");
     expect(entry.action).toBe("campaign_email_bounced");
     expect(entry.entityType).toBe("campaign_send");
-    expect(entry.entityId).toBe("sent-row-1");
+    expect(entry.entityId).toBe(SENT_ROW_ID);
     const serializedMetadata = JSON.stringify(entry.metadata);
     expect(serializedMetadata).not.toContain("cliente@example.com");
     expect(entry.metadata).toEqual({

@@ -5,6 +5,7 @@ import {
   CAMPAIGN_SEND_REPOSITORY,
   ICampaignSendRepository,
 } from "../../domain/campaign-send.repository.interface";
+import { isUuid } from "../../domain/is-uuid";
 import { redactEmail } from "../../domain/redact-email";
 
 export interface HandleCampaignBounceResult {
@@ -65,6 +66,13 @@ export class HandleCampaignBounceUseCase {
     const sendId = event.tags["campaign_send_id"];
     if (!sendId) {
       return { handled: false, reason: "no_tag" };
+    }
+
+    // Tag assinada mas não-UUID (adulterada/de outro produto): a coluna `id` é
+    // uuid e o cast do Postgres lançaria 500 — a Resend reentregaria para
+    // sempre. Trata como qualquer outra tag desconhecida (200).
+    if (!isUuid(sendId)) {
+      return { handled: false, reason: "not_found" };
     }
 
     const sent = await this.sendRepo.findSentById(sendId);

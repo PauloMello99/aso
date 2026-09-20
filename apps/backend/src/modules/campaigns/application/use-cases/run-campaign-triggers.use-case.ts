@@ -265,7 +265,9 @@ export class RunCampaignTriggersUseCase {
         });
         retried += 1;
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = redactEmail(
+          error instanceof Error ? error.message : String(error),
+        );
         if (delivered) {
           // Retry ENTREGUE, só o INSERT `sent` falhou: não marcar `failed` um
           // e-mail que saiu. Não incrementa contador; o dedupe re-seleciona no
@@ -372,8 +374,9 @@ export class RunCampaignTriggersUseCase {
           });
           sent += 1;
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
+          const message = redactEmail(
+            error instanceof Error ? error.message : String(error),
+          );
           if (delivered) {
             // Entrega OK, só o INSERT `sent` falhou: NÃO gravar `failed` (o
             // `findRetriable` casaria e reenviaria um e-mail já entregue). Não
@@ -426,7 +429,9 @@ export class RunCampaignTriggersUseCase {
     try {
       await this.sendRepo.record(input);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = redactEmail(
+        error instanceof Error ? error.message : String(error),
+      );
       this.logger.warn(
         `Registro de falha não gravado (${context}): ${message}`,
       );

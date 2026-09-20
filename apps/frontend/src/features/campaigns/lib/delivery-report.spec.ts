@@ -8,7 +8,7 @@ import {
 describe("deliveryReason", () => {
   it("sent has no detail nor hint", () => {
     expect(deliveryReason("sent", null)).toEqual({
-      title: "Entregue ao provedor",
+      title: "Aceito pelo provedor de e-mail",
       detail: null,
       hint: null,
     })

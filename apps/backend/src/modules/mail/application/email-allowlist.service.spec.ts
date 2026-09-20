@@ -56,6 +56,81 @@ describe("EmailAllowlistService", () => {
     expect(service.isAllowed("qualquer@example.com")).toBe(false);
   });
 
+  it.each(["Production", "producton", "prod"])(
+    "lança no construtor para APP_ENVIRONMENT desconhecido (%s)",
+    (value) => {
+      expect(
+        () =>
+          new EmailAllowlistService(
+            buildConfig({ APP_ENVIRONMENT: value, EMAIL_ALLOWLIST: "" }),
+          ),
+      ).toThrow(/APP_ENVIRONMENT inválido.*production, staging, development, test/);
+    },
+  );
+
+  it.each(["production", "staging", "development", "test"])(
+    "aceita o valor válido %s sem lançar",
+    (value) => {
+      expect(
+        () =>
+          new EmailAllowlistService(
+            buildConfig({
+              APP_ENVIRONMENT: value,
+              EMAIL_ALLOWLIST: "dev@example.com",
+            }),
+          ),
+      ).not.toThrow();
+    },
+  );
+
+  it("APP_ENVIRONMENT ausente: enforcing sem lançar e com warn", () => {
+    const warnSpy = jest.spyOn(Logger.prototype, "warn").mockImplementation();
+    const logSpy = jest.spyOn(Logger.prototype, "log").mockImplementation();
+
+    const service = new EmailAllowlistService(
+      buildConfig({
+        APP_ENVIRONMENT: undefined,
+        EMAIL_ALLOWLIST: "dev@example.com",
+      }),
+    );
+
+    expect(service.isAllowed("outro@example.com")).toBe(false);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0]?.[0]).toContain("APP_ENVIRONMENT não definido");
+
+    warnSpy.mockRestore();
+    logSpy.mockRestore();
+  });
+
+  it("APP_ENVIRONMENT vazio/espaços: enforcing sem lançar", () => {
+    const warnSpy = jest.spyOn(Logger.prototype, "warn").mockImplementation();
+    const logSpy = jest.spyOn(Logger.prototype, "log").mockImplementation();
+
+    const service = new EmailAllowlistService(
+      buildConfig({ APP_ENVIRONMENT: "  ", EMAIL_ALLOWLIST: "dev@example.com" }),
+    );
+
+    expect(service.isAllowed("outro@example.com")).toBe(false);
+
+    warnSpy.mockRestore();
+    logSpy.mockRestore();
+  });
+
+  it("enforcing com allowlist vazia emite warn destacando bloqueio total", () => {
+    const warnSpy = jest.spyOn(Logger.prototype, "warn").mockImplementation();
+    const logSpy = jest.spyOn(Logger.prototype, "log").mockImplementation();
+
+    new EmailAllowlistService(
+      buildConfig({ APP_ENVIRONMENT: "staging", EMAIL_ALLOWLIST: "" }),
+    );
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0]?.[0]).toContain("TODO e-mail está bloqueado");
+
+    warnSpy.mockRestore();
+    logSpy.mockRestore();
+  });
+
   it("normaliza case do destinatário contra a allowlist já lowercased", () => {
     const service = new EmailAllowlistService(
       buildConfig({

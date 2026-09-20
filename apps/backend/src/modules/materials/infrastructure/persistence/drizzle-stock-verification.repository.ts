@@ -138,4 +138,13 @@ export class DrizzleStockVerificationRepository
       );
     return rows.map((r) => r.userId);
   }
+
+  async findOrgSlug(orgId: string): Promise<string | null> {
+    const [row] = await this.admin
+      .select({ slug: schema.organizations.slug })
+      .from(schema.organizations)
+      .where(eq(schema.organizations.id, orgId))
+      .limit(1);
+    return row?.slug ?? null;
+  }
 }

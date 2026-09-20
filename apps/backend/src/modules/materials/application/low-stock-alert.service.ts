@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { registerPostCommit } from "../../../database/database.module";
 import { NotificationService } from "../../notifications/application/notification.service";
 import { MaterialEntity } from "../domain/material.entity";
@@ -30,11 +31,12 @@ export class LowStockAlertService {
   // ATENCAO: do hook pos-commit (dispatch) so `findOwnerUserIds` (pool admin)
   // pode ser chamado em `stockVerificationRepo`. Qualquer metodo que use o
   // pool DRIZZLE falharia silenciosamente por RLS (client da request ja
-  // liberado, sem claims).
+  // liberado, sem claims). Vale tambem para `findOrgSlug` (pool admin).
   constructor(
     @Inject(STOCK_VERIFICATION_REPOSITORY)
     private readonly stockVerificationRepo: IStockVerificationRepository,
     private readonly notifications: NotificationService,
+    private readonly config: ConfigService,
   ) {}
 
   scheduleIfAny(orgId: string, crossed: LowStockItem[]): void {
@@ -69,12 +71,15 @@ export class LowStockAlertService {
       items.length === 1 && first
         ? `Estoque baixo: ${first.name}`
         : `${items.length} materiais abaixo do mínimo`;
+    // O e-mail renderiza `body` como texto simples (um <p>): "\n" seria
+    // colapsado, então os materiais vão numa linha só, separados por " · ".
     const body = items
       .map(
         (item) =>
           `${item.name}: atual ${item.stockQuantity}, mínimo ${item.minimumQuantity}`,
       )
-      .join("\n");
+      .join(" · ");
+    const actionUrl = await this.buildStockUrl(orgId);
 
     for (const userId of owners) {
       try {
@@ -85,6 +90,7 @@ export class LowStockAlertService {
           title,
           body,
           data: { materialIds: items.map((item) => item.id) },
+          ...(actionUrl && { actionUrl, actionLabel: "Ver estoque" }),
         });
       } catch (err) {
         this.logger.warn(
@@ -93,6 +99,24 @@ export class LowStockAlertService {
           }`,
         );
       }
+    }
+  }
+
+  // Sem FRONTEND_URL ou sem slug, omite o link (o alerta segue valendo).
+  private async buildStockUrl(orgId: string): Promise<string | undefined> {
+    const frontendUrl = this.config.get<string>("FRONTEND_URL");
+    if (!frontendUrl) return undefined;
+    try {
+      const slug = await this.stockVerificationRepo.findOrgSlug(orgId);
+      if (!slug) return undefined;
+      return `${frontendUrl.replace(/\/+$/, "")}/dashboard/org/${slug}/stock`;
+    } catch (err) {
+      this.logger.warn(
+        `Falha ao resolver o link de estoque (org ${orgId}): ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return undefined;
     }
   }
 }

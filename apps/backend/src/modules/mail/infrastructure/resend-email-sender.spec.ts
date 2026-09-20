@@ -1,3 +1,4 @@
+import { Logger } from "@nestjs/common";
 import type { ConfigService } from "@nestjs/config";
 import { ResendEmailSender } from "./resend-email-sender";
 import type { EmailAllowlistService } from "../application/email-allowlist.service";
@@ -59,6 +60,40 @@ describe("ResendEmailSender — gate da allowlist", () => {
 
     expect(result).toBe(false);
     expect(allowlist.isAllowed).not.toHaveBeenCalled();
+  });
+});
+
+describe("ResendEmailSender — logs sem PII", () => {
+  beforeEach(() => {
+    send.mockReset();
+  });
+
+  it("log de falha e de sucesso citam só o domínio do destinatário", async () => {
+    const errorSpy = jest
+      .spyOn(Logger.prototype, "error")
+      .mockImplementation(() => undefined);
+    const debugSpy = jest
+      .spyOn(Logger.prototype, "debug")
+      .mockImplementation(() => undefined);
+    const sender = new ResendEmailSender(enabledConfig, buildAllowlist(true));
+    const input = {
+      to: "cliente-real@example.com",
+      subject: "Assunto de teste",
+      html: "<p>corpo</p>",
+    };
+
+    send.mockResolvedValueOnce({ data: null, error: { message: "boom" } });
+    await expect(sender.send(input)).rejects.toThrow();
+    send.mockResolvedValueOnce({ data: { id: "email-id" }, error: null });
+    await sender.send(input);
+
+    const logged = [...errorSpy.mock.calls, ...debugSpy.mock.calls]
+      .flat()
+      .join("\n");
+    errorSpy.mockRestore();
+    debugSpy.mockRestore();
+    expect(logged).toContain("@example.com");
+    expect(logged).not.toContain("cliente-real");
   });
 });
 

@@ -36,10 +36,10 @@ export function OrgSwitcher({ org }: OrgSwitcherProps) {
         <Button
           variant="ghost"
           size="sm"
-          className="h-auto gap-1.5 px-2 py-1 text-sm font-medium text-foreground hover:bg-foreground/[0.06]"
+          className="h-auto min-w-0 max-w-full gap-1.5 px-2 py-1 text-sm font-medium text-foreground hover:bg-foreground/[0.06]"
         >
-          {org.name}
-          <ChevronsUpDown className="h-3.5 w-3.5 text-foreground/40" />
+          <span className="min-w-0 truncate">{org.name}</span>
+          <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-foreground/40" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-[200px]">

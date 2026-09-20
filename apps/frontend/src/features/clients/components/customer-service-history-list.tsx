@@ -99,10 +99,20 @@ export function CustomerServiceHistoryList({
                   className={cn(onSelect && "cursor-pointer")}
                 >
                   <TableCell className="pl-4 font-medium text-foreground">
-                    {s.typeName ?? "—"}
+                    <span
+                      title={s.typeName ?? undefined}
+                      className="block max-w-[14rem] truncate"
+                    >
+                      {s.typeName ?? "—"}
+                    </span>
                   </TableCell>
                   <TableCell className="text-foreground/50">
-                    {s.employeeName ?? "—"}
+                    <span
+                      title={s.employeeName ?? undefined}
+                      className="block max-w-[12rem] truncate"
+                    >
+                      {s.employeeName ?? "—"}
+                    </span>
                   </TableCell>
                   <TableCell className="text-foreground/40">
                     {formatDate(s.performedAt)}

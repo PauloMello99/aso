@@ -31,6 +31,7 @@ import {
   type ExportFormat,
 } from "@/shared/components/ui/export-menu"
 import { downloadExport } from "@/shared/lib/download-export"
+import { dayEndIso, dayStartIso } from "@/shared/lib/day-bounds"
 import { useHideValues } from "@/shared/components/hide-values-provider"
 import { useCurrentOrg } from "@/features/dashboard"
 import { useMembers } from "@/features/organizations/hooks/use-members"
@@ -158,8 +159,8 @@ export function CashierPage({ orgId }: CashierPageProps) {
       `caixa-${new Date().toISOString().slice(0, 10)}`,
       format,
       {
-        from: filter.from,
-        to: filter.to,
+        from: filter.from ? dayStartIso(filter.from) : undefined,
+        to: filter.to ? dayEndIso(filter.to) : undefined,
         type: filter.type,
         paymentMethod: filter.paymentMethod,
         categoryId: filter.categoryId,
@@ -241,7 +242,7 @@ export function CashierPage({ orgId }: CashierPageProps) {
               : "Seus lançamentos e saldo."}
           </p>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex min-w-0 flex-wrap gap-2 sm:justify-end">
           <Button
             variant="ghost"
             size="icon"
@@ -285,7 +286,10 @@ export function CashierPage({ orgId }: CashierPageProps) {
               </Button>
             </>
           )}
-          <Button onClick={() => setFormOpen(true)} className="flex-1 sm:flex-none">
+          <Button
+            onClick={() => setFormOpen(true)}
+            className="min-w-[9.5rem] flex-1 sm:flex-none"
+          >
             <Plus className="h-4 w-4" />
             Novo lançamento
           </Button>

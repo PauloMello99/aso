@@ -36,6 +36,7 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu"
 import { downloadExport } from "@/shared/lib/download-export"
+import { dayEndIso, dayStartIso } from "@/shared/lib/day-bounds"
 import { KpiCard } from "@/shared/components/kpi-card"
 import { useCurrentOrg } from "@/features/dashboard"
 import {
@@ -214,8 +215,8 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
         status: advanced.status,
         originId: advanced.originId,
         gender: advanced.gender,
-        from: advanced.from,
-        to: advanced.to,
+        from: advanced.from ? dayStartIso(advanced.from) : undefined,
+        to: advanced.to ? dayEndIso(advanced.to) : undefined,
         birthMonth: advanced.birthMonth,
         city: advanced.city,
         state: advanced.state,

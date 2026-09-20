@@ -494,6 +494,30 @@ describe("RunCampaignTriggersUseCase", () => {
     );
   });
 
+  it("redige o e-mail do provedor também no WARN de falha de envio (F5)", async () => {
+    const targetRepo = buildTargetRepo({
+      findBirthdayTargets: jest
+        .fn()
+        .mockResolvedValue([buildTarget({ customerId: "cus-1" })]),
+    });
+    const mailer = buildMailer({
+      sendCampaign: jest
+        .fn()
+        .mockRejectedValue(new Error("bounce for ana@example.com (550)")),
+    });
+    const warnSpy = jest
+      .spyOn(Logger.prototype, "warn")
+      .mockImplementation(() => undefined);
+    const { useCase } = setup({ targetRepo, mailer });
+
+    await useCase.execute();
+
+    const logged = warnSpy.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(logged).toContain("[email redigido]");
+    expect(logged).not.toContain("ana@example.com");
+    warnSpy.mockRestore();
+  });
+
   it("loga warn quando um gatilho atinge o teto de alvos (Low 3)", async () => {
     const targets = Array.from({ length: 200 }, (_, i) =>
       buildTarget({

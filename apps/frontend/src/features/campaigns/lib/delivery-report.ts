@@ -10,7 +10,7 @@ export const TRIGGER_LABELS: Record<CampaignTrigger, string> = {
 export const DELIVERY_STATUS_LABELS: Record<CampaignDeliveryStatus, string> = {
   sent: "Enviado",
   failed: "Falhou",
-  bounced: "Rejeitado",
+  bounced: "Devolvido",
 }
 
 export const REMOVED_CUSTOMER_LABEL = "Cliente removido"
@@ -33,7 +33,7 @@ export function deliveryReason(
   const detail = error && error.trim() !== "" ? error.trim() : null
   switch (status) {
     case "sent":
-      return { title: "Entregue ao provedor", detail: null, hint: null }
+      return { title: "Aceito pelo provedor de e-mail", detail: null, hint: null }
     case "bounced":
       return {
         title: "E-mail rejeitado pelo destinatário",

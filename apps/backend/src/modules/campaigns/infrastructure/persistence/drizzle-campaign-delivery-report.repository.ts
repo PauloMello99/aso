@@ -15,14 +15,14 @@
 // explícito — a RLS aqui é defesa em profundidade, quem realmente escopa o
 // relatório à organização da rota é este filtro.
 import { Inject, Injectable } from "@nestjs/common";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, ne, notExists, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { DRIZZLE, type DrizzleDB } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
 import type {
   CampaignDeliveryReportRow,
   ICampaignDeliveryReportRepository,
 } from "../../domain/campaign-delivery-report.repository.interface";
-
 @Injectable()
 export class DrizzleCampaignDeliveryReportRepository
   implements ICampaignDeliveryReportRepository
@@ -60,6 +60,8 @@ export class DrizzleCampaignDeliveryReportRepository
     // `ORDER BY created_at DESC LIMIT` usa o índice
     // campaign_sends_org_created_idx (migration 0063, (org_id, created_at
     // desc)) já existente — sem necessidade de índice novo.
+    const bounced = alias(schema.campaignSends, "bounced_sends");
+
     const rows = await this.db
       .select({
         id: schema.campaignSends.id,
@@ -81,7 +83,32 @@ export class DrizzleCampaignDeliveryReportRepository
           eq(schema.customers.orgId, schema.campaignSends.orgId),
         ),
       )
-      .where(eq(schema.campaignSends.orgId, orgId))
+      .where(
+        and(
+          eq(schema.campaignSends.orgId, orgId),
+          // Estado EFETIVO por (dedupe_key, attempt): a linha `sent` original
+          // é append-only e permanece após o bounce; se existe uma `bounced`
+          // para o mesmo par, a `sent` é omitida (o item é a linha bounced,
+          // com o motivo). Aplicado no SQL (não em memória) para o LIMIT
+          // não separar o par sent/bounced.
+          or(
+            ne(schema.campaignSends.status, "sent"),
+            notExists(
+              this.db
+                .select({ one: sql`1` })
+                .from(bounced)
+                .where(
+                  and(
+                    eq(bounced.orgId, schema.campaignSends.orgId),
+                    eq(bounced.dedupeKey, schema.campaignSends.dedupeKey),
+                    eq(bounced.attempt, schema.campaignSends.attempt),
+                    eq(bounced.status, "bounced"),
+                  ),
+                ),
+            ),
+          ),
+        ),
+      )
       .orderBy(desc(schema.campaignSends.createdAt))
       .limit(limit);
 

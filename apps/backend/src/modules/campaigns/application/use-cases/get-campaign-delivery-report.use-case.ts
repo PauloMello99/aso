@@ -4,6 +4,7 @@ import {
   type CampaignDeliveryReportRow,
   type ICampaignDeliveryReportRepository,
 } from "../../domain/campaign-delivery-report.repository.interface";
+import { redactEmail } from "../../domain/redact-email";
 
 const MAX_REPORT_ROWS = 200;
 
@@ -32,10 +33,17 @@ export class GetCampaignDeliveryReportUseCase {
   ) {}
 
   async execute(orgId: string): Promise<CampaignDeliveryReportResult> {
-    const items = await this.reportRepo.findDeliveryReport(
+    // A coleta do estado efetivo (sent devolvido não aparece) é do
+    // repositório (SQL); aqui só redige `error` na leitura — defesa em
+    // profundidade contra linha antiga/crua com e-mail no banco.
+    const rows = await this.reportRepo.findDeliveryReport(
       orgId,
       MAX_REPORT_ROWS,
     );
+    const items = rows.map((row) => ({
+      ...row,
+      error: row.error === null ? null : redactEmail(row.error),
+    }));
 
     const summary = items.reduce<CampaignDeliveryReportSummary>(
       (acc, item) => {

@@ -22,6 +22,7 @@ import {
   type ExportFormat,
 } from "@/shared/components/ui/export-menu"
 import { downloadExport } from "@/shared/lib/download-export"
+import { dayEndIso, dayStartIso } from "@/shared/lib/day-bounds"
 import { useCurrentOrg } from "@/features/dashboard"
 import { useCustomers } from "@/features/clients/hooks/use-customers"
 import { useMembers } from "@/features/organizations/hooks/use-members"
@@ -245,8 +246,8 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
       `servicos-${new Date().toISOString().slice(0, 10)}`,
       format,
       {
-        from: filter.from,
-        to: filter.to,
+        from: filter.from ? dayStartIso(filter.from) : undefined,
+        to: filter.to ? dayEndIso(filter.to) : undefined,
         serviceTypeId: filter.serviceTypeId,
         customerId: filter.customerId,
         performedBy: filter.performedBy,
@@ -324,7 +325,7 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
           </Select>
         </FilterField>
         {isOwner && (
-          <FilterField label="Profissional" className="sm:w-48">
+          <FilterField label="Profissional" className="sm:w-52">
             <Select
               value={filter.performedBy ?? "all"}
               onValueChange={(v) =>
@@ -338,7 +339,7 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
                 <SelectValue placeholder="Profissional" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos os profissionais</SelectItem>
+                <SelectItem value="all">Todos</SelectItem>
                 {members
                   .filter((m) => m.enabled)
                   .map((m) => (

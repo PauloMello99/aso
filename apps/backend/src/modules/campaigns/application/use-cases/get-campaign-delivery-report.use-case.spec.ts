@@ -78,6 +78,59 @@ describe("GetCampaignDeliveryReportUseCase", () => {
     expect(result.items[0]!.customerEmail).toBeNull();
   });
 
+  it("envio devolvido (repositório já omite a sent): 1 item bounced, summary {sent:0,bounced:1}", async () => {
+    const rows = [
+      buildFakeRow({ id: "b1", status: "bounced", error: "Permanent/General" }),
+    ];
+    const reportRepo = buildReportRepo({
+      findDeliveryReport: jest.fn().mockResolvedValue(rows),
+    });
+    const useCase = new GetCampaignDeliveryReportUseCase(reportRepo);
+
+    const result = await useCase.execute("org-1");
+
+    expect(result.summary).toEqual({ sent: 0, failed: 0, bounced: 1 });
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]!.status).toBe("bounced");
+  });
+
+  it("sent sem bounce vira sent; failed vira failed", async () => {
+    const reportRepo = buildReportRepo({
+      findDeliveryReport: jest
+        .fn()
+        .mockResolvedValue([
+          buildFakeRow({ id: "s1", status: "sent" }),
+          buildFakeRow({ id: "f1", status: "failed", error: "boom" }),
+        ]),
+    });
+    const useCase = new GetCampaignDeliveryReportUseCase(reportRepo);
+
+    const result = await useCase.execute("org-1");
+
+    expect(result.summary).toEqual({ sent: 1, failed: 1, bounced: 0 });
+  });
+
+  it("redige e-mail no campo error na leitura (linha crua no banco) e preserva null", async () => {
+    const reportRepo = buildReportRepo({
+      findDeliveryReport: jest.fn().mockResolvedValue([
+        buildFakeRow({
+          id: "b1",
+          status: "bounced",
+          error: "Permanent: atacante@evil.com rejected",
+        }),
+        buildFakeRow({ id: "s1", status: "sent", error: null }),
+      ]),
+    });
+    const useCase = new GetCampaignDeliveryReportUseCase(reportRepo);
+
+    const result = await useCase.execute("org-1");
+
+    expect(result.items[0]!.error).toBe(
+      "Permanent: [email redigido] rejected",
+    );
+    expect(result.items[1]!.error).toBeNull();
+  });
+
   it("chama o repositório com o orgId recebido e limit=200", async () => {
     const reportRepo = buildReportRepo();
     const useCase = new GetCampaignDeliveryReportUseCase(reportRepo);

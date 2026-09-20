@@ -3,6 +3,7 @@ import {
   and,
   asc,
   eq,
+  gt,
   gte,
   ilike,
   isNotNull,
@@ -63,7 +64,7 @@ export class DrizzleMaterialRepository implements IMaterialRepository {
     if (filter?.lowStockOnly) {
       conditions.push(
         lte(schema.materials.stockQuantity, schema.materials.minimumQuantity),
-        lte(sql`'0'::numeric`, schema.materials.minimumQuantity),
+        gt(schema.materials.minimumQuantity, sql`'0'::numeric`),
       );
     }
 

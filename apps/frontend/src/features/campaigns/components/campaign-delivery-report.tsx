@@ -124,9 +124,13 @@ export function CampaignDeliveryReport({ orgId }: CampaignDeliveryReportProps) {
           Relatório de entrega
         </h2>
         <p className="text-sm text-muted-foreground">
-          Quem recebeu e quem não recebeu os e-mails (últimos 200 envios). Para
-          quem não recebeu, peça ao cliente para atualizar o cadastro, por
+          Situação dos e-mails enviados (últimos 200 envios). Para quem teve
+          falha ou devolução, peça ao cliente para atualizar o cadastro, por
           exemplo por WhatsApp.
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Enviado = aceito pelo provedor de e-mail. Falhas e devoluções (bounce)
+          aparecem com o motivo.
         </p>
       </div>
 
@@ -158,7 +162,7 @@ export function CampaignDeliveryReport({ orgId }: CampaignDeliveryReportProps) {
               valueClassName="text-destructive"
             />
             <SummaryCard
-              label="Rejeitados"
+              label="Devolvidos"
               value={summary.bounced}
               valueClassName="text-warning"
             />

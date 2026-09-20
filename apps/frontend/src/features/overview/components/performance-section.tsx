@@ -129,17 +129,17 @@ function Kpi({
   goodWhenUp?: boolean
 }) {
   return (
-    <div className="min-w-0 rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-1.5 text-xs text-foreground/50">
+    <div className="min-w-0 rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-3 sm:p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-start gap-1.5 text-xs leading-tight text-foreground/50">
           <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
-          <span className="truncate">{label}</span>
+          <span className="min-w-0 text-balance">{label}</span>
         </div>
         <Delta kpi={kpi} goodWhenUp={goodWhenUp} />
       </div>
       <p
         className={cn(
-          "mt-1.5 truncate text-lg font-semibold tabular-nums sm:text-xl",
+          "mt-1.5 whitespace-nowrap text-base font-semibold tabular-nums sm:text-lg",
           tone === "positive" && "text-success",
           tone === "negative" && "text-destructive",
           (!tone || tone === "neutral") && "text-foreground",
@@ -190,7 +190,7 @@ export function PerformanceSection({
     <section className="grid gap-4">
       <BandHeader periodKey={periodKey} onPeriodChange={onPeriodChange} />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(11rem,100%),1fr))] gap-3">
         <Kpi
           label="Resultado"
           value={money(resultado)}
@@ -239,12 +239,12 @@ export function PerformanceSection({
         />
       </div>
 
-      <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-5">
+      <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4 sm:p-5">
         <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
           <PiggyBank className="h-4 w-4 text-primary" />
           Custo &amp; lucro dos serviços
         </h3>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(11rem,100%),1fr))] gap-3">
           <MiniStat
             label="Receita de serviços"
             value={money(m?.serviceRevenueCents ?? 0)}
@@ -399,13 +399,13 @@ function MiniStat({
 }) {
   return (
     <div className="min-w-0 rounded-lg bg-foreground/[0.02] p-3">
-      <div className="flex min-w-0 items-center gap-1.5 text-xs text-foreground/50">
+      <div className="flex min-w-0 items-start gap-1.5 text-xs leading-tight text-foreground/50">
         <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
-        <span className="truncate">{label}</span>
+        <span className="min-w-0 text-balance">{label}</span>
       </div>
       <p
         className={cn(
-          "mt-1 truncate text-lg font-semibold tabular-nums",
+          "mt-1 whitespace-nowrap text-base font-semibold tabular-nums sm:text-lg",
           tone === "positive" && "text-success",
           tone === "negative" && "text-destructive",
           !tone && "text-foreground",
