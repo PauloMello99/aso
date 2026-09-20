@@ -61,7 +61,7 @@ export class MemberPaymentEntity {
 
   // Linha que EH um estorno (aponta para o pagamento original que reverte).
   // Nao confundir com "foi estornada" (ver findReversedIds no repositorio) —
-  // isso e derivado, nao um campo da propria linha (ADR-0026 §3).
+  // isso e derivado, nao um campo da propria linha (ADR-0034 §3).
   get isReversal(): boolean {
     return this.reversesPaymentId !== null;
   }

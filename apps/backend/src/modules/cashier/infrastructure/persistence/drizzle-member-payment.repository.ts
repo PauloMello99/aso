@@ -1,5 +1,5 @@
 // CRITICO: este repositorio injeta @Inject(DRIZZLE), NUNCA DRIZZLE_ADMIN. A
-// dupla escrita (transacao do caixa + linha de org_member_payments, ADR-0026)
+// dupla escrita (transacao do caixa + linha de org_member_payments, ADR-0034)
 // depende de as duas escritas caírem na MESMA conexao do request
 // (RlsContext.runWithClaims em database.module.ts:70-113): o BEGIN acontece no
 // inicio do request e um db.transaction() aninhado dentro dele vira um
@@ -133,7 +133,7 @@ export class DrizzleMemberPaymentRepository implements IMemberPaymentRepository 
 
   // JOIN com transactions para trazer o payment_method REAL da transacao
   // vinculada (a linha de org_member_payments em si e agnostica ao metodo,
-  // ADR-0026 §3 — ver doc-comment de MemberPaymentWithMethod). innerJoin
+  // ADR-0034 §3 — ver doc-comment de MemberPaymentWithMethod). innerJoin
   // simples por transactionId, SEM filtro extra de org_id no join: a FK
   // composta (transaction_id, org_id) -> transactions(id, org_id) criada na
   // migration 0073 ja garante no banco que a transacao pertence a mesma org

@@ -25,7 +25,7 @@ export interface MemberPaymentView {
   /**
    * Metodo REAL da transacao vinculada (join no repositorio, ver
    * MemberPaymentWithMethod) — NAO um campo da propria linha de
-   * org_member_payments (ADR-0026 §3). Consumido pelo PayMemberDialog em modo
+   * org_member_payments (ADR-0034 §3). Consumido pelo PayMemberDialog em modo
    * "correct" para pre-preencher o metodo sem recorrer a um default fixo.
    */
   paymentMethod: PaymentMethod;

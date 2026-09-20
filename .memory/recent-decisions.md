@@ -46,7 +46,7 @@
   ao profissional dentro do ASO nesta fatia"*) está **SUPERADO**. Passa a existir pagamento
   ao profissional pelo ASO (botão "Pagar" → transação `outcome` no caixa), com valor **único
   agregado, não vinculado a serviços específicos**, e a tela do funcionário é
-  **exclusivamente de leitura**. Detalhe completo e anti-escopo em **ADR-0026** — quem fizer
+  **exclusivamente de leitura**. Detalhe completo e anti-escopo em **ADR-0034** — quem fizer
   recall vai achar o doc de 19/08 e tentar "corrigir" o escopo de volta; não corrija.
 
 - **2026-06-22 — Roadmap & situação consolidados**: `roadmap.md` é a fonte de follow-up

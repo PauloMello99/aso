@@ -1,4 +1,4 @@
-# ADR-0026 — Pagamento a membro: `transactions` agnóstica + entidade de pagamento isolada e append-only
+# ADR-0034 — Pagamento a membro: `transactions` agnóstica + entidade de pagamento isolada e append-only
 
 **Status:** Aceito
 **Data:** 2026-09-16

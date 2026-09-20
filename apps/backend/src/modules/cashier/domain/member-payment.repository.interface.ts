@@ -8,7 +8,7 @@ export const MEMBER_PAYMENT_REPOSITORY = Symbol("MEMBER_PAYMENT_REPOSITORY");
 
 /**
  * Retorno de findAllByOrgAndUser: paymentMethod NAO entra em
- * MemberPaymentEntity de proposito (ADR-0026 §3 — a entidade referencia a
+ * MemberPaymentEntity de proposito (ADR-0034 §3 — a entidade referencia a
  * transacao, nao duplica dado dela). E um campo derivado do JOIN com
  * transactions, valido so no contexto desta query de listagem (o frontend
  * precisa do metodo REAL para pre-preencher o dialog de correcao — sem isso
@@ -50,7 +50,7 @@ export interface IMemberPaymentRepository {
    * Ids de pagamento que JA TEM uma linha de estorno apontando para eles
    * (reverses_payment_id). Usado para derivar o flag "estornado" na listagem
    * sem materializar coluna nenhuma — o estado append-only nao guarda isso no
-   * proprio registro (ADR-0026 §3). Org-wide, SEM filtro por userId — espelha
+   * proprio registro (ADR-0034 §3). Org-wide, SEM filtro por userId — espelha
    * drizzle-transaction.repository.ts:148. Filtrar por userId aqui subestima
    * o flag "estornado" se um estorno nascer com user_id divergente do
    * pagamento original (defesa em profundidade no passo 8, nao garantia).
