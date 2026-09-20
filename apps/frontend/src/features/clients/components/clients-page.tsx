@@ -38,6 +38,7 @@ import {
 import { downloadExport } from "@/shared/lib/download-export"
 import { dayEndIso, dayStartIso } from "@/shared/lib/day-bounds"
 import { KpiCard } from "@/shared/components/kpi-card"
+import { PaginationBar } from "@/shared/components/pagination-bar"
 import { useCurrentOrg } from "@/features/dashboard"
 import {
   CreateCustomerRegistrationDialog,
@@ -123,14 +124,22 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
     setStateInput("")
   }
 
-  const filter = useMemo<CustomersFilter | undefined>(() => {
-    const f: CustomersFilter = { ...advanced }
-    if (search) f.search = search
-    return Object.keys(f).length ? f : undefined
+  const [page, setPage] = useState(1)
+
+  useEffect(() => {
+    setPage(1)
   }, [search, advanced])
+
+  const filter = useMemo<CustomersFilter>(() => {
+    const f: CustomersFilter = { ...advanced, page }
+    if (search) f.search = search
+    return f
+  }, [search, advanced, page])
 
   const {
     customers,
+    total,
+    pages,
     loading,
     error,
     refetch,
@@ -138,6 +147,11 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
     updateCustomer,
     deleteCustomer,
   } = useCustomers(orgId, filter)
+  const { total: activeTotal } = useCustomers(
+    orgId,
+    { ...filter, enabledOnly: true, page: 1, limit: 1 },
+    { enabled: !!orgId },
+  )
   const { origins } = useCustomerOrigins(orgId)
 
   const [formOpen, setFormOpen] = useState(false)
@@ -151,11 +165,6 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
     setUpdateInviteCustomer(customer)
     setUpdateInviteDialogOpen(true)
   }
-
-  const activeCount = useMemo(
-    () => customers.filter((c) => c.enabled).length,
-    [customers],
-  )
 
   function openCreate() {
     setActiveCustomer(null)
@@ -272,14 +281,14 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
           icon={Users}
           iconClassName="text-text-muted"
           label="Total de clientes"
-          value={String(customers.length)}
+          value={String(total)}
           loading={loading}
         />
         <KpiCard
           icon={UserCheck}
           iconClassName="text-success"
           label="Ativos"
-          value={String(activeCount)}
+          value={String(activeTotal)}
           loading={loading}
         />
       </div>
@@ -437,14 +446,23 @@ export function ClientsPage({ orgId }: ClientsPageProps) {
           Carregando clientes…
         </div>
       ) : (
-        <CustomerList
-          customers={customers}
-          onEdit={openEdit}
-          onToggleStatus={handleToggleStatus}
-          onDelete={handleDelete}
-          onViewDetail={openDetail}
-          onSendUpdateInvite={openUpdateInvite}
-        />
+        <>
+          <CustomerList
+            customers={customers}
+            onEdit={openEdit}
+            onToggleStatus={handleToggleStatus}
+            onDelete={handleDelete}
+            onViewDetail={openDetail}
+            onSendUpdateInvite={openUpdateInvite}
+          />
+          <PaginationBar
+            page={page}
+            pages={pages}
+            total={total}
+            onPageChange={setPage}
+            itemLabel="cliente"
+          />
+        </>
       )}
 
       <CustomerForm

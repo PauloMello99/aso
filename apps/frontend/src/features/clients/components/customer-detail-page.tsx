@@ -1,10 +1,11 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, FileHeart, Loader2, Pencil } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Separator } from "@/shared/components/ui/separator"
+import { PaginationBar } from "@/shared/components/pagination-bar"
 import { useCurrentOrg } from "@/features/dashboard"
 import { canAccessModule } from "@/features/dashboard/lib/nav"
 import {
@@ -66,21 +67,30 @@ export function CustomerDetailPage({
   routerReady,
 }: CustomerDetailPageProps) {
   const { customer, loading, error } = useCustomerDetail(orgId, customerId)
+  const [servicesPage, setServicesPage] = useState(1)
+  const [transactionsPage, setTransactionsPage] = useState(1)
   const {
     services,
+    total: servicesTotal,
+    pages: servicesPages,
     loading: servicesLoading,
     error: servicesError,
-  } = useServices(customerId ? orgId : "", customerId ? { customerId } : undefined)
+  } = useServices(
+    customerId ? orgId : "",
+    customerId ? { customerId, page: servicesPage, limit: 10 } : undefined,
+  )
   const {
     transactions,
+    total: transactionsTotal,
+    pages: transactionsPages,
     loading: transactionsLoading,
     error: transactionsError,
   } = useTransactions(
     customerId ? orgId : "",
-    customerId ? { customerId } : undefined,
+    customerId ? { customerId, page: transactionsPage, limit: 10 } : undefined,
   )
   const { origins } = useCustomerOrigins(orgId)
-  const { updateCustomer } = useCustomers(orgId)
+  const { updateCustomer } = useCustomers(orgId, undefined, { enabled: false })
   const { org } = useCurrentOrg()
   const canSendAnamnesisInvite = canAccessModule(
     org.role,
@@ -103,6 +113,11 @@ export function CustomerDetailPage({
   )
   const [selectedAnamnesisResponseId, setSelectedAnamnesisResponseId] =
     useState<string | null>(null)
+
+  useEffect(() => {
+    setServicesPage(1)
+    setTransactionsPage(1)
+  }, [customerId])
 
   const originName = useMemo(() => {
     if (!customer?.originId) return "Não informado"
@@ -194,12 +209,12 @@ export function CustomerDetailPage({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <SummaryCard
           label="Serviços realizados"
-          value={servicesError ? "—" : String(services.length)}
+          value={servicesError ? "—" : String(servicesTotal)}
           loading={servicesLoading}
         />
         <SummaryCard
           label="Transações"
-          value={transactionsError ? "—" : String(transactions.length)}
+          value={transactionsError ? "—" : String(transactionsTotal)}
           loading={transactionsLoading}
         />
       </div>
@@ -296,10 +311,19 @@ export function CustomerDetailPage({
         ) : servicesLoading ? (
           <SectionSkeleton />
         ) : (
-          <CustomerServiceHistoryList
-            services={services}
-            onSelect={(service: Service) => setSelectedServiceId(service.id)}
-          />
+          <>
+            <CustomerServiceHistoryList
+              services={services}
+              onSelect={(service: Service) => setSelectedServiceId(service.id)}
+            />
+            <PaginationBar
+              page={servicesPage}
+              pages={servicesPages}
+              total={servicesTotal}
+              onPageChange={setServicesPage}
+              itemLabel="serviço"
+            />
+          </>
         )}
       </section>
 
@@ -312,7 +336,16 @@ export function CustomerDetailPage({
         ) : transactionsLoading ? (
           <SectionSkeleton />
         ) : (
-          <CustomerTransactionHistoryList transactions={transactions} />
+          <>
+            <CustomerTransactionHistoryList transactions={transactions} />
+            <PaginationBar
+              page={transactionsPage}
+              pages={transactionsPages}
+              total={transactionsTotal}
+              onPageChange={setTransactionsPage}
+              itemLabel="lançamento"
+            />
+          </>
         )}
       </section>
 

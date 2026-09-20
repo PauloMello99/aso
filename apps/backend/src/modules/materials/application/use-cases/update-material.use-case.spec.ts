@@ -1,7 +1,8 @@
 import { UpdateMaterialUseCase } from "./update-material.use-case";
-import { MaterialEntity } from "../../domain/material.entity";
 import { IMaterialRepository } from "../../domain/material.repository.interface";
+import { MaterialEntity } from "../../domain/material.entity";
 import { MaterialNotFoundException } from "../../domain/exceptions/material-not-found.exception";
+import { MaterialServiceTypeInvalidException } from "../../domain/exceptions/material-service-type-invalid.exception";
 import { LowStockAlertService } from "../low-stock-alert.service";
 
 jest.mock("../../../../database/database.module", () => ({
@@ -12,18 +13,18 @@ function buildMaterial(
   overrides: Partial<Parameters<typeof MaterialEntity.create>[0]> = {},
 ): MaterialEntity {
   return MaterialEntity.create({
-    id: "material-1",
+    id: "mat-1",
     orgId: "org-1",
     categoryId: null,
-    name: "Tinta",
-    stockQuantity: "3",
-    minimumQuantity: "5",
-    costPerUnit: null,
+    name: "Tinta preta",
+    stockQuantity: "0.00",
+    minimumQuantity: "2.00",
+    costPerUnit: "50.00",
     shareable: false,
     lastUsedAt: null,
     archivedAt: null,
-    createdAt: new Date("2026-01-01T00:00:00Z"),
-    updatedAt: new Date("2026-01-01T00:00:00Z"),
+    createdAt: new Date("2026-07-01T10:00:00Z"),
+    updatedAt: new Date("2026-07-01T10:00:00Z"),
     ...overrides,
   });
 }
@@ -33,8 +34,20 @@ function buildFakeMaterialRepo(
 ): jest.Mocked<IMaterialRepository> {
   return {
     findById: jest.fn().mockResolvedValue(buildMaterial()),
+    findAllByOrg: jest.fn(),
+    findPageByOrg: jest.fn(),
+    findOptionsByOrg: jest.fn(),
+    create: jest.fn(),
     update: jest.fn().mockResolvedValue(buildMaterial()),
     syncLowStockMarker: jest.fn().mockResolvedValue(false),
+    updateStockQuantity: jest.fn(),
+    touchLastUsed: jest.fn(),
+    setArchived: jest.fn(),
+    isLinkedToService: jest.fn(),
+    delete: jest.fn(),
+    findServiceTypeIdsByMaterial: jest.fn().mockResolvedValue([]),
+    setServiceTypes: jest.fn(),
+    countServiceTypesInOrg: jest.fn(),
     ...overrides,
   } as unknown as jest.Mocked<IMaterialRepository>;
 }
@@ -46,16 +59,95 @@ function buildFakeLowStockAlerts(): jest.Mocked<LowStockAlertService> {
 }
 
 describe("UpdateMaterialUseCase", () => {
-  it("lança MaterialNotFoundException quando o material não existe", async () => {
-    const repo = buildFakeMaterialRepo({
+  it("material inexistente lança MaterialNotFoundException antes de qualquer escrita", async () => {
+    const materialRepo = buildFakeMaterialRepo({
       findById: jest.fn().mockResolvedValue(null),
     });
-    const useCase = new UpdateMaterialUseCase(repo, buildFakeLowStockAlerts());
+    const useCase = new UpdateMaterialUseCase(materialRepo, buildFakeLowStockAlerts());
 
     await expect(
-      useCase.execute("material-1", "org-1", { name: "Novo" }),
-    ).rejects.toBeInstanceOf(MaterialNotFoundException);
-    expect(repo.update).not.toHaveBeenCalled();
+      useCase.execute("mat-1", "org-1", { name: "Nova tinta" }),
+    ).rejects.toThrow(MaterialNotFoundException);
+
+    expect(materialRepo.setServiceTypes).not.toHaveBeenCalled();
+    expect(materialRepo.update).not.toHaveBeenCalled();
+  });
+
+  it("serviceTypeIds: [] chama setServiceTypes com array vazio", async () => {
+    const materialRepo = buildFakeMaterialRepo();
+    const useCase = new UpdateMaterialUseCase(materialRepo, buildFakeLowStockAlerts());
+
+    await useCase.execute("mat-1", "org-1", { serviceTypeIds: [] });
+
+    expect(materialRepo.setServiceTypes).toHaveBeenCalledWith(
+      "mat-1",
+      "org-1",
+      [],
+    );
+    expect(materialRepo.countServiceTypesInOrg).not.toHaveBeenCalled();
+  });
+
+  it("serviceTypeIds: undefined não chama setServiceTypes", async () => {
+    const materialRepo = buildFakeMaterialRepo();
+    const useCase = new UpdateMaterialUseCase(materialRepo, buildFakeLowStockAlerts());
+
+    await useCase.execute("mat-1", "org-1", { name: "Nova tinta" });
+
+    expect(materialRepo.setServiceTypes).not.toHaveBeenCalled();
+  });
+
+  it("serviceTypeIds inválidos (count menor) rejeita e não chama setServiceTypes", async () => {
+    const materialRepo = buildFakeMaterialRepo({
+      countServiceTypesInOrg: jest.fn().mockResolvedValue(1),
+    });
+    const useCase = new UpdateMaterialUseCase(materialRepo, buildFakeLowStockAlerts());
+
+    await expect(
+      useCase.execute("mat-1", "org-1", {
+        serviceTypeIds: ["svc-1", "svc-2"],
+      }),
+    ).rejects.toThrow(MaterialServiceTypeInvalidException);
+
+    expect(materialRepo.setServiceTypes).not.toHaveBeenCalled();
+    expect(materialRepo.update).not.toHaveBeenCalled();
+  });
+
+  it("chama setServiceTypes DEPOIS de update, nunca antes (update primeiro para não substituir vínculos se o update falhar)", async () => {
+    const callOrder: string[] = [];
+    const materialRepo = buildFakeMaterialRepo({
+      update: jest.fn().mockImplementation(async () => {
+        callOrder.push("update");
+        return buildMaterial();
+      }),
+      setServiceTypes: jest.fn().mockImplementation(async () => {
+        callOrder.push("setServiceTypes");
+      }),
+      countServiceTypesInOrg: jest.fn().mockResolvedValue(2),
+    });
+    const useCase = new UpdateMaterialUseCase(materialRepo, buildFakeLowStockAlerts());
+
+    await useCase.execute("mat-1", "org-1", {
+      name: "Nova tinta",
+      serviceTypeIds: ["svc-1", "svc-2"],
+    });
+
+    expect(callOrder).toEqual(["update", "setServiceTypes"]);
+  });
+
+  it("se update falhar, setServiceTypes nunca é chamado", async () => {
+    const materialRepo = buildFakeMaterialRepo({
+      update: jest.fn().mockRejectedValue(new Error("db error")),
+      countServiceTypesInOrg: jest.fn().mockResolvedValue(1),
+    });
+    const useCase = new UpdateMaterialUseCase(materialRepo, buildFakeLowStockAlerts());
+
+    await expect(
+      useCase.execute("mat-1", "org-1", {
+        serviceTypeIds: ["svc-1"],
+      }),
+    ).rejects.toThrow("db error");
+
+    expect(materialRepo.setServiceTypes).not.toHaveBeenCalled();
   });
 
   it("editar só o nome não sincroniza o marcador nem alerta", async () => {
@@ -63,7 +155,7 @@ describe("UpdateMaterialUseCase", () => {
     const lowStockAlerts = buildFakeLowStockAlerts();
     const useCase = new UpdateMaterialUseCase(repo, lowStockAlerts);
 
-    await useCase.execute("material-1", "org-1", { name: "Novo" });
+    await useCase.execute("mat-1", "org-1", { name: "Novo" });
 
     expect(repo.syncLowStockMarker).not.toHaveBeenCalled();
     expect(lowStockAlerts.scheduleIfAny).not.toHaveBeenCalled();
@@ -78,15 +170,15 @@ describe("UpdateMaterialUseCase", () => {
     const lowStockAlerts = buildFakeLowStockAlerts();
     const useCase = new UpdateMaterialUseCase(repo, lowStockAlerts);
 
-    const result = await useCase.execute("material-1", "org-1", {
+    const result = await useCase.execute("mat-1", "org-1", {
       minimumQuantity: "10",
     });
 
-    expect(result).toBe(updated);
-    expect(repo.syncLowStockMarker).toHaveBeenCalledWith("material-1");
+    expect(result).toEqual(expect.objectContaining({ id: updated.id, minimumQuantity: "10" }));
+    expect(repo.syncLowStockMarker).toHaveBeenCalledWith("mat-1");
     expect(lowStockAlerts.scheduleIfAny).toHaveBeenCalledTimes(1);
     expect(lowStockAlerts.scheduleIfAny).toHaveBeenCalledWith("org-1", [
-      expect.objectContaining({ id: "material-1", minimumQuantity: "10" }),
+      expect.objectContaining({ id: "mat-1", minimumQuantity: "10" }),
     ]);
   });
 
@@ -95,7 +187,7 @@ describe("UpdateMaterialUseCase", () => {
     const lowStockAlerts = buildFakeLowStockAlerts();
     const useCase = new UpdateMaterialUseCase(repo, lowStockAlerts);
 
-    await useCase.execute("material-1", "org-1", { minimumQuantity: "1" });
+    await useCase.execute("mat-1", "org-1", { minimumQuantity: "1" });
 
     expect(repo.syncLowStockMarker).toHaveBeenCalledTimes(1);
     expect(lowStockAlerts.scheduleIfAny).not.toHaveBeenCalled();

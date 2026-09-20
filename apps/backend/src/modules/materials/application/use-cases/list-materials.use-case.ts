@@ -37,6 +37,7 @@ export function toMaterialListItemView(
     archivedAt,
     createdAt,
     updatedAt,
+    serviceTypeIds,
   } = material;
   return {
     id,
@@ -50,9 +51,11 @@ export function toMaterialListItemView(
     archivedAt,
     createdAt,
     updatedAt,
+    serviceTypeIds,
   };
 }
 
+// Caminho NÃO paginado — usado por ExportMaterialsUseCase e GetOverviewUseCase (lowStock); listagem paginada vive em ListMaterialsPageUseCase.
 @Injectable()
 export class ListMaterialsUseCase {
   constructor(

@@ -6,6 +6,7 @@ import {
   ListCustomersFilter,
 } from "../../domain/customer.repository.interface";
 
+// Caminho NÃO paginado — mantido para export/overview (ver ListCustomersPageUseCase para listagem paginada).
 @Injectable()
 export class ListCustomersUseCase {
   constructor(

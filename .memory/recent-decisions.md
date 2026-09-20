@@ -1,4 +1,4 @@
-﻿# Decisões Recentes
+# Decisões Recentes
 
 Índice rápido — ver `.memory/adr/` para detalhe completo.
 
@@ -29,7 +29,8 @@
 | ADR-0023 | Billing (catálogo Stripe, super_admin): `billing_plans` no banco vira fonte de verdade (sync não rotaciona mais preço automaticamente, só reporta `drift`); Price/Coupon são imutáveis no Stripe pós-criação — "editar" é sempre criar novo + `transfer_lookup_key` + arquivar separado (Price) ou editar só o Promotion Code (Coupon); discriminador anti-corrida no webhook evita persistir o Price arquivado de uma rotação                                                                                                                          | 2026-08-15 | Aceito (parcialmente superseded por ADR-0024) |
 | ADR-0024 | Billing multi-preço por intervalo (`billing_plan_prices`, migration 0048, índices únicos parciais `WHERE active`), migração automática de assinantes na rotação (`RotatePlanIntervalPriceUseCase`, sem transação cross-repository), reconciliação periódica via cron invertendo a direção do ADR-0023 (Stripe manda, `ReconcilePlanCatalogUseCase` self-throttled a cada 3 dias via `cron_job_state`), endpoint público `GET /public/billing/plans` (feature-flag `PUBLIC_PRICING_ENABLED`), landing com ISR (`numReplicas=1` do ADR-0011 torna seguro) | 2026-08-16 | Aceito                                        |
 | ADR-0025 | Campanhas de e-mail por gatilho (T6 Bloco A): módulo `campaigns` próprio (não reusa `NotificationService`), opt-out por cliente em `customer_email_preferences` (migration 0061, `unsubscribe_token` que nunca rotaciona), `org_campaign_settings` (migration 0062) + env `CAMPAIGNS_ENABLED` como gate — sem o módulo de Feature Flags (ADR-0009), `campaign_sends` (migration 0063) append-only sem FK nem RLS, copy custom texto-puro com allowlist de tokens, rodapé fixo via `footerOverride`, fuso `America/Sao_Paulo` nos gatilhos de data (D8) | 2026-09-01 | Aceito (parcialmente superseded pelo Addendum 2026-09 — rework T6) |
-| ADR-0026 | Pagamento a membro: `transactions` permanece **agnóstica** (nenhuma coluna de beneficiário), a marcação "esta transação é o pagamento do membro X" vive numa **entidade própria isolada e append-only** que referencia a transação; correção = linha de reversão + estorno no caixa na mesma ação (ADR-0010), nunca `UPDATE`/`DELETE`; tela do membro é só leitura, só o clique do owner em "Pagar" lança. **Reverte** `docs/planning/2026-08-19-meeting-backlog.md` item 3 ("não criar fluxo de pagamento real ao profissional") | 2026-09-16 | Aceito |
+| ADR-0026 | Paginação offset-based nas listagens de customers/services/cashier(transactions)/materials/stock_movements: `page`/`limit` clampados sem exceção, `count()` exato por request, ORDER BY com desempate por `id`, busca de `services` migrada de filtro em memória para SQL, use-case irmão `*PageUseCase` ao lado do original (que export/overview continuam consumindo intocado), endpoints `.../options` (cap 1000 + `truncated`) para selects de apoio | 2026-09-03 | Aceito |
+| ADR-0034 | Pagamento a membro: `transactions` permanece **agnóstica** (nenhuma coluna de beneficiário), a marcação "esta transação é o pagamento do membro X" vive numa **entidade própria isolada e append-only** que referencia a transação; correção = linha de reversão + estorno no caixa na mesma ação (ADR-0010), nunca `UPDATE`/`DELETE`; tela do membro é só leitura, só o clique do owner em "Pagar" lança. **Reverte** `docs/planning/2026-08-19-meeting-backlog.md` item 3 ("não criar fluxo de pagamento real ao profissional") | 2026-09-16 | Aceito |
 | ADR-0033 | Aviso de novidades por e-mail aos donos guiado por SemVer (Bloco 5.2 fatia C): relevância DERIVADA (`shouldNotifyOwners` major/minor + corte `NOTIFY_FROM_VERSION=4`, sem flag `notifyOwners`), log append-only `changelog_notifications` (0082, UNIQUE user+entry, falha terminal, `error` só redigido), opt-out `users.product_updates_opted_out_at` (0081, expõe só booleano), alvos = donos reais habilitados de org ativa, use-case com kill-switch + canal + `claimRun` 10 min + allowlist antes de gravar + teto 50/varredura 500; desligar = kill-switch, não rollback |
 | ADR-0032 | Onboarding modular (Bloco 5.2 fatia A): progresso por usuário em `users.onboarding_seen jsonb` (migration 0080, merge no servidor, CHECK ≤4096 B), `visto = seen[id] >= version OU completedAt >= introducedAt` (sem backfill), registro explícito `ONBOARDING_MODULE_META` por href de nav (falha se faltar), fechar por qualquer via grava TODOS os oferecidos, replay `?tour=1` não grava; migrate antes do backend |
 | ADR-0031 | Versionamento SemVer UNIFICADO do produto (aceito, base 1.0.0): versão única na raiz + apps em lockstep (packages 0.0.0 fora), único caminho `pnpm version:bump` (`bin/scripts/release/version.mjs`), `version:check` no CI + spec de guard + skill `product-versioning`; minor/major ⇒ item de changelog com o mesmo `semver`, patch nunca tem item; `notifyOwners` substituído por derivação (major/minor) + corte `NOTIFY_FROM_VERSION=4` |
@@ -255,3 +256,30 @@
   Convenções em `domain-rules.md` (seções "Roles dentro da org", "Taxa de cartão por
   profissional", "Comissão/repasse por profissional", "Cobertura de auditoria do caixa").
   Commits pendentes (aguardando pedido do usuário).
+- **2026-09-03 — Paginação offset-based em customers/services/cashier(transactions)/
+  materials/stock_movements** (`ADR-0026`), motivada pelo volume real da importação
+  Ink House (724 clientes, 1398 serviços, 3840 transações). Backend: `GET`s de listagem
+  passam a devolver `{ data, total, page, pages }`; `page`/`limit` clampados
+  (`resolvePageRequest`/`buildPaginated`/`parsePageParam` em `common/pagination/`), nunca
+  `DomainException`; `count()` exato por request; ORDER BY sempre com desempate por `id`.
+  Busca `q` de `services` migrada de `.filter()` em memória para `ILIKE` SQL — pré-
+  requisito para paginar sem perder resultados. Cada domínio ganhou um use-case irmão
+  `List<Entity>PageUseCase` (exceto `stock_movements`, migrado direto): os use-cases
+  originais (`ListTransactionsUseCase`/`ListServicesUseCase`/`ListCustomersUseCase`/
+  `ListMaterialsUseCase`) permanecem intocados porque `GetOverviewUseCase`/
+  `GetOverviewAnalyticsUseCase` e todos os `Export*UseCase` dependem do conjunto
+  completo — descoberta do `planner` não prevista no pedido original, evitou truncar
+  KPIs/exports silenciosamente. Endpoints novos `GET .../customers/options` e
+  `GET .../materials/options` (sem paginação, cap 1000 + `truncated`) evitam que os
+  selects de Cliente/Material em `services-page`/`event-form`/
+  `stock-verification-page` fiquem incompletos ao herdar o limite da listagem paginada;
+  `ServiceForm` mantém `useCustomers` completo onde precisa de `birthDate` (verificação
+  de idade), usando `useCustomerOptions` só no filtro. Frontend: `PaginationBar`
+  compartilhado (`@/shared/components/pagination-bar`), `keepPreviousData` em todos os
+  hooks paginados, reset de página em qualquer mudança de filtro/busca, KPIs que liam
+  `lista.length` corrigidos para ler `total` do envelope (ou uma segunda chamada leve
+  com `limit: 1` para um KPI de subconjunto, ex. "Ativos"/"Estoque baixo"). Receita
+  canônica para novas listagens em `domain-rules.md` ("Paginação — toda listagem nova
+  de recurso org-scoped nasce paginada"). Validado: check-types + lint + test + build
+  verdes em cada um dos 22 passos de implementação (backend e frontend intercalados por
+  domínio). 23 commits numa única branch/PR (`features/lucid-volta-axvjyd`).

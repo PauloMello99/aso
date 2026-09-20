@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { ArrowDownLeft, ArrowUpRight, RefreshCw, SlidersHorizontal } from "lucide-react"
 import {
   Dialog,
@@ -8,6 +9,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/shared/components/ui/dialog"
+import { PaginationBar } from "@/shared/components/pagination-bar"
 import { useStockMovements } from "../hooks/use-stock-movements"
 import type { Material, StockMovement, StockMovementType } from "../types"
 
@@ -88,11 +90,23 @@ export function StockMovementsPanel({
   orgId,
   material,
 }: StockMovementsPanelProps) {
-  const { movements, loading, error } = useStockMovements(
-    orgId,
-    open ? (material?.id ?? null) : null,
-    { limit: 30, offset: 0 },
-  )
+  const [page, setPage] = useState(1)
+
+  useEffect(() => {
+    if (!open) setPage(1)
+  }, [open])
+
+  const {
+    movements,
+    total,
+    page: currentPage,
+    pages,
+    loading,
+    error,
+  } = useStockMovements(orgId, open ? (material?.id ?? null) : null, {
+    page,
+    limit: 20,
+  })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -102,9 +116,8 @@ export function StockMovementsPanel({
           <DialogDescription>
             {material ? (
               <>
-                Histórico de{" "}
-                <span className="font-medium text-foreground">{material.name}</span> —
-                últimas 30 entradas.
+                Histórico completo de{" "}
+                <span className="font-medium text-foreground">{material.name}</span>.
               </>
             ) : (
               "Histórico de movimentações"
@@ -128,11 +141,21 @@ export function StockMovementsPanel({
             </p>
           )}
           {!loading && !error && movements.length > 0 && (
-            <ul className="divide-y divide-transparent">
-              {movements.map((m) => (
-                <MovementRow key={m.id} m={m} />
-              ))}
-            </ul>
+            <>
+              <ul className="divide-y divide-transparent">
+                {movements.map((m) => (
+                  <MovementRow key={m.id} m={m} />
+                ))}
+              </ul>
+              <PaginationBar
+                page={currentPage}
+                pages={pages}
+                total={total}
+                onPageChange={setPage}
+                itemLabel="movimentação"
+                className="mt-2"
+              />
+            </>
           )}
         </div>
       </DialogContent>

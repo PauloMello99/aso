@@ -26,6 +26,12 @@ export interface Customer {
   updatedAt: string
 }
 
+export interface CustomerOption {
+  id: string
+  name: string
+  birthDate: string
+}
+
 export interface CustomersFilter {
   search?: string
   enabledOnly?: boolean
@@ -37,4 +43,6 @@ export interface CustomersFilter {
   birthMonth?: number
   city?: string
   state?: string
+  page?: number
+  limit?: number
 }

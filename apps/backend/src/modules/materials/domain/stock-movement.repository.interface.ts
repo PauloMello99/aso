@@ -5,17 +5,12 @@
 
 export const STOCK_MOVEMENT_REPOSITORY = Symbol("STOCK_MOVEMENT_REPOSITORY");
 
-export interface ListMovementsFilter {
-  limit?: number;
-  offset?: number;
-}
-
 export interface IStockMovementRepository {
-  findAllByMaterial(
+  findPageByMaterial(
     materialId: string,
     orgId: string,
-    filter?: ListMovementsFilter,
-  ): Promise<StockMovementEntity[]>;
+    pagination: { limit: number; offset: number },
+  ): Promise<{ rows: StockMovementEntity[]; total: number }>;
   create(data: CreateStockMovementData): Promise<StockMovementEntity>;
 }
 

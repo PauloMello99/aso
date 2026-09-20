@@ -1,9 +1,15 @@
 "use client"
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { apiRequest } from "@/infrastructure/api/client"
 import { queryKeys } from "@/infrastructure/query/query-keys"
 import { dayEndIso, dayStartIso } from "@/shared/lib/day-bounds"
+import type { Paginated } from "@/shared/types/pagination"
 import type {
   PaymentMethod,
   Transaction,
@@ -38,7 +44,7 @@ export interface CorrectionResult {
 export function useTransactions(orgId: string, filter?: TransactionsFilter) {
   const queryClient = useQueryClient()
 
-  const { data = [], isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: queryKeys.cashier.list(orgId, filter),
     queryFn: () => {
       const params = new URLSearchParams()
@@ -54,13 +60,21 @@ export function useTransactions(orgId: string, filter?: TransactionsFilter) {
       if (filter?.createdBy) params.set("createdBy", filter.createdBy)
       if (filter?.customerId) params.set("customerId", filter.customerId)
       if (filter?.q) params.set("q", filter.q)
+      if (filter?.page) params.set("page", String(filter.page))
+      if (filter?.limit) params.set("limit", String(filter.limit))
       const query = params.toString() ? `?${params.toString()}` : ""
-      return apiRequest<TransactionView[]>(
+      return apiRequest<Paginated<TransactionView>>(
         `/orgs/${orgId}/cashier/transactions${query}`,
       )
     },
     enabled: !!orgId,
+    placeholderData: keepPreviousData,
   })
+
+  const transactions = data?.data ?? []
+  const total = data?.total ?? 0
+  const page = data?.page ?? 1
+  const pages = data?.pages ?? 0
 
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: queryKeys.cashier.all(orgId) })
@@ -103,7 +117,10 @@ export function useTransactions(orgId: string, filter?: TransactionsFilter) {
   })
 
   return {
-    transactions: data,
+    transactions,
+    total,
+    page,
+    pages,
     loading: isLoading,
     error: error instanceof Error ? error.message : null,
     refetch,

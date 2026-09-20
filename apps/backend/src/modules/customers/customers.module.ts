@@ -4,6 +4,8 @@ import { SubscriptionsModule } from "../subscriptions/subscriptions.module";
 import { CreateCustomerUseCase } from "./application/use-cases/create-customer.use-case";
 import { DeleteCustomerUseCase } from "./application/use-cases/delete-customer.use-case";
 import { ListCustomersUseCase } from "./application/use-cases/list-customers.use-case";
+import { ListCustomersPageUseCase } from "./application/use-cases/list-customers-page.use-case";
+import { ListCustomerOptionsUseCase } from "./application/use-cases/list-customer-options.use-case";
 import { ListCustomerOriginsUseCase } from "./application/use-cases/list-customer-origins.use-case";
 import { ExportCustomersUseCase } from "./application/use-cases/export-customers.use-case";
 import { GetCustomerUseCase } from "./application/use-cases/get-customer.use-case";
@@ -22,6 +24,8 @@ import { CustomersController } from "./interface/customers.controller";
   controllers: [CustomersController],
   providers: [
     ListCustomersUseCase,
+    ListCustomersPageUseCase,
+    ListCustomerOptionsUseCase,
     ListCustomerOriginsUseCase,
     ExportCustomersUseCase,
     GetCustomerUseCase,

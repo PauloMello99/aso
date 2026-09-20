@@ -32,7 +32,8 @@ import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { CreateCustomerUseCase } from "../application/use-cases/create-customer.use-case";
 import { DeleteCustomerUseCase } from "../application/use-cases/delete-customer.use-case";
-import { ListCustomersUseCase } from "../application/use-cases/list-customers.use-case";
+import { ListCustomersPageUseCase } from "../application/use-cases/list-customers-page.use-case";
+import { ListCustomerOptionsUseCase } from "../application/use-cases/list-customer-options.use-case";
 import { ListCustomerOriginsUseCase } from "../application/use-cases/list-customer-origins.use-case";
 import { ExportCustomersUseCase } from "../application/use-cases/export-customers.use-case";
 import { GetCustomerUseCase } from "../application/use-cases/get-customer.use-case";
@@ -52,6 +53,8 @@ import {
   parseFields,
   resolveExportFormat,
 } from "../../../common/csv/csv.util";
+import { parsePageParam } from "../../../common/pagination/pagination";
+import { sanitizeSearchQuery } from "../../../common/lib/query-string.util";
 
 interface UploadedDoc {
   buffer: Buffer;
@@ -102,7 +105,8 @@ function buildCustomersFilter(q: {
 @RequireModule("clients")
 export class CustomersController {
   constructor(
-    private readonly listCustomers: ListCustomersUseCase,
+    private readonly listCustomersPage: ListCustomersPageUseCase,
+    private readonly listCustomerOptions: ListCustomerOptionsUseCase,
     private readonly listOrigins: ListCustomerOriginsUseCase,
     private readonly exportCustomers: ExportCustomersUseCase,
     private readonly getCustomer: GetCustomerUseCase,
@@ -129,8 +133,10 @@ export class CustomersController {
     @Query("birthMonth") birthMonth?: string,
     @Query("city") city?: string,
     @Query("state") state?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
   ) {
-    return this.listCustomers.execute(
+    return this.listCustomersPage.execute(
       orgId,
       buildCustomersFilter({
         search,
@@ -144,7 +150,20 @@ export class CustomersController {
         city,
         state,
       }),
+      parsePageParam(page),
+      parsePageParam(limit),
     );
+  }
+
+  @Get("options")
+  @AllowAnyOrgMember()
+  async options(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Query("q") q?: string,
+  ) {
+    return this.listCustomerOptions.execute(orgId, {
+      q: sanitizeSearchQuery(q),
+    });
   }
 
   @Get("origins")

@@ -1,3 +1,4 @@
+import { normalizeOptionsParams } from "@/shared/lib/options-query"
 import type { MaterialsFilter } from "@/features/stock/types"
 import type { CustomersFilter } from "@/features/clients/types"
 import type { TransactionsFilter } from "@/features/cashier/types"
@@ -38,8 +39,19 @@ export const queryKeys = {
     all: (orgId: string) => ["materials", orgId] as const,
     list: (orgId: string, filter?: MaterialsFilter) =>
       ["materials", orgId, "list", filter ?? {}] as const,
-    movements: (orgId: string, materialId: string) =>
-      ["materials", orgId, "movements", materialId] as const,
+    movements: (
+      orgId: string,
+      materialId: string,
+      params?: { page?: number; limit?: number },
+    ) => ["materials", orgId, "movements", materialId, params ?? {}] as const,
+    // Normalizado com o mesmo critério de buildOptionsQuery (descarta
+    // undefined/"") para que a key tenha a mesma cardinalidade da URL — do
+    // contrário options(orgId) e options(orgId, { q: "" }) apontam para a
+    // mesma URL mas duplicam a entrada de cache.
+    options: (
+      orgId: string,
+      params?: { q?: string; serviceTypeId?: string },
+    ) => ["materials", orgId, "options", normalizeOptionsParams(params ?? {})] as const,
   },
 
   customers: {
@@ -50,6 +62,9 @@ export const queryKeys = {
       ["customers", orgId, "detail", id] as const,
     attachments: (orgId: string, customerId: string) =>
       ["customers", orgId, "detail", customerId, "attachments"] as const,
+    // Ver comentário em materials.options — mesma normalização.
+    options: (orgId: string, params?: { q?: string }) =>
+      ["customers", orgId, "options", normalizeOptionsParams(params ?? {})] as const,
   },
 
   cashier: {

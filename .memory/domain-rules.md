@@ -46,6 +46,53 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
 8. Registrar novo code em DomainExceptionFilter.CODE_TO_STATUS se necessário
 ```
 
+### Paginação — toda listagem nova de recurso org-scoped nasce paginada
+
+Decisão completa e rationale em `ADR-0026`. Receita canônica (offset-based, não
+cursor):
+
+1. **Repositório**: extrair `buildListConditions(orgId, filter)` e `listOrderBy()`
+   privados a partir do `findAllByOrg` existente (se houver); ORDER BY sempre com
+   `id` (ou outra coluna única) como último critério de desempate. Adicionar
+   `findPageByOrg(orgId, filter, { limit, offset }): Promise<{ rows, total }>` — um
+   `count()` e um `SELECT` com `.limit().offset()`, no mesmo `where`, em paralelo
+   (`Promise.all`). `findAllByOrg` original **não muda de assinatura/retorno**.
+2. **Use-case**: se `findAllByOrg` já é consumido por export/overview/agregação
+   (qualquer coisa que precise do conjunto completo), criar um use-case **irmão**
+   `List<Entity>PageUseCase` — nunca reaproveitar o original para a tela. Ele usa
+   `resolvePageRequest(req, bounds)` e `buildPaginated(data, total, page, limit)` de
+   `apps/backend/src/common/pagination/pagination.ts`; `defaultLimit`/`maxLimit` = 50/200
+   para listas de tela cheia, menor (ex.: 20/100) para painéis/sublistas. Se
+   `findAllByOrg` não tiver outro consumidor, migrar o use-case existente direto (sem
+   irmão) — caso de `stock_movements`.
+3. **Controller**: ler `page`/`limit` via `@Query()` + `parsePageParam(value)` (nunca
+   lança exceção para entrada inválida). Endpoint de export **nunca** recebe
+   page/limit — continua chamando o caminho não paginado.
+4. **Frontend**: hook envia `page`/`limit` no filtro/params, tipa a resposta como
+   `Paginated<T>` (`@/shared/types/pagination`), usa `placeholderData: keepPreviousData`
+   e retorna `{ items, total, page, pages, ... }` além das mutations existentes. Tela
+   usa `<PaginationBar>` (`@/shared/components/pagination-bar`) e **sempre** reseta
+   `page` para 1 em qualquer mudança de filtro/busca (via o mesmo `setFilter` acumulador
+   quando existir, ou um `useEffect` observando os estados de filtro quando o filtro é
+   montado a partir de múltiplos `useState`). Qualquer KPI/contador que hoje lê
+   `lista.length` do array completo precisa trocar para o `total` do envelope (ou uma
+   segunda chamada leve com `limit: 1` e o filtro do subconjunto, se o KPI for sobre um
+   recorte).
+5. **Selects/pickers de apoio** (um componente que só precisa de `{id, name}` — ou de
+   um subconjunto compatível com a entidade completa — para popular um `<Select>`, não
+   da listagem paginada): endpoint `GET .../options` dedicado, sem paginação, cap fixo
+   (1000) + `{ data, truncated }`; UI mostra aviso quando `truncated: true`. Só criar
+   este endpoint quando um consumidor real depender de "a lista inteira", não
+   preventivamente. **Busca e ordenação nesses endpoints (2026-09-09)**: `?q=`
+   filtra por nome (`ilike` escopado por organização, entrada escapada por
+   `containsPattern` — `%`/`_` digitados são literais — e truncada por
+   `sanitizeSearchQuery` em 100 chars); `/materials/options` aceita ainda
+   `?serviceTypeId=`, que **ordena e nunca filtra**. Todo parâmetro novo aqui é
+   ADITIVO: quem não o envia tem exatamente o comportamento anterior, ordenação
+   default incluída (foi uma regressão real — mudar a ordem default de materiais
+   para "uso recente" quebrou a conferência física de estoque, que depende de
+   ordem alfabética).
+
 ---
 
 ## Regras de UI — Frontend (mobile-first)
@@ -78,6 +125,14 @@ Estas regras derivam do ADR-0006 e são **obrigatórias** em qualquer novo códi
 24. **Superfícies públicas só afirmam o que o produto faz (2026-08-16)**: landing, SEO, e-mails de marketing e páginas legais **não podem** conter métrica inventada, logo de integração inexistente ou recurso não implementado sem rótulo explícito de "em breve". Auditoria de 2026-08-16 encontrou na landing 4 métricas fabricadas (`about.tsx`), 5 integrações que existiam **apenas** naquele arquivo (WhatsApp/Instagram/Notion/Zapier/Pix), "lembretes por WhatsApp" (notificação real é in-app + e-mail) e "Começar grátis" para um trial que **exige cartão** (`paymentMethodCollection: "always"`, 60 dias). Ao escrever copy nova: rastrear cada afirmação até um módulo, ADR ou linha de código; número agregado vive em **uma** constante (`features/landing/constants/`), nunca inline. Posicionamento é **vertical de tatuagem explícito**, não "estúdios criativos" — anamnese, consumo de material por sessão e taxa de cartão são o que diferencia de CRM horizontal. Spec completa em `docs/product/landing-page-spec.md`.
 25. **Upload de imagem = recorte + compressão client-side antes do envio (2026-08-19)**: todo fluxo de upload de imagem (avatar da conta, anexos de cliente, anexos de ticket de suporte) passa por `ImageCropper` (`shared/components/image-cropper.tsx`) + `ImageCropDialog` (`shared/components/ui/image-crop-dialog.tsx`) antes do POST. Política pura (MIME, dimensão, qualidade, geometria, naming) em `shared/lib/image-compression.ts`; I/O de canvas em `shared/lib/image-crop.ts` — zero dependência nova. **MIME de saída = MIME de entrada** (nunca reconverte PNG→JPEG): preserva a extensão do arquivo e evita path órfão no avatar (que deriva o nome do storage do MIME, e `DELETE` em `storage.objects` é bloqueado por trigger). GIF e PDF são **pass-through** — sem cropper, sem re-encode (`canvas.toBlob("image/gif")` cai silenciosamente para PNG). EXIF de rotação sempre normalizado via `createImageBitmap(file, { imageOrientation: "from-image" })`, com fallback `<img>`+`decode()`. **Aceitação de MIME por fluxo não é uniforme** — confira o backend antes de mexer no `accept` do input: avatar aceita gif (`auth.controller.ts`, regex inclui gif), anexos de cliente aceitam gif+pdf (`customers.controller.ts`), anexos de ticket **não** aceitam gif (`upload-ticket-attachment.use-case.ts`, `ALLOWED_MIME_TYPES` sem gif) — um agente já errou essa suposição para o avatar (achou que rejeitava gif; não rejeita), verificar sempre a validação real, não assumir.
 26. **HEIC (padrão de foto do iPhone) não é aceito em nenhum fluxo de upload de imagem (gap conhecido, 2026-08-19)**: reproduzido em staging — o backend devolve 400 com mensagem crua expondo a regex de validação (`"Validation failed (current file type is image/heic, expected type is ...)"`). O frontend hoje só troca essa mensagem por uma amigável ("Formato de imagem não suportado. Envie PNG, JPG, WEBP ou GIF/PDF conforme o fluxo") — **não converte nem aceita HEIC**. Suporte real exigiria conversão HEIC→JPEG no backend (nova dependência de processamento de imagem, ex. sharp+libheif — nenhuma instalada hoje) ou decodificação client-side (inconsistente entre browsers: Safari decodifica HEIC via canvas, Chrome não). Ficou deliberadamente fora de escopo; se for endereçado, é feature nova, não bugfix.
+27. **Campo assíncrono de formulário = `AsyncCombobox` + `useAsyncOptions` (2026-09-09)**: campo que seleciona uma entidade carregada à parte e de ALTA cardinalidade (cliente, material) usa `shared/components/ui/async-combobox.tsx` alimentado por `shared/hooks/use-async-options.ts` — nunca um `Select` com a lista inteira, nunca um `useQuery` novo por feature. Entidade de BAIXA cardinalidade (tipo de serviço, membro, categoria) continua em `Select`. Regras que já custaram bug:
+    - **Chave de query e URL têm de ter a MESMA cardinalidade**: `options(orgId)` e `options(orgId, { q: "" })` apontam para a mesma URL, então precisam da mesma key — a factory normaliza via `normalizeOptionsParams`. Sem isso, cada formulário refazia a requisição que a página já tinha em cache.
+    - **Chaves de busca são IRMÃS da chave base**: buscar nunca invalida o cache base; invalidação por prefixo (`["materials", orgId]`) continua alcançando todas.
+    - **O item selecionado tem de sobreviver à busca**: `useStickyOption` memoriza o último item visto para o `value` corrente e aceita um `seed` (ex.: `customerId`/`customerName` da entidade em edição) para resolver já no primeiro render.
+    - **Nunca tratar "ainda não resolvido" como "sem restrição"**: um controle de domínio condicionado ao registro selecionado (ex.: verificação de idade em `service-form`) deve exibir estado pendente, não sumir. Falha fechada, não aberta.
+    - **Erro ≠ lista vazia**: renderizar o `emptyLabel` numa falha de rede leva o usuário a cadastrar duplicata — o componente tem estado de erro próprio com retry.
+    - `AsyncCombobox` repassa `id`/`aria-*` para o `<button>` do trigger (senão o `FormControl`/`Slot` do shadcn perde `htmlFor`, `aria-invalid` e a associação do `FormMessage`).
+28. **Material declara tipos de serviço para ORDENAR, nunca filtrar (2026-09-09)**: `material_service_types` (migration 0072) é vínculo N:N **declarativo** (o usuário marca no formulário de material), não derivado de histórico. Com um tipo selecionado no formulário de serviço, os materiais vinculados vêm primeiro — mas a lista continua trazendo TODOS, inclusive os sem vínculo nenhum. Dois gotchas registrados: (a) o campo `serviceTypeIds` **precisa ser hidratado no caminho de leitura** que alimenta o formulário de edição (hoje a listagem paginada, em lote, sem N+1) — sem isso o form abre vazio e o salvamento executa delete-all, apagando os vínculos a cada edição de nome; (b) a policy de DELETE da tabela é `is_org_member` e não `is_org_owner` como em `materials`, porque a escrita é delete-all+insert e RLS não levanta erro em DELETE sem linhas visíveis — owner-only deixaria vínculos órfãos no salvamento de um membro.
 
 ---
 
