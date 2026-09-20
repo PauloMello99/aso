@@ -11,7 +11,7 @@ export const changelogEntrySchema = z.object({
   module: z.string().nullish(),
   audience: changelogAudienceSchema,
   publishedAt: z.string(),
-  notifyOwners: z.boolean(),
+  semver: z.string(),
 })
 
 export const changelogResponseSchema = z.object({

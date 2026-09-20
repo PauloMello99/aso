@@ -31,5 +31,6 @@ export interface ChangelogEntry {
   audience: ChangelogAudience;
   /** Data ISO (YYYY-MM-DD). */
   publishedAt: string;
-  notifyOwners: boolean;
+  /** Versão de produto (MAJOR.MINOR.PATCH) do release que entregou o item. */
+  semver: string;
 }

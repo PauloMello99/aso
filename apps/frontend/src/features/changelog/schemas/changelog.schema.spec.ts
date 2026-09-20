@@ -12,7 +12,7 @@ const entryWithoutOptionals = {
   summary: "Resumo",
   audience: "all" as const,
   publishedAt: "2026-09-18T12:00:00.000Z",
-  notifyOwners: false,
+  semver: "1.0.0",
 }
 
 const validEntry = {

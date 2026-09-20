@@ -1,7 +1,9 @@
 import { ChangelogEntry } from "./changelog-entry";
+import { shouldNotifyOwners } from "./changelog-semver";
 
-// Ordenado por version DESC. Itens do catálogo histórico nunca disparam e-mail
-// (notifyOwners: false); só novas entradas publicadas com notifyOwners: true.
+// Ordenado por version DESC. `semver` é a versão de produto do release que
+// entregou o item; os 4 itens do seed são baseline (catálogo histórico,
+// pré-existente ao versionamento) e por isso compartilham "1.0.0".
 export const CHANGELOG_ENTRIES = [
   {
     id: "low-stock-alert",
@@ -16,7 +18,7 @@ export const CHANGELOG_ENTRIES = [
     module: "stock",
     audience: "owners",
     publishedAt: "2026-09-18",
-    notifyOwners: false,
+    semver: "1.0.0",
   },
   {
     id: "installment-card-fee",
@@ -27,7 +29,7 @@ export const CHANGELOG_ENTRIES = [
     module: "cashier",
     audience: "owners",
     publishedAt: "2026-09-15",
-    notifyOwners: false,
+    semver: "1.0.0",
   },
   {
     id: "member-payment",
@@ -38,7 +40,7 @@ export const CHANGELOG_ENTRIES = [
     module: "cashier",
     audience: "owners",
     publishedAt: "2026-09-12",
-    notifyOwners: false,
+    semver: "1.0.0",
   },
   {
     id: "campaign-delivery-report",
@@ -50,9 +52,12 @@ export const CHANGELOG_ENTRIES = [
     module: "campaigns",
     audience: "owners",
     publishedAt: "2026-09-09",
-    notifyOwners: false,
+    semver: "1.0.0",
   },
 ] as const satisfies readonly ChangelogEntry[];
+
+// Itens com version <= corte (baseline) nunca notificam.
+export const NOTIFY_FROM_VERSION = 4;
 
 export function getLatestVersion(): number {
   return CHANGELOG_ENTRIES.reduce(
@@ -66,4 +71,26 @@ export function getEntriesNewerThan(
 ): readonly ChangelogEntry[] {
   const floor = version ?? 0;
   return CHANGELOG_ENTRIES.filter((entry) => entry.version > floor);
+}
+
+// Itens acima do corte cujo release é MAJOR/MINOR em relação ao item
+// imediatamente anterior (por ordinal). Patch nunca notifica.
+// `previous` é o item imediatamente anterior na lista COMPLETA (ordenada por
+// ordinal), não na filtrada.
+export function selectNotifiableEntries(
+  entries: readonly ChangelogEntry[],
+  cutoff: number,
+): readonly ChangelogEntry[] {
+  const byVersionAsc: readonly ChangelogEntry[] = [...entries].sort(
+    (a, b) => a.version - b.version,
+  );
+  return byVersionAsc.filter((entry, index) => {
+    if (entry.version <= cutoff) return false;
+    const previous = index > 0 ? byVersionAsc[index - 1] : null;
+    return shouldNotifyOwners(entry.semver, previous ? previous.semver : null);
+  });
+}
+
+export function getNotifiableEntries(): readonly ChangelogEntry[] {
+  return selectNotifiableEntries(CHANGELOG_ENTRIES, NOTIFY_FROM_VERSION);
 }

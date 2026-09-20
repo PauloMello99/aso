@@ -1,7 +1,11 @@
 {
   "name": "assessorink-so",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
+    "version:check": "node bin/scripts/release/version.mjs check",
+    "version:bump": "node bin/scripts/release/version.mjs bump",
+    "test:release": "node --test \"bin/scripts/release/*.test.mjs\"",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "dev:frontend": "pnpm --filter frontend dev",

@@ -10,7 +10,7 @@ function buildEntry(overrides: Partial<ChangelogEntry> = {}): ChangelogEntry {
     summary: "s",
     audience: "all",
     publishedAt: "2026-09-18T12:00:00.000Z",
-    notifyOwners: false,
+    semver: "1.0.0",
     ...overrides,
   }
 }
