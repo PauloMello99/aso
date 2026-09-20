@@ -15,7 +15,7 @@ cron/varredura periódica (custo de banco). Não confundir com `SendStockCheckRe
 
 ### 1. Detecção por transição com marcador persistido
 
-`materials.low_stock_alerted_at timestamptz NULL` (migration 0077; sem backfill). NULL = nenhum
+`materials.low_stock_alerted_at timestamptz NULL` (migration 0078; sem backfill). NULL = nenhum
 alerta aberto. O **mesmo UPDATE** que altera `stock_quantity` recalcula o marcador:
 `CASE WHEN archived_at IS NULL AND minimum_quantity > 0 AND novo_estoque <= minimum_quantity
 THEN COALESCE(low_stock_alerted_at, now()) ELSE NULL END`. `crossedLowStock = prev IS NULL AND next
@@ -54,14 +54,14 @@ imediatamente pode ser flaky; falhas só aparecem em log.
 Donos da org (reuso de `findOwnerUserIds`); sem opt-out por org por ora (extensão futura possível:
 `organizations.low_stock_alert_enabled`); e-mail genérico via `NotificationEmail`. Fora de produção o
 e-mail só sai para a allowlist (ADR-0028); in-app funciona sempre. Novo valor `low_stock` em
-`notification_type` (migration 0078). Sem novo endpoint, cron ou `DomainException`.
+`notification_type` (migration 0079). Sem novo endpoint, cron ou `DomainException`.
 
 ### 4. Nuances de migração (guardian)
 
-- 0078 é `ALTER TYPE … ADD VALUE` em migration própria, mas o migrator aplica **todas as pendentes numa
-  única transação**: nenhuma migration futura pode *usar* `'low_stock'` enquanto a 0078 estiver
+- 0079 é `ALTER TYPE … ADD VALUE` em migration própria, mas o migrator aplica **todas as pendentes numa
+  única transação**: nenhuma migration futura pode *usar* `'low_stock'` enquanto a 0079 estiver
   pendente no mesmo lote (falha "unsafe use of new value" só em produção). Down é no-op (padrão 0013).
-- Rollback da 0077 apaga os marcadores ⇒ todo material abaixo do mínimo re-alerta na escrita seguinte.
+- Rollback da 0078 apaga os marcadores ⇒ todo material abaixo do mínimo re-alerta na escrita seguinte.
 - Sem backfill: material já abaixo do mínimo no deploy alerta na primeira escrita que o deixar `<=` mínimo
   com marcador NULL (comportamento aceito; é 1 alerta por material, não rajada).
 

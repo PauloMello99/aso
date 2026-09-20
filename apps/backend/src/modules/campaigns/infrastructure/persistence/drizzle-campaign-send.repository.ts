@@ -3,7 +3,7 @@
 // DRIZZLE resolveria zero linhas SEM erro (bug silencioso). `campaign_sends` não
 // tem FK; a integridade de (org_id, customer_id) é responsabilidade da query de
 // gatilho que originou a linha (ver drizzle-campaign-target.repository). RLS está
-// habilitado e, desde a migration 0076, há policy de SELECT (owner/super_admin) —
+// habilitado e, desde a migration 0077, há policy de SELECT (owner/super_admin) —
 // a ESCRITA continua sem nenhuma policy, só DRIZZLE_ADMIN (bypassrls) grava.
 import { randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";

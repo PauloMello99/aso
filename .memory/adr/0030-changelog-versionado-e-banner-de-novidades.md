@@ -24,7 +24,7 @@ vocabulário; o frontend falha ABERTO em href desconhecido, por isso o teste gar
 
 ### 2. Estado "visto" = high-water mark inteiro em `users`
 
-`users.changelog_seen_version integer NULL` (migration 0079). `version` é inteiro monotônico; NULL = nunca viu.
+`users.changelog_seen_version integer NULL` (migration 0080). `version` é inteiro monotônico; NULL = nunca viu.
 Coluna em `users` (não tabela): estado 1:1 com o usuário; as policies de `users` (0000: `auth.uid() = auth_id OR
 is_super_admin()`) já escopam a própria linha; sem helper `current_user_id()` no banco. Nota do guardian: no
 banco, `users_select_same_org` (0015) expõe a linha a pares de org — a coluna só guarda marcador NÃO sensível.
@@ -55,6 +55,6 @@ Mostra o item não visto de maior versão + contador; dispensar marca a maior ve
 - `signOut` não limpa o cache do React Query (pré-existente): troca de conta na mesma aba pode servir o
   `seenVersion` anterior até o refetch.
 - A resposta expõe `notifyOwners` e `latestVersion` (o primeiro será consumido na fatia C).
-- Migrations 0077-0079 e o `_journal.json` devem ir juntos ao commit (o migrator abre um `.sql` por entrada).
+- Migrations 0078-0080 e o `_journal.json` devem ir juntos ao commit (o migrator abre um `.sql` por entrada).
 - Não verificado ponta a ponta com um employee real (org de teste só tem o owner) — coberto pelo spec de
   `getUnseenEntries`.

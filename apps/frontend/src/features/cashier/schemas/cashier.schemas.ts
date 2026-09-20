@@ -37,7 +37,7 @@ export const transactionSchema = z
     transactedAt: z.string().optional().or(z.literal("")),
   })
   // Espelha o CHECK do banco (transactions_installments_check, migration
-  // 0074): installments > 1 só é aceito com paymentMethod credit_card.
+  // 0075): installments > 1 só é aceito com paymentMethod credit_card.
   .refine(
     (values) =>
       values.installments === undefined ||
@@ -73,7 +73,7 @@ export const feeItemSchema = z
     installments: installmentsNumber,
   })
   // Espelha o CHECK do banco (org_payment_fees_installments_check, migration
-  // 0074): installments > 1 só é aceito com paymentMethod credit_card.
+  // 0075): installments > 1 só é aceito com paymentMethod credit_card.
   .refine(
     (item) => item.installments === 1 || item.paymentMethod === "credit_card",
     {
@@ -131,7 +131,7 @@ export const memberFeeItemSchema = z
     fixedCents: z.number().int("Valor inválido").min(0, "Valor inválido"),
   })
   // Espelha o CHECK do banco (org_member_payment_fees_installments_check,
-  // migration 0074): installments > 1 só é aceito com paymentMethod
+  // migration 0075): installments > 1 só é aceito com paymentMethod
   // credit_card.
   .refine(
     (item) => item.installments === 1 || item.paymentMethod === "credit_card",

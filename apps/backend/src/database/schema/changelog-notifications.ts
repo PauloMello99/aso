@@ -10,8 +10,8 @@ import { sql } from "drizzle-orm";
 import { changelogNotificationStatusEnum } from "./enums";
 
 // Log append-only de anúncios de novidades por e-mail (Bloco 5.2 fatia C). Invariantes
-// vivem no banco (migration 0082), espelhadas aqui só para tipagem. userId SEM
-// .references() por decisão (log histórico; LGPD) — ver cabeçalho da migration 0082.
+// vivem no banco (migration 0083), espelhadas aqui só para tipagem. userId SEM
+// .references() por decisão (log histórico; LGPD) — ver cabeçalho da migration 0083.
 export const changelogNotifications = pgTable(
   "changelog_notifications",
   {

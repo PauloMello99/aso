@@ -11,7 +11,7 @@ export function toCorrectPaymentBody(
     // Espelha InstallmentsRequiresCreditCardConstraint do backend: fora do
     // crédito o form já reseta o campo, mas essa checagem é a rede de
     // segurança na borda de saída. `?? 1` cobre serviços de crédito legados
-    // (installments null, pré-migration 0074) reabertos na correção sem que
+    // (installments null, pré-migration 0075) reabertos na correção sem que
     // o usuário troque a faixa.
     installments:
       values.paymentMethod === "credit_card"

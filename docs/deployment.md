@@ -91,7 +91,7 @@ Sem Redis. Sem Vercel/Render.
 > (job `changelog-announcements` no tick). Só e-mail de release MAJOR/MINOR (ADR-0031); requer também
 > `NOTIFICATIONS_EMAIL_ENABLED=true` e `RESEND_API_KEY`; fora de produção só envia à `EMAIL_ALLOWLIST`
 > (`APP_ENVIRONMENT`, ADR-0028); `FRONTEND_URL` é usado no CTA. **Para desligar em produção use o
-> kill-switch (`false`), NÃO faça rollback das migrations 0081/0082.**
+> kill-switch (`false`), NÃO faça rollback das migrations 0082/0083.**
 
 > `DATABASE_URL` = role `postgres` (migrações/admin, BYPASSRLS) — use a **Session pooler** do
 > Supabase (IPv4, porta 5432) para o container alcançar o banco.

@@ -85,7 +85,7 @@ export const createServiceSchema = serviceSchema
       })
     }
     // Espelha o CHECK do banco (services_installments_check, migration
-    // 0074): installments > 1 só é aceito com paymentMethod credit_card.
+    // 0075): installments > 1 só é aceito com paymentMethod credit_card.
     if (
       values.installments !== undefined &&
       values.installments !== 1 &&

@@ -107,7 +107,7 @@ Não implementar, mesmo que a transcrição de 15/09 discuta:
 - notificação por WhatsApp (descartado; e-mail só);
 - caixa/carteira própria por funcionário (saldo org ↔ funcionário).
 
-## Addendum (2026-09-17) — `org_member_payments` (migration 0072)
+## Addendum (2026-09-17) — `org_member_payments` (migration 0073)
 
 Schema aplicado: `org_member_payments` segue o padrão **LEDGER** (como `transactions`),
 não o padrão CONFIG (0051/0070) — sem `active`/`superseded_at`; "estornado" é

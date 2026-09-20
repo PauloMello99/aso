@@ -8,7 +8,7 @@
 // zero linhas sem erro (bug silencioso), já que o cron não tem claims de
 // sessão para a RLS avaliar.
 //
-// A policy de SELECT da migration 0076 (`is_super_admin() OR
+// A policy de SELECT da migration 0077 (`is_super_admin() OR
 // is_org_owner(org_id)`) é avaliada POR LINHA e NÃO escopa a organização: um
 // usuário dono de mais de uma org veria, só com a RLS, linhas de TODAS as
 // orgs que possui. Por isso o `WHERE cs.org_id = $1` abaixo é OBRIGATÓRIO e
@@ -51,7 +51,7 @@ export class DrizzleCampaignDeliveryReportRepository
     // corretamente escopada).
     //
     // `WHERE campaignSends.orgId = orgId` é OBRIGATÓRIO e explícito: a policy
-    // de SELECT da migration 0076 (`is_super_admin() OR
+    // de SELECT da migration 0077 (`is_super_admin() OR
     // is_org_owner(org_id)`) é avaliada POR LINHA e não escopa a organização
     // — um dono de mais de uma org veria, só com a RLS, linhas de todas elas.
     // A RLS aqui é defesa em profundidade; este filtro é o que realmente

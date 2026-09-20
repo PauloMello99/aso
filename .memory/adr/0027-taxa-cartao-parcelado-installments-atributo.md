@@ -38,11 +38,11 @@ todas as 4 tabelas (`org_payment_fees`, `org_member_payment_fees`, `transactions
   NULLABLE, sem default — `NULL` cobre 3 significados distintos e nunca é ambíguo na
   prática porque cada um se resolve por outro dado da mesma linha: **(a)** método sem
   parcelamento (`cash`/`bank_transfer`/`debit_card`); **(b)** linha anterior à migration
-  `0074` (legado); **(c)** perna de ESTORNO de um lançamento em crédito
+  `0075` (legado); **(c)** perna de ESTORNO de um lançamento em crédito
   (`reverses_transaction_id IS NOT NULL`) — estorno não é nova cobrança, não carrega
   faixa.
 
-Migration `0074_installment_payment_fees`. Teto oferecido na UI: constante de produto
+Migration `0075_installment_payment_fees`. Teto oferecido na UI: constante de produto
 `MAX_INSTALLMENTS = 12` (mais estrito que o CHECK do banco, que permite até 24 —
 barato de elevar depois sem migration nova).
 

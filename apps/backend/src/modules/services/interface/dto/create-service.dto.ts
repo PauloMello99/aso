@@ -31,7 +31,7 @@ export const SERVICE_PAYMENT_STATUSES = ["paid", "pending"] as const;
 /**
  * `installments > 1` só é aceito com `paymentMethod = 'credit_card'` (mesmo
  * estilo de `create-transaction.dto.ts`/`upsert-fees.dto.ts`, Bloco 3). O
- * CHECK do banco (`services_installments_check`, migration 0074) é mais
+ * CHECK do banco (`services_installments_check`, migration 0075) é mais
  * estrito — exige `installments IS NULL` para métodos não-crédito — mas essa
  * normalização (1 → null fora do crédito) é feita por `normalizeInstallments`
  * no use-case, não neste DTO.

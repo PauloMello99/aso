@@ -18,13 +18,13 @@ A versão de produto é única para o monorepo (ADR-0031, base 1.0.0).
    `version > NOTIFY_FROM_VERSION` (4 — o catálogo baseline, pré-existente ao versionamento) E que passam em
    `shouldNotifyOwners` contra o item imediatamente anterior por ordinal. O seed atual tem 0 itens notificáveis (nenhum
    e-mail retroativo). O ordinal inteiro `version` continua sendo o high-water mark do banner (não é derivado do semver).
-2. **Log append-only `changelog_notifications`** (migration 0082): `UNIQUE (user_id, entry_id)`, status `sent|failed`,
+2. **Log append-only `changelog_notifications`** (migration 0083): `UNIQUE (user_id, entry_id)`, status `sent|failed`,
    CHECK (`sent` ⇒ `sent_at` e sem `error`; `failed` ⇒ sem `sent_at`), sem FK para `users` (log histórico de comunicação;
    LGPD por pseudonimização), RLS sem policy + REVOKE anon/authenticated (só `DRIZZLE_ADMIN`). **Falha é terminal**
    (sem retry por tentativa; aceitar a perda, sem DELETE manual). A coluna `error` guarda só **classe/código redigido**
    (`classifyDeliveryError`/`redactDeliveryError`: `send_returned_false` | `network_error` | `provider_http_<status>` |
    `provider_error` | `unknown_error`) — `error` guarda só a classe, nunca texto livre nem payload do provedor.
-3. **Opt-out do usuário** (migration 0081, ANTES do log para que reverter o log preserve o consentimento):
+3. **Opt-out do usuário** (migration 0082, ANTES do log para que reverter o log preserve o consentimento):
    `users.product_updates_opted_out_at`; `PATCH /auth/me { productUpdatesOptedOut: boolean }` (o servidor deriva a data;
    não regrava se já optado); `/auth/me` expõe só o booleano (`toMeResponse`), nunca o timestamp. Switch em Minha Conta.
 4. **Alvos** (`findOwnersToNotify`, `DRIZZLE_ADMIN`, SQL cru): donos REAIS (`org_memberships.role='owner'` E
@@ -48,7 +48,7 @@ A versão de produto é única para o monorepo (ADR-0031, base 1.0.0).
 7. **Elegibilidade por dia (UTC):** `u.created_at < ((publishedAt::date + 1)::timestamp AT TIME ZONE 'UTC')` — quem se
    cadastrou até o fim do dia da publicação é elegível; independe do TimeZone da sessão (verificada em UTC,
    America/Sao_Paulo e Pacific/Auckland).
-8. **Operação:** desligar em produção = kill-switch, **NÃO** rollback das migrations 0081/0082 (o rollback do log
+8. **Operação:** desligar em produção = kill-switch, **NÃO** rollback das migrations 0082/0083 (o rollback do log
    reenviaria tudo; o do opt-out apagaria o consentimento).
 
 ## Consequências / dívidas
@@ -60,4 +60,4 @@ A versão de produto é única para o monorepo (ADR-0031, base 1.0.0).
   vindo do Resend ainda vai para o log de erro e pode ecoar o endereço — dívida (passar por `redactDeliveryError`).
 - `users_select_same_org` expõe `product_updates_opted_out_at` a pares de org no banco (só timestamp de preferência;
   as queries de membros projetam colunas explícitas).
-- Pré-requisito de deploy: migrations 0069-0082 ANTES do backend; variáveis novas: `CHANGELOG_ANNOUNCEMENTS_ENABLED`.
+- Pré-requisito de deploy: migrations 0069-0083 ANTES do backend; variáveis novas: `CHANGELOG_ANNOUNCEMENTS_ENABLED`.

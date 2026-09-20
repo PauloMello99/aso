@@ -136,7 +136,7 @@ export class DrizzleMemberPaymentRepository implements IMemberPaymentRepository 
   // ADR-0026 §3 — ver doc-comment de MemberPaymentWithMethod). innerJoin
   // simples por transactionId, SEM filtro extra de org_id no join: a FK
   // composta (transaction_id, org_id) -> transactions(id, org_id) criada na
-  // migration 0072 ja garante no banco que a transacao pertence a mesma org
+  // migration 0073 ja garante no banco que a transacao pertence a mesma org
   // do pagamento — inventar um `eq(transactions.orgId, orgId)` aqui seria
   // redundante, nao mais seguro.
   async findAllByOrgAndUser(

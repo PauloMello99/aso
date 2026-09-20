@@ -28,7 +28,7 @@ export interface ICampaignDeliveryReportRepository {
    * Últimas `limit` linhas de `campaign_sends` da org, mais recentes primeiro
    * (`ORDER BY created_at DESC`). O `orgId` DEVE vir do parâmetro (path da
    * rota validado pelo guard), nunca ser inferido só pela RLS — a policy de
-   * SELECT (migration 0076) é por linha e não escopa a organização: um dono
+   * SELECT (migration 0077) é por linha e não escopa a organização: um dono
    * de mais de uma org veria linhas de todas elas se o filtro explícito
    * `WHERE org_id = :orgId` não estivesse na query.
    *

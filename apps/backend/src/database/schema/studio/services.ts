@@ -43,7 +43,7 @@ export const services = pgTable("services", {
   amountCents: integer("amount_cents").notNull().default(0),
   paymentMethod: paymentMethodEnum("payment_method").notNull(),
   // Número de parcelas do crédito resolvido na criação/cobrança do serviço.
-  // NULL = método sem parcelamento OU linha gravada antes da 0074, quando
+  // NULL = método sem parcelamento OU linha gravada antes da 0075, quando
   // essa dimensão nem existia (nunca inventar 1 nesse caso).
   installments: smallint("installments"),
   // Snapshot desnormalizado da comissão do profissional no momento do

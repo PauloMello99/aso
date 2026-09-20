@@ -33,10 +33,10 @@ import type { TiptapDoc } from "../../../modules/campaigns/domain/campaign-body"
 //     valendo integralmente. A integridade de (org_id, customer_id) é
 //     responsabilidade da query de gatilho — ver cabeçalho da migration 0063.
 //     RLS: nasceu SEM NENHUMA policy (0063, "log puramente administrativo"); a
-//     migration 0076 SUPERSEDE essa parte para LEITURA — adiciona
+//     migration 0077 SUPERSEDE essa parte para LEITURA — adiciona
 //     "campaign_sends_select" (is_super_admin() OR is_org_owner(org_id)) para o
 //     relatório de entrega (4.3) expor o log ao dono da própria org. A ESCRITA
-//     continua exclusiva do DRIZZLE_ADMIN: 0076 não cria policy de
+//     continua exclusiva do DRIZZLE_ADMIN: 0077 não cria policy de
 //     INSERT/UPDATE/DELETE, então o caráter append-only não muda.
 //   - campaigns (T6 rework, migration 0066): N linhas por org, UMA por gatilho
 //     (UNIQUE org_id, trigger). Substituiu a antiga "org_campaign_settings" (0062,

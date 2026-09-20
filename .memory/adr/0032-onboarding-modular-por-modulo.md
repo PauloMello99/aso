@@ -10,7 +10,7 @@ apresentados a quem já havia concluído. Direção do produto: onboarding modul
 
 ## Decisões
 
-1. **Progresso por usuário em `users.onboarding_seen jsonb NOT NULL DEFAULT '{}'`** (migration 0080): mapa
+1. **Progresso por usuário em `users.onboarding_seen jsonb NOT NULL DEFAULT '{}'`** (migration 0081): mapa
    `{ "<href de nav>": <version> }`. Coluna (não tabela) pelos mesmos motivos do ADR-0030 (estado 1:1; sem
    helper `current_user_id()`; `users_update` escopa a própria linha; a coluna só guarda marcador NÃO sensível,
    embora `users_select_same_org` (0015) exponha a linha a pares de org). **CHECK `users_onboarding_seen_bounded`

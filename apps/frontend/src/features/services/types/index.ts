@@ -29,7 +29,7 @@ export interface Service {
   // percent/mode, que reabriria a divergência que o backend já resolveu.
   commissionCents: number
   paymentMethod: ServicePaymentMethod
-  // NULL = método sem parcelamento ou serviço criado antes da migration 0074.
+  // NULL = método sem parcelamento ou serviço criado antes da migration 0075.
   // Persistido na criação para resolver a taxa correta no momento do
   // pagamento de um serviço pendente (register-payment.use-case.ts).
   installments: number | null

@@ -27,7 +27,7 @@ export const TRANSACTION_TYPES = ["income", "outcome"] as const;
 /**
  * `installments > 1` só é aceito com `paymentMethod = 'credit_card'` (mesmo
  * estilo de `upsert-fees.dto.ts`/`upsert-member-fees.dto.ts`, passo 8).
- * O CHECK do banco (`transactions_installments_check`, migration 0074) é mais
+ * O CHECK do banco (`transactions_installments_check`, migration 0075) é mais
  * estrito — exige `installments IS NULL` para métodos não-crédito — mas essa
  * normalização (1 → null fora do crédito) é feita por
  * `normalizeInstallments` no use-case, não neste DTO.

@@ -920,7 +920,7 @@ encodeURIComponent(nome)`. Para listagens, usar `createSignedUrls` (plural) — 
 - **Ajuste de estoque**: o form separa **direção** (`Select` Adição/Remoção) + **quantidade** (input só-número); o `quantityDelta` com sinal é montado na submissão (`stock-page handleAdjust`). Backend continua recebendo `quantityDelta` assinado.
 - **Excluir material**: bloqueado se vinculado a algum serviço — `DeleteMaterialUseCase` checa `service_materials` e lança `MATERIAL_IN_USE_BY_SERVICES` (409). Frontend mostra a mensagem no `handleDelete`.
 
-#### Alerta de estoque baixo (2026-09-19, ADR-0029, migrations 0077/0078)
+#### Alerta de estoque baixo (2026-09-19, ADR-0029, migrations 0078/0079)
 
 - Disparado pelas **escritas de estoque** (nunca cron): todo estoque passa por `IMaterialRepository.updateStockQuantity` → `{ material, crossedLowStock }`. **Nunca** escrever `stock_quantity` por outro caminho — o marcador `low_stock_alerted_at` (recalculado no mesmo UPDATE, com `FOR UPDATE`) é o que garante 1 alerta por episódio.
 - Quem chama `updateStockQuantity` deve chamar `LowStockAlertService.scheduleIfAny(orgId, crossed[])` **uma vez após o loop** (agrupa por operação). Só `minimumQuantity` alterado em `update-material` chama `syncLowStockMarker`.

@@ -28,7 +28,7 @@ export const orgMemberPaymentFees = pgTable(
       .default("0"),
     fixedCents: integer("fixed_cents").notNull().default(0),
     // Número de parcelas que essa linha de config representa — 1 = à vista.
-    // Faz parte da identidade da linha (imutável via trigger, ver 0074).
+    // Faz parte da identidade da linha (imutável via trigger, ver 0075).
     installments: smallint("installments").notNull().default(1),
     active: boolean("active").notNull().default(true),
     supersededAt: timestamp("superseded_at", { withTimezone: true }),

@@ -62,7 +62,7 @@ const CAMPAIGN_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
  *
  * `GET /deliveries` (relatório de entrega, D-4.3) foge da regra "leitura é de
  * qualquer membro": tem `OrgOwnerGuard` próprio, casando com a policy de
- * SELECT owner-only de `campaign_sends` (migration 0076).
+ * SELECT owner-only de `campaign_sends` (migration 0077).
  */
 @Controller("orgs/:orgId/campaigns")
 @UseGuards(AuthGuard, OrgMembershipGuard)

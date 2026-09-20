@@ -24,7 +24,7 @@ export const orgPaymentFees = pgTable(
       .default("0"),
     fixedCents: integer("fixed_cents").notNull().default(0),
     // Número de parcelas que essa linha de config representa — 1 = à vista.
-    // Toda linha de config SEMPRE representa uma faixa concreta (0074).
+    // Toda linha de config SEMPRE representa uma faixa concreta (0075).
     installments: smallint("installments").notNull().default(1),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

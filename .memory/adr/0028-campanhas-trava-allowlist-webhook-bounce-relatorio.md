@@ -58,7 +58,7 @@ recebe todo e-mail da conta (convite, reset, SLA…) e 5xx geraria loop de reent
 desabilitá-lo; exceção real de infraestrutura continua propagando. Bounce = **INSERT de linha nova**
 `status='bounced'` (append-only); idempotência vem da UNIQUE `(dedupe_key, attempt, status)`
 (`ON CONFLICT DO NOTHING`). `reason` passa por `redactEmail`; audit
-`campaign_email_bounced` (migration 0075, `ALTER TYPE … ADD VALUE`, down no-op irreversível como as
+`campaign_email_bounced` (migration 0076, `ALTER TYPE … ADD VALUE`, down no-op irreversível como as
 4 anteriores) sem PII. Bounce chegando antes do COMMIT da linha `sent`, ou de envio cujo INSERT
 falhou, é perdido com WARN (reconciliação manual) — nunca forçado por 5xx.
 Client de verificação duplicado do de inbound do suporte de propósito (módulos independentes,
@@ -66,7 +66,7 @@ contratos de retorno divergem); no ramo `email.bounced` usa narrowing real da un
 
 ### 5. Relatório: policy de SELECT owner-only + filtro explícito de org
 
-Migration 0076: `campaign_sends_select` = `is_super_admin() OR is_org_owner(org_id)`, **supersede a
+Migration 0077: `campaign_sends_select` = `is_super_admin() OR is_org_owner(org_id)`, **supersede a
 decisão (f) da 0063** ("sem policy, log administrativo"); escrita continua sem policy (só
 `DRIZZLE_ADMIN`). `is_org_owner` é avaliado **por linha**: dono de 2+ orgs veria todas —
 o repositório de leitura (`DRIZZLE`, separado do repositório admin do cron) **filtra `WHERE org_id`
@@ -78,8 +78,8 @@ tabela ≥1280px.
 ## Gotchas
 - O migrator (drizzle 0.45) aplica **todas as migrations pendentes numa única transação**: uma
   migration posterior no mesmo lote não pode *usar* um valor de enum recém-adicionado por `ADD VALUE`
-  (0076 não usa o literal, por isso é segura).
-- Rollback da 0076 depois do endpoint no ar faz o relatório devolver 0 linhas **em silêncio** (RLS sem
+  (0077 não usa o literal, por isso é segura).
+- Rollback da 0077 depois do endpoint no ar faz o relatório devolver 0 linhas **em silêncio** (RLS sem
   policy nega sem erro) — coordenar com o rollback do código.
 - `pnpm db:gen-types` é comando de raiz (não `--filter backend`).
 - Validar RLS exige `SET LOCAL ROLE app_user` (PG17 separa `set_option`; usar

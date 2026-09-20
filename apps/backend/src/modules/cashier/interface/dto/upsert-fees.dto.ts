@@ -22,7 +22,7 @@ const PERCENT_PATTERN = /^\d+(\.\d{1,2})?$/;
 
 /**
  * Espelha o CHECK do banco (`org_payment_fees_installments_check`,
- * migration 0074): `installments = 1 OR payment_method = 'credit_card'`.
+ * migration 0075): `installments = 1 OR payment_method = 'credit_card'`.
  */
 @ValidatorConstraint({
   name: "orgInstallmentsRequiresCreditCard",

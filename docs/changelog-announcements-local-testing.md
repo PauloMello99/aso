@@ -15,7 +15,7 @@ contra o Postgres local do Supabase. Mesmo padrão de
 ## 1. Pré-requisitos e ambiente
 
 - Stack local do Supabase no ar (`pnpm db:start`) e migrations aplicadas
-  (`pnpm --filter backend db:migrate`, incluindo `0081` e `0082`).
+  (`pnpm --filter backend db:migrate`, incluindo `0082` e `0083`).
 - Acesso SQL ao banco local (`psql` no container `supabase_db_aso` ou Studio local).
 
 | Var | Valor p/ testar | Observação |
@@ -32,8 +32,8 @@ verificável; ela não depende de e-mail.
 
 ## 2. Modelo de dados relevante
 
-- `users.product_updates_opted_out_at` (migration `0081`): não-nulo = descadastrado (LGPD).
-- `changelog_notifications` (migration `0082`): log append-only, `UNIQUE (user_id, entry_id)`.
+- `users.product_updates_opted_out_at` (migration `0082`): não-nulo = descadastrado (LGPD).
+- `changelog_notifications` (migration `0083`): log append-only, `UNIQUE (user_id, entry_id)`.
   `status = 'sent'` ⇒ `sent_at` NOT NULL e `error` NULL; `'failed'` ⇒ `sent_at` NULL.
   Sem FK em `user_id` (log histórico; LGPD) — por isso `error` guarda só **classe/código
   redigido** (`redactDeliveryError`), nunca payload do provedor.

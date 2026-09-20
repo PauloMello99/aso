@@ -24,7 +24,7 @@ export const orgMemberPayments = pgTable(
     userId: uuid("user_id").notNull(),
     // transactionId NAO declara .references() single-column: o vinculo real e
     // uma FK COMPOSTA (transaction_id, org_id) -> transactions(id, org_id)
-    // ON DELETE RESTRICT, criada via SQL bruto na migration 0072
+    // ON DELETE RESTRICT, criada via SQL bruto na migration 0073
     // (org_member_payments_transaction_org_fk) — garante que a transacao
     // pertence a esta mesma org (achado medium do database-guardian). Drizzle
     // nao expressa FK composta no builder de coluna; o projeto nao roda
@@ -39,7 +39,7 @@ export const orgMemberPayments = pgTable(
     // reversesPaymentId NAO declara .references() single-column: o vinculo
     // real e uma FK COMPOSTA (reverses_payment_id, org_id) ->
     // org_member_payments(id, org_id) ON DELETE RESTRICT, criada via SQL
-    // bruto na migration 0072 (org_member_payments_reverses_org_fk) — mesma
+    // bruto na migration 0073 (org_member_payments_reverses_org_fk) — mesma
     // justificativa de transactionId acima.
     reversesPaymentId: uuid("reverses_payment_id"),
     createdBy: uuid("created_by"),
@@ -50,7 +50,7 @@ export const orgMemberPayments = pgTable(
   (t) => [
     // Base para a FK composta (transaction_id, org_id) de
     // org_member_payments_transaction_org_fk e (reverses_payment_id, org_id)
-    // de org_member_payments_reverses_org_fk (migration 0072) — garante no
+    // de org_member_payments_reverses_org_fk (migration 0073) — garante no
     // banco que um pagamento so referencia transacao/estorno da PROPRIA org.
     unique("org_member_payments_id_org_id_uq").on(t.id, t.orgId),
     uniqueIndex("org_member_payments_transaction_uq").on(t.transactionId),
