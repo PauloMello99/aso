@@ -1272,7 +1272,14 @@ anamnesis_response_id IS NOT NULL`): `assertAnamnesisResponseLinkable` faz o
   sem entrada correspondente é **silenciosamente ignorada** por `db:migrate` (sem erro,
   simplesmente não aplica). Todo fluxo de migration manual (ver `env_migration_snapshot_gap`
   na memória de sessão) precisa desse passo extra antes de rodar `db:migrate`.
-- **`pnpm --filter backend db:generate` (`drizzle-kit generate`) não é usado** desde a
+- **Migrations são identificadas por `when` (`created_at`), não pelo número — e o `migrate()` só aplica `when` MAIOR que o último aplicado
+  no banco** (2026-09-20, integração com PRs de paginação). Dois branches que criam migrations com o MESMO número/`when` colidem: a segunda
+  a chegar é pulada em silêncio no deploy. Ao integrar branches, renumere as suas (`git mv` de `.sql` e `.down.sql`, `idx`/`tag`/`when` no
+  journal, `when` único e estritamente crescente com o `idx`) e **NÃO edite o conteúdo de migrations já aplicadas** (o `db:status` acusa
+  `file changed since applied`; cabeçalhos antigos ficam como histórico). Banco local/dev que já tinha as migrations com `when` maior ganha a
+  migration alheia *fora de ordem*: `db:migrate` NÃO a aplica — rode o SQL dela numa transação + `INSERT` em `drizzle.__drizzle_migrations`
+  (`hash` = sha256 do arquivo, `created_at` = `when`). Caso real: `0072_material_service_types` × `0072_member_payments` (a nossa virou `0073`,
+  `when` 1782006250000). Números de ADR também colidem entre branches (ADR-0026 paginação × pagamento a membro → o nosso virou ADR-0034).- **`pnpm --filter backend db:generate` (`drizzle-kit generate`) não é usado** desde a
   migration `0003` (quebrado desde a `0011`, sem snapshot) — todas as migrations `0003+`
   são **escritas à mão** (`.sql` + `.down.sql` + entrada manual em `meta/_journal.json`).
   As `0066` / `0067` / `0068` (rework T6) seguiram esse fluxo manual. Editar os arquivos de
