@@ -31,7 +31,7 @@ export function FilterPopover({
           className={cn("shrink-0 gap-2", className)}
         >
           <SlidersHorizontal className="h-4 w-4" />
-          <span className="hidden sm:inline">Filtros</span>
+          <span>Filtros</span>
           {activeCount > 0 && (
             <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-background/20 px-1.5 text-xs font-semibold tabular-nums">
               {activeCount}
@@ -63,12 +63,14 @@ export function FilterPopover({
 export function FilterField({
   label,
   children,
+  className,
 }: {
   label: string
   children: React.ReactNode
+  className?: string
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className={cn("space-y-1.5", className)}>
       <span className="text-xs font-medium text-foreground/50">{label}</span>
       {children}
     </div>

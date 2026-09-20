@@ -30,7 +30,7 @@ function moduleFromPath(path: string): string {
   return path.split("?")[0]?.split("/").filter(Boolean)[0] ?? "root"
 }
 
-async function refreshSession(): Promise<string | null> {
+export async function refreshSession(): Promise<string | null> {
   const session = getSession()
   if (!session) return null
 

@@ -3,7 +3,8 @@ const MAX_ERROR_LENGTH = 300;
 
 /**
  * Redige e trunca a mensagem de erro de um provider antes de persistir em
- * `campaign_sends.error` (tabela sem RLS). Erros de envio de e-mail costumam
+ * `campaign_sends.error` (texto exposto ao DONO da org pelo relatório de entrega —
+ * policy `campaign_sends_select`, migration 0077). Erros de envio de e-mail costumam
  * ecoar o endereço do destinatário (PII); qualquer trecho com forma de e-mail
  * vira `[email redigido]` e o texto é cortado em 300 chars. Redige ANTES de
  * truncar para não deixar um e-mail partido pela metade.

@@ -20,13 +20,8 @@ import { useCampaigns } from "../hooks/use-campaigns"
 import { campaignErrorMessage } from "../lib/error-messages"
 import { CampaignSheet } from "./campaign-sheet"
 import type { Campaign } from "../schemas/campaign.schema"
-import type { CampaignTrigger } from "../types"
-
-const TRIGGER_LABELS: Record<CampaignTrigger, string> = {
-  post_service: "Pós-atendimento",
-  birthday: "Aniversário",
-  inactivity: "Inatividade",
-}
+import { TRIGGER_LABELS } from "../lib/delivery-report"
+import { CampaignDeliveryReport } from "./campaign-delivery-report"
 
 type SheetState =
   | { mode: "create" }
@@ -291,6 +286,8 @@ export function CampaignsListPage({ orgId }: CampaignsListPageProps) {
           </div>
         </>
       )}
+
+      <CampaignDeliveryReport orgId={orgId} />
 
       {defaults && (
         <CampaignSheet

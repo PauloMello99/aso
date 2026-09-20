@@ -1,3 +1,5 @@
+import type { PaymentMethod } from "@/features/cashier/types"
+
 export type OrgRole = "owner" | "employee"
 export type InvitationStatus = "pending" | "accepted" | "expired" | "cancelled"
 export type MemberClassification = "resident" | "guest"
@@ -34,4 +36,42 @@ export interface Invitation {
 export interface InviteResult {
   invitation: Invitation
   acceptUrl: string
+}
+
+export interface MemberPayment {
+  id: string
+  orgId: string
+  userId: string
+  transactionId: string
+  amountCents: number
+  periodStart: string | null
+  periodEnd: string | null
+  description: string | null
+  // Presente quando esta linha É ELA MESMA um estorno (aponta para o
+  // pagamento original que reverte). Não confundir com `reversed` de
+  // MemberPaymentView, que indica que ESTA linha FOI estornada por outra.
+  reversesPaymentId: string | null
+  createdBy: string | null
+  createdAt: string
+}
+
+export interface MemberPaymentView {
+  entity: MemberPayment
+  reversed: boolean
+  // Método real usado no pagamento (mora na transação de caixa vinculada,
+  // nunca null — ver GET /orgs/:orgId/members/:userId/payments no backend).
+  paymentMethod: PaymentMethod
+}
+
+export interface MemberPaymentSummary {
+  accruedCommissionCents: number
+  paidNetCents: number
+  balanceDueCents: number
+  // gross/fees cobrem só serviços PAGOS; materialCost cobre todos os serviços
+  // não cancelados do membro. studioNet = gross − fees − comissão (pode ser
+  // negativo). Não derivar margem subtraindo material de studioNet.
+  grossRevenueCents: number
+  feesCents: number
+  materialCostCents: number
+  studioNetCents: number
 }

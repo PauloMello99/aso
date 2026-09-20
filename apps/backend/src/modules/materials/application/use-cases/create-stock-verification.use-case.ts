@@ -12,6 +12,11 @@ import {
   STOCK_VERIFICATION_REPOSITORY,
   VerificationItemInput,
 } from "../../domain/stock-verification.repository.interface";
+import {
+  LowStockAlertService,
+  LowStockItem,
+  toLowStockItem,
+} from "../low-stock-alert.service";
 
 export interface CreateStockVerificationInput {
   orgId: string;
@@ -37,6 +42,7 @@ export class CreateStockVerificationUseCase {
     private readonly materialRepo: IMaterialRepository,
     @Inject(STOCK_MOVEMENT_REPOSITORY)
     private readonly movementRepo: IStockMovementRepository,
+    private readonly lowStockAlerts: LowStockAlertService,
   ) {}
 
   async execute(
@@ -44,6 +50,7 @@ export class CreateStockVerificationUseCase {
   ): Promise<{ id: string; items: VerificationResultItem[] }> {
     const resolved: VerificationItemInput[] = [];
     const results: VerificationResultItem[] = [];
+    const crossed: LowStockItem[] = [];
 
     for (const item of input.items) {
       const material = await this.materialRepo.findById(
@@ -79,9 +86,16 @@ export class CreateStockVerificationUseCase {
           note: "Reconciliação de conferência de estoque",
           createdBy: input.performedBy ?? null,
         });
-        await this.materialRepo.updateStockQuantity(item.materialId, discrepancy);
+        const { material: updated, crossedLowStock } =
+          await this.materialRepo.updateStockQuantity(
+            item.materialId,
+            discrepancy,
+          );
+        if (crossedLowStock) crossed.push(toLowStockItem(updated));
       }
     }
+
+    this.lowStockAlerts.scheduleIfAny(input.orgId, crossed);
 
     const id = await this.repo.create({
       orgId: input.orgId,

@@ -1,3 +1,5 @@
+import type { SQL } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 import { DrizzleMemberPaymentFeeRepository } from "./drizzle-member-payment-fee.repository";
 import type { DrizzleDB } from "../../../../database/database.module";
 
@@ -8,12 +10,22 @@ const feeRow = {
   paymentMethod: "credit_card" as const,
   percent: "5.00",
   fixedCents: 0,
+  installments: 1,
   active: true,
   supersededAt: null as Date | null,
   createdBy: "owner-1" as string | null,
   createdAt: new Date("2026-01-01T00:00:00Z"),
   updatedAt: new Date("2026-01-01T00:00:00Z"),
 };
+
+// Um fake de DrizzleDB nunca aplica filtro de verdade: `where` só grava o argumento
+// recebido. Para provar que o WHERE realmente referencia a coluna `installments` (e
+// não só org/user/método), renderizamos o SQL com o dialeto real do Postgres via
+// PgDialect#sqlToQuery — API pública do drizzle-orm, não precisa de banco.
+const dialect = new PgDialect();
+function renderWhere(node: unknown): { sql: string; params: unknown[] } {
+  return dialect.sqlToQuery(node as SQL);
+}
 
 // Fake de DrizzleDB para os métodos de leitura. `select().from().where()` é
 // aguardável direto (findActiveByOrg) e também expõe `.limit()`
@@ -49,6 +61,7 @@ function buildSupersedeDb(inserted: unknown): {
   calls: string[];
   set: jest.Mock;
   values: jest.Mock;
+  where: jest.Mock;
 } {
   const calls: string[] = [];
   const updateWhere = jest.fn().mockImplementation(() => {
@@ -74,7 +87,7 @@ function buildSupersedeDb(inserted: unknown): {
     .fn()
     .mockImplementation((cb: (arg: unknown) => unknown) => cb(tx));
   const db = { transaction } as unknown as DrizzleDB;
-  return { db, transaction, calls, set, values };
+  return { db, transaction, calls, set, values, where: updateWhere };
 }
 
 // Fake de DrizzleDB para `deactivate`: um único `db.update().set().where()`
@@ -101,7 +114,7 @@ describe("DrizzleMemberPaymentFeeRepository", () => {
       const { db, update, set, where, transaction } = buildDeactivateDb();
       const repo = new DrizzleMemberPaymentFeeRepository(db);
 
-      await repo.deactivate("org-1", "user-1", "credit_card");
+      await repo.deactivate("org-1", "user-1", "credit_card", 6);
 
       expect(update).toHaveBeenCalledTimes(1);
       expect(set).toHaveBeenCalledWith(
@@ -114,6 +127,26 @@ describe("DrizzleMemberPaymentFeeRepository", () => {
       expect(where).toHaveBeenCalledTimes(1);
       expect(transaction).not.toHaveBeenCalled();
     });
+
+    // Bug corrigido neste passo: o WHERE do UPDATE filtrava só por
+    // (org, user, method, active) — salvar/desativar uma faixa desativava TODAS as
+    // faixas ativas daquele método em silêncio. O fake de DrizzleDB não roda o
+    // filtro de verdade, então a prova é renderizar o SQL real do WHERE com o
+    // dialeto do Postgres e confirmar que a coluna installments e o valor da faixa
+    // pedida (6, não 1) estão presentes. A garantia de runtime completa (que a
+    // linha de 1x continua active=true) só é validada contra o banco real — ver
+    // handoff_to_tester.
+    it("o WHERE do UPDATE referencia a coluna installments com a faixa pedida, não só (org, user, method)", async () => {
+      const { db, where } = buildDeactivateDb();
+      const repo = new DrizzleMemberPaymentFeeRepository(db);
+
+      await repo.deactivate("org-1", "user-1", "credit_card", 6);
+
+      const query = renderWhere(where.mock.calls[0]![0]);
+      expect(query.sql).toContain('"installments"');
+      expect(query.params).toContain(6);
+      expect(query.params).not.toContain(1);
+    });
   });
 
   describe("supersede", () => {
@@ -121,6 +154,7 @@ describe("DrizzleMemberPaymentFeeRepository", () => {
       const { db, transaction, calls, set, values } = buildSupersedeDb({
         ...feeRow,
         id: "mpf-2",
+        installments: 6,
         percent: "7.00",
       });
       const repo = new DrizzleMemberPaymentFeeRepository(db);
@@ -129,6 +163,7 @@ describe("DrizzleMemberPaymentFeeRepository", () => {
         orgId: "org-1",
         userId: "user-1",
         paymentMethod: "credit_card",
+        installments: 6,
         percent: "7.00",
         fixedCents: 0,
         createdBy: "owner-1",
@@ -143,7 +178,11 @@ describe("DrizzleMemberPaymentFeeRepository", () => {
         }),
       );
       expect(values).toHaveBeenCalledWith(
-        expect.objectContaining({ active: true, createdBy: "owner-1" }),
+        expect.objectContaining({
+          active: true,
+          createdBy: "owner-1",
+          installments: 6,
+        }),
       );
       // O UPDATE inteiro precede o INSERT.
       expect(calls).toEqual([
@@ -155,10 +194,39 @@ describe("DrizzleMemberPaymentFeeRepository", () => {
       expect(result.id).toBe("mpf-2");
       expect(result.percent).toBe("7.00");
     });
+
+    // Mesmo bug do deactivate, na desativação da linha antiga dentro de supersede
+    // (ver comentário acima) — aqui o risco é maior porque supersede roda em toda
+    // gravação de taxa por membro, não só ao desligar. Mesma limitação do fake de
+    // DrizzleDB: a prova é a coluna+valor presentes no WHERE renderizado.
+    it("o UPDATE de desativação da linha antiga filtra por installments — não é 'qualquer faixa ativa do método'", async () => {
+      const { db, where } = buildSupersedeDb({
+        ...feeRow,
+        id: "mpf-2",
+        installments: 6,
+        percent: "7.00",
+      });
+      const repo = new DrizzleMemberPaymentFeeRepository(db);
+
+      await repo.supersede({
+        orgId: "org-1",
+        userId: "user-1",
+        paymentMethod: "credit_card",
+        installments: 6,
+        percent: "7.00",
+        fixedCents: 0,
+        createdBy: "owner-1",
+      });
+
+      const query = renderWhere(where.mock.calls[0]![0]);
+      expect(query.sql).toContain('"installments"');
+      expect(query.params).toContain(6);
+      expect(query.params).not.toContain(1);
+    });
   });
 
   describe("findActiveByOrgUserAndMethod", () => {
-    it("filtra por org + user + método + active=true, limita a 1 e mapeia a linha", async () => {
+    it("filtra por org + user + método + installments + active=true, limita a 1 e mapeia a linha", async () => {
       const { db, limit } = buildSelectDb([feeRow]);
       const repo = new DrizzleMemberPaymentFeeRepository(db);
 
@@ -166,6 +234,7 @@ describe("DrizzleMemberPaymentFeeRepository", () => {
         "org-1",
         "user-1",
         "credit_card",
+        1,
       );
 
       expect(limit).toHaveBeenCalledWith(1);
@@ -182,9 +251,24 @@ describe("DrizzleMemberPaymentFeeRepository", () => {
         "org-1",
         "user-1",
         "credit_card",
+        1,
       );
 
       expect(result).toBeNull();
+    });
+
+    // A leitura de uma faixa não pode devolver a config de outra faixa do mesmo
+    // método — antes deste passo o método nem filtrava por installments.
+    it("o WHERE da leitura referencia installments com o valor pedido, não outra faixa", async () => {
+      const { db, where } = buildSelectDb([feeRow]);
+      const repo = new DrizzleMemberPaymentFeeRepository(db);
+
+      await repo.findActiveByOrgUserAndMethod("org-1", "user-1", "credit_card", 6);
+
+      const query = renderWhere(where.mock.calls[0]![0]);
+      expect(query.sql).toContain('"installments"');
+      expect(query.params).toContain(6);
+      expect(query.params).not.toContain(1);
     });
   });
 

@@ -83,6 +83,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "agenda_reminder",
   "member_unavailability",
   "stock_check_reminder",
+  "low_stock",
 ]);
 
 export const stockMovementTypeEnum = pgEnum("stock_movement_type", [
@@ -110,6 +111,7 @@ export const auditActionEnum = pgEnum("audit_action", [
   "cashier_commissions_updated",
   "org_admin_access",
   "campaign_settings_updated",
+  "campaign_email_bounced",
 ]);
 
 export const anamnesisResponseStatusEnum = pgEnum(
@@ -159,3 +161,8 @@ export const campaignSendStatusEnum = pgEnum("campaign_send_status", [
   "failed",
   "bounced",
 ]);
+
+export const changelogNotificationStatusEnum = pgEnum(
+  "changelog_notification_status",
+  ["sent", "failed"],
+);

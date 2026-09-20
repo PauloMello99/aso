@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, date } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, date, integer, jsonb } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { platformRoleEnum, genderEnum } from "./enums";
 import { orgMemberships } from "./organizations";
@@ -18,6 +18,14 @@ export const users = pgTable("users", {
   }),
   termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
   termsVersion: text("terms_version"),
+  changelogSeenVersion: integer("changelog_seen_version"),
+  onboardingSeen: jsonb("onboarding_seen")
+    .$type<Record<string, number>>()
+    .notNull()
+    .default({}),
+  productUpdatesOptedOutAt: timestamp("product_updates_opted_out_at", {
+    withTimezone: true,
+  }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

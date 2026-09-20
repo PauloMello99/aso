@@ -6,6 +6,11 @@ import {
 } from "../../domain/transaction.repository.interface";
 import { TransactionNotFoundException } from "../../domain/exceptions/transaction-not-found.exception";
 import { TransactionIsServicePaymentException } from "../../domain/exceptions/transaction-is-service-payment.exception";
+import { TransactionIsMemberPaymentException } from "../../domain/exceptions/transaction-is-member-payment.exception";
+import {
+  IMemberPaymentRepository,
+  MEMBER_PAYMENT_REPOSITORY,
+} from "../../domain/member-payment.repository.interface";
 import {
   IServiceRepository,
   SERVICE_REPOSITORY,
@@ -21,6 +26,9 @@ export interface CorrectTransactionInput {
   type: TransactionType;
   grossCents: number;
   paymentMethod: PaymentMethod;
+  /** Faixa CORRIGIDA (pode diferir da faixa do lançamento original — é isso
+   * que permite corrigir, por exemplo, de 6x para 1x). */
+  installments?: number | null;
   transactedAt?: Date;
 }
 
@@ -38,6 +46,8 @@ export class CorrectTransactionUseCase {
     private readonly serviceRepo: IServiceRepository,
     private readonly reverseTransaction: ReverseTransactionUseCase,
     private readonly createTransaction: CreateTransactionUseCase,
+    @Inject(MEMBER_PAYMENT_REPOSITORY)
+    private readonly memberPaymentRepo: IMemberPaymentRepository,
   ) {}
 
   async execute(
@@ -55,6 +65,18 @@ export class CorrectTransactionUseCase {
       throw new TransactionIsServicePaymentException(input.transactionId);
     }
 
+    // Sem flag de bypass aqui: nenhum use-case de member-payment corrige via
+    // CorrectTransactionUseCase (CorrectMemberPaymentUseCase estorna pelo
+    // ReverseMemberPaymentUseCase e relanca via CreateMemberPaymentUseCase).
+    if (
+      await this.memberPaymentRepo.existsByTransactionId(
+        input.transactionId,
+        input.orgId,
+      )
+    ) {
+      throw new TransactionIsMemberPaymentException(input.transactionId);
+    }
+
     const reversal = await this.reverseTransaction.execute({
       orgId: input.orgId,
       transactionId: input.transactionId,
@@ -66,21 +88,24 @@ export class CorrectTransactionUseCase {
       authId: input.correctedBy ?? "",
       trustedCreatedBy: original.createdBy,
       // Passa o snapshot de taxa do lançamento original para que a perna de
-      // reposição reuse a mesma taxa quando o método de pagamento não mudou
-      // (evita reprecificar pela ORG e gerar diferença de dinheiro no livro
-      // append-only). Se o método mudou, CreateTransactionUseCase ignora este
-      // snapshot e cai na taxa da ORG.
+      // reposição reuse a mesma taxa quando método E faixa de parcelas não
+      // mudaram (evita reprecificar e gerar diferença de dinheiro no livro
+      // append-only). Se método OU faixa mudaram, CreateTransactionUseCase
+      // ignora este snapshot e reprecifica via resolveFee, priorizando a taxa
+      // do membro (createdBy) antes de cair na taxa da ORG.
       originalFee: {
         paymentMethod: original.paymentMethod,
         feePercent: original.feePercent,
         feeFixedCents: original.feeFixedCents,
         feeSource: original.feeSource,
         feeConfigId: original.feeConfigId,
+        installments: original.installments,
       },
       description: input.description,
       type: input.type,
       grossCents: input.grossCents,
       paymentMethod: input.paymentMethod,
+      installments: input.installments,
       transactedAt: input.transactedAt,
     });
 

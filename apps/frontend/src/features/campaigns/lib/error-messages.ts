@@ -49,6 +49,28 @@ export function campaignListErrorMessage(err: unknown): string {
   return LIST_GENERIC_MESSAGE
 }
 
+const DELIVERY_REPORT_GENERIC_MESSAGE =
+  "Não foi possível carregar o relatório de entrega."
+
+/**
+ * Mensagem pt-BR para falhas do relatório de entrega
+ * (`GET /orgs/:orgId/campaigns/deliveries`, owner-only). Mesmo comportamento
+ * de `campaignListErrorMessage` (sem passthrough de `err.message` cru), mas
+ * com o texto da própria tela — reaproveitar o genérico de lista confundiria
+ * o dono ("carregar as campanhas" numa tela que é sobre entregas).
+ */
+export function campaignDeliveryReportErrorMessage(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.code) {
+      const mapped = CODE_MESSAGES[err.code]
+      if (mapped) return mapped
+      if (err.code === "SUBSCRIPTION_REQUIRED") return err.message
+    }
+    return DELIVERY_REPORT_GENERIC_MESSAGE
+  }
+  return DELIVERY_REPORT_GENERIC_MESSAGE
+}
+
 const IMAGE_GENERIC_MESSAGE = "Não foi possível enviar a imagem. Tente de novo."
 /** Reusada pela guarda de tamanho no cliente (editor) e pelo mapeamento abaixo. */
 export const IMAGE_TOO_LARGE_MESSAGE = "Imagem muito grande. Máx. 2 MB."

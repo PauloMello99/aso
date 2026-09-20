@@ -4,6 +4,22 @@ import { TransactionEntity } from "../../domain/transaction.entity";
 import { IMemberRepository } from "../../../organizations/domain/member.repository.interface";
 import { MemberEntity } from "../../../organizations/domain/member.entity";
 import { IServiceRepository } from "../../../services/domain/service.repository.interface";
+import { IMemberPaymentRepository } from "../../domain/member-payment.repository.interface";
+
+function buildFakeMemberPaymentRepo(
+  overrides: Partial<jest.Mocked<IMemberPaymentRepository>> = {},
+): jest.Mocked<IMemberPaymentRepository> {
+  return {
+    create: jest.fn(),
+    findById: jest.fn(),
+    existsByTransactionId: jest.fn().mockResolvedValue(false),
+    findTransactionIdsWithPayment: jest.fn().mockResolvedValue(new Set()),
+    findAllByOrgAndUser: jest.fn(),
+    findReversedIds: jest.fn(),
+    netPaidCents: jest.fn(),
+    ...overrides,
+  } as unknown as jest.Mocked<IMemberPaymentRepository>;
+}
 
 function buildTransaction(
   overrides: Partial<Parameters<typeof TransactionEntity.create>[0]> = {},
@@ -100,6 +116,7 @@ describe("ListTransactionsUseCase", () => {
       transactionRepo,
       memberRepo,
       serviceRepo,
+      buildFakeMemberPaymentRepo(),
     );
 
     const result = await useCase.execute({ orgId: "org-1", authId: "auth-1" });
@@ -109,7 +126,12 @@ describe("ListTransactionsUseCase", () => {
       [transaction.id],
     );
     expect(result).toEqual([
-      { entity: transaction, reversed: false, serviceId: null },
+      {
+        entity: transaction,
+        reversed: false,
+        serviceId: null,
+        isMemberPayment: false,
+      },
     ]);
   });
 
@@ -129,13 +151,47 @@ describe("ListTransactionsUseCase", () => {
       transactionRepo,
       memberRepo,
       serviceRepo,
+      buildFakeMemberPaymentRepo(),
     );
 
     const result = await useCase.execute({ orgId: "org-1", authId: "auth-1" });
 
     expect(result).toEqual([
-      { entity: transaction, reversed: false, serviceId: "service-1" },
+      {
+        entity: transaction,
+        reversed: false,
+        serviceId: "service-1",
+        isMemberPayment: false,
+      },
     ]);
+  });
+
+  it("retorna isMemberPayment true só para a transação de pagamento a membro", async () => {
+    const memberPaymentTx = buildTransaction({ id: "tx-member", type: "outcome" });
+    const plainTx = buildTransaction({ id: "tx-plain" });
+    const transactionRepo = buildFakeTransactionRepo({
+      findAllByOrg: jest.fn().mockResolvedValue([memberPaymentTx, plainTx]),
+    });
+    const memberPaymentRepo = buildFakeMemberPaymentRepo({
+      findTransactionIdsWithPayment: jest
+        .fn()
+        .mockResolvedValue(new Set(["tx-member"])),
+    });
+
+    const useCase = new ListTransactionsUseCase(
+      transactionRepo,
+      buildFakeMemberRepo(),
+      buildFakeServiceRepo(),
+      memberPaymentRepo,
+    );
+
+    const result = await useCase.execute({ orgId: "org-1", authId: "auth-1" });
+
+    expect(memberPaymentRepo.findTransactionIdsWithPayment).toHaveBeenCalledWith(
+      "org-1",
+      ["tx-member", "tx-plain"],
+    );
+    expect(result.map((v) => v.isMemberPayment)).toEqual([true, false]);
   });
 
   it("não quebra e evita N+1 quando não há transações", async () => {
@@ -149,6 +205,7 @@ describe("ListTransactionsUseCase", () => {
       transactionRepo,
       memberRepo,
       serviceRepo,
+      buildFakeMemberPaymentRepo(),
     );
 
     const result = await useCase.execute({ orgId: "org-1", authId: "auth-1" });
@@ -186,6 +243,7 @@ describe("ListTransactionsUseCase", () => {
       transactionRepo,
       memberRepo,
       serviceRepo,
+      buildFakeMemberPaymentRepo(),
     );
 
     await useCase.execute({ orgId: "org-1", authId: "auth-2" });

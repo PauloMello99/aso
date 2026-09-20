@@ -1,7 +1,7 @@
 ---
 name: database-guardian
 description: Guardião de banco do ink-ops. Invocar ADICIONALMENTE ao reviewer quando a mudança inclui schema Drizzle, migration (.sql/.down.sql), backfill, índices, ou troca de conexão DRIZZLE/DRIZZLE_ADMIN. Verifica integridade, rollback, RLS por organização, dinheiro em centavos e compatibilidade com dados existentes. Read-only, apenas banco LOCAL. NÃO invocar para mudanças sem superfície de dados.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, PowerShell
 model: opus
 ---
 
@@ -29,7 +29,11 @@ YAML do implementer (arquivos de dados tocados) + objetivo da mudança. Diff obt
 - `.claude/commands/new-migration.md` (regras de `.down.sql`).
 
 ## Comandos permitidos (somente banco LOCAL)
-```bash
+
+O ambiente roda **PowerShell no Windows** — encadeadores bash (`&&`, `||`, `2>/dev/null`)
+**não** funcionam. Um comando por chamada; para sequenciar, use `;`.
+
+```powershell
 pnpm --filter backend db:status      # estado das migrations locais (migrator.ts status)
 npx supabase status                  # ambiente local de pé?
 git diff -- apps/backend/src/database apps/backend/drizzle

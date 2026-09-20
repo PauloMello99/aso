@@ -8,6 +8,7 @@ import { TopHeader } from "@/features/dashboard/components/top-header"
 import { OrgSidebar } from "@/features/dashboard/components/org-sidebar"
 import { OrgSwitcher } from "@/features/dashboard/components/org-switcher"
 import { OrgProvider } from "@/features/dashboard/components/org-context"
+import { HideValuesProvider } from "@/shared/components/hide-values-provider"
 import { useOrgs, useResolveOrgBySlug } from "@/features/dashboard/hooks/use-orgs"
 import { useOnboardingTour } from "@/features/dashboard/hooks/use-onboarding-tour"
 import { useMe } from "@/features/auth/hooks/use-me"
@@ -27,6 +28,7 @@ import {
 } from "@/features/billing"
 import type { OrgSummary } from "@/features/dashboard/hooks/use-orgs"
 import type { BreadcrumbItem } from "@/features/dashboard/components/top-header"
+import { ChangelogBanner } from "@/features/changelog"
 import { Seo } from "@/shared/components/seo"
 
 interface OrgLayoutProps {
@@ -132,65 +134,74 @@ export function OrgLayout({ children }: OrgLayoutProps) {
       subscriptionLocked={locked}
       subscriptionPastDue={pastDue}
     >
-      <div className="flex h-screen overflow-hidden bg-background">
-        <Seo title={org.name} noindex />
-        <OrgSidebar
-          org={org}
-          mobileOpen={mobileOpen}
-          onMobileClose={() => setMobileOpen(false)}
-        />
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          {actingAsAdmin ? (
-            <div className="flex shrink-0 items-center justify-center gap-2 bg-primary/15 px-4 py-1.5 text-center text-xs text-primary/80 sm:text-sm">
-              <ShieldAlert className="h-4 w-4 shrink-0" />
-              <span>
-                Você está gerenciando{" "}
-                <strong className="font-semibold">{org.name}</strong> como
-                super_admin.
-              </span>
-              <Link
-                href={`/admin/orgs/${org.id}`}
-                className="shrink-0 font-medium underline underline-offset-2 hover:text-primary/90"
-              >
-                Voltar ao painel
-              </Link>
-            </div>
-          ) : superWithMembership ? (
-            <div className="flex shrink-0 items-center justify-center gap-1.5 bg-foreground/[0.04] px-4 py-1 text-center text-[11px] text-foreground/40">
-              <ShieldAlert className="h-3 w-3 shrink-0" />
-              <span>Acesso de super_admin</span>
-              <Link
-                href="/admin"
-                className="shrink-0 underline underline-offset-2 hover:text-foreground/70"
-              >
-                Painel da plataforma
-              </Link>
-            </div>
-          ) : null}
-          {locked ? (
-            <div className="px-4 pt-4 sm:px-6">
-              <LockedBanner
-                isOwner={org.role === "owner"}
-                subscriptionHref={`/dashboard/org/${org.slug}/settings/subscription`}
-              />
-            </div>
-          ) : pastDue ? (
-            <div className="px-4 pt-4 sm:px-6">
-              <PastDueBanner
-                isOwner={org.role === "owner"}
-                subscriptionHref={`/dashboard/org/${org.slug}/settings/subscription`}
-              />
-            </div>
-          ) : null}
-          <TopHeader
-            breadcrumbs={breadcrumbs}
-            onMobileMenuToggle={() => setMobileOpen((v) => !v)}
+      <HideValuesProvider>
+        <div className="flex h-screen overflow-hidden bg-background">
+          <Seo title={org.name} noindex />
+          <OrgSidebar
+            org={org}
+            mobileOpen={mobileOpen}
+            onMobileClose={() => setMobileOpen(false)}
           />
-          <main className="flex-1 overflow-y-auto">
-            <div className="mx-auto w-full max-w-7xl p-4 sm:p-6">{children}</div>
-          </main>
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            {actingAsAdmin ? (
+              <div className="flex shrink-0 items-center justify-center gap-2 bg-primary/15 px-4 py-1.5 text-center text-xs text-primary/80 sm:text-sm">
+                <ShieldAlert className="h-4 w-4 shrink-0" />
+                <span>
+                  Você está gerenciando{" "}
+                  <strong className="font-semibold">{org.name}</strong> como
+                  super_admin.
+                </span>
+                <Link
+                  href={`/admin/orgs/${org.id}`}
+                  className="shrink-0 font-medium underline underline-offset-2 hover:text-primary/90"
+                >
+                  Voltar ao painel
+                </Link>
+              </div>
+            ) : superWithMembership ? (
+              <div className="flex shrink-0 items-center justify-center gap-1.5 bg-foreground/[0.04] px-4 py-1 text-center text-[11px] text-foreground/40">
+                <ShieldAlert className="h-3 w-3 shrink-0" />
+                <span>Acesso de super_admin</span>
+                <Link
+                  href="/admin"
+                  className="shrink-0 underline underline-offset-2 hover:text-foreground/70"
+                >
+                  Painel da plataforma
+                </Link>
+              </div>
+            ) : null}
+            {locked ? (
+              <div className="px-4 pt-4 sm:px-6">
+                <LockedBanner
+                  isOwner={org.role === "owner"}
+                  subscriptionHref={`/dashboard/org/${org.slug}/settings/subscription`}
+                />
+              </div>
+            ) : pastDue ? (
+              <div className="px-4 pt-4 sm:px-6">
+                <PastDueBanner
+                  isOwner={org.role === "owner"}
+                  subscriptionHref={`/dashboard/org/${org.slug}/settings/subscription`}
+                />
+              </div>
+            ) : null}
+            <TopHeader
+              breadcrumbs={breadcrumbs}
+              onMobileMenuToggle={() => setMobileOpen((v) => !v)}
+            />
+            <main className="flex-1 overflow-y-auto">
+              <div className="mx-auto w-full max-w-7xl p-4 sm:p-6">
+                <ChangelogBanner
+                  role={org.role}
+                  permissions={org.permissions}
+                  className="mb-4 sm:mb-6"
+                />
+                {children}
+              </div>
+            </main>
+          </div>
         </div>
-      </div>
+      </HideValuesProvider>
     </OrgProvider>
   )
 }

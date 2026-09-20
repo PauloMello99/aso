@@ -1,27 +1,15 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/router";
-import { Loader2, AlertCircle, UserPlus } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import { useOrg } from "@/features/dashboard/hooks/use-orgs";
 import { useAuth } from "@/features/auth/hooks/use-auth";
-import {
-  useMemberCommissions,
-  useMemberPaymentFees,
-} from "@/features/cashier";
-import { Button } from "@/shared/components/ui/button";
 import { useOrgMutations } from "../hooks/use-org-mutations";
 import { useMembers } from "../hooks/use-members";
 import { EditOrgForm } from "./edit-org-form";
 import { DeleteOrgDialog } from "./delete-org-dialog";
 import { TransferOrgDialog } from "./transfer-org-dialog";
-import { MemberList } from "./member-list";
-import { InviteMemberForm } from "./invite-member-form";
-import type {
-  UpdateOrgFormValues,
-  InviteFormValues,
-} from "../schemas/org.schemas";
-import type { OrgRole } from "../types";
+import type { UpdateOrgFormValues } from "../schemas/org.schemas";
 
 interface OrgSettingsPageProps {
   orgId: string;
@@ -32,30 +20,9 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
   const { org, loading, isOwner, notFound } = useOrg(orgId);
   const { updateOrg, deleteOrg, transferOwnership } = useOrgMutations(orgId);
   const { user } = useAuth();
-  const {
-    members,
-    invitations,
-    inviteMember,
-    updateMemberRole,
-    removeMember,
-    setMemberStatus,
-    updateMemberPermissions,
-    updateMemberClassification,
-    cancelInvitation,
-  } = useMembers(orgId);
-  const {
-    commissions,
-    loading: commissionsLoading,
-    error: commissionsError,
-    upsertCommissions,
-  } = useMemberCommissions(orgId);
-  const {
-    memberFees,
-    loading: memberFeesLoading,
-    error: memberFeesError,
-    updateMemberFees,
-  } = useMemberPaymentFees(orgId);
-  const [inviteOpen, setInviteOpen] = useState(false);
+  // Só `members` é usado aqui (seletor do TransferOrgDialog) — a gestão de
+  // membros (convite, comissão, taxas) mudou para a página `/members`.
+  const { members } = useMembers(orgId);
 
   if (loading) {
     return (
@@ -82,10 +49,6 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
   async function handleDelete() {
     await deleteOrg();
     await router.push("/dashboard/organizations");
-  }
-
-  async function handleInvite(values: InviteFormValues) {
-    await inviteMember(values.email, values.role as OrgRole);
   }
 
   return (
@@ -116,66 +79,6 @@ export function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
             </div>
           </div>
         )}
-      </section>
-
-      <section>
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">Membros</h2>
-            <p className="text-sm text-foreground/40">
-              Gerencie quem tem acesso a esta organização.
-            </p>
-          </div>
-          {isOwner && (
-            <Button
-              size="sm"
-              className="w-full sm:w-auto"
-              onClick={() => setInviteOpen(true)}
-            >
-              <UserPlus className="mr-2 h-4 w-4" />
-              Convidar
-            </Button>
-          )}
-        </div>
-
-        <MemberList
-          members={members}
-          invitations={invitations}
-          currentUserEmail={user?.email ?? ""}
-          isOwner={isOwner}
-          onUpdateRole={async (memberId, role) => {
-            await updateMemberRole(memberId, role);
-          }}
-          onRemove={removeMember}
-          onToggleStatus={async (memberId, enabled) => {
-            await setMemberStatus(memberId, enabled);
-          }}
-          onUpdatePermissions={async (memberId, permissions) => {
-            await updateMemberPermissions(memberId, permissions);
-          }}
-          onUpdateClassification={async (memberId, classification) => {
-            await updateMemberClassification(memberId, classification);
-          }}
-          onCancelInvitation={cancelInvitation}
-          commissions={commissions}
-          commissionsLoading={commissionsLoading}
-          commissionsError={commissionsError}
-          onUpdateCommission={async (userId, percent, mode) => {
-            await upsertCommissions([{ userId, percent, mode }]);
-          }}
-          memberFees={memberFees}
-          memberFeesLoading={memberFeesLoading}
-          memberFeesError={memberFeesError}
-          onUpdateMemberFees={async (payload) => {
-            await updateMemberFees(payload);
-          }}
-        />
-
-        <InviteMemberForm
-          open={inviteOpen}
-          onOpenChange={setInviteOpen}
-          onSubmit={handleInvite}
-        />
       </section>
 
       {isOwner && (

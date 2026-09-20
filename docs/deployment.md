@@ -75,6 +75,24 @@ Sem Redis. Sem Vercel/Render.
 `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `FRONTEND_URL`, `CRON_SECRET`. E-mail (opcional):
 `NOTIFICATIONS_EMAIL_ENABLED`, `RESEND_API_KEY`, `NOTIFICATIONS_FROM_EMAIL`.
 
+> **`APP_ENVIRONMENT` (obrigatório em produção, ADR-0028).** Trava de allowlist de e-mail:
+> `enforcing = APP_ENVIRONMENT !== "production"`. **Produção precisa de `APP_ENVIRONMENT=production`
+> ANTES do deploy**. Valores válidos (case-sensitive): `production|staging|development|test`;
+> **valor desconhecido e não vazio (ex.: `Production`, `producton`) ABORTA o boot** com erro claro.
+> Com a var ausente/vazia a allowlist fica ATIVA (com WARN no boot) e, com
+> `EMAIL_ALLOWLIST` vazia, **todo e-mail (reset de senha, convite, campanhas) deixa de sair**, sem erro
+> (só WARN). Staging: `APP_ENVIRONMENT=staging` + `EMAIL_ALLOWLIST=<e-mails separados por vírgula>`
+> (lista vazia bloqueia tudo, por decisão). Confira o log de boot do `EmailAllowlistService`
+> ("Allowlist de e-mail ENFORCING/DESLIGADA") após cada deploy.
+> **`RESEND_DELIVERY_WEBHOOK_SECRET`**: segredo do endpoint `POST /webhooks/campaign-delivery`
+> (bounce de campanhas), criado à mão no painel do Resend e **distinto** de `RESEND_WEBHOOK_SECRET`
+> (inbound do suporte); sem ele todo bounce responde 401.
+> **`CHANGELOG_ANNOUNCEMENTS_ENABLED`** (default `false`): kill-switch do e-mail de novidades aos donos
+> (job `changelog-announcements` no tick). Só e-mail de release MAJOR/MINOR (ADR-0031); requer também
+> `NOTIFICATIONS_EMAIL_ENABLED=true` e `RESEND_API_KEY`; fora de produção só envia à `EMAIL_ALLOWLIST`
+> (`APP_ENVIRONMENT`, ADR-0028); `FRONTEND_URL` é usado no CTA. **Para desligar em produção use o
+> kill-switch (`false`), NÃO faça rollback das migrations 0082/0083.**
+
 > `DATABASE_URL` = role `postgres` (migrações/admin, BYPASSRLS) — use a **Session pooler** do
 > Supabase (IPv4, porta 5432) para o container alcançar o banco.
 > `DATABASE_APP_URL` = role `app_user` (runtime, NOBYPASSRLS; criado pela migration 0003).

@@ -123,6 +123,97 @@ describe("MailService.sendCampaignByTrigger", () => {
       expect(html).not.toContain("possui uma conta no ASO");
     }
   });
+
+  it("propaga input.tags até o sender quando informado", async () => {
+    const sender = buildSender();
+    const service = new MailService(sender, buildConfig());
+
+    await service.sendCampaignByTrigger({
+      ...baseInput,
+      trigger: "birthday",
+      tags: { campaign_send_id: "abc-123" },
+    });
+
+    expect(firstSendArg(sender).tags).toEqual({
+      campaign_send_id: "abc-123",
+    });
+  });
+
+  it("não envia tags ao sender quando input.tags não é informado (campo opcional, sem quebra)", async () => {
+    const sender = buildSender();
+    const service = new MailService(sender, buildConfig());
+
+    await service.sendCampaignByTrigger({ ...baseInput, trigger: "birthday" });
+
+    expect(firstSendArg(sender).tags).toBeUndefined();
+  });
+});
+
+describe("MailService.sendProductUpdate", () => {
+  const input = {
+    to: "dono@example.com",
+    name: "Paulo",
+    semver: "1.4.0",
+    title: "Changelog e avisos",
+    summary: "Resumo da novidade.",
+    highlights: ["Primeiro destaque", "Segundo destaque"],
+  };
+
+  function buildConfigWithUrl(): ConfigService {
+    return {
+      get: jest.fn((key: string) =>
+        key === "FRONTEND_URL" ? "https://app.example.com/" : undefined,
+      ),
+    } as unknown as ConfigService;
+  }
+
+  it("envia com to/subject corretos e retorna o resultado do sender", async () => {
+    const sender = buildSender();
+    const service = new MailService(sender, buildConfigWithUrl());
+
+    const result = await service.sendProductUpdate(input);
+
+    expect(result).toBe(true);
+    const sent = firstSendArg(sender);
+    expect(sent.to).toBe("dono@example.com");
+    expect(sent.subject).toBe("Novidades do ASO 1.4.0: Changelog e avisos");
+    expect(sent.tags).toBeUndefined();
+  });
+
+  it("renderiza título, resumo, destaques, CTA e link de Minha Conta", async () => {
+    const sender = buildSender();
+    const service = new MailService(sender, buildConfigWithUrl());
+
+    await service.sendProductUpdate(input);
+
+    const { html } = firstSendArg(sender);
+    expect(html).toContain("Novidades do ASO 1.4.0");
+    expect(html).toContain("Resumo da novidade.");
+    expect(html).toContain("Primeiro destaque");
+    expect(html).toContain("Abrir o ASO");
+    expect(html).toContain('href="https://app.example.com"');
+    expect(html).toContain("https://app.example.com/dashboard/account");
+    expect(html).toContain("Minha Conta");
+  });
+
+  it("omite CTA e lista quando não há FRONTEND_URL nem highlights", async () => {
+    const sender = buildSender();
+    const service = new MailService(sender, buildConfig());
+
+    await service.sendProductUpdate({ ...input, highlights: undefined });
+
+    const { html } = firstSendArg(sender);
+    expect(html).not.toContain("Abrir o ASO");
+    expect(html).not.toContain("<ul");
+  });
+
+  it("retorna false quando o sender falha (canal desligado/erro reportado)", async () => {
+    const sender = buildSender();
+    sender.send.mockResolvedValue(false);
+    const service = new MailService(sender, buildConfigWithUrl());
+
+    await expect(service.sendProductUpdate(input)).resolves.toBe(false);
+  });
 });
 
 describe("MailService — rodapé padrão dos e-mails transacionais", () => {

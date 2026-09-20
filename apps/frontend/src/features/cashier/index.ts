@@ -9,7 +9,7 @@ export {
   memberFeeItemSchema,
   memberFeesSchema,
 } from "./schemas/cashier.schemas";
-export { COMMISSION_MODE_LABELS } from "./types";
+export { COMMISSION_MODE_LABELS, MAX_INSTALLMENTS } from "./types";
 export type { MemberFeesFormValues } from "./schemas/cashier.schemas";
 export type {
   Transaction,

@@ -10,6 +10,16 @@ export interface UpdateMeBody {
   email?: string
   avatarUrl?: string | null
   onboardingCompletedAt?: string | null
+  onboardingSeen?: Record<string, number>
+  productUpdatesOptedOut?: boolean
+}
+
+function normalizeMe(raw: Me): Me {
+  return {
+    ...raw,
+    onboardingSeen: raw.onboardingSeen ?? {},
+    productUpdatesOptedOut: raw.productUpdatesOptedOut ?? false,
+  }
 }
 
 export function useMe() {
@@ -17,7 +27,7 @@ export function useMe() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.me,
-    queryFn: () => apiRequest<Me>("/auth/me"),
+    queryFn: async () => normalizeMe(await apiRequest<Me>("/auth/me")),
   })
 
   const updateMutation = useMutation({
@@ -27,7 +37,7 @@ export function useMe() {
         body: JSON.stringify(body),
       }),
     onSuccess: (updated) => {
-      queryClient.setQueryData(queryKeys.me, updated)
+      queryClient.setQueryData(queryKeys.me, normalizeMe(updated))
     },
   })
 
@@ -38,7 +48,7 @@ export function useMe() {
       return apiRequest<Me>("/auth/me/avatar", { method: "POST", body: form })
     },
     onSuccess: (updated) => {
-      queryClient.setQueryData(queryKeys.me, updated)
+      queryClient.setQueryData(queryKeys.me, normalizeMe(updated))
     },
   })
 

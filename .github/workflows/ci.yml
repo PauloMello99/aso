@@ -29,6 +29,16 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      - name: Version lockstep
+        run: pnpm version:check
+
+      - name: Release scripts tests
+        run: pnpm test:release
+
+      # Guards de versão/changelog (ADR-0031): só rodam aqui, sem o `pnpm test` completo.
+      - name: Changelog/version guards
+        run: pnpm --filter backend test --testPathPatterns="product-version|changelog-entries|changelog-semver"
+
       - name: Type-check
         run: pnpm check-types
 
@@ -38,4 +48,6 @@ jobs:
       - name: Build
         run: pnpm build
 
-      # TODO(DX-3): adicionar `pnpm test` quando a suíte (TEST-2) existir.
+      # TODO(DX-3): o `pnpm test` completo NÃO roda no CI (o `date-picker.test.tsx` do
+      # frontend é instável sob carga); roda localmente. Só os guards de versão/changelog
+      # (step acima) e `version:check` rodam aqui. Adicionar o completo após estabilizar o teste.

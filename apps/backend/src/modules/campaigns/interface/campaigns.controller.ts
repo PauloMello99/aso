@@ -23,6 +23,10 @@ import { OrgOwnerGuard } from "../../auth/guards/org-owner.guard";
 import { CreateCampaignUseCase } from "../application/use-cases/create-campaign.use-case";
 import { DeleteCampaignUseCase } from "../application/use-cases/delete-campaign.use-case";
 import {
+  GetCampaignDeliveryReportUseCase,
+  type CampaignDeliveryReportResult,
+} from "../application/use-cases/get-campaign-delivery-report.use-case";
+import {
   ListCampaignsUseCase,
   type ListCampaignsResponse,
 } from "../application/use-cases/list-campaigns.use-case";
@@ -55,6 +59,10 @@ const CAMPAIGN_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
  * ADR-0013). Paridade deliberada com o `CampaignSettingsController`: SEM
  * `ActiveSubscriptionGuard`. `trigger` não é aceito no `PATCH` — imutável após a
  * criação.
+ *
+ * `GET /deliveries` (relatório de entrega, D-4.3) foge da regra "leitura é de
+ * qualquer membro": tem `OrgOwnerGuard` próprio, casando com a policy de
+ * SELECT owner-only de `campaign_sends` (migration 0077).
  */
 @Controller("orgs/:orgId/campaigns")
 @UseGuards(AuthGuard, OrgMembershipGuard)
@@ -65,6 +73,7 @@ export class CampaignsController {
     private readonly updateCampaign: UpdateCampaignUseCase,
     private readonly deleteCampaign: DeleteCampaignUseCase,
     private readonly uploadCampaignImage: UploadCampaignImageUseCase,
+    private readonly getCampaignDeliveryReport: GetCampaignDeliveryReportUseCase,
   ) {}
 
   @Get()
@@ -72,6 +81,14 @@ export class CampaignsController {
     @Param("orgId", ParseUUIDPipe) orgId: string,
   ): Promise<ListCampaignsResponse> {
     return this.listCampaigns.execute(orgId);
+  }
+
+  @Get("deliveries")
+  @UseGuards(OrgOwnerGuard)
+  async deliveries(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+  ): Promise<CampaignDeliveryReportResult> {
+    return this.getCampaignDeliveryReport.execute(orgId);
   }
 
   @Post("images")

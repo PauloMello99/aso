@@ -19,7 +19,7 @@ export function SectionCard({
   return (
     <div
       className={cn(
-        "flex min-h-[13rem] flex-col rounded-xl border border-border-subtle bg-surface-1 p-5",
+        "flex min-h-[13rem] min-w-0 flex-col rounded-xl border border-border-subtle bg-surface-1 p-5",
         className,
       )}
     >

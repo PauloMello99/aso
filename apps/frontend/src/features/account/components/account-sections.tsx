@@ -24,7 +24,7 @@ import { useAuth } from "@/features/auth";
 import { clearSession } from "@/features/auth/lib/session";
 import { useOrgs } from "@/features/dashboard/hooks/use-orgs";
 import { shouldShowDeleteAccount } from "@/features/account/lib/can-delete-account";
-import { apiRequest } from "@/infrastructure/api/client";
+import { ApiError, apiRequest } from "@/infrastructure/api/client";
 import { ImageCropDialog } from "@/shared/components/ui/image-crop-dialog";
 import {
   Form,
@@ -47,6 +47,7 @@ import {
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
+import { Switch } from "@/shared/components/ui/switch";
 import { cn } from "@/shared/lib/utils";
 
 function SectionHeader({
@@ -81,6 +82,9 @@ export function ProfileSection() {
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
+  const [prefSaving, setPrefSaving] = useState(false);
+  const [prefSaved, setPrefSaved] = useState(false);
+  const [prefError, setPrefError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const initialized = useRef(false);
 
@@ -126,6 +130,24 @@ export function ProfileSection() {
     }
     setPendingAvatarFile(file);
     setCropDialogOpen(true);
+  }
+
+  async function handleProductUpdatesChange(checked: boolean) {
+    setPrefSaving(true);
+    setPrefSaved(false);
+    setPrefError(null);
+    try {
+      await updateMe({ productUpdatesOptedOut: !checked });
+      setPrefSaved(true);
+    } catch (err) {
+      setPrefError(
+        err instanceof ApiError && err.message
+          ? err.message
+          : "Não foi possível salvar a preferência. Tente novamente.",
+      );
+    } finally {
+      setPrefSaving(false);
+    }
   }
 
   async function handleAvatarConfirm(file: File) {
@@ -292,6 +314,49 @@ export function ProfileSection() {
               <RotateCcw className="h-4 w-4" />
               Ver tour novamente
             </Button>
+          </div>
+
+          <div className="border-t border-foreground/[0.06] pt-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="grid gap-0.5">
+                <Label
+                  htmlFor="product-updates-switch"
+                  className="text-sm font-medium"
+                >
+                  Receber e-mails sobre novidades do produto
+                </Label>
+                <p
+                  id="product-updates-description"
+                  className="text-xs text-foreground/40"
+                >
+                  Avisos sobre novas versões do ASO enviados aos donos de
+                  organizações.
+                </p>
+              </div>
+              <Switch
+                id="product-updates-switch"
+                aria-describedby="product-updates-description"
+                checked={!me?.productUpdatesOptedOut}
+                disabled={!me || prefSaving}
+                onCheckedChange={handleProductUpdatesChange}
+                className="mt-0.5"
+              />
+            </div>
+            {prefError ? (
+              <p className="mt-2 text-xs text-destructive" role="alert">
+                {prefError}
+              </p>
+            ) : (
+              <p
+                className={cn(
+                  "mt-2 text-xs text-success",
+                  !prefSaved && "hidden",
+                )}
+                role="status"
+              >
+                Preferência salva.
+              </p>
+            )}
           </div>
         </div>
       )}

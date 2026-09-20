@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { ApiError } from "@/infrastructure/api/client"
 import {
+  campaignDeliveryReportErrorMessage,
   campaignErrorMessage,
   campaignImageErrorMessage,
   campaignListErrorMessage,
@@ -71,6 +72,36 @@ describe("campaignListErrorMessage", () => {
       "SUBSCRIPTION_REQUIRED",
     )
     expect(campaignListErrorMessage(err)).toBe("pt-BR já traduzido")
+  })
+})
+
+describe("campaignDeliveryReportErrorMessage", () => {
+  it("returns the pt-BR report fallback for a non-ApiError value", () => {
+    expect(campaignDeliveryReportErrorMessage(new Error("boom"))).toBe(
+      "Não foi possível carregar o relatório de entrega.",
+    )
+  })
+
+  it("returns the pt-BR report fallback for an unmapped-code ApiError", () => {
+    const err = new ApiError(
+      "raw",
+      403,
+      "/orgs/1/campaigns/deliveries",
+      "SOME_UNMAPPED",
+    )
+    expect(campaignDeliveryReportErrorMessage(err)).toBe(
+      "Não foi possível carregar o relatório de entrega.",
+    )
+  })
+
+  it("preserves err.message for SUBSCRIPTION_REQUIRED", () => {
+    const err = new ApiError(
+      "pt-BR já traduzido",
+      402,
+      "/orgs/1/campaigns/deliveries",
+      "SUBSCRIPTION_REQUIRED",
+    )
+    expect(campaignDeliveryReportErrorMessage(err)).toBe("pt-BR já traduzido")
   })
 })
 

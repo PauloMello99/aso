@@ -18,7 +18,7 @@ import {
   Loader2,
 } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
-import { formatBRL } from "@/features/cashier/lib/money"
+import { useMoneyFormatter } from "@/shared/hooks/use-money-formatter"
 import type {
   KpiWithDelta,
   OverviewAnalytics,
@@ -129,17 +129,17 @@ function Kpi({
   goodWhenUp?: boolean
 }) {
   return (
-    <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-xs text-foreground/50">
-          <Icon className="h-3.5 w-3.5 text-primary" />
-          {label}
+    <div className="min-w-0 rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-3 sm:p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-start gap-1.5 text-xs leading-tight text-foreground/50">
+          <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
+          <span className="min-w-0 text-balance">{label}</span>
         </div>
         <Delta kpi={kpi} goodWhenUp={goodWhenUp} />
       </div>
       <p
         className={cn(
-          "mt-1.5 text-xl font-semibold tabular-nums",
+          "mt-1.5 whitespace-nowrap text-base font-semibold tabular-nums sm:text-lg",
           tone === "positive" && "text-success",
           tone === "negative" && "text-destructive",
           (!tone || tone === "neutral") && "text-foreground",
@@ -181,6 +181,7 @@ export function PerformanceSection({
   periodKey: PeriodKey
   onPeriodChange: (k: PeriodKey) => void
 }) {
+  const money = useMoneyFormatter()
   const m = data?.margin
   const resultado = data?.resultadoCents?.current ?? 0
   const profit = m?.profitCents ?? 0
@@ -189,24 +190,24 @@ export function PerformanceSection({
     <section className="grid gap-4">
       <BandHeader periodKey={periodKey} onPeriodChange={onPeriodChange} />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(11rem,100%),1fr))] gap-3">
         <Kpi
           label="Resultado"
-          value={formatBRL(resultado)}
+          value={money(resultado)}
           icon={TrendingUp}
           tone={resultado >= 0 ? "positive" : "negative"}
           kpi={data?.resultadoCents}
         />
         <Kpi
           label="Receita"
-          value={formatBRL(data?.receitaCents?.current ?? 0)}
+          value={money(data?.receitaCents?.current ?? 0)}
           icon={ArrowUpRight}
           tone="positive"
           kpi={data?.receitaCents}
         />
         <Kpi
           label="Despesa"
-          value={formatBRL(data?.despesaCents?.current ?? 0)}
+          value={money(data?.despesaCents?.current ?? 0)}
           icon={ArrowDownRight}
           tone="negative"
           kpi={data?.despesaCents}
@@ -220,7 +221,7 @@ export function PerformanceSection({
         />
         <Kpi
           label="Ticket médio"
-          value={formatBRL(data?.avgTicketCents?.current ?? 0)}
+          value={money(data?.avgTicketCents?.current ?? 0)}
           icon={Receipt}
           kpi={data?.avgTicketCents}
         />
@@ -232,33 +233,33 @@ export function PerformanceSection({
         />
         <Kpi
           label="Comissão a repassar"
-          value={formatBRL(data?.commissionCents?.current ?? 0)}
+          value={money(data?.commissionCents?.current ?? 0)}
           icon={HandCoins}
           kpi={data?.commissionCents}
         />
       </div>
 
-      <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-5">
+      <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4 sm:p-5">
         <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
           <PiggyBank className="h-4 w-4 text-primary" />
           Custo &amp; lucro dos serviços
         </h3>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(11rem,100%),1fr))] gap-3">
           <MiniStat
             label="Receita de serviços"
-            value={formatBRL(m?.serviceRevenueCents ?? 0)}
+            value={money(m?.serviceRevenueCents ?? 0)}
             icon={Receipt}
             tone="positive"
           />
           <MiniStat
             label="Custo de material"
-            value={formatBRL(m?.materialCostCents ?? 0)}
+            value={money(m?.materialCostCents ?? 0)}
             icon={Boxes}
             tone="negative"
           />
           <MiniStat
             label="Lucro"
-            value={formatBRL(profit)}
+            value={money(profit)}
             icon={TrendingUp}
             tone={profit >= 0 ? "positive" : "negative"}
           />
@@ -332,6 +333,7 @@ function CommissionByProfessional({
   rows: ServiceGroupRow[]
   loading: boolean
 }) {
+  const money = useMoneyFormatter()
   return (
     <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-5">
       <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
@@ -362,12 +364,12 @@ function CommissionByProfessional({
                   <p className="truncate text-foreground">{row.name}</p>
                   <p className="mt-0.5 text-xs text-foreground/40">
                     {row.count} {row.count === 1 ? "serviço" : "serviços"} ·
-                    Movimentou {formatBRL(row.revenueCents)}
+                    Movimentou {money(row.revenueCents)}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">
                   <span className="font-medium tabular-nums text-foreground">
-                    {formatBRL(row.commissionCents)}
+                    {money(row.commissionCents)}
                   </span>
                   {percent !== null && (
                     <span className="text-xs tabular-nums text-foreground/40">
@@ -396,14 +398,14 @@ function MiniStat({
   tone?: "positive" | "negative"
 }) {
   return (
-    <div className="rounded-lg bg-foreground/[0.02] p-3">
-      <div className="flex items-center gap-1.5 text-xs text-foreground/50">
-        <Icon className="h-3.5 w-3.5 text-primary" />
-        {label}
+    <div className="min-w-0 rounded-lg bg-foreground/[0.02] p-3">
+      <div className="flex min-w-0 items-start gap-1.5 text-xs leading-tight text-foreground/50">
+        <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
+        <span className="min-w-0 text-balance">{label}</span>
       </div>
       <p
         className={cn(
-          "mt-1 text-lg font-semibold tabular-nums",
+          "mt-1 whitespace-nowrap text-base font-semibold tabular-nums sm:text-lg",
           tone === "positive" && "text-success",
           tone === "negative" && "text-destructive",
           !tone && "text-foreground",
@@ -425,6 +427,7 @@ export function EmployeePerformance({
   periodKey: PeriodKey
   onPeriodChange: (k: PeriodKey) => void
 }) {
+  const money = useMoneyFormatter()
   return (
     <section className="grid gap-4">
       <BandHeader periodKey={periodKey} onPeriodChange={onPeriodChange} />
@@ -437,21 +440,21 @@ export function EmployeePerformance({
         />
         <Kpi
           label="Minha receita"
-          value={formatBRL(data?.serviceRevenueCents?.current ?? 0)}
+          value={money(data?.serviceRevenueCents?.current ?? 0)}
           icon={ArrowUpRight}
           tone="positive"
           kpi={data?.serviceRevenueCents}
         />
         <Kpi
           label="Minha comissão"
-          value={formatBRL(data?.commissionCents?.current ?? 0)}
+          value={money(data?.commissionCents?.current ?? 0)}
           icon={HandCoins}
           tone="positive"
           kpi={data?.commissionCents}
         />
         <Kpi
           label="Ticket médio"
-          value={formatBRL(data?.avgTicketCents?.current ?? 0)}
+          value={money(data?.avgTicketCents?.current ?? 0)}
           icon={Receipt}
           kpi={data?.avgTicketCents}
         />

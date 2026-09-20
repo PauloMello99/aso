@@ -101,6 +101,7 @@ export type AuditAction =
   | "cashier_commissions_updated"
   | "org_admin_access"
   | "campaign_settings_updated"
+  | "campaign_email_bounced"
 
 export interface AuditLogEntry {
   id: string
@@ -135,6 +136,7 @@ export type AdminNotificationType =
   | "agenda_reminder"
   | "member_unavailability"
   | "stock_check_reminder"
+  | "low_stock"
 
 export interface AdminOrgNotification {
   id: string

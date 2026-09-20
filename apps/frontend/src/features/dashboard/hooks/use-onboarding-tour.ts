@@ -4,7 +4,8 @@ import { useEffect, useRef } from "react"
 import { useRouter } from "next/router"
 import { driver, type DriveStep } from "driver.js"
 import { useMe } from "@/features/auth/hooks/use-me"
-import { getTourSteps } from "@/features/dashboard/lib/onboarding-tour"
+import { getPendingOnboardingModules } from "@/features/dashboard/lib/onboarding-modules"
+import { getPendingTourSteps, getTourSteps } from "@/features/dashboard/lib/onboarding-tour"
 import type { OrgSummary } from "@/features/dashboard/hooks/use-orgs"
 import type { Me } from "@/features/auth/types"
 
@@ -26,6 +27,8 @@ export function useOnboardingTour({ me, org, setMobileOpen }: UseOnboardingTourP
   const { updateMe } = useMe()
 
   const startedRef = useRef(false)
+  const lastOrgIdRef = useRef<string | null>(null)
+  const discardRef = useRef(false)
   const driverRef = useRef<ReturnType<typeof driver> | null>(null)
 
   const setMobileOpenRef = useRef(setMobileOpen)
@@ -36,7 +39,8 @@ export function useOnboardingTour({ me, org, setMobileOpen }: UseOnboardingTourP
   routerRef.current = router
 
   const isReplay = router.query.tour === "1"
-  const shouldAutoStart = !!me && me.onboardingCompletedAt == null && !!org
+  const shouldAutoStart =
+    !!me && !!org && getPendingOnboardingModules(org, me).length > 0
 
   useEffect(() => {
     return () => {
@@ -45,6 +49,20 @@ export function useOnboardingTour({ me, org, setMobileOpen }: UseOnboardingTourP
   }, [])
 
   useEffect(() => {
+    if (org && lastOrgIdRef.current !== org.id) {
+      if (lastOrgIdRef.current !== null) {
+        // troca de organizacao com o hook montado: descarta tour em andamento
+        // (sem persistir progresso) e libera o auto-start para a nova org
+        if (driverRef.current?.isActive()) {
+          discardRef.current = true
+          driverRef.current.destroy()
+          discardRef.current = false
+        }
+        driverRef.current = null
+        startedRef.current = false
+      }
+      lastOrgIdRef.current = org.id
+    }
     if (startedRef.current) return
     if (!org) return
     if (!shouldAutoStart && !isReplay) return
@@ -52,6 +70,9 @@ export function useOnboardingTour({ me, org, setMobileOpen }: UseOnboardingTourP
     const resolvedOrg = org
     const wasReplay = isReplay
     const shouldMarkComplete = !wasReplay && me?.onboardingCompletedAt == null
+    const offeredModules = wasReplay
+      ? []
+      : getPendingOnboardingModules(resolvedOrg, me ?? {})
     let finished = false
 
     const timer = window.setTimeout(() => {
@@ -60,7 +81,15 @@ export function useOnboardingTour({ me, org, setMobileOpen }: UseOnboardingTourP
 
       const isMobile = window.matchMedia(MOBILE_QUERY).matches
 
-      const steps: DriveStep[] = getTourSteps(resolvedOrg).map((step) => ({
+      const tourSteps = wasReplay
+        ? getTourSteps(resolvedOrg)
+        : getPendingTourSteps(resolvedOrg, me ?? {})
+      if (tourSteps.length === 0) {
+        startedRef.current = false
+        return
+      }
+
+      const steps: DriveStep[] = tourSteps.map((step) => ({
         element: step.selector ?? undefined,
         popover: { title: step.title, description: step.description },
       }))
@@ -69,6 +98,7 @@ export function useOnboardingTour({ me, org, setMobileOpen }: UseOnboardingTourP
 
       const tourDriver = driver({
         showProgress: true,
+        progressText: "{{current}} de {{total}}",
         allowClose: true,
         nextBtnText: "Próximo",
         prevBtnText: "Anterior",
@@ -90,10 +120,20 @@ export function useOnboardingTour({ me, org, setMobileOpen }: UseOnboardingTourP
           if (isMobile) setMobileOpenRef.current(false)
           if (!finished) {
             finished = true
-            if (shouldMarkComplete) {
-              void updateMeRef.current({
-                onboardingCompletedAt: new Date().toISOString(),
-              })
+            if (!discardRef.current && !wasReplay && offeredModules.length > 0) {
+              const onboardingSeen = Object.fromEntries(
+                offeredModules.map((module) => [module.id, module.version]),
+              )
+              updateMeRef
+                .current({
+                  onboardingSeen,
+                  ...(shouldMarkComplete
+                    ? { onboardingCompletedAt: new Date().toISOString() }
+                    : {}),
+                })
+                .catch(() => {
+                  // falha intencionalmente silenciosa: o tour reaparece no proximo load
+                })
             }
           }
           if (wasReplay) {

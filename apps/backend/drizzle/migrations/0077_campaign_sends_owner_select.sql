@@ -1,0 +1,29 @@
+-- 0076 — policy de SELECT em "campaign_sends" para o dono da própria org
+-- (M-campaign-delivery, relatório de entrega 4.3).
+--
+-- SUPERSEDE conscientemente a decisão (f) da migration 0063_campaign_sends.sql ("RLS
+-- habilitado SEM nenhuma policy: log puramente administrativo, só DRIZZLE_ADMIN
+-- (bypassrls) lê/escreve"). Essa decisão deixa de valer para LEITURA porque o
+-- relatório de entrega (4.3) expõe este log ao DONO da própria organização — ele
+-- precisa enxergar o histórico de envio/bounce das campanhas da própria org. A
+-- ESCRITA continua EXCLUSIVA do DRIZZLE_ADMIN: esta migration não cria nenhuma
+-- policy de INSERT/UPDATE/DELETE, então o caráter append-only do módulo (D2, mesmo
+-- espírito do ADR-0010) é preservado — só quem faz bypassrls grava linha aqui.
+--
+-- Mesmo padrão de predicado da "campaigns_select" (migration 0066): super_admin age
+-- como owner (ADR-0013), então "is_super_admin() OR is_org_owner(org_id)". Diferente
+-- da "campaigns_select" (que usa is_org_member — todo membro pode ver as campanhas),
+-- aqui é owner-only: o log de envio é informação operacional/sensível, não algo que
+-- todo funcionário deva enxergar.
+--
+-- Sem GRANT: o pool de request do backend conecta como "app_user" (migration 0003),
+-- que já tem SELECT/INSERT/UPDATE/DELETE em TODAS as tabelas de public via
+-- ALTER DEFAULT PRIVILEGES (0003) — cobre "campaign_sends" automaticamente, mesmo
+-- criada depois. "anon"/"authenticated" são os roles da Data API do Supabase
+-- (PostgREST), não o pool do backend; o REVOKE ALL ... FROM anon, authenticated da
+-- 0063 só fecha essa superfície paralela (defesa em profundidade, padrão das
+-- migrations 0041/0051/0052/0070/0072) e CONTINUA valendo — esta migration não a
+-- toca. Como o backend já tem privilégio de tabela via app_user, a policy de SELECT
+-- nova é suficiente por si só para liberar a leitura ao dono.
+CREATE POLICY "campaign_sends_select" ON public.campaign_sends
+  FOR SELECT USING (public.is_super_admin() OR public.is_org_owner(org_id));

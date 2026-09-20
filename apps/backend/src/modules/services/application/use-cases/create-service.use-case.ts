@@ -38,7 +38,12 @@ import {
   IMemberPaymentFeeRepository,
   MEMBER_PAYMENT_FEE_REPOSITORY,
 } from "../../../cashier/domain/member-payment-fee.repository.interface";
-import { computeNet, resolveFee } from "../../../cashier/domain/fee-calculator";
+import {
+  computeNet,
+  resolveFee,
+  feeTierFor,
+  normalizeInstallments,
+} from "../../../cashier/domain/fee-calculator";
 import { computeCommission } from "../../../cashier/domain/commission-calculator";
 import {
   IMemberCommissionRepository,
@@ -56,6 +61,11 @@ import {
   IAnamnesisFormRepository,
   ANAMNESIS_FORM_REPOSITORY,
 } from "../../../anamnesis/domain/anamnesis-form.repository.interface";
+import {
+  LowStockAlertService,
+  LowStockItem,
+  toLowStockItem,
+} from "../../../materials/application/low-stock-alert.service";
 import { resolvePerformer } from "./resolve-performer";
 import { resolveMembership } from "./resolve-membership";
 import { assertPerformedAtNotFuture } from "./assert-performed-at-not-future";
@@ -78,6 +88,7 @@ export interface CreateServiceInput {
   anamnesisResponseId?: string | null;
   amountCents: number;
   paymentMethod: PaymentMethod;
+  installments?: number | null;
   paymentStatus: "paid" | "pending";
   performedAt?: Date;
   materials: ServiceMaterialInput[];
@@ -110,6 +121,7 @@ export class CreateServiceUseCase {
     private readonly anamnesisFormRepo: IAnamnesisFormRepository,
     @Inject(MEMBER_COMMISSION_REPOSITORY)
     private readonly commissionRepo: IMemberCommissionRepository,
+    private readonly lowStockAlerts: LowStockAlertService,
   ) {}
 
   async execute(input: CreateServiceInput): Promise<ServiceEntity> {
@@ -197,6 +209,15 @@ export class CreateServiceUseCase {
       throw new ServiceMaterialRequiredException();
     }
 
+    // Persistido SEMPRE, inclusive quando `paymentStatus: 'pending'`: é a faixa
+    // que `RegisterPaymentUseCase` vai ler para resolver a taxa quando o
+    // pagamento acontecer depois (achado novo #1 do Bloco 3) — sem isso, um
+    // serviço vendido em 6x mas pago depois seria cobrado como à vista.
+    const normalizedInstallments = normalizeInstallments(
+      input.paymentMethod,
+      input.installments,
+    );
+
     const service = await this.serviceRepo.create(
       {
         orgId: input.orgId,
@@ -208,13 +229,20 @@ export class CreateServiceUseCase {
         anamnesisResponseId: input.anamnesisResponseId ?? null,
         amountCents: input.amountCents,
         paymentMethod: input.paymentMethod,
+        installments: normalizedInstallments,
         performedAt: input.performedAt,
       },
       toRecord,
     );
 
+    const crossed: LowStockItem[] = [];
     for (const debit of debits) {
-      await this.materialRepo.updateStockQuantity(debit.materialId, debit.delta);
+      const { material: updated, crossedLowStock } =
+        await this.materialRepo.updateStockQuantity(
+          debit.materialId,
+          debit.delta,
+        );
+      if (crossedLowStock) crossed.push(toLowStockItem(updated));
       await this.movementRepo.create({
         orgId: input.orgId,
         materialId: debit.materialId,
@@ -225,23 +253,33 @@ export class CreateServiceUseCase {
       });
       await this.materialRepo.touchLastUsed(debit.materialId);
     }
+    this.lowStockAlerts.scheduleIfAny(input.orgId, crossed);
 
     if (input.paymentStatus === "paid") {
       // Taxa de pagamento: a de quem EXECUTOU o serviço (`performedBy`, o mesmo
       // `users.id` usado pela comissão) tem prioridade; sem taxa própria ativa
-      // cai na taxa da ORG, como antes.
+      // cai na taxa da ORG, como antes. Resolvida pela FAIXA de parcelas
+      // (Bloco 3), não só pelo método.
+      const tier = feeTierFor(input.paymentMethod, normalizedInstallments);
       const memberFee = performedBy
         ? await this.memberFeeRepo.findActiveByOrgUserAndMethod(
             input.orgId,
             performedBy,
             input.paymentMethod,
+            tier,
           )
         : null;
       const orgFee = await this.feeRepo.findByOrgAndMethod(
         input.orgId,
         input.paymentMethod,
+        tier,
       );
-      const resolved = resolveFee(input.paymentMethod, memberFee, orgFee);
+      const resolved = resolveFee(
+        input.paymentMethod,
+        normalizedInstallments,
+        memberFee,
+        orgFee,
+      );
       const { feeCents, netCents } = computeNet(
         input.amountCents,
         input.paymentMethod,
@@ -256,6 +294,7 @@ export class CreateServiceUseCase {
         feeCents,
         netCents,
         paymentMethod: input.paymentMethod,
+        installments: normalizedInstallments,
         feeConfigId: resolved.configId,
         feePercent: resolved.config?.percent ?? null,
         feeFixedCents: resolved.config?.fixedCents ?? null,

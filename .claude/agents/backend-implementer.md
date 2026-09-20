@@ -52,18 +52,27 @@ regra de domínio. Leitura extra apenas do estritamente necessário para editar 
 4. Erro de negócio novo: subclasse de `DomainException` + código SCREAMING_SNAKE registrado
    em `DomainExceptionFilter.CODE_TO_STATUS` (`apps/backend/src/common/exceptions/`). Sem
    isso, cai em 500 genérico.
-5. Migration: gere via `pnpm --filter backend db:generate` (registre em
-   `deviations_from_plan` que o comando precisa ser rodado — você não roda shell) e crie o
-   `.down.sql` companheiro; para dado, backfill idempotente. Nunca edite o `.sql` gerado.
-6. Se a área já tem specs colocados (`*.spec.ts`), atualize/crie o teste com mocks tipados
-   (`jest.Mocked<IRepo>` + `as unknown as`). O ink-ops ainda não tem suíte global; se um
-   teste seria desejável mas o harness não existe, registre em `deviations_from_plan`.
+5. Migration: **escreva à mão** — `pnpm --filter backend db:generate` (`drizzle-kit
+   generate`) está **quebrado desde a `0011`** (sem snapshot) e **não** é usado desde a
+   `0003`; nunca o sugira. O fluxo é: criar `NNNN_<nome>.sql` + o `.down.sql` companheiro,
+   imitando a migration numerada mais recente, **e adicionar a entrada manual em
+   `drizzle/migrations/meta/_journal.json`** — sem essa entrada o `migrate()` do
+   drizzle-orm **ignora a migration silenciosamente** (`db:migrate` não acusa erro, só não
+   aplica). Para dado, backfill idempotente. Editar `src/database/schema/` **não** gera nem
+   altera migration (o schema é espelho de leitura). Registre em `deviations_from_plan` que
+   `pnpm --filter backend db:migrate` precisa ser rodado — você não roda shell. Nunca edite
+   um `.sql` já aplicado (quebra o hash sha256 do migrator).
+6. **Testes são parte da implementação.** O backend tem suíte Jest (ts-jest, jest 30) com
+   `*.spec.ts` colocado ao lado do use-case/domínio/DTO — crie ou atualize o spec da área
+   tocada com mocks tipados (`jest.Mocked<IRepo>` + `as unknown as`) e builders
+   `buildFake*`, imitando o spec irmão mais próximo. Se decidir não cobrir algo (ex.: só
+   fiação de módulo), registre o motivo em `deviations_from_plan`.
 7. Registre decisões não óbvias em `deviations_from_plan` (não em comentários no código).
 
 ## Critérios de conclusão
-Escopo implementado (ou `partial`/`blocked` com motivo), testes relacionados atualizados
-quando o harness existe, nenhum arquivo fora do escopo tocado, nenhum arquivo de frontend
-tocado, YAML de saída preenchido.
+Escopo implementado (ou `partial`/`blocked` com motivo), specs Jest da área criados ou
+atualizados (ou omissão justificada em `deviations_from_plan`), nenhum arquivo fora do
+escopo tocado, nenhum arquivo de frontend tocado, YAML de saída preenchido.
 
 ## Formato exato de saída
 ```yaml

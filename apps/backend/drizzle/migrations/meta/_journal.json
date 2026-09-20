@@ -512,6 +512,90 @@
       "when": 1782006200000,
       "tag": "0072_material_service_types",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1782006250000,
+      "tag": "0073_member_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1782006300000,
+      "tag": "0074_member_payment_category",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1782006400000,
+      "tag": "0075_installment_payment_fees",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1782006500000,
+      "tag": "0076_audit_action_campaign_bounce",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1782006600000,
+      "tag": "0077_campaign_sends_owner_select",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1782006700000,
+      "tag": "0078_materials_low_stock_alerted_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1782006800000,
+      "tag": "0079_low_stock_notification_type",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1782006900000,
+      "tag": "0080_user_changelog_seen",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1782007000000,
+      "tag": "0081_user_onboarding_seen",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1782007100000,
+      "tag": "0082_user_product_updates_opt_out",
+      "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1782007200000,
+      "tag": "0083_changelog_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1782007300000,
+      "tag": "0084_backfill_installment_fee_tiers",
+      "breakpoints": true
     }
   ]
 }

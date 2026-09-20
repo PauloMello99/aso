@@ -5,7 +5,9 @@ import {
   numeric,
   timestamp,
   integer,
+  smallint,
   index,
+  unique,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -28,6 +30,10 @@ export const transactions = pgTable(
     amountGrossCents: integer("amount_gross_cents").notNull().default(0),
     feeCents: integer("fee_cents").notNull().default(0),
     paymentMethod: paymentMethodEnum("payment_method").notNull(),
+    // Número de parcelas do crédito no momento do lançamento. NULL = método
+    // sem parcelamento (dinheiro, pix, débito, ...) OU linha gravada antes
+    // da 0075, quando essa dimensão nem existia (nunca inventar 1 nesse caso).
+    installments: smallint("installments"),
     categoryId: uuid("category_id").references(() => transactionCategories.id, {
       onDelete: "set null",
     }),
@@ -53,6 +59,11 @@ export const transactions = pgTable(
     index("transactions_org_transacted_idx").on(t.orgId, t.transactedAt),
     index("transactions_org_method_idx").on(t.orgId, t.paymentMethod),
     index("transactions_reverses_idx").on(t.reversesTransactionId),
+    // Base para a FK composta (transaction_id, org_id) de
+    // org_member_payments_transaction_org_fk (migration 0073) — garante no
+    // banco que um pagamento a membro so referencia transacao da PROPRIA
+    // org. Mesmo padrao de customers_id_org_id_uq (0052).
+    unique("transactions_id_org_id_uq").on(t.id, t.orgId),
   ],
 );
 

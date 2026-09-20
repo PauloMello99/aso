@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { createServiceSchema } from "./services.schemas"
+import { correctServicePaymentSchema, createServiceSchema } from "./services.schemas"
 
 function buildInput(materials: unknown, serviceTypeId = "type-1") {
   return {
@@ -12,6 +12,28 @@ function buildInput(materials: unknown, serviceTypeId = "type-1") {
     paymentStatus: "paid",
     performedAt: "",
     materials,
+  }
+}
+
+function buildPaymentInput(
+  overrides: Partial<{
+    paymentMethod: "cash" | "bank_transfer" | "credit_card" | "debit_card"
+    installments: number | undefined
+  }> = {},
+) {
+  return {
+    customerId: "customer-1",
+    serviceTypeId: "type-1",
+    performedBy: "",
+    description: "",
+    amount: "150,00",
+    paymentMethod: "credit_card" as const,
+    paymentStatus: "paid" as const,
+    performedAt: "",
+    materials: [
+      { materialId: "m1", shareable: false, quantity: "1", finished: false },
+    ],
+    ...overrides,
   }
 }
 
@@ -111,5 +133,93 @@ describe("createServiceSchema serviceTypeId", () => {
 
   it("aceita serviceTypeId preenchido", () => {
     expect(serviceTypeErrors("type-1")).toHaveLength(0)
+  })
+})
+
+function paymentInstallmentsErrors(
+  overrides: Partial<{
+    paymentMethod: "cash" | "bank_transfer" | "credit_card" | "debit_card"
+    installments: number | undefined
+  }> = {},
+) {
+  const result = createServiceSchema.safeParse(buildPaymentInput(overrides))
+  if (result.success) return []
+  return result.error.issues.filter((i) => i.path[0] === "installments")
+}
+
+describe("createServiceSchema installments", () => {
+  it("aceita sem installments (à vista implícito)", () => {
+    expect(
+      createServiceSchema.safeParse(buildPaymentInput({ installments: undefined }))
+        .success,
+    ).toBe(true)
+  })
+
+  it("aceita installments 6 com paymentMethod credit_card", () => {
+    expect(
+      createServiceSchema.safeParse(
+        buildPaymentInput({ paymentMethod: "credit_card", installments: 6 }),
+      ).success,
+    ).toBe(true)
+  })
+
+  it("rejeita installments 6 com paymentMethod cash (não parcelável)", () => {
+    expect(
+      paymentInstallmentsErrors({ paymentMethod: "cash", installments: 6 }).length,
+    ).toBeGreaterThan(0)
+  })
+
+  it("rejeita installments acima do teto MAX_INSTALLMENTS (13)", () => {
+    expect(
+      paymentInstallmentsErrors({
+        paymentMethod: "credit_card",
+        installments: 13,
+      }).length,
+    ).toBeGreaterThan(0)
+  })
+})
+
+describe("correctServicePaymentSchema installments", () => {
+  function buildCorrectionInput(
+    overrides: Partial<{
+      paymentMethod: "cash" | "bank_transfer" | "credit_card" | "debit_card"
+      installments: number | undefined
+    }> = {},
+  ) {
+    return {
+      amount: "150,00",
+      paymentMethod: "credit_card" as const,
+      description: "",
+      transactedAt: "",
+      ...overrides,
+    }
+  }
+
+  it("aceita sem installments (à vista implícito)", () => {
+    expect(
+      correctServicePaymentSchema.safeParse(
+        buildCorrectionInput({ installments: undefined }),
+      ).success,
+    ).toBe(true)
+  })
+
+  it("aceita installments 6 com paymentMethod credit_card", () => {
+    expect(
+      correctServicePaymentSchema.safeParse(
+        buildCorrectionInput({ paymentMethod: "credit_card", installments: 6 }),
+      ).success,
+    ).toBe(true)
+  })
+
+  it("rejeita installments 6 com paymentMethod cash (não parcelável)", () => {
+    const result = correctServicePaymentSchema.safeParse(
+      buildCorrectionInput({ paymentMethod: "cash", installments: 6 }),
+    )
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(
+        result.error.issues.some((i) => i.path[0] === "installments"),
+      ).toBe(true)
+    }
   })
 })

@@ -36,4 +36,5 @@ export interface IStockVerificationRepository {
   listByOrg(orgId: string): Promise<VerificationSummary[]>;
   findOrgsDue(): Promise<OrgDueForCheck[]>;
   findOwnerUserIds(orgId: string): Promise<string[]>;
+  findOrgSlug(orgId: string): Promise<string | null>;
 }

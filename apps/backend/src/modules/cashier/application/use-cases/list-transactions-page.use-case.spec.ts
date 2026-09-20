@@ -4,6 +4,7 @@ import { TransactionEntity } from "../../domain/transaction.entity";
 import { IMemberRepository } from "../../../organizations/domain/member.repository.interface";
 import { MemberEntity } from "../../../organizations/domain/member.entity";
 import { IServiceRepository } from "../../../services/domain/service.repository.interface";
+import { IMemberPaymentRepository } from "../../domain/member-payment.repository.interface";
 
 function buildTransaction(
   overrides: Partial<Parameters<typeof TransactionEntity.create>[0]> = {},
@@ -87,6 +88,15 @@ function buildFakeServiceRepo(
   } as unknown as jest.Mocked<IServiceRepository>;
 }
 
+function buildFakeMemberPaymentRepo(
+  overrides: Partial<jest.Mocked<IMemberPaymentRepository>> = {},
+): jest.Mocked<IMemberPaymentRepository> {
+  return {
+    findTransactionIdsWithPayment: jest.fn().mockResolvedValue(new Set()),
+    ...overrides,
+  } as unknown as jest.Mocked<IMemberPaymentRepository>;
+}
+
 describe("ListTransactionsPageUseCase", () => {
   it("usa page=1 e limit=50 por padrão quando nenhum é informado", async () => {
     const transactionRepo = buildFakeTransactionRepo();
@@ -97,6 +107,7 @@ describe("ListTransactionsPageUseCase", () => {
       transactionRepo,
       memberRepo,
       serviceRepo,
+      buildFakeMemberPaymentRepo(),
     );
 
     const result = await useCase.execute({ orgId: "org-1", authId: "auth-1" });
@@ -118,6 +129,7 @@ describe("ListTransactionsPageUseCase", () => {
       transactionRepo,
       memberRepo,
       serviceRepo,
+      buildFakeMemberPaymentRepo(),
     );
 
     await useCase.execute({
@@ -142,6 +154,7 @@ describe("ListTransactionsPageUseCase", () => {
       transactionRepo,
       memberRepo,
       serviceRepo,
+      buildFakeMemberPaymentRepo(),
     );
 
     await useCase.execute({ orgId: "org-1", authId: "auth-1", page: 0 });
@@ -184,6 +197,7 @@ describe("ListTransactionsPageUseCase", () => {
       transactionRepo,
       memberRepo,
       serviceRepo,
+      buildFakeMemberPaymentRepo(),
     );
 
     await useCase.execute({ orgId: "org-1", authId: "auth-2" });
@@ -209,6 +223,7 @@ describe("ListTransactionsPageUseCase", () => {
       transactionRepo,
       memberRepo,
       serviceRepo,
+      buildFakeMemberPaymentRepo(),
     );
 
     const result = await useCase.execute({
@@ -227,6 +242,7 @@ describe("ListTransactionsPageUseCase", () => {
       emptyRepo,
       memberRepo,
       serviceRepo,
+      buildFakeMemberPaymentRepo(),
     );
 
     const emptyResult = await emptyUseCase.execute({
@@ -258,6 +274,7 @@ describe("ListTransactionsPageUseCase", () => {
       transactionRepo,
       memberRepo,
       serviceRepo,
+      buildFakeMemberPaymentRepo(),
     );
 
     const result = await useCase.execute({ orgId: "org-1", authId: "auth-1" });
@@ -271,8 +288,8 @@ describe("ListTransactionsPageUseCase", () => {
       ["tx-a", "tx-b"],
     );
     expect(result.data).toEqual([
-      { entity: transactionA, reversed: true, serviceId: null },
-      { entity: transactionB, reversed: false, serviceId: "service-1" },
+      { entity: transactionA, reversed: true, serviceId: null, isMemberPayment: false },
+      { entity: transactionB, reversed: false, serviceId: "service-1", isMemberPayment: false },
     ]);
   });
 
@@ -287,6 +304,7 @@ describe("ListTransactionsPageUseCase", () => {
       transactionRepo,
       memberRepo,
       serviceRepo,
+      buildFakeMemberPaymentRepo(),
     );
 
     const result = await useCase.execute({ orgId: "org-1", authId: "auth-1" });
@@ -298,4 +316,34 @@ describe("ListTransactionsPageUseCase", () => {
     );
     expect(result).toEqual({ data: [], total: 0, page: 1, pages: 0 });
   });
-});
+
+  it("marca isMemberPayment nas transacoes que sao pagamento a membro (mesmo criterio do caminho nao paginado)", async () => {
+    const transactionA = buildTransaction({ id: "tx-a" });
+    const transactionB = buildTransaction({ id: "tx-b" });
+    const transactionRepo = buildFakeTransactionRepo({
+      findPageByOrg: jest.fn().mockResolvedValue({
+        rows: [transactionA, transactionB],
+        total: 2,
+      }),
+    });
+    const memberPaymentRepo = buildFakeMemberPaymentRepo({
+      findTransactionIdsWithPayment: jest
+        .fn()
+        .mockResolvedValue(new Set(["tx-b"])),
+    });
+
+    const useCase = new ListTransactionsPageUseCase(
+      transactionRepo,
+      buildFakeMemberRepo(),
+      buildFakeServiceRepo(),
+      memberPaymentRepo,
+    );
+
+    const result = await useCase.execute({ orgId: "org-1", authId: "auth-1" });
+
+    expect(memberPaymentRepo.findTransactionIdsWithPayment).toHaveBeenCalledWith(
+      "org-1",
+      ["tx-a", "tx-b"],
+    );
+    expect(result.data.map((v) => v.isMemberPayment)).toEqual([false, true]);
+  });});

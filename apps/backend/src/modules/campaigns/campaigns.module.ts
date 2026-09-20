@@ -6,22 +6,29 @@ import { MailModule } from "../mail/mail.module";
 import { OrgsInfrastructureModule } from "../organizations/infrastructure/orgs-infrastructure.module";
 import { CreateCampaignUseCase } from "./application/use-cases/create-campaign.use-case";
 import { DeleteCampaignUseCase } from "./application/use-cases/delete-campaign.use-case";
+import { GetCampaignDeliveryReportUseCase } from "./application/use-cases/get-campaign-delivery-report.use-case";
 import { GetEmailPreferencesUseCase } from "./application/use-cases/get-email-preferences.use-case";
+import { HandleCampaignBounceUseCase } from "./application/use-cases/handle-campaign-bounce.use-case";
 import { ListCampaignsUseCase } from "./application/use-cases/list-campaigns.use-case";
 import { RunCampaignTriggersUseCase } from "./application/use-cases/run-campaign-triggers.use-case";
 import { UnsubscribeFromCampaignsUseCase } from "./application/use-cases/unsubscribe-from-campaigns.use-case";
 import { UpdateCampaignUseCase } from "./application/use-cases/update-campaign.use-case";
 import { UploadCampaignImageUseCase } from "./application/use-cases/upload-campaign-image.use-case";
+import { CAMPAIGN_DELIVERY_REPORT_REPOSITORY } from "./domain/campaign-delivery-report.repository.interface";
+import { CAMPAIGN_DELIVERY_WEBHOOK_CLIENT } from "./domain/campaign-delivery-webhook.port";
 import { CAMPAIGN_MAILER } from "./domain/campaign-mailer.port";
 import { CAMPAIGN_SEND_REPOSITORY } from "./domain/campaign-send.repository.interface";
 import { CAMPAIGN_TARGET_REPOSITORY } from "./domain/campaign-target.repository.interface";
 import { CAMPAIGN_REPOSITORY } from "./domain/campaign.repository.interface";
 import { CUSTOMER_EMAIL_PREFERENCE_REPOSITORY } from "./domain/customer-email-preference.repository.interface";
 import { CampaignMailerMailServiceAdapter } from "./infrastructure/campaign-mailer.mail-service.adapter";
+import { DrizzleCampaignDeliveryReportRepository } from "./infrastructure/persistence/drizzle-campaign-delivery-report.repository";
 import { DrizzleCampaignSendRepository } from "./infrastructure/persistence/drizzle-campaign-send.repository";
 import { DrizzleCampaignTargetRepository } from "./infrastructure/persistence/drizzle-campaign-target.repository";
 import { DrizzleCampaignRepository } from "./infrastructure/persistence/drizzle-campaign.repository";
 import { DrizzleCustomerEmailPreferenceRepository } from "./infrastructure/persistence/drizzle-customer-email-preference.repository";
+import { ResendCampaignDeliveryWebhookClient } from "./infrastructure/resend-campaign-delivery-webhook.client";
+import { CampaignDeliveryWebhookController } from "./interface/campaign-delivery-webhook.controller";
 import { CampaignsController } from "./interface/campaigns.controller";
 import { PublicCampaignsController } from "./interface/public-campaigns.controller";
 
@@ -40,7 +47,11 @@ import { PublicCampaignsController } from "./interface/public-campaigns.controll
     AuthModule,
     OrgsInfrastructureModule,
   ],
-  controllers: [PublicCampaignsController, CampaignsController],
+  controllers: [
+    PublicCampaignsController,
+    CampaignsController,
+    CampaignDeliveryWebhookController,
+  ],
   providers: [
     {
       provide: CUSTOMER_EMAIL_PREFERENCE_REPOSITORY,
@@ -62,6 +73,14 @@ import { PublicCampaignsController } from "./interface/public-campaigns.controll
       provide: CAMPAIGN_MAILER,
       useClass: CampaignMailerMailServiceAdapter,
     },
+    {
+      provide: CAMPAIGN_DELIVERY_WEBHOOK_CLIENT,
+      useClass: ResendCampaignDeliveryWebhookClient,
+    },
+    {
+      provide: CAMPAIGN_DELIVERY_REPORT_REPOSITORY,
+      useClass: DrizzleCampaignDeliveryReportRepository,
+    },
     RunCampaignTriggersUseCase,
     GetEmailPreferencesUseCase,
     UnsubscribeFromCampaignsUseCase,
@@ -70,6 +89,8 @@ import { PublicCampaignsController } from "./interface/public-campaigns.controll
     UpdateCampaignUseCase,
     DeleteCampaignUseCase,
     UploadCampaignImageUseCase,
+    HandleCampaignBounceUseCase,
+    GetCampaignDeliveryReportUseCase,
   ],
   exports: [RunCampaignTriggersUseCase],
 })

@@ -43,10 +43,11 @@ não resolve.
    código de erro em `DomainExceptionFilter.CODE_TO_STATUS` → frontend (schema zod, hook,
    query-key, componente). Omita camadas não afetadas.
 3. Para cada passo: arquivos exatos, mudança específica, validação com comando real
-   (`pnpm check-types`, `pnpm lint`, `pnpm build`; filtrados por app quando possível), e
-   rollback quando houver dado persistido. (O ink-ops ainda não tem suíte de testes
-   automatizada — se a área ganhar testes, inclua o passo de spec; caso contrário, não
-   invente comando de teste inexistente.)
+   (`pnpm --filter <app> test`, `pnpm check-types`, `pnpm lint`, `pnpm build`; filtrados
+   por app quando possível), e rollback quando houver dado persistido. (Há suíte
+   automatizada nas duas apps — Jest no backend, Vitest no frontend — então inclua o passo
+   de spec sempre que o passo introduzir lógica testável. **Não** há `test:e2e`/Playwright:
+   não invente comando de teste inexistente.)
 4. Defina critérios de aceitação verificáveis e riscos com mitigação.
 5. Se a tarefa tocar migration/RLS/caixa, inclua no plano o acionamento do
    `database-guardian` antes do reviewer.
@@ -92,7 +93,10 @@ devolva o bloqueio em `risks` com a menor próxima ação.
 
 ## Regras do style profile aplicáveis
 - Dinheiro em centavos inteiros (`_cents`) — qualquer passo com valor monetário usa integer.
-- Migrations via `pnpm --filter backend db:generate`; nunca editar `.sql` gerado; sempre `.down.sql`.
+- Migrations **escritas à mão** (`db:generate`/`drizzle-kit generate` está quebrado desde a
+  `0011` e não é usado desde a `0003`): `.sql` + `.down.sql` + entrada manual em
+  `drizzle/migrations/meta/_journal.json` (sem ela, `db:migrate` ignora silenciosamente);
+  nunca editar `.sql` já aplicado.
 - Um use-case por operação; erro de negócio = `DomainException` + código registrado em
   `DomainExceptionFilter.CODE_TO_STATUS`.
 - `organization_id` derivado da sessão; atenção ao gotcha `DRIZZLE` vs `DRIZZLE_ADMIN` (ADR-0005).

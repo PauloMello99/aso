@@ -2,6 +2,8 @@ import { Inject, Injectable } from "@nestjs/common";
 import {
   computeNet,
   resolveFee,
+  feeTierFor,
+  normalizeInstallments,
   FeeConfig,
   FeeSource,
 } from "../../domain/fee-calculator";
@@ -47,11 +49,20 @@ export interface CreateTransactionInput {
     feeFixedCents: number | null;
     feeSource: FeeSource | null;
     feeConfigId: string | null;
+    /**
+     * Faixa de parcelas do lançamento ORIGINAL, propagada por
+     * `CorrectTransactionUseCase`. Comparada com `input.installments` (via
+     * `feeTierFor`) para decidir se o snapshot de taxa pode ser reusado ou se
+     * precisa reprecificar — mudar de faixa é tratado como mudança de taxa,
+     * mesmo mantendo o mesmo método de pagamento.
+     */
+    installments?: number | null;
   };
   description: string;
   type: TransactionType;
   grossCents: number;
   paymentMethod: PaymentMethod;
+  installments?: number | null;
   categoryId?: string | null;
   transactedAt?: Date;
 }
@@ -101,13 +112,22 @@ export class CreateTransactionUseCase {
     //   `feeCents`/`netCents` sobre o novo gross. Reprecificar pela ORG aqui
     //   trocaria a taxa aplicada e criaria diferença real de dinheiro num livro
     //   append-only.
-    // - Ramo de correção com método de pagamento DIFERENTE (ou não-`income`): o
-    //   snapshot antigo é inaplicável, então cai na taxa da ORG. `memberFee`
-    //   segue `null` porque nesse ramo `createdBy` vem de
-    //   `transactions.created_by` da transação original — para linhas de
-    //   transferência/estorno gravadas antes de 2026-09-02 essa coluna ainda pode
-    //   ter auth id (sem backfill); um lookup por users.id sairia vazio em silêncio.
+    // - Ramo de correção com método de pagamento DIFERENTE do original (ou faixa
+    //   de parcelas diferente, ou não-`income`): o snapshot antigo é inaplicável,
+    //   então reprecifica via `resolveFee(method, memberFee de `createdBy`, taxa
+    //   da ORG)` — igual ao caminho manual, honrando um eventual override de taxa
+    //   do membro para a faixa/método novos (alinhado com
+    //   `correct-service-payment.use-case.ts`). Em correções cujo `createdBy` veio
+    //   de `transactions.created_by` de uma transferência/estorno gravada antes de
+    //   2026-09-02 (sem backfill, pode conter auth id em vez de users.id), o
+    //   lookup por `memberFee` simplesmente não encontra nada e cai na taxa da
+    //   ORG — mesmo resultado de hoje, sem tratamento de erro adicional.
     const original = isCorrection ? input.originalFee : undefined;
+    const normalizedInstallments = normalizeInstallments(
+      input.paymentMethod,
+      input.installments,
+    );
+    const inputTier = feeTierFor(input.paymentMethod, normalizedInstallments);
 
     let feeConfig: FeeConfig | null;
     let feeConfigId: string | null;
@@ -118,7 +138,9 @@ export class CreateTransactionUseCase {
     if (
       input.type === "income" &&
       original != null &&
-      input.paymentMethod === original.paymentMethod
+      input.paymentMethod === original.paymentMethod &&
+      inputTier ===
+        feeTierFor(original.paymentMethod, original.installments ?? null)
     ) {
       feeConfig =
         original.feeSource === "none" ||
@@ -134,7 +156,7 @@ export class CreateTransactionUseCase {
       feeFixedCents = original.feeFixedCents;
       feeSource = original.feeSource ?? "none";
     } else {
-      const feeUserId = isCorrection ? null : createdBy;
+      const feeUserId = createdBy;
 
       const memberFee =
         input.type === "income" && feeUserId
@@ -142,6 +164,7 @@ export class CreateTransactionUseCase {
               input.orgId,
               feeUserId,
               input.paymentMethod,
+              inputTier,
             )
           : null;
 
@@ -150,10 +173,16 @@ export class CreateTransactionUseCase {
           ? await this.feeRepo.findByOrgAndMethod(
               input.orgId,
               input.paymentMethod,
+              inputTier,
             )
           : null;
 
-      const resolved = resolveFee(input.paymentMethod, memberFee, orgFee);
+      const resolved = resolveFee(
+        input.paymentMethod,
+        normalizedInstallments,
+        memberFee,
+        orgFee,
+      );
       feeConfig = resolved.config;
       feeConfigId = resolved.configId;
       feePercent = resolved.config?.percent ?? null;
@@ -176,6 +205,7 @@ export class CreateTransactionUseCase {
       feeCents,
       netCents,
       paymentMethod: input.paymentMethod,
+      installments: normalizedInstallments,
       categoryId: input.categoryId ?? null,
       feeConfigId,
       feePercent,
@@ -197,6 +227,7 @@ export class CreateTransactionUseCase {
         netCents,
         feeSource,
         paymentMethod: input.paymentMethod,
+        installments: normalizedInstallments,
         categoryId: input.categoryId ?? null,
         // No caminho de correção, `createdBy` vem de `trustedCreatedBy` (copiado de
         // transactions.created_by da transação original). Escritas novas de

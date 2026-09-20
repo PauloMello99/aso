@@ -24,6 +24,11 @@ import {
   ITransactionCategoryRepository,
   TRANSACTION_CATEGORY_REPOSITORY,
 } from "../../../cashier/domain/transaction-category.repository.interface";
+import {
+  LowStockAlertService,
+  LowStockItem,
+  toLowStockItem,
+} from "../../../materials/application/low-stock-alert.service";
 import { resolveReversalCategoryId } from "../../../cashier/domain/reversal-category";
 import { ServiceNotFoundException } from "../../domain/exceptions/service-not-found.exception";
 import { ServiceAlreadyCanceledException } from "../../domain/exceptions/service-already-canceled.exception";
@@ -51,6 +56,7 @@ export class CancelServiceUseCase {
     private readonly transactionRepo: ITransactionRepository,
     @Inject(TRANSACTION_CATEGORY_REPOSITORY)
     private readonly categoryRepo: ITransactionCategoryRepository,
+    private readonly lowStockAlerts: LowStockAlertService,
   ) {}
 
   async execute(input: CancelServiceInput): Promise<ServiceEntity> {
@@ -103,9 +109,12 @@ export class CancelServiceUseCase {
       }
     }
 
+    const crossed: LowStockItem[] = [];
     for (const line of service.materials) {
       const qty = line.quantity;
-      await this.materialRepo.updateStockQuantity(line.materialId, qty);
+      const { material, crossedLowStock } =
+        await this.materialRepo.updateStockQuantity(line.materialId, qty);
+      if (crossedLowStock) crossed.push(toLowStockItem(material));
       await this.movementRepo.create({
         orgId: input.orgId,
         materialId: line.materialId,
@@ -116,6 +125,7 @@ export class CancelServiceUseCase {
         createdBy: currentUserId,
       });
     }
+    this.lowStockAlerts.scheduleIfAny(input.orgId, crossed);
 
     const fresh = await this.serviceRepo.findById(service.id, input.orgId);
     return fresh ?? service;

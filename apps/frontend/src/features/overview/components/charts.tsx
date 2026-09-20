@@ -16,14 +16,17 @@ import {
   YAxis,
 } from "recharts"
 import { Loader2 } from "lucide-react"
-import { formatBRL } from "@/features/cashier/lib/money"
 import { PAYMENT_METHOD_LABELS, type PaymentMethod } from "@/features/cashier/types"
+import { cn } from "@/shared/lib/utils"
+import { useHideValues } from "@/shared/components/hide-values-provider"
+import { useMoneyFormatter } from "@/shared/hooks/use-money-formatter"
 import type {
   DailyBalancePoint,
   IncomeExpensePoint,
   PaymentMethodTotal,
   ServiceGroupRow,
 } from "../hooks/use-overview-analytics"
+import { formatAxisMoney, seriesLabel, truncateTick } from "../lib/chart-format"
 
 const INCOME = "var(--success)"
 const EXPENSE = "var(--destructive)"
@@ -40,9 +43,12 @@ function fmtDay(iso: string): string {
   return `${d}/${m}`
 }
 
-function brlShort(v: number): string {
-  return formatBRL(v).replace("R$", "").trim()
-}
+// Largura do eixo de valor: comporta "-150 mil"/"-1,5 mi" (formato compacto).
+const VALUE_AXIS_WIDTH = 52
+// Largura do eixo de categorias (barras horizontais) + limite de caracteres do
+// rótulo, para nomes longos não invadirem as barras nem se sobreporem.
+const CATEGORY_AXIS_WIDTH = 84
+const CATEGORY_TICK_MAX_CHARS = 12
 
 export function ChartCard({
   title,
@@ -63,7 +69,10 @@ export function ChartCard({
 }) {
   return (
     <div
-      className={`rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-5 ${className ?? ""}`}
+      className={cn(
+        "min-w-0 rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4 sm:p-5",
+        className,
+      )}
     >
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-medium text-foreground">{title}</h3>
@@ -99,18 +108,20 @@ function MoneyTooltip({
   label?: string
   formatLabel?: (l: string) => string
 }) {
+  // Formatter mascarável: com "Ocultar valores" o tooltip não vaza o valor.
+  const money = useMoneyFormatter()
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs shadow-lg">
+    <div className="max-w-[16rem] rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs shadow-lg">
       {label !== undefined && (
-        <p className="mb-0.5 text-foreground/50">
+        <p className="mb-0.5 break-words text-foreground/50">
           {formatLabel ? formatLabel(label) : label}
         </p>
       )}
       {payload.map((p, i) => (
         <p key={i} className="font-medium text-foreground">
-          {p.name ? `${p.name}: ` : ""}
-          {formatBRL(p.value)}
+          {p.name ? `${seriesLabel(p.name)}: ` : ""}
+          {money(p.value)}
         </p>
       ))}
     </div>
@@ -120,9 +131,10 @@ function MoneyTooltip({
 const AXIS_TICK = { fill: "var(--muted-foreground)", fontSize: 11 }
 
 export function BalanceAreaChart({ series }: { series: DailyBalancePoint[] }) {
+  const { hidden } = useHideValues()
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={series} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
+      <AreaChart data={series} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
         <defs>
           <linearGradient id="balanceFill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="var(--chart-2)" stopOpacity={0.35} />
@@ -138,16 +150,17 @@ export function BalanceAreaChart({ series }: { series: DailyBalancePoint[] }) {
           minTickGap={24}
         />
         <YAxis
-          tickFormatter={brlShort}
+          tickFormatter={(v: number) => formatAxisMoney(v, hidden)}
           tick={AXIS_TICK}
           tickLine={false}
           axisLine={false}
-          width={56}
+          width={VALUE_AXIS_WIDTH}
         />
         <Tooltip content={<MoneyTooltip formatLabel={fmtDay} />} />
         <Area
           type="monotone"
           dataKey="totalCents"
+          name="Saldo"
           stroke="var(--chart-2)"
           strokeWidth={2}
           fill="url(#balanceFill)"
@@ -158,9 +171,10 @@ export function BalanceAreaChart({ series }: { series: DailyBalancePoint[] }) {
 }
 
 export function IncomeExpenseChart({ data }: { data: IncomeExpensePoint[] }) {
+  const { hidden } = useHideValues()
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
+      <BarChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
         <XAxis
           dataKey="day"
           tickFormatter={fmtDay}
@@ -170,11 +184,11 @@ export function IncomeExpenseChart({ data }: { data: IncomeExpensePoint[] }) {
           minTickGap={24}
         />
         <YAxis
-          tickFormatter={brlShort}
+          tickFormatter={(v: number) => formatAxisMoney(v, hidden)}
           tick={AXIS_TICK}
           tickLine={false}
           axisLine={false}
-          width={56}
+          width={VALUE_AXIS_WIDTH}
         />
         <Tooltip
           cursor={{ fill: "var(--foreground)", fillOpacity: 0.04 }}
@@ -188,22 +202,35 @@ export function IncomeExpenseChart({ data }: { data: IncomeExpensePoint[] }) {
 }
 
 export function HorizontalRevenueChart({ data }: { data: ServiceGroupRow[] }) {
+  const { hidden } = useHideValues()
   const top = data.slice(0, 6)
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart
         layout="vertical"
         data={top}
-        margin={{ top: 4, right: 12, bottom: 0, left: 8 }}
+        margin={{ top: 4, right: 16, bottom: 0, left: 0 }}
       >
-        <XAxis type="number" tickFormatter={brlShort} tick={AXIS_TICK} tickLine={false} axisLine={false} />
-        <YAxis
-          type="category"
-          dataKey="name"
+        <XAxis
+          type="number"
+          tickFormatter={(v: number) => formatAxisMoney(v, hidden)}
           tick={AXIS_TICK}
           tickLine={false}
           axisLine={false}
-          width={88}
+          tickCount={4}
+          minTickGap={16}
+        />
+        <YAxis
+          type="category"
+          dataKey="name"
+          tickFormatter={(v: string) =>
+            truncateTick(v, CATEGORY_TICK_MAX_CHARS)
+          }
+          tick={AXIS_TICK}
+          tickLine={false}
+          axisLine={false}
+          width={CATEGORY_AXIS_WIDTH}
+          interval={0}
         />
         <Tooltip
           cursor={{ fill: "var(--foreground)", fillOpacity: 0.04 }}

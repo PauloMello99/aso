@@ -13,14 +13,14 @@ export interface UpsertCommissionItem {
 
 const EMPTY_COMMISSIONS: MemberCommission[] = [];
 
-export function useMemberCommissions(orgId: string) {
+export function useMemberCommissions(orgId: string, enabled = true) {
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.cashier.commissions(orgId),
     queryFn: () =>
       apiRequest<MemberCommission[]>(`/orgs/${orgId}/cashier/commissions`),
-    enabled: !!orgId,
+    enabled: !!orgId && enabled,
   });
 
   const upsertMutation = useMutation({

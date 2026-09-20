@@ -37,6 +37,7 @@ import {
 } from "../schemas/cashier.schemas"
 import { centsToReaisInput, formatBRL } from "../lib/money"
 import {
+  MAX_INSTALLMENTS,
   PAYMENT_METHOD_LABELS,
   TRANSACTION_TYPE_LABELS,
   type PaymentMethod,
@@ -49,6 +50,12 @@ const METHOD_ORDER: PaymentMethod[] = [
   "credit_card",
   "debit_card",
 ]
+
+// Mesmas faixas oferecidas no form de novo lançamento (transaction-form.tsx).
+const INSTALLMENT_OPTIONS = Array.from(
+  { length: MAX_INSTALLMENTS },
+  (_, i) => i + 1,
+)
 
 interface CorrectionSheetProps {
   open: boolean
@@ -70,6 +77,7 @@ export function CorrectionSheet({
       type: "income",
       amount: "",
       paymentMethod: "cash",
+      installments: undefined,
       transactedAt: "",
     },
   })
@@ -81,10 +89,13 @@ export function CorrectionSheet({
         type: transaction.type,
         amount: centsToReaisInput(transaction.grossCents),
         paymentMethod: transaction.paymentMethod,
+        installments: transaction.installments ?? undefined,
         transactedAt: transaction.transactedAt.slice(0, 10),
       })
     }
   }, [open, transaction, form])
+
+  const method = form.watch("paymentMethod")
 
   const handleSubmit = form.handleSubmit(async (values) => {
     await onSubmit(values)
@@ -196,7 +207,22 @@ export function CorrectionSheet({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Método de pagamento</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select
+                      onValueChange={(v) => {
+                        field.onChange(v)
+                        // Parcelamento só existe em cartão de crédito (CHECK
+                        // do banco) — trocar de método fora do crédito não
+                        // deve deixar um valor de parcela "fantasma". Feito
+                        // no handler (não num useEffect que observa o watch)
+                        // para não correr atrás do form.reset que popula a
+                        // faixa original no mesmo commit em que a sheet abre.
+                        form.setValue(
+                          "installments",
+                          v === "credit_card" ? 1 : undefined,
+                        )
+                      }}
+                      value={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue />
@@ -214,6 +240,36 @@ export function CorrectionSheet({
                   </FormItem>
                 )}
               />
+
+              {method === "credit_card" && (
+                <FormField
+                  control={form.control}
+                  name="installments"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Parcelas</FormLabel>
+                      <Select
+                        onValueChange={(v) => field.onChange(Number(v))}
+                        value={String(field.value ?? 1)}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {INSTALLMENT_OPTIONS.map((n) => (
+                            <SelectItem key={n} value={String(n)}>
+                              {n === 1 ? "1x (à vista)" : `${n}x`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <FormField
                 control={form.control}
