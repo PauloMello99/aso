@@ -15,7 +15,27 @@ import {
   IUserRepository,
   PlatformAdminContact,
 } from "../../domain/user.repository.interface";
+import { OnboardingSeenTooLargeException } from "../../domain/exceptions/onboarding-seen-too-large.exception";
 import { UserMapper } from "./user.mapper";
+
+const ONBOARDING_SEEN_BOUND_CHECK = "users_onboarding_seen_bounded";
+
+// O driver pode entregar o erro do pg direto ou embrulhado em `cause`
+// (DrizzleQueryError). Só o CHECK de tamanho de onboarding_seen é mapeado.
+function isOnboardingSeenBoundViolation(error: unknown): boolean {
+  const candidates: unknown[] = [error];
+  if (typeof error === "object" && error !== null && "cause" in error) {
+    candidates.push((error as { cause?: unknown }).cause);
+  }
+  return candidates.some((candidate) => {
+    if (typeof candidate !== "object" || candidate === null) return false;
+    const { code, constraint } = candidate as {
+      code?: unknown;
+      constraint?: unknown;
+    };
+    return code === "23514" && constraint === ONBOARDING_SEEN_BOUND_CHECK;
+  });
+}
 
 @Injectable()
 export class DrizzleUserRepository implements IUserRepository {
@@ -98,12 +118,19 @@ export class DrizzleUserRepository implements IUserRepository {
     authId: string,
     seen: Record<string, number>,
   ): Promise<void> {
-    await this.db
-      .update(schema.users)
-      .set({
-        onboardingSeen: sql`coalesce(${schema.users.onboardingSeen}, '{}'::jsonb) || ${JSON.stringify(seen)}::jsonb`,
-      })
-      .where(eq(schema.users.authId, authId));
+    try {
+      await this.db
+        .update(schema.users)
+        .set({
+          onboardingSeen: sql`coalesce(${schema.users.onboardingSeen}, '{}'::jsonb) || ${JSON.stringify(seen)}::jsonb`,
+        })
+        .where(eq(schema.users.authId, authId));
+    } catch (error) {
+      if (isOnboardingSeenBoundViolation(error)) {
+        throw new OnboardingSeenTooLargeException();
+      }
+      throw error;
+    }
   }
 
   async update(authId: string, data: UpdateUserData): Promise<UserEntity> {
@@ -115,6 +142,9 @@ export class DrizzleUserRepository implements IUserRepository {
         ...(data.avatarUrl !== undefined && { avatarUrl: data.avatarUrl }),
         ...(data.onboardingCompletedAt !== undefined && {
           onboardingCompletedAt: data.onboardingCompletedAt,
+        }),
+        ...(data.productUpdatesOptedOutAt !== undefined && {
+          productUpdatesOptedOutAt: data.productUpdatesOptedOutAt,
         }),
         updatedAt: new Date(),
       })

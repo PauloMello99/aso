@@ -18,6 +18,7 @@ export class UserMapper {
       termsVersion: row.termsVersion ?? null,
       changelogSeenVersion: row.changelogSeenVersion ?? null,
       onboardingSeen: row.onboardingSeen ?? {},
+      productUpdatesOptedOutAt: row.productUpdatesOptedOutAt ?? null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });

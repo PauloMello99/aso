@@ -16,6 +16,7 @@ export interface UserEntityProps {
   termsVersion: string | null;
   changelogSeenVersion?: number | null;
   onboardingSeen?: Record<string, number>;
+  productUpdatesOptedOutAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -33,6 +34,7 @@ export interface UpdateUserData {
   email?: string;
   avatarUrl?: string | null;
   onboardingCompletedAt?: Date | null;
+  productUpdatesOptedOutAt?: Date | null;
 }
 
 export class UserEntity {
@@ -50,6 +52,7 @@ export class UserEntity {
   readonly termsVersion: string | null;
   readonly changelogSeenVersion: number | null;
   readonly onboardingSeen: Record<string, number>;
+  readonly productUpdatesOptedOutAt: Date | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 
@@ -68,6 +71,7 @@ export class UserEntity {
     this.termsVersion = props.termsVersion;
     this.changelogSeenVersion = props.changelogSeenVersion ?? null;
     this.onboardingSeen = props.onboardingSeen ?? {};
+    this.productUpdatesOptedOutAt = props.productUpdatesOptedOutAt ?? null;
     this.createdAt = props.createdAt;
     this.updatedAt = props.updatedAt;
   }

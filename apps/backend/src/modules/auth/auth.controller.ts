@@ -35,6 +35,7 @@ import { UpdateMeUseCase } from "./use-cases/update-me.use-case";
 import { UploadAvatarUseCase } from "./use-cases/upload-avatar.use-case";
 import { DeleteAccountUseCase } from "./use-cases/delete-account.use-case";
 import { UpdateMeDto } from "./dto/update-me.dto";
+import { toMeResponse } from "./dto/me-response";
 import { GetMeUseCase } from "../user/application/use-cases/get-me.use-case";
 
 interface UploadedImage {
@@ -104,14 +105,14 @@ export class AuthController {
 
   @Get("me")
   @UseGuards(AuthGuard)
-  getMe(@CurrentUser() user: AuthUser) {
-    return this.getMeUseCase.execute(user);
+  async getMe(@CurrentUser() user: AuthUser) {
+    return toMeResponse(await this.getMeUseCase.execute(user));
   }
 
   @Patch("me")
   @UseGuards(AuthGuard)
-  updateMe(@CurrentUser() user: AuthUser, @Body() dto: UpdateMeDto) {
-    return this.updateMeUseCase.execute(user, dto);
+  async updateMe(@CurrentUser() user: AuthUser, @Body() dto: UpdateMeDto) {
+    return toMeResponse(await this.updateMeUseCase.execute(user, dto));
   }
 
   @Delete("me")
@@ -124,7 +125,7 @@ export class AuthController {
   @Post("me/avatar")
   @UseGuards(AuthGuard)
   @UseInterceptors(FileInterceptor("file"))
-  uploadAvatar(
+  async uploadAvatar(
     @CurrentUser() user: AuthUser,
     @UploadedFile(
       new ParseFilePipe({
@@ -136,6 +137,8 @@ export class AuthController {
     )
     file: UploadedImage,
   ) {
-    return this.uploadAvatarUseCase.execute(user, file.buffer, file.mimetype);
+    return toMeResponse(
+      await this.uploadAvatarUseCase.execute(user, file.buffer, file.mimetype),
+    );
   }
 }

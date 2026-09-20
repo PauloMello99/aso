@@ -8,6 +8,7 @@ import { ExpireSubscriptionsUseCase } from "../subscriptions/application/use-cas
 import { ReconcilePlanCatalogUseCase } from "../subscriptions/application/use-cases/reconcile-plan-catalog.use-case";
 import { ReconcileRefundsUseCase } from "../subscriptions/application/use-cases/reconcile-refunds.use-case";
 import { RunCampaignTriggersUseCase } from "../campaigns/application/use-cases/run-campaign-triggers.use-case";
+import { SendChangelogAnnouncementsUseCase } from "../changelog/application/use-cases/send-changelog-announcements.use-case";
 import { SweepTicketSlaUseCase } from "../support/application/use-cases/sweep-ticket-sla.use-case";
 
 interface JobResult {
@@ -29,6 +30,7 @@ export class InternalCronController {
     private readonly reconcileRefunds: ReconcileRefundsUseCase,
     private readonly runCampaignTriggers: RunCampaignTriggersUseCase,
     private readonly sweepTicketSla: SweepTicketSlaUseCase,
+    private readonly sendChangelogAnnouncements: SendChangelogAnnouncementsUseCase,
   ) {}
 
   @Post("tick")
@@ -75,6 +77,14 @@ export class InternalCronController {
       {
         name: CRON_JOBS.TICKET_SLA_SWEEP,
         run: () => this.sweepTicketSla.execute(),
+      },
+      {
+        // NOT self-throttled by the tick: serialization is the 10-minute
+        // `claimRun` inside the use-case (overlapping ticks), and per-row
+        // idempotency comes from the log's UNIQUE (user_id, entry_id).
+        // Kill-switch/channel gates run before the claim.
+        name: CRON_JOBS.CHANGELOG_ANNOUNCEMENTS,
+        run: () => this.sendChangelogAnnouncements.execute(),
       },
     ];
 

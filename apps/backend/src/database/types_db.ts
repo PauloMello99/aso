@@ -788,6 +788,36 @@ export type Database = {
           },
         ]
       }
+      changelog_notifications: {
+        Row: {
+          created_at: string
+          entry_id: string
+          error: string | null
+          id: string
+          sent_at: string | null
+          status: Database["public"]["Enums"]["changelog_notification_status"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entry_id: string
+          error?: string | null
+          id?: string
+          sent_at?: string | null
+          status: Database["public"]["Enums"]["changelog_notification_status"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entry_id?: string
+          error?: string | null
+          id?: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["changelog_notification_status"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       cron_job_state: {
         Row: {
           job_name: string
@@ -2574,6 +2604,7 @@ export type Database = {
           onboarding_seen: Json
           phone: string | null
           platform_role: Database["public"]["Enums"]["platform_role"]
+          product_updates_opted_out_at: string | null
           terms_accepted_at: string | null
           terms_version: string | null
           updated_at: string
@@ -2592,6 +2623,7 @@ export type Database = {
           onboarding_seen?: Json
           phone?: string | null
           platform_role?: Database["public"]["Enums"]["platform_role"]
+          product_updates_opted_out_at?: string | null
           terms_accepted_at?: string | null
           terms_version?: string | null
           updated_at?: string
@@ -2610,6 +2642,7 @@ export type Database = {
           onboarding_seen?: Json
           phone?: string | null
           platform_role?: Database["public"]["Enums"]["platform_role"]
+          product_updates_opted_out_at?: string | null
           terms_accepted_at?: string | null
           terms_version?: string | null
           updated_at?: string
@@ -2662,6 +2695,7 @@ export type Database = {
       calendar_provider: "google" | "outlook" | "apple"
       campaign_send_status: "sent" | "failed" | "bounced"
       campaign_trigger_type: "post_service" | "birthday" | "inactivity"
+      changelog_notification_status: "sent" | "failed"
       gender: "male" | "female" | "other"
       invitation_status: "pending" | "accepted" | "expired" | "cancelled"
       member_classification: "resident" | "guest"
@@ -2856,6 +2890,7 @@ export const Constants = {
       calendar_provider: ["google", "outlook", "apple"],
       campaign_send_status: ["sent", "failed", "bounced"],
       campaign_trigger_type: ["post_service", "birthday", "inactivity"],
+      changelog_notification_status: ["sent", "failed"],
       gender: ["male", "female", "other"],
       invitation_status: ["pending", "accepted", "expired", "cancelled"],
       member_classification: ["resident", "guest"],

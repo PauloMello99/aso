@@ -23,6 +23,9 @@ export const users = pgTable("users", {
     .$type<Record<string, number>>()
     .notNull()
     .default({}),
+  productUpdatesOptedOutAt: timestamp("product_updates_opted_out_at", {
+    withTimezone: true,
+  }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

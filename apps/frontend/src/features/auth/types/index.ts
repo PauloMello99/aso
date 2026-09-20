@@ -16,6 +16,7 @@ export interface Me {
   gender: "male" | "female" | "other" | null
   onboardingCompletedAt: string | null
   onboardingSeen: Record<string, number>
+  productUpdatesOptedOut: boolean
   termsAcceptedAt: string | null
   termsVersion: string | null
   createdAt: string

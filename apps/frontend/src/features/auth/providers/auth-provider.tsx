@@ -1,4 +1,5 @@
 import React, { createContext, useEffect, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { apiRequest } from "@/infrastructure/api/client"
 import { clearSession, getSession, saveSession } from "@/features/auth/lib/session"
 import type { AuthContextValue, AuthSession, AuthUser } from "@/features/auth/types"
@@ -6,6 +7,7 @@ import type { AuthContextValue, AuthSession, AuthUser } from "@/features/auth/ty
 export const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient()
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -45,6 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await apiRequest("/auth/sign-out", { method: "POST" })
     } finally {
       clearSession()
+      queryClient.clear()
       setUser(null)
     }
   }

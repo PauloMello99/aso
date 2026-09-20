@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEmail,
   IsISO8601,
   IsOptional,
@@ -77,4 +78,9 @@ export class UpdateMeDto {
   @ValidateIf((o: UpdateMeDto) => o.onboardingSeen !== undefined)
   @IsOnboardingSeenMap()
   onboardingSeen?: Record<string, number>;
+
+  // ValidateIf (não IsOptional): null deve ser rejeitado com 400, só undefined é omissão.
+  @ValidateIf((o: UpdateMeDto) => o.productUpdatesOptedOut !== undefined)
+  @IsBoolean()
+  productUpdatesOptedOut?: boolean;
 }

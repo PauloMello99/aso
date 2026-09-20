@@ -161,3 +161,8 @@ export const campaignSendStatusEnum = pgEnum("campaign_send_status", [
   "failed",
   "bounced",
 ]);
+
+export const changelogNotificationStatusEnum = pgEnum(
+  "changelog_notification_status",
+  ["sent", "failed"],
+);

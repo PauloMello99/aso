@@ -568,6 +568,20 @@
       "when": 1782007000000,
       "tag": "0080_user_onboarding_seen",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1782007100000,
+      "tag": "0081_user_product_updates_opt_out",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1782007200000,
+      "tag": "0082_changelog_notifications",
+      "breakpoints": true
     }
   ]
 }

@@ -18,6 +18,7 @@ export interface UpdateMeInput {
   avatarUrl?: string | null;
   onboardingCompletedAt?: string | null;
   onboardingSeen?: Record<string, number>;
+  productUpdatesOptedOut?: boolean;
 }
 
 @Injectable()
@@ -70,6 +71,13 @@ export class UpdateMeUseCase {
           : input.onboardingCompletedAt === null
             ? null
             : new Date(),
+      // Servidor deriva a data: true mantém a data existente (não regrava), false limpa.
+      productUpdatesOptedOutAt:
+        input.productUpdatesOptedOut === undefined
+          ? undefined
+          : input.productUpdatesOptedOut
+            ? current.productUpdatesOptedOutAt ?? new Date()
+            : null,
     });
 
     const changedFields = Object.keys(input).filter(

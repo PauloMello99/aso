@@ -8,6 +8,25 @@ async function errorsFor(payload: Record<string, unknown>): Promise<string[]> {
   return errors.map((e) => e.property);
 }
 
+describe("UpdateMeDto.productUpdatesOptedOut", () => {
+  it("aceita true, false e ausência do campo", async () => {
+    expect(await errorsFor({ productUpdatesOptedOut: true })).toEqual([]);
+    expect(await errorsFor({ productUpdatesOptedOut: false })).toEqual([]);
+    expect(await errorsFor({})).toEqual([]);
+  });
+
+  it.each([
+    ["string", "true"],
+    ["número", 1],
+    ["null", null],
+    ["objeto", {}],
+  ])("rejeita %s", async (_label, productUpdatesOptedOut) => {
+    expect(await errorsFor({ productUpdatesOptedOut })).toContain(
+      "productUpdatesOptedOut",
+    );
+  });
+});
+
 describe("UpdateMeDto.onboardingSeen", () => {
   it("aceita mapa válido e ausência do campo", async () => {
     expect(await errorsFor({ onboardingSeen: { caixa: 1, "meus-clientes": 1000 } })).toEqual([]);
