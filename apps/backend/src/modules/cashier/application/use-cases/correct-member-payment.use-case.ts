@@ -18,7 +18,7 @@ export interface CorrectMemberPaymentInput {
   expectedUserId: string;
   amountCents: number;
   paymentMethod: PaymentMethod;
-  description: string;
+  description?: string | null;
   periodStart?: string | null;
   periodEnd?: string | null;
   transactedAt?: Date;

@@ -188,7 +188,7 @@ describe("CreateMemberPaymentUseCase", () => {
         grossCents: 50000,
         paymentMethod: "bank_transfer",
         categoryId: "cat-member-payment",
-        description: "Pagamento a funcionário",
+        description: "Pagamento a Funcionario",
       }),
     );
     expect(memberPaymentRepo.create).toHaveBeenCalledWith(
@@ -197,11 +197,77 @@ describe("CreateMemberPaymentUseCase", () => {
         userId: "user-1",
         transactionId: "tx-1",
         amountCents: 50000,
+        description: "Pagamento a funcionário",
         reversesPaymentId: null,
         createdBy: "user-owner",
       }),
     );
     expect(result).toBe(payment);
+  });
+
+  it("monta a descrição rica da transação com período e nota, e grava a nota na linha de pagamento", async () => {
+    const memberRepo = buildFakeMemberRepo();
+    const categoryRepo = buildFakeCategoryRepo();
+    const memberPaymentRepo = buildFakeMemberPaymentRepo();
+    const createTransactionUseCase = buildFakeCreateTransactionUseCase();
+    const useCase = new CreateMemberPaymentUseCase(
+      memberPaymentRepo,
+      categoryRepo,
+      memberRepo,
+      createTransactionUseCase,
+    );
+
+    await useCase.execute({
+      orgId: "org-1",
+      authId: "auth-owner",
+      userId: "user-1",
+      amountCents: 50000,
+      paymentMethod: "bank_transfer",
+      description: "Bônus",
+      periodStart: "2026-09-01",
+      periodEnd: "2026-09-15",
+    });
+
+    expect(createTransactionUseCase.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: "Pagamento a Funcionario (01/09/2026 a 15/09/2026) — Bônus",
+      }),
+    );
+    expect(memberPaymentRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: "Bônus",
+        periodStart: "2026-09-01",
+        periodEnd: "2026-09-15",
+      }),
+    );
+  });
+
+  it("sem observação, a linha de pagamento usa o default e a transação só traz o nome", async () => {
+    const memberRepo = buildFakeMemberRepo();
+    const categoryRepo = buildFakeCategoryRepo();
+    const memberPaymentRepo = buildFakeMemberPaymentRepo();
+    const createTransactionUseCase = buildFakeCreateTransactionUseCase();
+    const useCase = new CreateMemberPaymentUseCase(
+      memberPaymentRepo,
+      categoryRepo,
+      memberRepo,
+      createTransactionUseCase,
+    );
+
+    await useCase.execute({
+      orgId: "org-1",
+      authId: "auth-owner",
+      userId: "user-1",
+      amountCents: 50000,
+      paymentMethod: "cash",
+    });
+
+    expect(createTransactionUseCase.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ description: "Pagamento a Funcionario" }),
+    );
+    expect(memberPaymentRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ description: "Pagamento a funcionário" }),
+    );
   });
 
   it("reflete amountCents 1:1 em grossCents na chamada de CreateTransactionUseCase", async () => {
