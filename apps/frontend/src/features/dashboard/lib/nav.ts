@@ -2,6 +2,7 @@ import {
   LayoutGrid,
   Package,
   Users,
+  UsersRound,
   CalendarDays,
   Archive,
   Wallet,
@@ -63,6 +64,7 @@ export const ORG_NAV_SECTIONS: NavSection[] = [
       { label: "Agenda", href: "schedule", icon: CalendarDays, module: "schedule" },
       { label: "Estoque", href: "stock", icon: Archive, module: "stock" },
       { label: "Caixa", href: "cashier", icon: Wallet, module: "cashier" },
+      { label: "Membros", href: "members", icon: UsersRound },
       {
         label: "Campanhas",
         href: "campaigns",

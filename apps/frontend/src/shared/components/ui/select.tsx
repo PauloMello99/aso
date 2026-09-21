@@ -29,7 +29,7 @@ function SelectTrigger({
         "placeholder:text-foreground/30",
         "focus:border-foreground/20 focus:ring-1 focus:ring-foreground/10",
         "disabled:cursor-not-allowed disabled:opacity-50",
-        "[&>span]:line-clamp-1",
+        "[&>span]:line-clamp-1 [&>span]:min-w-0",
         className,
       )}
       {...props}

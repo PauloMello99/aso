@@ -17,6 +17,13 @@ export interface ListMaterialsFilter {
   sortBy?: "lastUsed" | "name";
 }
 
+export interface StockUpdateResult {
+  material: MaterialEntity;
+  // true quando esta escrita abriu um episodio de estoque baixo (marcador
+  // low_stock_alerted_at passou de NULL para preenchido).
+  crossedLowStock: boolean;
+}
+
 export interface IMaterialRepository {
   findById(id: string, orgId: string): Promise<MaterialEntity | null>;
   findAllByOrg(
@@ -37,7 +44,8 @@ export interface IMaterialRepository {
   updateStockQuantity(
     id: string,
     delta: string,
-  ): Promise<MaterialEntity>;
+  ): Promise<StockUpdateResult>;
+  syncLowStockMarker(id: string): Promise<boolean>;
   touchLastUsed(id: string): Promise<void>;
   setArchived(id: string, orgId: string, archived: boolean): Promise<MaterialEntity>;
   isLinkedToService(id: string): Promise<boolean>;

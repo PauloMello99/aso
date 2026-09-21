@@ -15,7 +15,8 @@ import {
   StatusBadge,
   formatDate,
 } from "@/features/cashier/components/transaction-list"
-import { PAYMENT_METHOD_LABELS, type TransactionView } from "@/features/cashier/types"
+import { formatPaymentMethod } from "@/features/cashier/lib/payment-method-label"
+import type { TransactionView } from "@/features/cashier/types"
 
 interface CustomerTransactionHistoryListProps {
   transactions: TransactionView[]
@@ -28,7 +29,7 @@ function TransactionCard({ view }: { view: TransactionView }) {
   return (
     <div
       className={cn(
-        "flex items-start justify-between gap-3 rounded-xl border p-4",
+        "flex min-w-0 max-w-full items-start justify-between gap-3 rounded-xl border p-4",
         struck
           ? "border-foreground/[0.04] bg-foreground/[0.01]"
           : "border-foreground/[0.06] bg-foreground/[0.02]",
@@ -43,7 +44,7 @@ function TransactionCard({ view }: { view: TransactionView }) {
           )}
           <span
             className={cn(
-              "truncate font-medium",
+              "min-w-0 max-w-full truncate font-medium",
               struck ? "text-foreground/40 line-through" : "text-foreground",
             )}
           >
@@ -52,10 +53,10 @@ function TransactionCard({ view }: { view: TransactionView }) {
           <StatusBadge view={view} />
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-foreground/40">
-          <span>{PAYMENT_METHOD_LABELS[t.paymentMethod]}</span>
+          <span>{formatPaymentMethod(t.paymentMethod, t.installments)}</span>
           <span>{formatDate(t.transactedAt)}</span>
         </div>
-        <div className="mt-2">
+        <div className="mt-2 break-words">
           <AmountCell t={t} struck={struck} />
         </div>
       </div>
@@ -78,7 +79,7 @@ export function CustomerTransactionHistoryList({
 
   return (
     <>
-      <div className="grid gap-3 sm:hidden">
+      <div className="grid grid-cols-1 gap-3 sm:hidden">
         {transactions.map((v) => (
           <TransactionCard key={v.entity.id} view={v} />
         ))}
@@ -108,8 +109,9 @@ export function CustomerTransactionHistoryList({
                         <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-destructive" />
                       )}
                       <span
+                        title={t.description}
                         className={cn(
-                          "font-medium",
+                          "block max-w-[20rem] truncate font-medium",
                           struck ? "text-foreground/40 line-through" : "text-foreground",
                         )}
                       >
@@ -119,7 +121,7 @@ export function CustomerTransactionHistoryList({
                     </div>
                   </TableCell>
                   <TableCell className="text-foreground/50">
-                    {PAYMENT_METHOD_LABELS[t.paymentMethod]}
+                    {formatPaymentMethod(t.paymentMethod, t.installments)}
                   </TableCell>
                   <TableCell className="text-foreground/40">
                     {formatDate(t.transactedAt)}

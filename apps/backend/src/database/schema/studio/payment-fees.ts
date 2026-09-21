@@ -3,6 +3,7 @@ import {
   uuid,
   integer,
   numeric,
+  smallint,
   timestamp,
   unique,
 } from "drizzle-orm/pg-core";
@@ -22,6 +23,9 @@ export const orgPaymentFees = pgTable(
       .notNull()
       .default("0"),
     fixedCents: integer("fixed_cents").notNull().default(0),
+    // Número de parcelas que essa linha de config representa — 1 = à vista.
+    // Toda linha de config SEMPRE representa uma faixa concreta (0075).
+    installments: smallint("installments").notNull().default(1),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -29,7 +33,13 @@ export const orgPaymentFees = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [unique("org_payment_fees_org_method_uq").on(t.orgId, t.paymentMethod)],
+  (t) => [
+    unique("org_payment_fees_org_method_inst_uq").on(
+      t.orgId,
+      t.paymentMethod,
+      t.installments,
+    ),
+  ],
 );
 
 export const orgPaymentFeesRelations = relations(orgPaymentFees, ({ one }) => ({

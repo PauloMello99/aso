@@ -1,10 +1,13 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Resend } from "resend";
+import { EmailAllowlistService } from "../application/email-allowlist.service";
 import type {
   IEmailSender,
   SendEmailInput,
 } from "../domain/ports/email-sender.port";
+import { recipientDomain } from "../domain/recipient-domain";
+import { redactEmail } from "../../campaigns/domain/redact-email";
 
 @Injectable()
 export class ResendEmailSender implements IEmailSender {
@@ -13,7 +16,10 @@ export class ResendEmailSender implements IEmailSender {
   private readonly from: string;
   private readonly client: Resend | null;
 
-  constructor(config: ConfigService) {
+  constructor(
+    config: ConfigService,
+    private readonly allowlist: EmailAllowlistService,
+  ) {
     const flag = config.get<string>("NOTIFICATIONS_EMAIL_ENABLED") === "true";
     const apiKey = config.get<string>("RESEND_API_KEY") ?? "";
     this.from =
@@ -26,7 +32,14 @@ export class ResendEmailSender implements IEmailSender {
   async send(input: SendEmailInput): Promise<boolean> {
     if (!this.enabled || !this.client) {
       this.logger.debug(
-        `Email desabilitado — no-op para "${input.subject}" → ${input.to}`,
+        `Email desabilitado — no-op para "${input.subject}" → domínio ${recipientDomain(input.to)}`,
+      );
+      return false;
+    }
+
+    if (!this.allowlist.isAllowed(input.to)) {
+      this.logger.warn(
+        `Bloqueado pela allowlist de e-mail (fora de produção): "${input.subject}" → domínio ${recipientDomain(input.to)}`,
       );
       return false;
     }
@@ -38,16 +51,26 @@ export class ResendEmailSender implements IEmailSender {
       html: input.html,
       ...(input.text ? { text: input.text } : {}),
       ...(input.replyTo ? { replyTo: input.replyTo } : {}),
+      ...(input.tags
+        ? {
+            tags: Object.entries(input.tags).map(([name, value]) => ({
+              name,
+              value,
+            })),
+          }
+        : {}),
     });
 
     if (error) {
       this.logger.error(
-        `Falha ao enviar e-mail para ${input.to}: ${error.message}`,
+        `Falha ao enviar e-mail para domínio ${recipientDomain(input.to)}: ${redactEmail(error.message)}`,
       );
-      throw new Error(`Resend send failed: ${error.message}`);
+      throw new Error(`Resend send failed: ${redactEmail(error.message)}`);
     }
 
-    this.logger.debug(`E-mail enviado para ${input.to} (id: ${data?.id})`);
+    this.logger.debug(
+      `E-mail enviado para domínio ${recipientDomain(input.to)} (id: ${data?.id})`,
+    );
     return true;
   }
 }

@@ -17,6 +17,10 @@ import {
   IServiceRepository,
   SERVICE_REPOSITORY,
 } from "../../../services/domain/service.repository.interface";
+import {
+  IMemberPaymentRepository,
+  MEMBER_PAYMENT_REPOSITORY,
+} from "../../domain/member-payment.repository.interface";
 import { resolveActor } from "./resolve-actor";
 import { TransactionView } from "./list-transactions.use-case";
 
@@ -39,6 +43,8 @@ export class ListTransactionsPageUseCase {
     private readonly memberRepo: IMemberRepository,
     @Inject(SERVICE_REPOSITORY)
     private readonly serviceRepo: IServiceRepository,
+    @Inject(MEMBER_PAYMENT_REPOSITORY)
+    private readonly memberPaymentRepo: IMemberPaymentRepository,
   ) {}
 
   async execute(
@@ -66,15 +72,18 @@ export class ListTransactionsPageUseCase {
 
     const ids = rows.map((r) => r.id);
 
-    const [reversedIds, serviceIdsByTransactionId] = await Promise.all([
-      this.transactionRepo.findReversedIdsIn(input.orgId, ids),
-      this.serviceRepo.findServiceIdsByTransactionIds(input.orgId, ids),
-    ]);
+    const [reversedIds, serviceIdsByTransactionId, memberPaymentTransactionIds] =
+      await Promise.all([
+        this.transactionRepo.findReversedIdsIn(input.orgId, ids),
+        this.serviceRepo.findServiceIdsByTransactionIds(input.orgId, ids),
+        this.memberPaymentRepo.findTransactionIdsWithPayment(input.orgId, ids),
+      ]);
 
     const views: TransactionView[] = rows.map((entity) => ({
       entity,
       reversed: reversedIds.has(entity.id),
       serviceId: serviceIdsByTransactionId.get(entity.id) ?? null,
+      isMemberPayment: memberPaymentTransactionIds.has(entity.id),
     }));
 
     return buildPaginated(views, total, page, limit);

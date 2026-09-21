@@ -114,13 +114,16 @@ function CustomerCard({
     >
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="truncate font-medium text-foreground">{customer.name}</span>
+          <span className="min-w-0 max-w-full truncate font-medium text-foreground">
+            {customer.name}
+          </span>
           <StatusBadge enabled={customer.enabled} />
         </div>
         <div className="mt-1 flex flex-col gap-1 text-sm text-foreground/40">
           {customer.email && (
-            <span className="flex items-center gap-1.5 truncate">
-              <Mail className="h-3 w-3 shrink-0" /> {customer.email}
+            <span className="flex min-w-0 items-center gap-1.5">
+              <Mail className="h-3 w-3 shrink-0" />
+              <span className="min-w-0 truncate">{customer.email}</span>
             </span>
           )}
           {customer.phone && (
@@ -129,8 +132,9 @@ function CustomerCard({
             </span>
           )}
           {customer.city && (
-            <span className="flex items-center gap-1.5 truncate">
-              <MapPin className="h-3 w-3 shrink-0" /> {customer.city}
+            <span className="flex min-w-0 items-center gap-1.5">
+              <MapPin className="h-3 w-3 shrink-0" />
+              <span className="min-w-0 truncate">{customer.city}</span>
             </span>
           )}
           {!customer.email && !customer.phone && (
@@ -167,16 +171,30 @@ function CustomerRow({
         onClick={() => onViewDetail(customer)}
         className="pl-4 font-medium text-foreground hover:underline"
       >
-        {customer.name}
+        <span title={customer.name} className="block max-w-[12rem] truncate">
+          {customer.name}
+        </span>
       </TableCell>
       <TableCell className="text-foreground/40">
-        {customer.email ?? <span className="text-foreground/20">—</span>}
+        {customer.email ? (
+          <span title={customer.email} className="block max-w-[12rem] truncate">
+            {customer.email}
+          </span>
+        ) : (
+          <span className="text-foreground/20">—</span>
+        )}
       </TableCell>
       <TableCell className="text-foreground/40">
         {customer.phone ?? <span className="text-foreground/20">—</span>}
       </TableCell>
       <TableCell className="text-foreground/40">
-        {customer.city ?? <span className="text-foreground/20">—</span>}
+        {customer.city ? (
+          <span title={customer.city} className="block max-w-[8rem] truncate">
+            {customer.city}
+          </span>
+        ) : (
+          <span className="text-foreground/20">—</span>
+        )}
       </TableCell>
       <TableCell>
         <StatusBadge enabled={customer.enabled} />
@@ -216,7 +234,7 @@ export function CustomerList({
 
   return (
     <>
-      <div className="grid gap-3 sm:hidden">
+      <div className="grid grid-cols-1 gap-3 sm:hidden">
         {customers.map((c) => (
           <CustomerCard
             key={c.id}

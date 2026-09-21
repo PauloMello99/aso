@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { MailService } from "../../mail/application/mail.service";
+import { recipientDomain } from "../../mail/domain/recipient-domain";
 import {
   NotificationEntity,
   NotificationType,
@@ -54,7 +55,7 @@ export class NotificationService {
           });
         } catch (err) {
           this.logger.warn(
-            `Falha ao enviar e-mail de notificação para ${contact.email}: ${
+            `Falha ao enviar e-mail de notificação para domínio ${recipientDomain(contact.email)}: ${
               err instanceof Error ? err.message : String(err)
             }`,
           );

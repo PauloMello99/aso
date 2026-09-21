@@ -15,11 +15,13 @@ import {
 import { PaymentMethod } from "../../domain/transaction.entity";
 import { CashierForbiddenException } from "../../domain/exceptions/cashier-forbidden.exception";
 import { FeeMemberNotFoundException } from "../../domain/exceptions/fee-member-not-found.exception";
+import { MemberFeeDuplicateKeyException } from "../../domain/exceptions/member-fee-duplicate-key.exception";
 import { AuditService } from "../../../audit/audit.service";
 
 export interface UpsertMemberPaymentFeeItem {
   userId: string;
   paymentMethod: PaymentMethod;
+  installments: number;
   percent: string;
   fixedCents: number;
 }
@@ -27,6 +29,7 @@ export interface UpsertMemberPaymentFeeItem {
 export interface MemberPaymentFeeDeactivationItem {
   userId: string;
   paymentMethod: PaymentMethod;
+  installments: number;
 }
 
 export interface UpsertMemberPaymentFeesInput {
@@ -81,9 +84,23 @@ export class UpsertMemberPaymentFeesUseCase {
       }
     }
 
+    const seenKeys = new Set<string>();
+    for (const item of [...input.fees, ...(input.deactivations ?? [])]) {
+      const key = `${item.userId}|${item.paymentMethod}|${item.installments}`;
+      if (seenKeys.has(key)) {
+        throw new MemberFeeDuplicateKeyException(
+          item.userId,
+          item.paymentMethod,
+          item.installments,
+        );
+      }
+      seenKeys.add(key);
+    }
+
     const changes: Array<{
       userId: string;
       paymentMethod: PaymentMethod;
+      installments: number;
       previousPercent: string | null;
       previousFixedCents: number | null;
       percent: string | null;
@@ -95,6 +112,7 @@ export class UpsertMemberPaymentFeesUseCase {
         input.orgId,
         item.userId,
         item.paymentMethod,
+        item.installments,
       );
 
       const normalizedPercent = item.percent.trim();
@@ -110,6 +128,7 @@ export class UpsertMemberPaymentFeesUseCase {
         orgId: input.orgId,
         userId: item.userId,
         paymentMethod: item.paymentMethod,
+        installments: item.installments,
         percent: normalizedPercent,
         fixedCents: item.fixedCents,
         createdBy,
@@ -118,6 +137,7 @@ export class UpsertMemberPaymentFeesUseCase {
       changes.push({
         userId: item.userId,
         paymentMethod: item.paymentMethod,
+        installments: item.installments,
         previousPercent: active?.percent ?? null,
         previousFixedCents: active?.fixedCents ?? null,
         percent: normalizedPercent,
@@ -130,6 +150,7 @@ export class UpsertMemberPaymentFeesUseCase {
         input.orgId,
         item.userId,
         item.paymentMethod,
+        item.installments,
       );
 
       if (active === null) continue;
@@ -138,11 +159,13 @@ export class UpsertMemberPaymentFeesUseCase {
         input.orgId,
         item.userId,
         item.paymentMethod,
+        item.installments,
       );
 
       changes.push({
         userId: item.userId,
         paymentMethod: item.paymentMethod,
+        installments: item.installments,
         previousPercent: active.percent,
         previousFixedCents: active.fixedCents,
         percent: null,

@@ -11,6 +11,7 @@ export class MemberPaymentFeeMapper {
       paymentMethod: row.paymentMethod as PaymentMethod,
       percent: row.percent,
       fixedCents: row.fixedCents,
+      installments: row.installments,
       active: row.active,
       supersededAt: row.supersededAt,
       createdBy: row.createdBy,

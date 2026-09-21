@@ -3,6 +3,7 @@ import {
   uuid,
   numeric,
   integer,
+  smallint,
   boolean,
   timestamp,
   uniqueIndex,
@@ -26,6 +27,9 @@ export const orgMemberPaymentFees = pgTable(
       .notNull()
       .default("0"),
     fixedCents: integer("fixed_cents").notNull().default(0),
+    // Número de parcelas que essa linha de config representa — 1 = à vista.
+    // Faz parte da identidade da linha (imutável via trigger, ver 0075).
+    installments: smallint("installments").notNull().default(1),
     active: boolean("active").notNull().default(true),
     supersededAt: timestamp("superseded_at", { withTimezone: true }),
     createdBy: uuid("created_by"),
@@ -37,8 +41,8 @@ export const orgMemberPaymentFees = pgTable(
       .defaultNow(),
   },
   (t) => [
-    uniqueIndex("org_member_payment_fees_org_user_method_active_uq")
-      .on(t.orgId, t.userId, t.paymentMethod)
+    uniqueIndex("org_member_payment_fees_org_user_method_inst_active_uq")
+      .on(t.orgId, t.userId, t.paymentMethod, t.installments)
       .where(sql`${t.active}`),
     index("org_member_payment_fees_org_idx").on(t.orgId),
     check(
@@ -52,6 +56,10 @@ export const orgMemberPaymentFees = pgTable(
     check(
       "org_member_payment_fees_active_superseded_check",
       sql`(${t.active} AND ${t.supersededAt} IS NULL) OR (NOT ${t.active} AND ${t.supersededAt} IS NOT NULL)`,
+    ),
+    check(
+      "org_member_payment_fees_installments_check",
+      sql`${t.installments} >= 1 AND ${t.installments} <= 24 AND (${t.installments} = 1 OR ${t.paymentMethod} = 'credit_card')`,
     ),
   ],
 );

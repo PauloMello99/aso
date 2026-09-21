@@ -30,6 +30,7 @@ export interface CreateServiceData {
   description?: string | null;
   amountCents: number;
   paymentMethod: PaymentMethod;
+  installments?: number | null;
   performedAt?: Date;
   anamnesisResponseId?: string | null;
 }
@@ -96,7 +97,11 @@ export interface IServiceRepository {
   markCanceled(id: string): Promise<void>;
   correctPayment(
     id: string,
-    data: { amountCents: number; paymentMethod: PaymentMethod },
+    data: {
+      amountCents: number;
+      paymentMethod: PaymentMethod;
+      installments?: number | null;
+    },
     transactionId: string,
     commission: CommissionSnapshot,
   ): Promise<void>;
@@ -130,6 +135,29 @@ export interface IServiceRepository {
     to: Date,
     performedBy: string | null,
   ): Promise<number>;
+  /**
+   * Totais dos servicos de UM profissional no periodo (`performedBy` string
+   * obrigatoria, nunca null — mesmo motivo de commissionCentsByPeriod: nao
+   * existe modo "org inteira" aqui). Servicos cancelados ficam de fora.
+   * - grossRevenueCents / feesCents: so servicos PAGOS (payment_transaction_id
+   *   nao nulo); a taxa e o snapshot gravado na transacao de pagamento
+   *   (transactions.fee_cents), nunca recalculada.
+   * - materialCostCents: material consumido em TODOS os servicos nao
+   *   cancelados do profissional, mesma formula de materialCostCentsByPeriod
+   *   (materiais sem cost_per_unit nao entram).
+   */
+  memberTotalsByPeriod(
+    orgId: string,
+    from: Date,
+    to: Date,
+    performedBy: string,
+  ): Promise<MemberServiceTotals>;
+}
+
+export interface MemberServiceTotals {
+  grossRevenueCents: number;
+  feesCents: number;
+  materialCostCents: number;
 }
 
 export interface ServiceGroupRow {

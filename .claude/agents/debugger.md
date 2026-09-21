@@ -1,7 +1,7 @@
 ---
 name: debugger
 description: Diagnosticador de causa-raiz do ink-ops. Invocar quando há erro, comportamento inesperado ou falha que precisa ser entendida ANTES de corrigir (bug reportado, regressão, exceção em runtime, resultado errado). Read-only: isola a causa-raiz, reúne evidência e PROPÕE o fix mínimo — não edita código (quem aplica é o backend/frontend-implementer). NÃO invocar para implementar, nem quando a causa já é óbvia e localizada.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, PowerShell
 model: opus
 ---
 
@@ -26,8 +26,10 @@ houver (arquivos/fluxo suspeitos). Trecho de erro/stack trace se existir.
 ## Fontes de contexto permitidas
 - Arquivos do fluxo suspeito + vizinhança; `git diff`/`git log --oneline -5` (read-only) para
   correlacionar com mudanças recentes.
-- Bash **somente para reproduzir/observar**: rodar o app/lint/typecheck/build,
-  `pnpm --filter <app> check-types`, ler logs, `git blame`/`git diff`. Nunca para editar.
+- Shell **somente para reproduzir/observar**: rodar o app/lint/typecheck/build/suíte
+  (`pnpm --filter <app> check-types`, `pnpm --filter <app> test`), ler logs,
+  `git blame`/`git diff`. Nunca para editar. O ambiente é **PowerShell no Windows** —
+  `&&`, `||` e `2>/dev/null` não funcionam; um comando por chamada, `;` para sequenciar.
 - `.memory/domain-rules.md` e ADRs quando o defeito toca regra de domínio (RLS, cents,
   append-only, DRIZZLE vs DRIZZLE_ADMIN).
 

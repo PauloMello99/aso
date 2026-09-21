@@ -12,8 +12,14 @@ export function previewNet(
   method: PaymentMethod,
   type: "income" | "outcome",
   fees: PaymentFee[],
+  installments = 1,
 ): NetPreview {
-  const fee = fees.find((f) => f.paymentMethod === method)
+  // Taxa agora varia por (método, parcelas) — GET /cashier/fees pode devolver
+  // uma linha por faixa de crédito. Sem casar installments, `find` pegaria a
+  // primeira faixa de qualquer jeito (dinheiro errado na prévia).
+  const fee = fees.find(
+    (f) => f.paymentMethod === method && f.installments === installments,
+  )
   const eligible =
     type === "income" && FEE_ELIGIBLE_METHODS.includes(method) && !!fee
 

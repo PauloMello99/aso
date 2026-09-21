@@ -20,7 +20,14 @@ import {
   IMemberPaymentFeeRepository,
   MEMBER_PAYMENT_FEE_REPOSITORY,
 } from "../../../cashier/domain/member-payment-fee.repository.interface";
-import { computeNet, resolveFee } from "../../../cashier/domain/fee-calculator";
+import {
+  computeNet,
+  resolveFee,
+  feeTierFor,
+  normalizeInstallments,
+  type FeeConfig,
+  type FeeSource,
+} from "../../../cashier/domain/fee-calculator";
 import { computeCommission } from "../../../cashier/domain/commission-calculator";
 import type { CommissionMode } from "../../../cashier/domain/member-commission.entity";
 import {
@@ -40,6 +47,7 @@ export interface CorrectServicePaymentInput {
   authId: string;
   grossCents: number;
   paymentMethod: PaymentMethod;
+  installments?: number | null;
   description?: string | null;
   transactedAt?: Date;
 }
@@ -116,33 +124,83 @@ export class CorrectServicePaymentUseCase {
       categoryId: reversalCategoryId,
       reversesTransactionId: original.id,
       // Estorno contábil: espelha os números do original LITERALMENTE e NÃO
-      // replica o snapshot de taxa (não é nova cobrança) — fonte "none".
+      // replica o snapshot de taxa nem a faixa de parcelas (não é nova
+      // cobrança) — fonte "none" e `installments: null`.
       feeConfigId: null,
       feePercent: null,
       feeFixedCents: null,
       feeSource: "none",
+      installments: null,
     });
 
-    // Substituição = novo pagamento corrigido: reconsulta a config de taxa
-    // VIGENTE (sem preservar snapshot de fee). Só muda a FONTE: a taxa de quem
-    // EXECUTOU o serviço (`service.performedBy`, mesmo `users.id` da comissão)
-    // tem prioridade; sem taxa própria ativa cai na taxa da ORG, como antes.
-    const memberFee = service.performedBy
-      ? await this.memberFeeRepo.findActiveByOrgUserAndMethod(
-          input.orgId,
-          service.performedBy,
-          input.paymentMethod,
-        )
-      : null;
-    const orgFee = await this.feeRepo.findByOrgAndMethod(
-      input.orgId,
+    // Substituição = novo pagamento corrigido. Mesma regra de
+    // `create-transaction.use-case.ts` (ramo de correção): com o MESMO método
+    // E a MESMA faixa de parcelas do original, REUSA o snapshot de taxa que o
+    // original congelou (percent/fixed/source/configId) e recomputa só
+    // feeCents/netCents sobre o novo bruto — reprecificar pela config vigente
+    // trocaria a taxa de um evento passado. Só quando método OU faixa mudam o
+    // snapshot é inaplicável: reconsulta a config VIGENTE da nova faixa, com
+    // prioridade para a taxa de quem EXECUTOU o serviço
+    // (`service.performedBy`, mesmo `users.id` da comissão) e queda na ORG.
+    const normalizedInstallments = normalizeInstallments(
       input.paymentMethod,
+      input.installments,
     );
-    const resolved = resolveFee(input.paymentMethod, memberFee, orgFee);
+    const tier = feeTierFor(input.paymentMethod, normalizedInstallments);
+
+    let feeConfig: FeeConfig | null;
+    let feeConfigId: string | null;
+    let feePercent: string | null;
+    let feeFixedCents: number | null;
+    let feeSource: FeeSource;
+
+    if (
+      input.paymentMethod === original.paymentMethod &&
+      tier === feeTierFor(original.paymentMethod, original.installments)
+    ) {
+      feeConfig =
+        original.feeSource === "none" ||
+        original.feePercent === null ||
+        original.feeFixedCents === null
+          ? null
+          : {
+              percent: original.feePercent,
+              fixedCents: original.feeFixedCents,
+            };
+      feeConfigId = original.feeConfigId;
+      feePercent = original.feePercent;
+      feeFixedCents = original.feeFixedCents;
+      feeSource = original.feeSource ?? "none";
+    } else {
+      const memberFee = service.performedBy
+        ? await this.memberFeeRepo.findActiveByOrgUserAndMethod(
+            input.orgId,
+            service.performedBy,
+            input.paymentMethod,
+            tier,
+          )
+        : null;
+      const orgFee = await this.feeRepo.findByOrgAndMethod(
+        input.orgId,
+        input.paymentMethod,
+        tier,
+      );
+      const resolved = resolveFee(
+        input.paymentMethod,
+        normalizedInstallments,
+        memberFee,
+        orgFee,
+      );
+      feeConfig = resolved.config;
+      feeConfigId = resolved.configId;
+      feePercent = resolved.config?.percent ?? null;
+      feeFixedCents = resolved.config?.fixedCents ?? null;
+      feeSource = resolved.source;
+    }
     const { feeCents, netCents } = computeNet(
       input.grossCents,
       input.paymentMethod,
-      resolved.config,
+      feeConfig,
     );
     const replacement = await this.transactionRepo.create({
       orgId: input.orgId,
@@ -153,10 +211,11 @@ export class CorrectServicePaymentUseCase {
       feeCents,
       netCents,
       paymentMethod: input.paymentMethod,
-      feeConfigId: resolved.configId,
-      feePercent: resolved.config?.percent ?? null,
-      feeFixedCents: resolved.config?.fixedCents ?? null,
-      feeSource: resolved.source,
+      installments: normalizedInstallments,
+      feeConfigId,
+      feePercent,
+      feeFixedCents,
+      feeSource,
       transactedAt: input.transactedAt,
     });
 
@@ -182,7 +241,11 @@ export class CorrectServicePaymentUseCase {
 
     await this.serviceRepo.correctPayment(
       service.id,
-      { amountCents: input.grossCents, paymentMethod: input.paymentMethod },
+      {
+        amountCents: input.grossCents,
+        paymentMethod: input.paymentMethod,
+        installments: normalizedInstallments,
+      },
       replacement.id,
       {
         configId: service.commissionConfigId,

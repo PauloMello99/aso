@@ -7,14 +7,14 @@ import type { MemberPaymentFee, MemberPaymentFeesUpdate } from "../types";
 
 const EMPTY_MEMBER_FEES: MemberPaymentFee[] = [];
 
-export function useMemberPaymentFees(orgId: string) {
+export function useMemberPaymentFees(orgId: string, enabled = true) {
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.cashier.memberFees(orgId),
     queryFn: () =>
       apiRequest<MemberPaymentFee[]>(`/orgs/${orgId}/cashier/member-fees`),
-    enabled: !!orgId,
+    enabled: !!orgId && enabled,
   });
 
   const updateMutation = useMutation({

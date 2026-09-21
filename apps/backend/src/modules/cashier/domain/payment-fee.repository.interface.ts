@@ -6,6 +6,7 @@ export const PAYMENT_FEE_REPOSITORY = Symbol("PAYMENT_FEE_REPOSITORY");
 export interface UpsertPaymentFeeData {
   orgId: string;
   paymentMethod: PaymentMethod;
+  installments: number;
   percent: string;
   fixedCents: number;
 }
@@ -15,6 +16,7 @@ export interface IPaymentFeeRepository {
   findByOrgAndMethod(
     orgId: string,
     method: PaymentMethod,
+    installments: number,
   ): Promise<PaymentFeeEntity | null>;
   upsert(data: UpsertPaymentFeeData): Promise<PaymentFeeEntity>;
 }

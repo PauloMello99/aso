@@ -39,9 +39,10 @@ despejar arquivos completos no handoff; repetir a mesma busca sem hipótese nova
 3. Mapeie o fluxo: controller → use-case → repositório (backend) ou page → hook →
    query-key → api client (frontend).
 4. Localize o padrão equivalente mais próximo (módulo/feature irmã) para o implementer imitar.
-5. Localize testes existentes, se houver: unit `*.spec.ts` colocado no módulo e e2e em
-   `apps/backend/test/` ou `apps/frontend/e2e/`. **Nota**: o ink-ops ainda não tem suíte
-   automatizada configurada — se não houver teste para a área, registre em `risks` e o
+5. Localize os testes existentes: `*.spec.ts` colocado no módulo (Jest no backend, Vitest
+   no frontend — há suíte automatizada nas duas apps). Aponte o spec irmão mais próximo
+   para o implementer imitar. Não há harness e2e (`apps/backend/test/`,
+   `apps/frontend/e2e/` não existem): se a área não tiver spec, registre em `risks` e o
    tester validará por type-check/lint/build.
 6. **Pare** quando tiver: entry point + fluxo + arquivos afetados + testes + padrão
    equivalente + riscos. Não continue explorando.

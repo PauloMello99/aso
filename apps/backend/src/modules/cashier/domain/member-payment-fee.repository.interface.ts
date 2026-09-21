@@ -9,6 +9,7 @@ export interface UpsertMemberPaymentFeeData {
   orgId: string;
   userId: string;
   paymentMethod: PaymentMethod;
+  installments: number;
   percent: string;
   fixedCents: number;
   createdBy: string | null;
@@ -20,16 +21,18 @@ export interface IMemberPaymentFeeRepository {
     orgId: string,
     userId: string,
     paymentMethod: PaymentMethod,
+    installments: number,
   ): Promise<MemberPaymentFeeEntity | null>;
   supersede(data: UpsertMemberPaymentFeeData): Promise<MemberPaymentFeeEntity>;
   /**
-   * Desativa o override ativo de (orgId, userId, paymentMethod), se houver — volta
-   * ao fallback da taxa da org. Idempotente: no-op se não houver linha ativa.
-   * Nunca deleta.
+   * Desativa o override ativo de (orgId, userId, paymentMethod, installments), se
+   * houver — volta ao fallback da taxa da org para aquela faixa. Idempotente: no-op
+   * se não houver linha ativa. Nunca deleta.
    */
   deactivate(
     orgId: string,
     userId: string,
     paymentMethod: PaymentMethod,
+    installments: number,
   ): Promise<void>;
 }

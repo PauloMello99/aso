@@ -920,6 +920,13 @@ encodeURIComponent(nome)`. Para listagens, usar `createSignedUrls` (plural) — 
 - **Ajuste de estoque**: o form separa **direção** (`Select` Adição/Remoção) + **quantidade** (input só-número); o `quantityDelta` com sinal é montado na submissão (`stock-page handleAdjust`). Backend continua recebendo `quantityDelta` assinado.
 - **Excluir material**: bloqueado se vinculado a algum serviço — `DeleteMaterialUseCase` checa `service_materials` e lança `MATERIAL_IN_USE_BY_SERVICES` (409). Frontend mostra a mensagem no `handleDelete`.
 
+#### Alerta de estoque baixo (2026-09-19, ADR-0029, migrations 0078/0079)
+
+- Disparado pelas **escritas de estoque** (nunca cron): todo estoque passa por `IMaterialRepository.updateStockQuantity` → `{ material, crossedLowStock }`. **Nunca** escrever `stock_quantity` por outro caminho — o marcador `low_stock_alerted_at` (recalculado no mesmo UPDATE, com `FOR UPDATE`) é o que garante 1 alerta por episódio.
+- Quem chama `updateStockQuantity` deve chamar `LowStockAlertService.scheduleIfAny(orgId, crossed[])` **uma vez após o loop** (agrupa por operação). Só `minimumQuantity` alterado em `update-material` chama `syncLowStockMarker`.
+- `scheduleIfAny` usa `registerPostCommit` com dispatch **destacado (não awaited)** — não "corrigir" para await; nunca injetar `DRIZZLE` no dispatch (só pool ADMIN/HTTP). Notificação `low_stock` para os donos, in-app + e-mail (e-mail fora de produção só p/ allowlist, ADR-0028).
+- Migration com `ADD VALUE` de enum: o valor não pode ser usado por outra migration do mesmo lote pendente (migrator = 1 transação).
+
 ### Agenda — implementada (2026-06-15)
 
 - **Agenda por membro**: cada membro gerencia a **própria** agenda. `calendar_events.assigned_to` (FK `users.id`, NOT NULL) é o dono do horário. `owner` pode **criar** evento em nome de um membro (`assignedTo` no create, só na criação); **editar/excluir de terceiro continua bloqueado** mesmo para owner (`CALENDAR_EVENT_FORBIDDEN`, 403) — corrigido 2026-07-17, a nota anterior ("ninguém cria evento de outro, nem owner") estava desatualizada frente ao código.
@@ -1265,12 +1272,25 @@ anamnesis_response_id IS NOT NULL`): `assertAnamnesisResponseLinkable` faz o
   sem entrada correspondente é **silenciosamente ignorada** por `db:migrate` (sem erro,
   simplesmente não aplica). Todo fluxo de migration manual (ver `env_migration_snapshot_gap`
   na memória de sessão) precisa desse passo extra antes de rodar `db:migrate`.
-- **`.claude/CLAUDE.md` está desatualizado ao listar `pnpm --filter backend db:generate`**
-  (`drizzle-kit generate`) no fluxo de migration: `drizzle-kit generate` **não é usado**
-  desde a migration `0003` — todas as migrations `0003+` são **escritas à mão** (`.sql` +
-  `.down.sql` + entrada manual em `meta/_journal.json`). As `0066` / `0067` / `0068`
-  (rework T6) seguiram esse fluxo manual. Editar os arquivos de `src/database/schema/` **não
-  gera nem altera** migration — o schema é espelho de leitura.
+- **Migrations são identificadas por `when` (`created_at`), não pelo número — e o `migrate()` só aplica `when` MAIOR que o último aplicado
+  no banco** (2026-09-20, integração com PRs de paginação). Dois branches que criam migrations com o MESMO número/`when` colidem: a segunda
+  a chegar é pulada em silêncio no deploy. Ao integrar branches, renumere as suas (`git mv` de `.sql` e `.down.sql`, `idx`/`tag`/`when` no
+  journal, `when` único e estritamente crescente com o `idx`) e **NÃO edite o conteúdo de migrations já aplicadas** (o `db:status` acusa
+  `file changed since applied`; cabeçalhos antigos ficam como histórico). Banco local/dev que já tinha as migrations com `when` maior ganha a
+  migration alheia *fora de ordem*: `db:migrate` NÃO a aplica — rode o SQL dela numa transação + `INSERT` em `drizzle.__drizzle_migrations`
+  (`hash` = sha256 do arquivo, `created_at` = `when`). Caso real: `0072_material_service_types` × `0072_member_payments` (a nossa virou `0073`,
+  `when` 1782006250000). Números de ADR também colidem entre branches (ADR-0026 paginação × pagamento a membro → o nosso virou ADR-0034).- **`pnpm --filter backend db:generate` (`drizzle-kit generate`) não é usado** desde a
+  migration `0003` (quebrado desde a `0011`, sem snapshot) — todas as migrations `0003+`
+  são **escritas à mão** (`.sql` + `.down.sql` + entrada manual em `meta/_journal.json`).
+  As `0066` / `0067` / `0068` (rework T6) seguiram esse fluxo manual. Editar os arquivos de
+  `src/database/schema/` **não gera nem altera** migration — o schema é espelho de leitura.
+  **Saneado em 2026-09-16**: `.claude/CLAUDE.md` e `.codex/AGENTS.md` já alertavam; as
+  instruções stale que ainda mandavam rodar `db:generate` foram corrigidas em
+  `.claude/commands/new-migration.md`, `.claude/agents/backend-implementer.md`,
+  `.claude/agents/planner.md` e `docs/ai/development-style-profile.md`. As menções
+  remanescentes a `db:generate` já estão corretas e ficam como estão: `docs/gotchas.md` e
+  `docs/campaigns-local-testing.md` **alertam** contra o comando; `docs/planning/` e
+  `docs/product/` são registro histórico.
 - **Pendência dura fora do código**: `features/legal/constants/entity.ts` (`LEGAL_ENTITY`)
   tem placeholders `[PREENCHER: ...]` para razão social/CNPJ/endereço/encarregado — bloqueia
   o site de ir ao ar até serem preenchidos com dados reais (identificação do fornecedor,
@@ -1494,6 +1514,25 @@ passar (red → green → refactor).
   Qualidade & Testes). A regra entra em vigor já para **todo código novo**.
 - Código da v1 não é reaproveitado — apenas regras de negócio.
 
+**Estado da suíte (verificado 2026-09-16).** Existe suíte automatizada nas duas apps:
+backend Jest (`ts-jest`, jest 30, `.spec.ts` colocado por use-case/domínio/DTO) e frontend
+Vitest (`.spec.ts` junto de lib/schemas). `pnpm test` = `turbo run test` (`cache: false`).
+**Não** existe `test:e2e` (nem Playwright/Cypress); `apps/backend/test/` e
+`apps/frontend/e2e/` não existem. Validação padrão do projeto: **suíte direcionada →
+`check-types` → `lint` → `build`**. Filtros direcionados verificados:
+`pnpm --filter backend test --testPathPatterns=<regex>` / `-t "<nome>"` (jest 30 usa a flag
+no **plural** e **sem** `--`, que seria repassado literalmente) e
+`pnpm --filter frontend test <substring>` (vitest, posicional).
+
+**Gotcha — Jest do backend dentro de um git worktree em `.claude/worktrees/` no Windows.**
+`pnpm --filter backend test` retorna `No tests found` com `testMatch ... - 0 matches`,
+mesmo com os specs presentes: o `testMatch` de `apps/backend/jest.config.js` usa
+`<rootDir>`, interpolado para um caminho de separadores mistos
+(`C:/Repos/Pessoal/aso\.claude/worktrees/...`) que o glob não casa. Workaround verificado —
+`testMatch` relativo, sem `<rootDir>`:
+`pnpm --filter backend test --testMatch "**/src/**/*.spec.ts" --testPathPatterns=<regex>`.
+O Vitest do frontend não é afetado. Registrado em `.claude/agents/tester.md`.
+
 ### Support — canal de suporte B2B, Fatia A (2026-08-10, ADR-0021) + Fatia C (2026-08-15, ADR-0022)
 
 - **Escopo da Fatia A**: portal autenticado (organização abre/responde/reabre
@@ -1624,6 +1663,51 @@ OR is_org_member(org_id)))`; as de INSERT exigem `org_id IS NOT NULL AND (...)` 
   e `/customer-update/:token`, telas autenticadas de disparo dos 2 convites no módulo
   Clientes (hoje só "Novo cliente"), `design` das 3 telas novas antes do
   `frontend-implementer` (regra já prevista no backlog).
+
+## Ambiente de preview / dev local (gotchas verificados 2026-09-16)
+
+- **CORREÇÃO (2026-09-17), segunda tentativa — a primeira correção também estava errada.**
+  Não existe divergência de tsconfig no backend: `tsconfig.build.json` (que exclui só
+  `test`/`**/*spec.ts`) é usado por `nest build` E por `nest start --watch` (default do
+  Nest CLI, sem override em `nest-cli.json`) E por `check-types`
+  (`tsc --noEmit -p tsconfig.build.json`) — os três comandos leem o MESMO arquivo.
+  `incremental: false` está explícito na base `tsconfig.json`, e não há nenhum
+  `.tsbuildinfo` no disco (verificado). Os dois arquivos de tsconfig estão corretos e
+  não precisam de mudança.
+  **O que de fato causou os 488 erros em 2026-09-16:** o `preview_start` daquela sessão
+  retornou `reused: true` — já existia um `nest start --watch` de pé de ANTES da sessão
+  começar, vivo durante horas de escrita concorrente de vários agentes implementers. Um
+  processo de watch de longa duração pode perder sincronia com o disco e devolver uma
+  rajada de erros de tipo (no caso, `.insert`/`.select`/`.transaction` "não existem" no
+  tipo do Drizzle) sem que o código tenha problema real — um processo novo compila limpo.
+  **Regra prática:** se `pnpm --filter backend dev` mostrar uma rajada de erros do
+  Drizzle, REINICIE o processo antes de suspeitar de configuração. Evite deixar o watch
+  do backend vivo por uma sessão inteira de agentes escrevendo em paralelo.
+- **Login local sem digitar senha** (para verificação no preview): via GoTrue admin do
+  Supabase local — `POST /auth/v1/admin/generate_link` `{type:'magiclink', email}` →
+  pegar `email_otp` → `POST /auth/v1/verify` `{type:'email', email, token}` → montar
+  `StoredSession` e injetar em `localStorage['inkops_session']`. Shape exigido:
+  `{accessToken, refreshToken, expiresAt, user:{id, email, emailVerified}}`
+  (`features/auth/types/index.ts`). Atenção: `users.id` ≠ `auth.users.id` — a ligação é
+  `users.auth_id`, e não há trigger criando a linha em `public.users`.
+- **Nomes reais do schema** (erram com frequência): a coluna de tenant é **`org_id`**
+  (não `organization_id`) e a tabela de membros é **`org_memberships`** (não `org_members`).
+- **Tailwind: classe arbitrária só funciona se já existir no CSS compilado.** Testar um
+  fix no DevTools com uma classe inédita (ex.: `min-w-[14rem]`) dá **falso negativo** —
+  a regra não existe no bundle. Ao validar layout no navegador, use só classes já
+  presentes no projeto.
+- **`read_network_requests` (ferramenta do browser pane) acumula um buffer persistente
+  entre navegações — NÃO reflete só a página atual.** Requisições de uma sessão/usuário
+  anterior no mesmo tab continuam aparecendo depois de navegar/trocar de sessão, o que
+  pode simular um "bug" que já foi corrigido. Para confirmar o que a página ATUAL
+  disparou de verdade, use a Resource Timing API real do navegador via `javascript_tool`:
+  `performance.getEntriesByType('resource').map(e => e.name)` — só reflete a carga
+  corrente, é limpa a cada navegação.
+- **Cabeçalho do Caixa (`cashier-page.tsx`)**: o bloco de título usa
+  `basis-full lg:basis-auto lg:flex-1`. O `lg:flex-1` é **inerte** — `basis-full` vence a
+  cascata, e é isso que mantém o subtítulo em 1 linha com as ações numa faixa própria
+  abaixo (< xl). Trocar por `min-w-0 flex-1` **reintroduz** o bug: o título é espremido a
+  63px e o subtítulo quebra em 4 linhas. Medido a 768/1024/1440. Não "limpe" essas classes.
 
 ### Pendências não bloqueantes para V1
 

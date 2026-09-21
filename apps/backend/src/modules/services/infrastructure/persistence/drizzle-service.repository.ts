@@ -27,6 +27,7 @@ import {
   CreateServiceMaterialData,
   IServiceRepository,
   ListServicesFilter,
+  MemberServiceTotals,
   ServiceGroupRow,
   UpdateServiceData,
 } from "../../domain/service.repository.interface";
@@ -72,6 +73,7 @@ function toDomain(
     description: row.description ?? null,
     amountCents: row.amountCents,
     paymentMethod: row.paymentMethod as PaymentMethod,
+    installments: row.installments ?? null,
     commissionConfigId: row.commissionConfigId ?? null,
     commissionPercent: row.commissionPercent ?? null,
     commissionMode: (row.commissionMode as CommissionMode | null) ?? null,
@@ -109,6 +111,7 @@ export class DrizzleServiceRepository implements IServiceRepository {
           description: data.description ?? null,
           amountCents: data.amountCents,
           paymentMethod: data.paymentMethod,
+          installments: data.installments ?? null,
           anamnesisResponseId: data.anamnesisResponseId ?? null,
           ...(data.performedAt ? { performedAt: data.performedAt } : {}),
         })
@@ -395,7 +398,11 @@ export class DrizzleServiceRepository implements IServiceRepository {
 
   async correctPayment(
     id: string,
-    data: { amountCents: number; paymentMethod: PaymentMethod },
+    data: {
+      amountCents: number;
+      paymentMethod: PaymentMethod;
+      installments?: number | null;
+    },
     transactionId: string,
     commission: CommissionSnapshot,
   ): Promise<void> {
@@ -404,6 +411,7 @@ export class DrizzleServiceRepository implements IServiceRepository {
       .set({
         amountCents: data.amountCents,
         paymentMethod: data.paymentMethod,
+        installments: data.installments ?? null,
         paymentTransactionId: transactionId,
         commissionConfigId: commission.configId,
         commissionPercent: commission.percent,
@@ -552,6 +560,47 @@ export class DrizzleServiceRepository implements IServiceRepository {
         AND performed_at <= ${to}${performedByFilter}
     `);
     return Number(rows[0]?.commission_cents ?? 0);
+  }
+
+  async memberTotalsByPeriod(
+    orgId: string,
+    from: Date,
+    to: Date,
+    performedBy: string,
+  ): Promise<MemberServiceTotals> {
+    const [paid, material] = await Promise.all([
+      this.db.execute<{ gross_cents: string; fees_cents: string }>(sql`
+        SELECT COALESCE(SUM(s.amount_cents), 0)::bigint AS gross_cents,
+          COALESCE(SUM(t.fee_cents), 0)::bigint AS fees_cents
+        FROM services s
+        JOIN transactions t ON t.id = s.payment_transaction_id
+        WHERE s.org_id = ${orgId}
+          AND s.performed_by = ${performedBy}
+          AND s.canceled_at IS NULL
+          AND s.performed_at >= ${from}
+          AND s.performed_at <= ${to}
+      `),
+      this.db.execute<{ cost_cents: string }>(sql`
+        SELECT COALESCE(
+          ROUND(SUM(sm.quantity * m.cost_per_unit) * 100),
+          0
+        )::bigint AS cost_cents
+        FROM service_materials sm
+        JOIN services s ON s.id = sm.service_id
+        JOIN materials m ON m.id = sm.material_id
+        WHERE s.org_id = ${orgId}
+          AND s.performed_by = ${performedBy}
+          AND s.canceled_at IS NULL
+          AND s.performed_at >= ${from}
+          AND s.performed_at <= ${to}
+          AND m.cost_per_unit IS NOT NULL
+      `),
+    ]);
+    return {
+      grossRevenueCents: Number(paid.rows[0]?.gross_cents ?? 0),
+      feesCents: Number(paid.rows[0]?.fees_cents ?? 0),
+      materialCostCents: Number(material.rows[0]?.cost_cents ?? 0),
+    };
   }
 
   private async findMaterials(

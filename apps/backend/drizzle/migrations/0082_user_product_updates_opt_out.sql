@@ -1,0 +1,12 @@
+-- 0081 — Bloco 5.2 fatia C: opt-out de e-mails de novidades do produto.
+--
+-- "users.product_updates_opted_out_at": NULL = consente; preenchido = optou por não
+-- receber e-mails de novidades. Coluna em "users" pelas mesmas razões das 0079/0080:
+--   - NENHUMA policy nova: users_select/users_update já escopam a própria linha.
+--   - "users_select_same_org" expõe a linha a pares da mesma organização; aqui só há um
+--     timestamp de preferência, não sensível.
+--
+-- AVISO: o rollback (.down.sql) PERDE o consentimento negado — todos os usuários voltam
+-- a "consente". Por isso esta migration vem ANTES do log (0082): reverter o log
+-- preserva o opt-out.
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS "product_updates_opted_out_at" timestamp with time zone;

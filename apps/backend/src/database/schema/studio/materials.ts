@@ -32,6 +32,7 @@ export const materials = pgTable(
     costPerUnit: numeric("cost_per_unit", { precision: 10, scale: 2 }),
     shareable: boolean("shareable").notNull().default(false),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    lowStockAlertedAt: timestamp("low_stock_alerted_at", { withTimezone: true }),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

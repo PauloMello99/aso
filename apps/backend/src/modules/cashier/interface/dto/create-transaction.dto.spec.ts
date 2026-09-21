@@ -23,6 +23,24 @@ describe("CreateTransactionDto", () => {
     expect(errors.find((e) => e.property === "paymentMethod")).toBeUndefined();
   });
 
+  it("rejeita grossCents acima do teto int32 e aceita o teto exato", async () => {
+    const over = plainToInstance(
+      CreateTransactionDto,
+      buildInput({ grossCents: 2147483648 }),
+    );
+    const exact = plainToInstance(
+      CreateTransactionDto,
+      buildInput({ grossCents: 2147483647 }),
+    );
+
+    expect(
+      (await validate(over)).find((e) => e.property === "grossCents"),
+    ).toBeDefined();
+    expect(
+      (await validate(exact)).find((e) => e.property === "grossCents"),
+    ).toBeUndefined();
+  });
+
   it("rejeita 'credits' (removido do enum)", async () => {
     const dto = plainToInstance(
       CreateTransactionDto,
@@ -34,5 +52,49 @@ describe("CreateTransactionDto", () => {
     const errors = await validate(dto);
 
     expect(errors.find((e) => e.property === "paymentMethod")).toBeDefined();
+  });
+
+  it("aceita credit_card com installments 6", async () => {
+    const dto = plainToInstance(
+      CreateTransactionDto,
+      buildInput({ paymentMethod: "credit_card", installments: 6 }),
+    );
+
+    const errors = await validate(dto);
+
+    expect(errors.find((e) => e.property === "installments")).toBeUndefined();
+  });
+
+  it("aceita credit_card sem installments informado", async () => {
+    const dto = plainToInstance(
+      CreateTransactionDto,
+      buildInput({ paymentMethod: "credit_card" }),
+    );
+
+    const errors = await validate(dto);
+
+    expect(errors.find((e) => e.property === "installments")).toBeUndefined();
+  });
+
+  it("rejeita cash com installments (não parcelável)", async () => {
+    const dto = plainToInstance(
+      CreateTransactionDto,
+      buildInput({ paymentMethod: "cash", installments: 3 }),
+    );
+
+    const errors = await validate(dto);
+
+    expect(errors.find((e) => e.property === "installments")).toBeDefined();
+  });
+
+  it("rejeita installments acima do teto MAX_INSTALLMENTS=12", async () => {
+    const dto = plainToInstance(
+      CreateTransactionDto,
+      buildInput({ paymentMethod: "credit_card", installments: 13 }),
+    );
+
+    const errors = await validate(dto);
+
+    expect(errors.find((e) => e.property === "installments")).toBeDefined();
   });
 });

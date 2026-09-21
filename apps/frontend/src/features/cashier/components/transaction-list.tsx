@@ -25,12 +25,12 @@ import {
   TableRow,
 } from "@/shared/components/ui/table"
 import { cn } from "@/shared/lib/utils"
-import { formatBRL } from "../lib/money"
-import {
-  PAYMENT_METHOD_LABELS,
-  type Transaction,
-  type TransactionCategory,
-  type TransactionView,
+import { useMoneyFormatter } from "@/shared/hooks/use-money-formatter"
+import { formatPaymentMethod } from "../lib/payment-method-label"
+import type {
+  Transaction,
+  TransactionCategory,
+  TransactionView,
 } from "../types"
 
 interface TransactionListProps {
@@ -48,6 +48,9 @@ export function formatDate(iso: string): string {
     year: "numeric",
   })
 }
+
+const MEMBER_PAYMENT_HINT =
+  "Pagamento a membro: estorne ou corrija pela tela do membro."
 
 function canMutate(view: TransactionView): boolean {
   return !view.entity.reversesTransactionId && !view.reversed
@@ -78,14 +81,26 @@ function ActionMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[170px]">
-        <DropdownMenuItem onClick={() => onCorrect(view)}>
+        <DropdownMenuItem
+          disabled={view.isMemberPayment}
+          onClick={() => !view.isMemberPayment && onCorrect(view)}
+        >
           <Pencil className="h-3.5 w-3.5 shrink-0" />
-          Corrigir (errata)
+          <span className="flex flex-col">
+            Corrigir (errata)
+            {view.isMemberPayment && (
+              <span className="text-xs font-normal text-foreground/40">
+                {MEMBER_PAYMENT_HINT}
+              </span>
+            )}
+          </span>
         </DropdownMenuItem>
         <DropdownMenuItem
           variant="destructive"
-          disabled={isServicePayment}
-          onClick={() => !isServicePayment && onReverse(view)}
+          disabled={isServicePayment || view.isMemberPayment}
+          onClick={() =>
+            !isServicePayment && !view.isMemberPayment && onReverse(view)
+          }
         >
           <Undo2 className="h-3.5 w-3.5 shrink-0" />
           <span className="flex flex-col">
@@ -93,6 +108,11 @@ function ActionMenu({
             {isServicePayment && (
               <span className="text-xs font-normal text-foreground/40">
                 Estorno pelo serviço (cancele o serviço)
+              </span>
+            )}
+            {!isServicePayment && view.isMemberPayment && (
+              <span className="text-xs font-normal text-foreground/40">
+                {MEMBER_PAYMENT_HINT}
               </span>
             )}
           </span>
@@ -113,6 +133,7 @@ export function StatusBadge({ view }: { view: TransactionView }) {
 }
 
 export function AmountCell({ t, struck }: { t: Transaction; struck: boolean }) {
+  const money = useMoneyFormatter()
   const isIncome = t.type === "income"
   return (
     <span
@@ -122,7 +143,7 @@ export function AmountCell({ t, struck }: { t: Transaction; struck: boolean }) {
         !struck && (isIncome ? "text-success" : "text-destructive"),
       )}
     >
-      {isIncome ? "+" : "−"} {formatBRL(t.netCents)}
+      {isIncome ? "+" : "−"} {money(t.netCents)}
     </span>
   )
 }
@@ -138,6 +159,7 @@ function MobileCard({
   onCorrect: (v: TransactionView) => void
   canManage: boolean
 }) {
+  const money = useMoneyFormatter()
   const t = view.entity
   const struck = view.reversed
   const isIncome = t.type === "income"
@@ -159,7 +181,7 @@ function MobileCard({
           )}
           <span
             className={cn(
-              "truncate font-medium",
+              "min-w-0 max-w-full line-clamp-3 break-words font-medium",
               struck ? "text-foreground/40 line-through" : "text-foreground",
             )}
           >
@@ -171,9 +193,9 @@ function MobileCard({
           )}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-foreground/40">
-          <span>{PAYMENT_METHOD_LABELS[t.paymentMethod]}</span>
+          <span>{formatPaymentMethod(t.paymentMethod, t.installments)}</span>
           <span>{formatDate(t.transactedAt)}</span>
-          {t.feeCents > 0 && <span>taxa {formatBRL(t.feeCents)}</span>}
+          {t.feeCents > 0 && <span>taxa {money(t.feeCents)}</span>}
         </div>
         <div className="mt-2">
           <AmountCell t={t} struck={struck} />
@@ -193,6 +215,7 @@ export function TransactionList({
   onCorrect,
   canManage = false,
 }: TransactionListProps) {
+  const money = useMoneyFormatter()
   const categoryName = React.useMemo(() => {
     const map = new Map(categories.map((c) => [c.id, c.name]))
     return (id: string | null) => (id ? (map.get(id) ?? null) : null)
@@ -212,7 +235,7 @@ export function TransactionList({
 
   return (
     <>
-      <div className="grid gap-3 sm:hidden">
+      <div className="grid grid-cols-1 gap-3 sm:hidden">
         {transactions.map((v) => (
           <MobileCard
             key={v.entity.id}
@@ -250,8 +273,9 @@ export function TransactionList({
                         <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-destructive" />
                       )}
                       <span
+                        title={t.description}
                         className={cn(
-                          "font-medium",
+                          "line-clamp-2 max-w-[20rem] whitespace-normal break-words font-medium",
                           struck ? "text-foreground/40 line-through" : "text-foreground",
                         )}
                       >
@@ -265,15 +289,21 @@ export function TransactionList({
                   </TableCell>
                   <TableCell>
                     {categoryName(t.categoryId) ? (
-                      <Badge variant="secondary">
-                        {categoryName(t.categoryId)}
+                      <Badge
+                        variant="secondary"
+                        title={categoryName(t.categoryId) ?? undefined}
+                        className="max-w-[7rem]"
+                      >
+                        <span className="truncate">
+                          {categoryName(t.categoryId)}
+                        </span>
                       </Badge>
                     ) : (
                       <span className="text-foreground/20">—</span>
                     )}
                   </TableCell>
                   <TableCell className="text-foreground/50">
-                    {PAYMENT_METHOD_LABELS[t.paymentMethod]}
+                    {formatPaymentMethod(t.paymentMethod, t.installments)}
                   </TableCell>
                   <TableCell className="text-foreground/40">
                     {formatDate(t.transactedAt)}
@@ -282,7 +312,7 @@ export function TransactionList({
                     <AmountCell t={t} struck={struck} />
                     {t.feeCents > 0 && (
                       <div className="text-xs text-foreground/30">
-                        taxa {formatBRL(t.feeCents)}
+                        taxa {money(t.feeCents)}
                       </div>
                     )}
                   </TableCell>

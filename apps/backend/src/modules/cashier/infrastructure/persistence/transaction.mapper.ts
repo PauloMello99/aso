@@ -18,6 +18,7 @@ export class TransactionMapper {
       grossCents: row.amountGrossCents,
       feeCents: row.feeCents,
       paymentMethod: row.paymentMethod as PaymentMethod,
+      installments: row.installments ?? null,
       categoryId: row.categoryId ?? null,
       feeConfigId: row.feeConfigId ?? null,
       feePercent: row.feePercent ?? null,

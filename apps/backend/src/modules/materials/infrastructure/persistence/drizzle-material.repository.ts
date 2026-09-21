@@ -1,9 +1,10 @@
-﻿import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import {
   and,
   asc,
   count,
   eq,
+  gt,
   gte,
   ilike,
   inArray,
@@ -24,6 +25,7 @@ import {
 import {
   IMaterialRepository,
   ListMaterialsFilter,
+  StockUpdateResult,
 } from "../../domain/material.repository.interface";
 import { MaterialMapper } from "./material.mapper";
 
@@ -65,7 +67,7 @@ export class DrizzleMaterialRepository implements IMaterialRepository {
     if (filter?.lowStockOnly) {
       conditions.push(
         lte(schema.materials.stockQuantity, schema.materials.minimumQuantity),
-        lte(sql`'0'::numeric`, schema.materials.minimumQuantity),
+        gt(schema.materials.minimumQuantity, sql`'0'::numeric`),
       );
     }
 
@@ -164,6 +166,7 @@ export class DrizzleMaterialRepository implements IMaterialRepository {
           costPerUnit: schema.materials.costPerUnit,
           shareable: schema.materials.shareable,
           lastUsedAt: schema.materials.lastUsedAt,
+          lowStockAlertedAt: schema.materials.lowStockAlertedAt,
           archivedAt: schema.materials.archivedAt,
           createdAt: schema.materials.createdAt,
           updatedAt: schema.materials.updatedAt,
@@ -240,16 +243,58 @@ export class DrizzleMaterialRepository implements IMaterialRepository {
   async updateStockQuantity(
     id: string,
     delta: string,
-  ): Promise<MaterialEntity> {
+  ): Promise<StockUpdateResult> {
+    const prev = await this.lockAlertMarker(id);
+    const nextStock = sql`(${schema.materials.stockQuantity} + ${delta}::numeric)`;
     const [row] = await this.db
       .update(schema.materials)
       .set({
         stockQuantity: sql`${schema.materials.stockQuantity} + ${delta}::numeric`,
+        lowStockAlertedAt: this.lowStockMarkerExpr(nextStock),
         updatedAt: new Date(),
       })
       .where(eq(schema.materials.id, id))
       .returning();
-    return MaterialMapper.toDomain(row!);
+    return {
+      material: MaterialMapper.toDomain(row!),
+      crossedLowStock: prev === null && row!.lowStockAlertedAt !== null,
+    };
+  }
+
+  async syncLowStockMarker(id: string): Promise<boolean> {
+    const prev = await this.lockAlertMarker(id);
+    const [row] = await this.db
+      .update(schema.materials)
+      .set({
+        lowStockAlertedAt: this.lowStockMarkerExpr(
+          sql`${schema.materials.stockQuantity}`,
+        ),
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.materials.id, id))
+      .returning({ lowStockAlertedAt: schema.materials.lowStockAlertedAt });
+    return prev === null && !!row && row.lowStockAlertedAt !== null;
+  }
+
+  // Serializa escritas concorrentes no mesmo material para que exatamente uma
+  // observe a transicao NULL -> preenchido. Retorna o marcador anterior.
+  // Exige transacao de request ativa (RlsContext.runWithClaims): fora dela
+  // (cron/bootstrap) o FOR UPDATE nao segura o lock e a garantia de
+  // exatamente-uma-vez degrada. NAO chamar de cron.
+  private async lockAlertMarker(id: string): Promise<Date | null> {
+    const [locked] = await this.db
+      .select({ lowStockAlertedAt: schema.materials.lowStockAlertedAt })
+      .from(schema.materials)
+      .where(eq(schema.materials.id, id))
+      .for("update");
+    return locked?.lowStockAlertedAt ?? null;
+  }
+
+  // Mesma semantica de MaterialEntity.isLowStock (minimo > 0 e estoque <=
+  // minimo), mais o guard de arquivado. Mantem o marcador ja aberto; limpa
+  // quando a condicao deixa de valer.
+  private lowStockMarkerExpr(nextStock: SQL) {
+    return sql`CASE WHEN ${schema.materials.archivedAt} IS NULL AND ${schema.materials.minimumQuantity} > 0 AND ${nextStock} <= ${schema.materials.minimumQuantity} THEN COALESCE(${schema.materials.lowStockAlertedAt}, now()) ELSE NULL END`;
   }
 
   async touchLastUsed(id: string): Promise<void> {
@@ -266,7 +311,11 @@ export class DrizzleMaterialRepository implements IMaterialRepository {
   ): Promise<MaterialEntity> {
     const [row] = await this.db
       .update(schema.materials)
-      .set({ archivedAt: archived ? new Date() : null, updatedAt: new Date() })
+      .set({
+        archivedAt: archived ? new Date() : null,
+        ...(archived && { lowStockAlertedAt: null }),
+        updatedAt: new Date(),
+      })
       .where(
         and(eq(schema.materials.id, id), eq(schema.materials.orgId, orgId)),
       )

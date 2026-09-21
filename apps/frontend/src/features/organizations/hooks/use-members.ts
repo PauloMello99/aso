@@ -11,7 +11,7 @@ import type {
   OrgRole,
 } from "../types"
 
-export function useMembers(orgId: string) {
+export function useMembers(orgId: string, invitationsEnabled = true) {
   const queryClient = useQueryClient()
 
   const membersQuery = useQuery({
@@ -26,7 +26,11 @@ export function useMembers(orgId: string) {
       apiRequest<Invitation[]>(`/orgs/${orgId}/invitations`).catch(
         () => [] as Invitation[],
       ),
-    enabled: !!orgId,
+    // Convites são recurso exclusivo de owner (403 no backend para
+    // funcionário) — `org-settings-page.tsx` chama sem o 2º argumento
+    // (sempre owner) e mantém o default `true`; `MembersPage` passa
+    // `isOwner` para não disparar a requisição sem permissão.
+    enabled: !!orgId && invitationsEnabled,
   })
 
   const inviteMemberMutation = useMutation({

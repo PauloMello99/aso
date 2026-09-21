@@ -20,6 +20,7 @@ export interface TransactionEntityProps {
   grossCents: number;
   feeCents: number;
   paymentMethod: PaymentMethod;
+  installments?: number | null;
   categoryId: string | null;
   feeConfigId?: string | null;
   feePercent?: string | null;
@@ -39,6 +40,7 @@ export interface CreateTransactionData {
   grossCents: number;
   feeCents: number;
   paymentMethod: PaymentMethod;
+  installments?: number | null;
   categoryId?: string | null;
   feeConfigId?: string | null;
   feePercent?: string | null;
@@ -64,6 +66,7 @@ export class TransactionEntity {
   readonly grossCents: number;
   readonly feeCents: number;
   readonly paymentMethod: PaymentMethod;
+  readonly installments: number | null;
   readonly categoryId: string | null;
   readonly feeConfigId: string | null;
   readonly feePercent: string | null;
@@ -83,6 +86,7 @@ export class TransactionEntity {
     this.grossCents = props.grossCents;
     this.feeCents = props.feeCents;
     this.paymentMethod = props.paymentMethod;
+    this.installments = props.installments ?? null;
     this.categoryId = props.categoryId;
     this.feeConfigId = props.feeConfigId ?? null;
     this.feePercent = props.feePercent ?? null;

@@ -8,6 +8,11 @@ import { TransactionNotFoundException } from "../../domain/exceptions/transactio
 import { TransactionAlreadyReversedException } from "../../domain/exceptions/transaction-already-reversed.exception";
 import { TransactionNotReversibleException } from "../../domain/exceptions/transaction-not-reversible.exception";
 import { TransactionIsServicePaymentException } from "../../domain/exceptions/transaction-is-service-payment.exception";
+import { TransactionIsMemberPaymentException } from "../../domain/exceptions/transaction-is-member-payment.exception";
+import {
+  IMemberPaymentRepository,
+  MEMBER_PAYMENT_REPOSITORY,
+} from "../../domain/member-payment.repository.interface";
 import {
   IServiceRepository,
   SERVICE_REPOSITORY,
@@ -27,6 +32,13 @@ export interface ReverseTransactionInput {
   orgId: string;
   transactionId: string;
   authId: string;
+  /**
+   * Flag INTERNO: so ReverseMemberPaymentUseCase o passa (true) para estornar
+   * a transacao do proprio pagamento a membro. Nunca vem de DTO/controller —
+   * o CashierController monta o input sem ele, entao pelo Caixa a guarda
+   * TRANSACTION_IS_MEMBER_PAYMENT sempre vale.
+   */
+  allowMemberPayment?: boolean;
 }
 
 @Injectable()
@@ -40,6 +52,8 @@ export class ReverseTransactionUseCase {
     private readonly serviceRepo: IServiceRepository,
     @Inject(TRANSACTION_CATEGORY_REPOSITORY)
     private readonly categoryRepo: ITransactionCategoryRepository,
+    @Inject(MEMBER_PAYMENT_REPOSITORY)
+    private readonly memberPaymentRepo: IMemberPaymentRepository,
   ) {}
 
   async execute(input: ReverseTransactionInput): Promise<TransactionEntity> {
@@ -53,6 +67,16 @@ export class ReverseTransactionUseCase {
       await this.serviceRepo.existsByPaymentTransactionId(input.transactionId)
     ) {
       throw new TransactionIsServicePaymentException(input.transactionId);
+    }
+
+    if (
+      !input.allowMemberPayment &&
+      (await this.memberPaymentRepo.existsByTransactionId(
+        input.transactionId,
+        input.orgId,
+      ))
+    ) {
+      throw new TransactionIsMemberPaymentException(input.transactionId);
     }
 
     if (original.isReversal) {

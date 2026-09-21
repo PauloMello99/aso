@@ -29,6 +29,10 @@ export const queryKeys = {
     all: (orgId: string) => ["members", orgId] as const,
     list: (orgId: string) => ["members", orgId, "list"] as const,
     invitations: (orgId: string) => ["members", orgId, "invitations"] as const,
+    payments: (orgId: string, userId: string) =>
+      ["members", orgId, "payments", userId] as const,
+    summary: (orgId: string, userId: string) =>
+      ["members", orgId, "summary", userId] as const,
   },
 
   materials: {
@@ -167,11 +171,17 @@ export const queryKeys = {
   campaigns: {
     all: (orgId: string) => ["campaigns", orgId] as const,
     list: (orgId: string) => ["campaigns", orgId, "list"] as const,
+    deliveries: (orgId: string) => ["campaigns", orgId, "deliveries"] as const,
   },
 
   publicCampaigns: {
     preferences: (token: string) =>
       ["public-campaigns", "preferences", token] as const,
+  },
+
+  changelog: {
+    all: ["changelog"] as const,
+    list: () => ["changelog", "list"] as const,
   },
 
   publicBilling: {

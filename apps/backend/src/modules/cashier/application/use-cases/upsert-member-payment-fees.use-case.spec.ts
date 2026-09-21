@@ -6,6 +6,7 @@ import { IMemberRepository } from "../../../organizations/domain/member.reposito
 import { MemberEntity } from "../../../organizations/domain/member.entity";
 import { CashierForbiddenException } from "../../domain/exceptions/cashier-forbidden.exception";
 import { FeeMemberNotFoundException } from "../../domain/exceptions/fee-member-not-found.exception";
+import { MemberFeeDuplicateKeyException } from "../../domain/exceptions/member-fee-duplicate-key.exception";
 import { AuditService } from "../../../audit/audit.service";
 
 function buildFee(
@@ -18,6 +19,7 @@ function buildFee(
     paymentMethod: "credit_card",
     percent: "3.50",
     fixedCents: 0,
+    installments: 1,
     active: true,
     supersededAt: null,
     createdBy: "owner-1",
@@ -126,6 +128,7 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
           {
             userId: "user-1",
             paymentMethod: "credit_card",
+            installments: 1,
             percent: "4.00",
             fixedCents: 0,
           },
@@ -160,12 +163,14 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
           {
             userId: "user-1",
             paymentMethod: "credit_card",
+            installments: 1,
             percent: "4.00",
             fixedCents: 0,
           },
           {
             userId: "user-outsider",
             paymentMethod: "credit_card",
+            installments: 1,
             percent: "4.00",
             fixedCents: 0,
           },
@@ -201,6 +206,7 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
           {
             userId: "user-1",
             paymentMethod: "credit_card",
+            installments: 1,
             percent: "4.00",
             fixedCents: 0,
           },
@@ -237,6 +243,7 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
         {
           userId: "user-1",
           paymentMethod: "credit_card",
+          installments: 1,
           percent: "3.5",
           fixedCents: 0,
         },
@@ -272,6 +279,7 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
         {
           userId: "user-1",
           paymentMethod: "credit_card",
+          installments: 1,
           percent: "4.00",
           fixedCents: 150,
         },
@@ -283,6 +291,7 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
       orgId: "org-1",
       userId: "user-1",
       paymentMethod: "credit_card",
+      installments: 1,
       percent: "4.00",
       fixedCents: 150,
       createdBy: "owner-1",
@@ -299,6 +308,7 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
           {
             userId: "user-1",
             paymentMethod: "credit_card",
+            installments: 1,
             previousPercent: "3.50",
             previousFixedCents: 100,
             percent: "4.00",
@@ -356,12 +366,14 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
         {
           userId: "user-1",
           paymentMethod: "credit_card",
+          installments: 1,
           percent: "5.00",
           fixedCents: 0,
         },
         {
           userId: "user-2",
           paymentMethod: "debit_card",
+          installments: 1,
           percent: "2.00",
           fixedCents: 0,
         },
@@ -373,6 +385,7 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
       orgId: "org-1",
       userId: "user-1",
       paymentMethod: "credit_card",
+      installments: 1,
       percent: "5.00",
       fixedCents: 0,
       createdBy: "owner-1",
@@ -389,6 +402,7 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
           {
             userId: "user-1",
             paymentMethod: "credit_card",
+            installments: 1,
             previousPercent: "3.50",
             previousFixedCents: 0,
             percent: "5.00",
@@ -421,7 +435,9 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
       orgId: "org-1",
       authId: "owner-1",
       fees: [],
-      deactivations: [{ userId: "user-1", paymentMethod: "credit_card" }],
+      deactivations: [
+        { userId: "user-1", paymentMethod: "credit_card", installments: 1 },
+      ],
     });
 
     expect(memberFeeRepo.deactivate).toHaveBeenCalledTimes(1);
@@ -429,6 +445,7 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
       "org-1",
       "user-1",
       "credit_card",
+      1,
     );
     expect(memberFeeRepo.supersede).not.toHaveBeenCalled();
     expect(auditService.logByAuthId).toHaveBeenCalledTimes(1);
@@ -443,6 +460,7 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
           {
             userId: "user-1",
             paymentMethod: "credit_card",
+            installments: 1,
             previousPercent: "3.50",
             previousFixedCents: 100,
             percent: null,
@@ -451,6 +469,66 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
         ],
       },
     });
+  });
+
+  it("desativar a faixa 6x do membro não afeta a faixa 1x dele", async () => {
+    const memberFeeRepo = buildFakeMemberFeeRepo({
+      findActiveByOrgUserAndMethod: jest
+        .fn()
+        .mockImplementation(
+          (
+            _orgId: string,
+            _userId: string,
+            _paymentMethod: string,
+            installments: number,
+          ) => {
+            if (installments === 6) {
+              return Promise.resolve(
+                buildFee({
+                  userId: "user-1",
+                  percent: "8.00",
+                  fixedCents: 0,
+                  installments: 6,
+                }),
+              );
+            }
+            return Promise.resolve(
+              buildFee({
+                userId: "user-1",
+                percent: "3.50",
+                fixedCents: 0,
+                installments: 1,
+              }),
+            );
+          },
+        ),
+    });
+    const orgRepo = buildFakeOrgRepo();
+    const memberRepo = buildFakeMemberRepo();
+    const auditService = buildFakeAuditService();
+    const useCase = new UpsertMemberPaymentFeesUseCase(
+      memberFeeRepo,
+      orgRepo,
+      memberRepo,
+      auditService,
+    );
+
+    await useCase.execute({
+      orgId: "org-1",
+      authId: "owner-1",
+      fees: [],
+      deactivations: [
+        { userId: "user-1", paymentMethod: "credit_card", installments: 6 },
+      ],
+    });
+
+    expect(memberFeeRepo.deactivate).toHaveBeenCalledTimes(1);
+    expect(memberFeeRepo.deactivate).toHaveBeenCalledWith(
+      "org-1",
+      "user-1",
+      "credit_card",
+      6,
+    );
   });
 
   it("não chama deactivate nem audita quando o item de deactivations não tem override ativo", async () => {
@@ -471,7 +549,9 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
       orgId: "org-1",
       authId: "owner-1",
       fees: [],
-      deactivations: [{ userId: "user-1", paymentMethod: "credit_card" }],
+      deactivations: [
+        { userId: "user-1", paymentMethod: "credit_card", installments: 1 },
+      ],
     });
 
     expect(memberFeeRepo.deactivate).not.toHaveBeenCalled();
@@ -500,7 +580,11 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
         authId: "owner-1",
         fees: [],
         deactivations: [
-          { userId: "user-outsider", paymentMethod: "credit_card" },
+          {
+            userId: "user-outsider",
+            paymentMethod: "credit_card",
+            installments: 1,
+          },
         ],
       }),
     ).rejects.toBeInstanceOf(FeeMemberNotFoundException);
@@ -558,11 +642,14 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
         {
           userId: "user-1",
           paymentMethod: "credit_card",
+          installments: 1,
           percent: "5.00",
           fixedCents: 0,
         },
       ],
-      deactivations: [{ userId: "user-2", paymentMethod: "debit_card" }],
+      deactivations: [
+        { userId: "user-2", paymentMethod: "debit_card", installments: 1 },
+      ],
     });
 
     expect(memberFeeRepo.supersede).toHaveBeenCalledTimes(1);
@@ -571,6 +658,7 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
       "org-1",
       "user-2",
       "debit_card",
+      1,
     );
     expect(auditService.logByAuthId).toHaveBeenCalledTimes(1);
     expect(auditService.logByAuthId).toHaveBeenCalledWith("owner-1", {
@@ -584,6 +672,7 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
           {
             userId: "user-1",
             paymentMethod: "credit_card",
+            installments: 1,
             previousPercent: "3.50",
             previousFixedCents: 0,
             percent: "5.00",
@@ -592,6 +681,7 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
           {
             userId: "user-2",
             paymentMethod: "debit_card",
+            installments: 1,
             previousPercent: "2.00",
             previousFixedCents: 50,
             percent: null,
@@ -627,6 +717,7 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
         {
           userId: "user-1",
           paymentMethod: "credit_card",
+          installments: 1,
           percent: "3.5",
           fixedCents: 0,
         },
@@ -636,5 +727,124 @@ describe("UpsertMemberPaymentFeesUseCase", () => {
     expect(memberFeeRepo.deactivate).not.toHaveBeenCalled();
     expect(memberFeeRepo.supersede).not.toHaveBeenCalled();
     expect(auditService.logByAuthId).not.toHaveBeenCalled();
+  });
+
+  it("salvar a faixa 1x e a faixa 6x do mesmo membro na mesma chamada grava as DUAS linhas", async () => {
+    const memberFeeRepo = buildFakeMemberFeeRepo({
+      findActiveByOrgUserAndMethod: jest.fn().mockResolvedValue(null),
+    });
+    const orgRepo = buildFakeOrgRepo();
+    const memberRepo = buildFakeMemberRepo();
+    const auditService = buildFakeAuditService();
+    const useCase = new UpsertMemberPaymentFeesUseCase(
+      memberFeeRepo,
+      orgRepo,
+      memberRepo,
+      auditService,
+    );
+
+    await useCase.execute({
+      orgId: "org-1",
+      authId: "owner-1",
+      fees: [
+        {
+          userId: "user-1",
+          paymentMethod: "credit_card",
+          installments: 1,
+          percent: "3.50",
+          fixedCents: 0,
+        },
+        {
+          userId: "user-1",
+          paymentMethod: "credit_card",
+          installments: 6,
+          percent: "8.00",
+          fixedCents: 0,
+        },
+      ],
+    });
+
+    expect(memberFeeRepo.supersede).toHaveBeenCalledTimes(2);
+    expect(memberFeeRepo.supersede).toHaveBeenNthCalledWith(1, {
+      orgId: "org-1",
+      userId: "user-1",
+      paymentMethod: "credit_card",
+      installments: 1,
+      percent: "3.50",
+      fixedCents: 0,
+      createdBy: "owner-1",
+    });
+    expect(memberFeeRepo.supersede).toHaveBeenNthCalledWith(2, {
+      orgId: "org-1",
+      userId: "user-1",
+      paymentMethod: "credit_card",
+      installments: 6,
+      percent: "8.00",
+      fixedCents: 0,
+      createdBy: "owner-1",
+    });
+  });
+
+  it("lança MemberFeeDuplicateKeyException quando a mesma chave (userId, método, faixa) está em fees e deactivations, sem escrever nada", async () => {
+    const memberFeeRepo = buildFakeMemberFeeRepo();
+    const auditService = buildFakeAuditService();
+    const useCase = new UpsertMemberPaymentFeesUseCase(
+      memberFeeRepo,
+      buildFakeOrgRepo(),
+      buildFakeMemberRepo(),
+      auditService,
+    );
+
+    await expect(
+      useCase.execute({
+        orgId: "org-1",
+        authId: "owner-1",
+        fees: [
+          {
+            userId: "user-1",
+            paymentMethod: "credit_card",
+            installments: 6,
+            percent: "8.00",
+            fixedCents: 0,
+          },
+        ],
+        deactivations: [
+          {
+            userId: "user-1",
+            paymentMethod: "credit_card",
+            installments: 6,
+          },
+        ],
+      }),
+    ).rejects.toBeInstanceOf(MemberFeeDuplicateKeyException);
+    expect(memberFeeRepo.supersede).not.toHaveBeenCalled();
+    expect(memberFeeRepo.deactivate).not.toHaveBeenCalled();
+    expect(auditService.logByAuthId).not.toHaveBeenCalled();
+  });
+
+  it("lança MemberFeeDuplicateKeyException quando a mesma chave se repete dentro de fees", async () => {
+    const memberFeeRepo = buildFakeMemberFeeRepo();
+    const useCase = new UpsertMemberPaymentFeesUseCase(
+      memberFeeRepo,
+      buildFakeOrgRepo(),
+      buildFakeMemberRepo(),
+      buildFakeAuditService(),
+    );
+    const item = {
+      userId: "user-1",
+      paymentMethod: "credit_card" as const,
+      installments: 1,
+      percent: "3.50",
+      fixedCents: 0,
+    };
+
+    await expect(
+      useCase.execute({
+        orgId: "org-1",
+        authId: "owner-1",
+        fees: [item, { ...item, percent: "4.00" }],
+      }),
+    ).rejects.toBeInstanceOf(MemberFeeDuplicateKeyException);
+    expect(memberFeeRepo.supersede).not.toHaveBeenCalled();
   });
 });

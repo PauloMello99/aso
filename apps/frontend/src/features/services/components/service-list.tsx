@@ -143,7 +143,7 @@ function MobileCard({
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={cn(
-              "truncate font-medium",
+              "min-w-0 max-w-full truncate font-medium",
               struck ? "text-foreground/40 line-through" : "text-foreground",
             )}
           >
@@ -152,11 +152,15 @@ function MobileCard({
           <StatusBadge status={status} />
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-foreground/40">
-          {service.typeName && <span>{service.typeName}</span>}
+          {service.typeName && (
+            <span className="min-w-0 max-w-full break-words">{service.typeName}</span>
+          )}
           <span>{formatDate(service.performedAt)}</span>
-          {service.employeeName && <span>{service.employeeName}</span>}
+          {service.employeeName && (
+            <span className="min-w-0 max-w-full break-words">{service.employeeName}</span>
+          )}
         </div>
-        <div className="mt-2 font-semibold tabular-nums text-foreground">
+        <div className="mt-2 break-words font-semibold tabular-nums text-foreground">
           {formatBRL(service.amountCents)}
         </div>
       </div>
@@ -193,7 +197,7 @@ export function ServiceList({
 
   return (
     <>
-      <div className="grid gap-3 sm:hidden">
+      <div className="grid grid-cols-1 gap-3 sm:hidden">
         {services.map((s) => (
           <MobileCard
             key={s.id}
@@ -228,8 +232,9 @@ export function ServiceList({
                 <TableRow key={s.id} className={cn(struck && "bg-foreground/[0.01]")}>
                   <TableCell className="pl-4">
                     <span
+                      title={s.customerName ?? undefined}
                       className={cn(
-                        "font-medium",
+                        "block max-w-[12rem] truncate font-medium",
                         struck ? "text-foreground/40 line-through" : "text-foreground",
                       )}
                     >
@@ -237,10 +242,20 @@ export function ServiceList({
                     </span>
                   </TableCell>
                   <TableCell className="text-foreground/50">
-                    {s.typeName ?? "—"}
+                    <span
+                      title={s.typeName ?? undefined}
+                      className="block max-w-[8rem] truncate"
+                    >
+                      {s.typeName ?? "—"}
+                    </span>
                   </TableCell>
                   <TableCell className="text-foreground/50">
-                    {s.employeeName ?? "—"}
+                    <span
+                      title={s.employeeName ?? undefined}
+                      className="block max-w-[8rem] truncate"
+                    >
+                      {s.employeeName ?? "—"}
+                    </span>
                   </TableCell>
                   <TableCell className="text-foreground/40">
                     {formatDate(s.performedAt)}

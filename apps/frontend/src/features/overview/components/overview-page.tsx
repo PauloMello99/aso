@@ -12,11 +12,16 @@ import {
   ArrowDownRight,
   Loader2,
   Landmark,
+  Eye,
+  EyeOff,
   type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { Badge } from "@/shared/components/ui/badge"
+import { Button } from "@/shared/components/ui/button"
 import { SectionCard } from "@/shared/components/section-card"
+import { useHideValues } from "@/shared/components/hide-values-provider"
+import { useMoneyFormatter } from "@/shared/hooks/use-money-formatter"
 import { useCurrentOrg } from "@/features/dashboard"
 import { useBalance } from "@/features/cashier/hooks/use-balance"
 import { BalanceCards } from "@/features/cashier/components/balance-cards"
@@ -29,7 +34,6 @@ import {
   periodRange,
   type PeriodKey,
 } from "./performance-section"
-import { formatBRL } from "@/features/cashier/lib/money"
 import {
   serviceStatus,
   SERVICE_STATUS_LABELS,
@@ -116,6 +120,7 @@ function RecentServicesSection({
   basePath: string
   showProfessional: boolean
 }) {
+  const money = useMoneyFormatter()
   return (
     <SectionCard
       title="Serviços recentes"
@@ -162,8 +167,8 @@ function RecentServicesSection({
                 >
                   {SERVICE_STATUS_LABELS[status]}
                 </Badge>
-                <span className="w-24 shrink-0 text-right font-medium text-foreground">
-                  {formatBRL(s.amountCents)}
+                <span className="min-w-[6rem] shrink-0 whitespace-nowrap text-right font-medium text-foreground">
+                  {money(s.amountCents)}
                 </span>
               </li>
             )
@@ -185,6 +190,7 @@ function RecentTransactionsSection({
   loading: boolean
   basePath: string
 }) {
+  const money = useMoneyFormatter()
   const categoryName = React.useMemo(() => {
     const map = new Map(categories.map((c) => [c.id, c.name]))
     return (id: string | null) => (id ? (map.get(id) ?? null) : null)
@@ -242,7 +248,7 @@ function RecentTransactionsSection({
                   )}
                 >
                   {isIncome ? "+" : "-"}
-                  {formatBRL(t.netCents)}
+                  {money(t.netCents)}
                 </span>
               </li>
             )
@@ -288,6 +294,7 @@ function LowStockSection({
   loading: boolean
   basePath: string
 }) {
+  const money = useMoneyFormatter()
   const { totalCents, missingCost } = restockEstimate(materials)
 
   return (
@@ -311,7 +318,7 @@ function LowStockSection({
                     <p className="mt-0.5 text-xs text-foreground/40">
                       {m.stockQuantity} em estoque · mín. {m.minimumQuantity}
                       {cents !== null && cents > 0
-                        ? ` · repor ${formatBRL(cents)}`
+                        ? ` · repor ${money(cents)}`
                         : ""}
                     </p>
                   </div>
@@ -328,7 +335,7 @@ function LowStockSection({
           <div className="mt-3 flex items-center justify-between border-t border-foreground/[0.06] pt-3 text-sm">
             <span className="text-foreground/50">Repor tudo (estimado)</span>
             <span className="font-semibold text-foreground">
-              {formatBRL(totalCents)}
+              {money(totalCents)}
             </span>
           </div>
           {missingCost > 0 && (
@@ -437,10 +444,11 @@ function RecentCustomersSection({
 }
 
 function BalanceRow({ label, cents }: { label: string; cents: number }) {
+  const money = useMoneyFormatter()
   return (
     <div className="flex items-center justify-between text-sm">
       <span className="text-foreground/50">{label}</span>
-      <span className="tabular-nums text-foreground">{formatBRL(cents)}</span>
+      <span className="tabular-nums text-foreground">{money(cents)}</span>
     </div>
   )
 }
@@ -453,6 +461,7 @@ function CashBalanceSection({
   basePath: string
 }) {
   const { balance, loading } = useBalance(orgId)
+  const money = useMoneyFormatter()
   return (
     <SectionCard title="Saldo do caixa" icon={Landmark} href={`${basePath}/cashier`}>
       {loading ? (
@@ -464,7 +473,7 @@ function CashBalanceSection({
           <div className="mt-1 flex items-center justify-between border-t border-foreground/[0.06] pt-3">
             <span className="text-sm text-foreground/50">Total</span>
             <span className="text-base font-semibold tabular-nums text-foreground">
-              {formatBRL(balance.totalCents)}
+              {money(balance.totalCents)}
             </span>
           </div>
         </div>
@@ -502,16 +511,33 @@ export function OverviewPage() {
   const { balance, loading: balanceLoading } = useBalance(orgId, {
     enabled: vis.cashier,
   })
+  const { hidden: valuesHidden, toggle: toggleHideValues } = useHideValues()
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-xl font-semibold text-foreground">Overview</h1>
-        <p className="mt-0.5 text-sm text-foreground/40">
-          {isOwner
-            ? "Resumo geral do estúdio."
-            : "Resumo dos seus atendimentos e agenda."}
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">Overview</h1>
+          <p className="mt-0.5 text-sm text-foreground/40">
+            {isOwner
+              ? "Resumo geral do estúdio."
+              : "Resumo dos seus atendimentos e agenda."}
+          </p>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleHideValues}
+          className="shrink-0"
+          title={valuesHidden ? "Mostrar valores" : "Ocultar valores"}
+          aria-pressed={valuesHidden}
+        >
+          {valuesHidden ? (
+            <EyeOff className="h-4 w-4" />
+          ) : (
+            <Eye className="h-4 w-4" />
+          )}
+        </Button>
       </div>
 
       {vis.cashier && (

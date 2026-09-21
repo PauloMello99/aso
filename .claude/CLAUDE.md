@@ -75,6 +75,10 @@ Supabase local: `pnpm db:start` (`npx supabase start`); tipos: `pnpm db:gen-type
   sessão, nunca do cliente; `DRIZZLE_ADMIN` só em bootstrap/cron/guards/cross-org, e em
   escritas privilegiadas escopadas quando múltiplas classes de ator escrevem a mesma
   tabela (exceção deliberada, ver ADR-0021); `super_admin` age como owner (ADR-0013)
+- Versão: **uma só versão de produto** (SemVer, base `1.0.0`) — `package.json` raiz, `apps/backend` e
+  `apps/frontend` sempre iguais; NUNCA editar `version` à mão nem versionar um app isolado: só
+  `pnpm version:bump major|minor|patch` (`pnpm version:check` no CI e num spec). Minor/major exige item de
+  changelog com o mesmo `semver`; patch nunca tem item. Seguir a skill `product-versioning` (ADR-0031/0030)
 - Frontend: mobile-first; regras de UI obrigatórias em `.memory/domain-rules.md`
 - Há suíte automatizada em ambas as apps: backend usa Jest (`apps/backend`, `ts-jest`,
   jest 30; `.spec.ts` por use-case, `jest.Mocked<Interface>` + builders `buildFake*`);

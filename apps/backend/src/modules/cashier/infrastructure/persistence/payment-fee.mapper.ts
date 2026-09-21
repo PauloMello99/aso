@@ -10,6 +10,7 @@ export class PaymentFeeMapper {
       paymentMethod: row.paymentMethod as PaymentMethod,
       percent: row.percent,
       fixedCents: row.fixedCents,
+      installments: row.installments,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });

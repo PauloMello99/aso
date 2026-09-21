@@ -788,6 +788,36 @@ export type Database = {
           },
         ]
       }
+      changelog_notifications: {
+        Row: {
+          created_at: string
+          entry_id: string
+          error: string | null
+          id: string
+          sent_at: string | null
+          status: Database["public"]["Enums"]["changelog_notification_status"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entry_id: string
+          error?: string | null
+          id?: string
+          sent_at?: string | null
+          status: Database["public"]["Enums"]["changelog_notification_status"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entry_id?: string
+          error?: string | null
+          id?: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["changelog_notification_status"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       cron_job_state: {
         Row: {
           job_name: string
@@ -1081,7 +1111,7 @@ export type Database = {
           address: string
           address_line2: string | null
           birth_date: string
-          city: string
+          city: string | null
           country: string | null
           created_at: string
           created_by: string | null
@@ -1091,12 +1121,12 @@ export type Database = {
           id: string
           name: string
           notes: string | null
-          number: string
+          number: string | null
           org_id: string
           origin_id: string | null
           phone: string | null
           postal_code: string | null
-          state: string
+          state: string | null
           updated_at: string
           user_id: string | null
         }
@@ -1104,7 +1134,7 @@ export type Database = {
           address: string
           address_line2?: string | null
           birth_date: string
-          city: string
+          city?: string | null
           country?: string | null
           created_at?: string
           created_by?: string | null
@@ -1114,12 +1144,12 @@ export type Database = {
           id?: string
           name: string
           notes?: string | null
-          number: string
+          number?: string | null
           org_id: string
           origin_id?: string | null
           phone?: string | null
           postal_code?: string | null
-          state: string
+          state?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -1127,7 +1157,7 @@ export type Database = {
           address?: string
           address_line2?: string | null
           birth_date?: string
-          city?: string
+          city?: string | null
           country?: string | null
           created_at?: string
           created_by?: string | null
@@ -1137,12 +1167,12 @@ export type Database = {
           id?: string
           name?: string
           notes?: string | null
-          number?: string
+          number?: string | null
           org_id?: string
           origin_id?: string | null
           phone?: string | null
           postal_code?: string | null
-          state?: string
+          state?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -1192,6 +1222,52 @@ export type Database = {
           },
         ]
       }
+      material_service_types: {
+        Row: {
+          created_at: string
+          id: string
+          material_id: string
+          org_id: string
+          service_type_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          material_id: string
+          org_id: string
+          service_type_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          material_id?: string
+          org_id?: string
+          service_type_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_service_types_material_id_org_id_fk"
+            columns: ["material_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id", "org_id"]
+          },
+          {
+            foreignKeyName: "material_service_types_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_service_types_service_type_id_org_id_fk"
+            columns: ["service_type_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "service_types"
+            referencedColumns: ["id", "org_id"]
+          },
+        ]
+      }
       materials: {
         Row: {
           archived_at: string | null
@@ -1200,6 +1276,7 @@ export type Database = {
           created_at: string
           id: string
           last_used_at: string | null
+          low_stock_alerted_at: string | null
           minimum_quantity: number
           name: string
           org_id: string
@@ -1214,6 +1291,7 @@ export type Database = {
           created_at?: string
           id?: string
           last_used_at?: string | null
+          low_stock_alerted_at?: string | null
           minimum_quantity?: number
           name: string
           org_id: string
@@ -1228,6 +1306,7 @@ export type Database = {
           created_at?: string
           id?: string
           last_used_at?: string | null
+          low_stock_alerted_at?: string | null
           minimum_quantity?: number
           name?: string
           org_id?: string
@@ -1404,6 +1483,7 @@ export type Database = {
           created_by: string | null
           fixed_cents: number
           id: string
+          installments: number
           org_id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           percent: number
@@ -1417,6 +1497,7 @@ export type Database = {
           created_by?: string | null
           fixed_cents?: number
           id?: string
+          installments?: number
           org_id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           percent?: number
@@ -1430,6 +1511,7 @@ export type Database = {
           created_by?: string | null
           fixed_cents?: number
           id?: string
+          installments?: number
           org_id?: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
           percent?: number
@@ -1444,6 +1526,70 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_member_payments: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          org_id: string
+          period_end: string | null
+          period_start: string | null
+          reverses_payment_id: string | null
+          transaction_id: string
+          user_id: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          org_id: string
+          period_end?: string | null
+          period_start?: string | null
+          reverses_payment_id?: string | null
+          transaction_id: string
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          org_id?: string
+          period_end?: string | null
+          period_start?: string | null
+          reverses_payment_id?: string | null
+          transaction_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_member_payments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_member_payments_reverses_org_fk"
+            columns: ["reverses_payment_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "org_member_payments"
+            referencedColumns: ["id", "org_id"]
+          },
+          {
+            foreignKeyName: "org_member_payments_transaction_org_fk"
+            columns: ["transaction_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id", "org_id"]
           },
         ]
       }
@@ -1499,6 +1645,7 @@ export type Database = {
           created_at: string
           fixed_cents: number
           id: string
+          installments: number
           org_id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           percent: number
@@ -1508,6 +1655,7 @@ export type Database = {
           created_at?: string
           fixed_cents?: number
           id?: string
+          installments?: number
           org_id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           percent?: number
@@ -1517,6 +1665,7 @@ export type Database = {
           created_at?: string
           fixed_cents?: number
           id?: string
+          installments?: number
           org_id?: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
           percent?: number
@@ -1699,6 +1848,7 @@ export type Database = {
           customer_id: string | null
           description: string | null
           id: string
+          installments: number | null
           org_id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           payment_transaction_id: string | null
@@ -1721,6 +1871,7 @@ export type Database = {
           customer_id?: string | null
           description?: string | null
           id?: string
+          installments?: number | null
           org_id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           payment_transaction_id?: string | null
@@ -1743,6 +1894,7 @@ export type Database = {
           customer_id?: string | null
           description?: string | null
           id?: string
+          installments?: number | null
           org_id?: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
           payment_transaction_id?: string | null
@@ -2405,6 +2557,7 @@ export type Database = {
           fee_percent: number | null
           fee_source: string | null
           id: string
+          installments: number | null
           org_id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           reverses_transaction_id: string | null
@@ -2424,6 +2577,7 @@ export type Database = {
           fee_percent?: number | null
           fee_source?: string | null
           id?: string
+          installments?: number | null
           org_id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           reverses_transaction_id?: string | null
@@ -2443,6 +2597,7 @@ export type Database = {
           fee_percent?: number | null
           fee_source?: string | null
           id?: string
+          installments?: number | null
           org_id?: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
           reverses_transaction_id?: string | null
@@ -2485,14 +2640,17 @@ export type Database = {
           auth_id: string
           avatar_url: string | null
           birth_date: string | null
+          changelog_seen_version: number | null
           created_at: string
           email: string
           gender: Database["public"]["Enums"]["gender"] | null
           id: string
           name: string
           onboarding_completed_at: string | null
+          onboarding_seen: Json
           phone: string | null
           platform_role: Database["public"]["Enums"]["platform_role"]
+          product_updates_opted_out_at: string | null
           terms_accepted_at: string | null
           terms_version: string | null
           updated_at: string
@@ -2501,14 +2659,17 @@ export type Database = {
           auth_id: string
           avatar_url?: string | null
           birth_date?: string | null
+          changelog_seen_version?: number | null
           created_at?: string
           email: string
           gender?: Database["public"]["Enums"]["gender"] | null
           id?: string
           name: string
           onboarding_completed_at?: string | null
+          onboarding_seen?: Json
           phone?: string | null
           platform_role?: Database["public"]["Enums"]["platform_role"]
+          product_updates_opted_out_at?: string | null
           terms_accepted_at?: string | null
           terms_version?: string | null
           updated_at?: string
@@ -2517,14 +2678,17 @@ export type Database = {
           auth_id?: string
           avatar_url?: string | null
           birth_date?: string | null
+          changelog_seen_version?: number | null
           created_at?: string
           email?: string
           gender?: Database["public"]["Enums"]["gender"] | null
           id?: string
           name?: string
           onboarding_completed_at?: string | null
+          onboarding_seen?: Json
           phone?: string | null
           platform_role?: Database["public"]["Enums"]["platform_role"]
+          product_updates_opted_out_at?: string | null
           terms_accepted_at?: string | null
           terms_version?: string | null
           updated_at?: string
@@ -2561,6 +2725,7 @@ export type Database = {
         | "cashier_commissions_updated"
         | "org_admin_access"
         | "campaign_settings_updated"
+        | "campaign_email_bounced"
       billing_interval: "monthly" | "semiannual" | "annual"
       billing_invoice_event_type: "paid" | "payment_failed"
       billing_refund_event_status:
@@ -2576,6 +2741,7 @@ export type Database = {
       calendar_provider: "google" | "outlook" | "apple"
       campaign_send_status: "sent" | "failed" | "bounced"
       campaign_trigger_type: "post_service" | "birthday" | "inactivity"
+      changelog_notification_status: "sent" | "failed"
       gender: "male" | "female" | "other"
       invitation_status: "pending" | "accepted" | "expired" | "cancelled"
       member_classification: "resident" | "guest"
@@ -2583,6 +2749,7 @@ export type Database = {
         | "agenda_reminder"
         | "member_unavailability"
         | "stock_check_reminder"
+        | "low_stock"
       org_role: "owner" | "employee"
       payment_method: "cash" | "bank_transfer" | "credit_card" | "debit_card"
       platform_role: "super_admin" | "user"
@@ -2616,12 +2783,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2645,11 +2812,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2670,11 +2837,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2695,11 +2862,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2712,11 +2879,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2751,6 +2918,7 @@ export const Constants = {
         "cashier_commissions_updated",
         "org_admin_access",
         "campaign_settings_updated",
+        "campaign_email_bounced",
       ],
       billing_interval: ["monthly", "semiannual", "annual"],
       billing_invoice_event_type: ["paid", "payment_failed"],
@@ -2768,6 +2936,7 @@ export const Constants = {
       calendar_provider: ["google", "outlook", "apple"],
       campaign_send_status: ["sent", "failed", "bounced"],
       campaign_trigger_type: ["post_service", "birthday", "inactivity"],
+      changelog_notification_status: ["sent", "failed"],
       gender: ["male", "female", "other"],
       invitation_status: ["pending", "accepted", "expired", "cancelled"],
       member_classification: ["resident", "guest"],
@@ -2775,6 +2944,7 @@ export const Constants = {
         "agenda_reminder",
         "member_unavailability",
         "stock_check_reminder",
+        "low_stock",
       ],
       org_role: ["owner", "employee"],
       payment_method: ["cash", "bank_transfer", "credit_card", "debit_card"],

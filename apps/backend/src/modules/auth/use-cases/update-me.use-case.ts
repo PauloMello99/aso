@@ -17,6 +17,8 @@ export interface UpdateMeInput {
   email?: string;
   avatarUrl?: string | null;
   onboardingCompletedAt?: string | null;
+  onboardingSeen?: Record<string, number>;
+  productUpdatesOptedOut?: boolean;
 }
 
 @Injectable()
@@ -36,6 +38,29 @@ export class UpdateMeUseCase {
       await this.auth.updateEmail(authUser.id, input.email!);
     }
 
+    // Decisão intencional (fatia 5.2-A): PATCH /auth/me {} (nenhum campo) retorna
+    // o usuário atual sem update nem audit (antes chamava update e gravava audit).
+    const hasSeenToMerge =
+      input.onboardingSeen != null &&
+      Object.keys(input.onboardingSeen).length > 0;
+    if (hasSeenToMerge) {
+      await this.userRepo.mergeOnboardingSeen(
+        authUser.id,
+        input.onboardingSeen!,
+      );
+    }
+
+    const hasProfileFields = Object.keys(input).some(
+      (k) =>
+        k !== "onboardingSeen" && input[k as keyof UpdateMeInput] !== undefined,
+    );
+    if (!hasProfileFields) {
+      if (!hasSeenToMerge) return current;
+      const reloaded = await this.userRepo.findByAuthId(authUser.id);
+      if (!reloaded) throw new UserNotFoundException(authUser.id);
+      return reloaded;
+    }
+
     const updated = await this.userRepo.update(authUser.id, {
       name: input.name,
       email: emailChanged ? input.email : undefined,
@@ -46,6 +71,13 @@ export class UpdateMeUseCase {
           : input.onboardingCompletedAt === null
             ? null
             : new Date(),
+      // Servidor deriva a data: true mantém a data existente (não regrava), false limpa.
+      productUpdatesOptedOutAt:
+        input.productUpdatesOptedOut === undefined
+          ? undefined
+          : input.productUpdatesOptedOut
+            ? current.productUpdatesOptedOutAt ?? new Date()
+            : null,
     });
 
     const changedFields = Object.keys(input).filter(

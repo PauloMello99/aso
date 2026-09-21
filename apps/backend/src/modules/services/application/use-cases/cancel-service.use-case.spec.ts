@@ -13,6 +13,32 @@ import { TransactionCategoryEntity } from "../../../cashier/domain/transaction-c
 import { ServiceNotFoundException } from "../../domain/exceptions/service-not-found.exception";
 import { ServiceAlreadyCanceledException } from "../../domain/exceptions/service-already-canceled.exception";
 import { ServiceForbiddenException } from "../../domain/exceptions/service-forbidden.exception";
+import { LowStockAlertService } from "../../../materials/application/low-stock-alert.service";
+import { MaterialEntity } from "../../../materials/domain/material.entity";
+
+jest.mock("../../../../database/database.module", () => ({
+  registerPostCommit: jest.fn(),
+}));
+
+function buildMaterial(
+  overrides: Partial<Parameters<typeof MaterialEntity.create>[0]> = {},
+): MaterialEntity {
+  return MaterialEntity.create({
+    id: "material-1",
+    orgId: "org-1",
+    categoryId: null,
+    name: "Tinta",
+    stockQuantity: "10",
+    minimumQuantity: "1",
+    costPerUnit: null,
+    shareable: false,
+    lastUsedAt: null,
+    archivedAt: null,
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    updatedAt: new Date("2026-01-01T00:00:00Z"),
+    ...overrides,
+  });
+}
 
 function buildService(
   overrides: Partial<Parameters<typeof ServiceEntity.create>[0]> = {},
@@ -142,7 +168,10 @@ function buildFakeMaterialRepo(
     findAllByOrg: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
-    updateStockQuantity: jest.fn(),
+    updateStockQuantity: jest
+      .fn()
+      .mockResolvedValue({ material: buildMaterial(), crossedLowStock: false }),
+    syncLowStockMarker: jest.fn(),
     touchLastUsed: jest.fn(),
     setArchived: jest.fn(),
     isLinkedToService: jest.fn(),
@@ -191,7 +220,14 @@ function buildFakeCategoryRepo(
   } as unknown as jest.Mocked<ITransactionCategoryRepository>;
 }
 
+function buildFakeLowStockAlerts(): jest.Mocked<LowStockAlertService> {
+  return {
+    scheduleIfAny: jest.fn(),
+  } as unknown as jest.Mocked<LowStockAlertService>;
+}
+
 interface Fakes {
+  lowStockAlerts: jest.Mocked<LowStockAlertService>;
   serviceRepo: jest.Mocked<IServiceRepository>;
   memberRepo: jest.Mocked<IMemberRepository>;
   materialRepo: jest.Mocked<IMaterialRepository>;
@@ -208,6 +244,7 @@ function buildUseCase(overrides: Partial<Fakes> = {}) {
     movementRepo: buildFakeMovementRepo(),
     transactionRepo: buildFakeTransactionRepo(),
     categoryRepo: buildFakeCategoryRepo(),
+    lowStockAlerts: buildFakeLowStockAlerts(),
     ...overrides,
   };
   const useCase = new CancelServiceUseCase(
@@ -217,6 +254,7 @@ function buildUseCase(overrides: Partial<Fakes> = {}) {
     fakes.movementRepo,
     fakes.transactionRepo,
     fakes.categoryRepo,
+    fakes.lowStockAlerts,
   );
   return { useCase, ...fakes };
 }
@@ -392,5 +430,66 @@ describe("CancelServiceUseCase", () => {
         serviceId: "service-1",
       }),
     );
+  });
+
+  describe("alerta de estoque baixo", () => {
+    function buildScenario(crossedLowStock: boolean) {
+      const line = ServiceMaterialEntity.create({
+        id: "sm-1",
+        serviceId: "service-1",
+        materialId: "material-1",
+        quantity: "2",
+      });
+      const service = buildService({
+        paymentTransactionId: null,
+        materials: [line],
+      });
+      const canceledService = buildService({
+        paymentTransactionId: null,
+        canceledAt: new Date(),
+        materials: [line],
+      });
+      const updated = buildMaterial({
+        stockQuantity: "1",
+        minimumQuantity: "2",
+      });
+      return buildUseCase({
+        serviceRepo: buildFakeServiceRepo({
+          findById: jest
+            .fn()
+            .mockResolvedValueOnce(service)
+            .mockResolvedValueOnce(canceledService),
+        }),
+        materialRepo: buildFakeMaterialRepo({
+          updateStockQuantity: jest
+            .fn()
+            .mockResolvedValue({ material: updated, crossedLowStock }),
+        }),
+      });
+    }
+
+    it("agenda o alerta uma vez com o item quando o estorno cruza o mínimo", async () => {
+      const { useCase, lowStockAlerts } = buildScenario(true);
+
+      await useCase.execute(baseInput);
+
+      expect(lowStockAlerts.scheduleIfAny).toHaveBeenCalledTimes(1);
+      expect(lowStockAlerts.scheduleIfAny).toHaveBeenCalledWith("org-1", [
+        {
+          id: "material-1",
+          name: "Tinta",
+          stockQuantity: "1",
+          minimumQuantity: "2",
+        },
+      ]);
+    });
+
+    it("chama scheduleIfAny com lista vazia quando não há cruzamento", async () => {
+      const { useCase, lowStockAlerts } = buildScenario(false);
+
+      await useCase.execute(baseInput);
+
+      expect(lowStockAlerts.scheduleIfAny).toHaveBeenCalledWith("org-1", []);
+    });
   });
 });

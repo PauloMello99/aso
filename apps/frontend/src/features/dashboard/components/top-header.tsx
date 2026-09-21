@@ -40,7 +40,7 @@ export function TopHeader({ breadcrumbs, onMobileMenuToggle }: TopHeaderProps) {
           <>
             <ChevronRight className="h-3.5 w-3.5 shrink-0 text-foreground/20" />
             <nav aria-label="Breadcrumb" className="min-w-0 flex-1">
-              <ol className="flex items-center gap-1.5">
+              <ol className="flex min-w-0 items-center gap-1.5">
                 {breadcrumbs.map((item, i) => {
                   const isLast = i === breadcrumbs.length - 1
                   return (
@@ -82,9 +82,11 @@ export function TopHeader({ breadcrumbs, onMobileMenuToggle }: TopHeaderProps) {
 
         {breadcrumbs.length === 0 && <div className="flex-1" />}
 
-        <ThemeToggle />
-        <NotificationBell />
-        <UserMenu />
+        <div className="flex shrink-0 items-center gap-3">
+          <ThemeToggle />
+          <NotificationBell />
+          <UserMenu />
+        </div>
       </div>
     </header>
   )

@@ -34,6 +34,7 @@ export class DrizzleMemberPaymentFeeRepository implements IMemberPaymentFeeRepos
     orgId: string,
     userId: string,
     paymentMethod: PaymentMethod,
+    installments: number,
   ): Promise<MemberPaymentFeeEntity | null> {
     const [row] = await this.db
       .select()
@@ -43,6 +44,7 @@ export class DrizzleMemberPaymentFeeRepository implements IMemberPaymentFeeRepos
           eq(schema.orgMemberPaymentFees.orgId, orgId),
           eq(schema.orgMemberPaymentFees.userId, userId),
           eq(schema.orgMemberPaymentFees.paymentMethod, paymentMethod),
+          eq(schema.orgMemberPaymentFees.installments, installments),
           eq(schema.orgMemberPaymentFees.active, true),
         ),
       )
@@ -54,9 +56,11 @@ export class DrizzleMemberPaymentFeeRepository implements IMemberPaymentFeeRepos
     data: UpsertMemberPaymentFeeData,
   ): Promise<MemberPaymentFeeEntity> {
     const row = await this.db.transaction(async (tx) => {
-      // Ordem obrigatoria: o indice unico parcial (org_id, user_id, payment_method)
-      // WHERE active so permite uma linha ativa por vez e nao e deferivel, entao a
-      // linha antiga precisa ser desativada ANTES do insert da nova.
+      // Ordem obrigatoria: o indice unico parcial
+      // org_member_payment_fees_org_user_method_inst_active_uq
+      // (org_id, user_id, payment_method, installments) WHERE active so permite uma
+      // linha ativa por faixa e nao e deferivel, entao a linha antiga (mesma faixa)
+      // precisa ser desativada ANTES do insert da nova.
       await tx
         .update(schema.orgMemberPaymentFees)
         .set({
@@ -69,6 +73,7 @@ export class DrizzleMemberPaymentFeeRepository implements IMemberPaymentFeeRepos
             eq(schema.orgMemberPaymentFees.orgId, data.orgId),
             eq(schema.orgMemberPaymentFees.userId, data.userId),
             eq(schema.orgMemberPaymentFees.paymentMethod, data.paymentMethod),
+            eq(schema.orgMemberPaymentFees.installments, data.installments),
             eq(schema.orgMemberPaymentFees.active, true),
           ),
         );
@@ -79,6 +84,7 @@ export class DrizzleMemberPaymentFeeRepository implements IMemberPaymentFeeRepos
           orgId: data.orgId,
           userId: data.userId,
           paymentMethod: data.paymentMethod,
+          installments: data.installments,
           percent: data.percent,
           fixedCents: data.fixedCents,
           active: true,
@@ -96,6 +102,7 @@ export class DrizzleMemberPaymentFeeRepository implements IMemberPaymentFeeRepos
     orgId: string,
     userId: string,
     paymentMethod: PaymentMethod,
+    installments: number,
   ): Promise<void> {
     await this.db
       .update(schema.orgMemberPaymentFees)
@@ -109,6 +116,7 @@ export class DrizzleMemberPaymentFeeRepository implements IMemberPaymentFeeRepos
           eq(schema.orgMemberPaymentFees.orgId, orgId),
           eq(schema.orgMemberPaymentFees.userId, userId),
           eq(schema.orgMemberPaymentFees.paymentMethod, paymentMethod),
+          eq(schema.orgMemberPaymentFees.installments, installments),
           eq(schema.orgMemberPaymentFees.active, true),
         ),
       );

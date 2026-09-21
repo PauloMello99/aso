@@ -269,6 +269,7 @@ export class ServicesController {
       anamnesisResponseId: dto.anamnesisResponseId ?? null,
       amountCents: dto.amountCents,
       paymentMethod: dto.paymentMethod,
+      installments: dto.installments ?? null,
       paymentStatus: dto.paymentStatus,
       performedAt: dto.performedAt ? new Date(dto.performedAt) : undefined,
       materials: dto.materials ?? [],
@@ -338,6 +339,7 @@ export class ServicesController {
       authId: user.id,
       grossCents: dto.grossCents,
       paymentMethod: dto.paymentMethod,
+      installments: dto.installments,
       description: dto.description,
       transactedAt: dto.transactedAt ? new Date(dto.transactedAt) : undefined,
     });

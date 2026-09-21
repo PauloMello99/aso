@@ -21,12 +21,14 @@ import { ListStockVerificationsUseCase } from "./application/use-cases/list-stoc
 import { SendStockCheckRemindersUseCase } from "./application/use-cases/send-stock-check-reminders.use-case";
 import { MaterialsInfrastructureModule } from "./infrastructure/materials-infrastructure.module";
 import { MaterialsController } from "./interface/materials.controller";
+import { LowStockAlertsModule } from "./low-stock-alerts.module";
 
 @Module({
   imports: [
     MaterialsInfrastructureModule,
     AuthModule,
     NotificationsModule,
+    LowStockAlertsModule,
     OrgsInfrastructureModule,
     SubscriptionsModule,
   ],

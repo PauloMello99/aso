@@ -76,11 +76,21 @@ Gates A e B rodam **antes** do claim de propósito: um lote com o canal desligad
 gravaria a linha `sent` e queimaria o `dedupe_key` sem entregar nada, e reivindicar o
 tick consumiria a janela de 20h à toa.
 
+**Gate por ALVO — allowlist (ADR-0028), depois do claim:** para cada destinatário, se
+`APP_ENVIRONMENT !== "production"` (o padrão local: var ausente) e o e-mail **não** está em
+`EMAIL_ALLOWLIST`, o alvo é pulado **sem gravar nada** em `campaign_sends` (nem `sent`, nem `failed`)
+e sem `reason` de skip — só o WARN `bloqueada pela allowlist de e-mail` e o contador `blocked` no log
+final. **Com a config local padrão (`APP_ENVIRONMENT` ausente + `EMAIL_ALLOWLIST` vazia) NENHUM envio
+sai**; para testar, ponha o seu e-mail em `EMAIL_ALLOWLIST` (aceita vários, separados por
+vírgula/ponto-e-vírgula/espaço).
+
 | Var | Valor p/ testar | Observação |
 |---|---|---|
 | `CAMPAIGNS_ENABLED` | `true` | Ausente ou `!= "true"` → Gate A |
 | `NOTIFICATIONS_EMAIL_ENABLED` | `true` | Metade do Gate B |
 | `RESEND_API_KEY` | chave de teste (ou deixe vazia) | Vazia → Gate B (`email_channel_disabled`), **não reivindica** o tick |
+| `EMAIL_ALLOWLIST` | o seu e-mail | Vazia + `APP_ENVIRONMENT != production` → bloqueia TODO envio (fail-safe) |
+| `APP_ENVIRONMENT` | `development` (ou ausente) | Só `production` desliga a allowlist |
 | `FRONTEND_URL` | `http://localhost:3000` | Base do link de descadastro: `${FRONTEND_URL}/preferencias-email/<token>` |
 | `CRON_SECRET` | qualquer string | Header `x-cron-secret` do tick |
 

@@ -6,6 +6,7 @@ export interface PaymentFeeEntityProps {
   paymentMethod: PaymentMethod;
   percent: string;
   fixedCents: number;
+  installments: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -16,6 +17,7 @@ export class PaymentFeeEntity {
   readonly paymentMethod: PaymentMethod;
   readonly percent: string;
   readonly fixedCents: number;
+  readonly installments: number;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 
@@ -25,6 +27,7 @@ export class PaymentFeeEntity {
     this.paymentMethod = props.paymentMethod;
     this.percent = props.percent;
     this.fixedCents = props.fixedCents;
+    this.installments = props.installments;
     this.createdAt = props.createdAt;
     this.updatedAt = props.updatedAt;
   }

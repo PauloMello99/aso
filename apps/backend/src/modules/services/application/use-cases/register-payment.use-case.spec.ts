@@ -109,6 +109,7 @@ function buildMemberPaymentFee(
     paymentMethod: "credit_card",
     percent: "5.00",
     fixedCents: 0,
+    installments: 1,
     active: true,
     supersededAt: null,
     createdBy: "owner-1",
@@ -249,7 +250,7 @@ describe("RegisterPaymentUseCase", () => {
   it("cartão + comissão modo gross: base é o valor bruto", async () => {
     const service = buildService({ amountCents: 10000, paymentMethod: "credit_card" });
     const refreshed = buildService({ paymentTransactionId: "tx-1" });
-    const fee = { percent: "10.00", fixedCents: 0 };
+    const fee = { percent: "10.00", fixedCents: 0, installments: 1 };
     const commission = buildCommission({ percent: "30.00", mode: "gross" });
 
     const { useCase, serviceRepo } = buildUseCase({
@@ -288,7 +289,7 @@ describe("RegisterPaymentUseCase", () => {
   it("cartão + comissão modo net: base é o valor líquido pós-taxa", async () => {
     const service = buildService({ amountCents: 10000, paymentMethod: "credit_card" });
     const refreshed = buildService({ paymentTransactionId: "tx-1" });
-    const fee = { percent: "10.00", fixedCents: 0 };
+    const fee = { percent: "10.00", fixedCents: 0, installments: 1 };
     const commission = buildCommission({ percent: "30.00", mode: "net" });
     const { netCents } = computeNet(10000, "credit_card", fee);
 
@@ -339,7 +340,7 @@ describe("RegisterPaymentUseCase", () => {
 
     await useCase.execute(baseInput);
 
-    expect(feeRepo.findByOrgAndMethod).toHaveBeenCalledWith("org-1", "cash");
+    expect(feeRepo.findByOrgAndMethod).toHaveBeenCalledWith("org-1", "cash", 1);
     expect(serviceRepo.setPaymentTransaction).toHaveBeenCalledWith(
       "service-1",
       "tx-1",
@@ -456,7 +457,7 @@ describe("RegisterPaymentUseCase", () => {
         percent: "5.00",
         fixedCents: 0,
       });
-      const orgFee = { percent: "10.00", fixedCents: 0 };
+      const orgFee = { percent: "10.00", fixedCents: 0, installments: 1 };
       const commission = buildCommission({ percent: "30.00", mode: "net" });
 
       const { useCase, transactionRepo, serviceRepo, memberFeeRepo } =
@@ -486,6 +487,7 @@ describe("RegisterPaymentUseCase", () => {
         "org-1",
         "user-1",
         "credit_card",
+        1,
       );
       // taxa do membro (5%), não a da org (10%): fee 500, líquido 9500
       expect(transactionRepo.create).toHaveBeenCalledWith(
@@ -513,7 +515,7 @@ describe("RegisterPaymentUseCase", () => {
         performedBy: "user-1",
       });
       const refreshed = buildService({ paymentTransactionId: "tx-1" });
-      const orgFee = { percent: "10.00", fixedCents: 0 };
+      const orgFee = { percent: "10.00", fixedCents: 0, installments: 1 };
 
       const { useCase, transactionRepo, memberFeeRepo } = buildUseCase({
         serviceRepo: buildFakeServiceRepo({
@@ -536,6 +538,7 @@ describe("RegisterPaymentUseCase", () => {
         "org-1",
         "user-1",
         "credit_card",
+        1,
       );
       expect(transactionRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -559,7 +562,7 @@ describe("RegisterPaymentUseCase", () => {
         paymentTransactionId: "tx-1",
         performedBy: null,
       });
-      const orgFee = { percent: "10.00", fixedCents: 0 };
+      const orgFee = { percent: "10.00", fixedCents: 0, installments: 1 };
 
       const { useCase, transactionRepo, memberFeeRepo } = buildUseCase({
         serviceRepo: buildFakeServiceRepo({
@@ -618,6 +621,102 @@ describe("RegisterPaymentUseCase", () => {
           feeFixedCents: null,
           feeSource: "none",
         }),
+      );
+    });
+
+    it("REGRESSÃO (achado novo #1, Bloco 3): serviço PENDENTE criado em crédito 6x, pago DEPOIS, é cobrado na taxa de 6x — não na de à vista", async () => {
+      const service = buildService({
+        amountCents: 10000,
+        paymentMethod: "credit_card",
+        installments: 6,
+        performedBy: "user-1",
+      });
+      const refreshed = buildService({
+        paymentTransactionId: "tx-1",
+        installments: 6,
+      });
+      const fee1x = { percent: "5.00", fixedCents: 0, installments: 1 };
+      const fee6x = { percent: "18.00", fixedCents: 0, installments: 6 };
+      const commission = buildCommission({ percent: "30.00", mode: "net" });
+
+      const { useCase, transactionRepo, feeRepo, serviceRepo } = buildUseCase({
+        serviceRepo: buildFakeServiceRepo({
+          findById: jest
+            .fn()
+            .mockResolvedValueOnce(service)
+            .mockResolvedValueOnce(refreshed),
+        }),
+        feeRepo: buildFakeFeeRepo({
+          findByOrgAndMethod: jest
+            .fn()
+            .mockImplementation((_orgId: string, _method: string, tier: number) =>
+              Promise.resolve(tier === 6 ? fee6x : fee1x),
+            ),
+        }),
+        commissionRepo: buildFakeCommissionRepo({
+          findActiveByOrgAndUser: jest.fn().mockResolvedValue(commission),
+        }),
+      });
+
+      await useCase.execute(baseInput);
+
+      expect(feeRepo.findByOrgAndMethod).toHaveBeenCalledWith(
+        "org-1",
+        "credit_card",
+        6,
+      );
+      // taxa de 6x (18%): fee 1800, líquido 8200 — NÃO a de 1x (5%, daria fee 500)
+      expect(transactionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          installments: 6,
+          feeCents: 1800,
+          netCents: 8200,
+          feePercent: "18.00",
+          feeSource: "org",
+        }),
+      );
+      // comissão net: 30% de 8200 (líquido pós-taxa de 6x, MENOR do que seria com
+      // a taxa de 1x) = 2460 — consequência PRETENDIDA, não bug a corrigir.
+      expect(serviceRepo.setPaymentTransaction).toHaveBeenCalledWith(
+        "service-1",
+        "tx-1",
+        expect.objectContaining({ baseCents: 8200, commissionCents: 2460 }),
+      );
+    });
+
+    it("serviço criado ANTES do Bloco 3 (installments null): trata como 1x ao resolver a taxa no pagamento e normaliza o snapshot gravado", async () => {
+      const service = buildService({
+        amountCents: 10000,
+        paymentMethod: "credit_card",
+        installments: null,
+        performedBy: "user-1",
+      });
+      const refreshed = buildService({ paymentTransactionId: "tx-1" });
+      const fee1x = { percent: "5.00", fixedCents: 0, installments: 1 };
+
+      const { useCase, transactionRepo, feeRepo } = buildUseCase({
+        serviceRepo: buildFakeServiceRepo({
+          findById: jest
+            .fn()
+            .mockResolvedValueOnce(service)
+            .mockResolvedValueOnce(refreshed),
+        }),
+        feeRepo: buildFakeFeeRepo({
+          findByOrgAndMethod: jest.fn().mockResolvedValue(fee1x),
+        }),
+      });
+
+      await useCase.execute(baseInput);
+
+      expect(feeRepo.findByOrgAndMethod).toHaveBeenCalledWith(
+        "org-1",
+        "credit_card",
+        1,
+      );
+      // normalizado para 1 explícito no snapshot gravado (mesmo padrão de
+      // `CreateTransactionUseCase`), mesmo o serviço tendo `installments: null`.
+      expect(transactionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ installments: 1, feePercent: "5.00" }),
       );
     });
   });

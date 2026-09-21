@@ -14,6 +14,7 @@ import { AuditService } from "../../../audit/audit.service";
 
 export interface UpsertPaymentFeeItem {
   paymentMethod: PaymentMethod;
+  installments: number;
   percent: string;
   fixedCents: number;
 }
@@ -43,13 +44,14 @@ export class UpsertPaymentFeesUseCase {
     }
 
     const previousFees = await this.feeRepo.findByOrg(input.orgId);
-    const previousByMethod = new Map(
-      previousFees.map((fee) => [fee.paymentMethod, fee]),
+    const previousByMethodAndInstallments = new Map(
+      previousFees.map((fee) => [`${fee.paymentMethod}:${fee.installments}`, fee]),
     );
 
     const results: PaymentFeeEntity[] = [];
     const changes: Array<{
       paymentMethod: PaymentMethod;
+      installments: number;
       previousPercent: string | null;
       previousFixedCents: number | null;
       percent: string;
@@ -57,7 +59,10 @@ export class UpsertPaymentFeesUseCase {
     }> = [];
 
     for (const fee of input.fees) {
-      const previous = previousByMethod.get(fee.paymentMethod) ?? null;
+      const previous =
+        previousByMethodAndInstallments.get(
+          `${fee.paymentMethod}:${fee.installments}`,
+        ) ?? null;
       const unchanged =
         previous !== null &&
         Number.parseFloat(previous.percent) === Number.parseFloat(fee.percent) &&
@@ -67,6 +72,7 @@ export class UpsertPaymentFeesUseCase {
         await this.feeRepo.upsert({
           orgId: input.orgId,
           paymentMethod: fee.paymentMethod,
+          installments: fee.installments,
           percent: fee.percent,
           fixedCents: fee.fixedCents,
         }),
@@ -75,6 +81,7 @@ export class UpsertPaymentFeesUseCase {
       if (!unchanged) {
         changes.push({
           paymentMethod: fee.paymentMethod,
+          installments: fee.installments,
           previousPercent: previous?.percent ?? null,
           previousFixedCents: previous?.fixedCents ?? null,
           percent: fee.percent,

@@ -1,27 +1,18 @@
-import { useEffect } from "react"
-import { useRouter } from "next/router"
 import type { ReactElement } from "react"
 import type { NextPageWithLayout } from "@/pages/_app"
 import { AuthGuard } from "@/features/auth/components/auth-guard"
-import { OrgLayout } from "@/features/dashboard"
+import { OrgLayout, useCurrentOrg } from "@/features/dashboard"
+import { MembersPage } from "@/features/organizations"
 
-const MembersRedirectPage: NextPageWithLayout = () => {
-  const router = useRouter()
-  const { orgSlug } = router.query as { orgSlug?: string }
-
-  useEffect(() => {
-    if (orgSlug) {
-      void router.replace(`/dashboard/org/${orgSlug}/settings/general`)
-    }
-  }, [orgSlug, router])
-
-  return null
+const MembersPageRoute: NextPageWithLayout = () => {
+  const { orgId } = useCurrentOrg()
+  return <MembersPage orgId={orgId} />
 }
 
-MembersRedirectPage.getLayout = (page: ReactElement) => (
+MembersPageRoute.getLayout = (page: ReactElement) => (
   <AuthGuard>
     <OrgLayout>{page}</OrgLayout>
   </AuthGuard>
 )
 
-export default MembersRedirectPage
+export default MembersPageRoute

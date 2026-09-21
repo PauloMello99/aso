@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { CalendarModule } from "../calendar/calendar.module";
 import { CampaignsModule } from "../campaigns/campaigns.module";
+import { ChangelogModule } from "../changelog/changelog.module";
 import { MaterialsModule } from "../materials/materials.module";
 import { SubscriptionsModule } from "../subscriptions/subscriptions.module";
 import { SupportInfrastructureModule } from "../support/infrastructure/support-infrastructure.module";
@@ -18,6 +19,7 @@ import { InternalCronController } from "./internal-cron.controller";
   imports: [
     CalendarModule,
     CampaignsModule,
+    ChangelogModule,
     MaterialsModule,
     SubscriptionsModule,
     SupportInfrastructureModule,

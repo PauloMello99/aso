@@ -23,6 +23,7 @@ import {
   type ExportFormat,
 } from "@/shared/components/ui/export-menu"
 import { downloadExport } from "@/shared/lib/download-export"
+import { dayEndIso, dayStartIso } from "@/shared/lib/day-bounds"
 import { useCurrentOrg } from "@/features/dashboard"
 import { useCustomerOptions } from "@/features/clients/hooks/use-customer-options"
 import { useMembers } from "@/features/organizations/hooks/use-members"
@@ -212,8 +213,8 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
       `servicos-${new Date().toISOString().slice(0, 10)}`,
       format,
       {
-        from: filter.from,
-        to: filter.to,
+        from: filter.from ? dayStartIso(filter.from) : undefined,
+        to: filter.to ? dayEndIso(filter.to) : undefined,
         serviceTypeId: filter.serviceTypeId,
         customerId: filter.customerId,
         performedBy: filter.performedBy,
@@ -255,7 +256,7 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/30" />
           <Input
@@ -267,49 +268,53 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
             className="pl-9"
           />
         </div>
-        <Select
-          value={filter.status ?? "all"}
-          onValueChange={(v) =>
-            updateFilter({
-              status: v === "all" ? undefined : (v as ServiceStatus),
-            })
-          }
-        >
-          <SelectTrigger className="sm:w-44">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os status</SelectItem>
-            {STATUS_VALUES.map((s) => (
-              <SelectItem key={s} value={s}>
-                {SERVICE_STATUS_LABELS[s]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {isOwner && (
+        <FilterField label="Status" className="sm:w-44">
           <Select
-            value={filter.performedBy ?? "all"}
+            value={filter.status ?? "all"}
             onValueChange={(v) =>
               updateFilter({
-                performedBy: v === "all" ? undefined : v,
+                status: v === "all" ? undefined : (v as ServiceStatus),
               })
             }
           >
-            <SelectTrigger className="sm:w-48">
-              <SelectValue placeholder="Profissional" />
+            <SelectTrigger>
+              <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os profissionais</SelectItem>
-              {members
-                .filter((m) => m.enabled)
-                .map((m) => (
-                  <SelectItem key={m.userId} value={m.userId}>
-                    {m.userName}
-                  </SelectItem>
-                ))}
+              <SelectItem value="all">Todos os status</SelectItem>
+              {STATUS_VALUES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {SERVICE_STATUS_LABELS[s]}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
+        </FilterField>
+        {isOwner && (
+          <FilterField label="Profissional" className="sm:w-52">
+            <Select
+              value={filter.performedBy ?? "all"}
+              onValueChange={(v) =>
+                updateFilter({
+                  performedBy: v === "all" ? undefined : v,
+                })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Profissional" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {members
+                  .filter((m) => m.enabled)
+                  .map((m) => (
+                    <SelectItem key={m.userId} value={m.userId}>
+                      {m.userName}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </FilterField>
         )}
         <FilterPopover activeCount={advancedCount} onClear={clearAdvanced}>
           <div className="grid grid-cols-2 gap-2">
@@ -463,6 +468,7 @@ export function ServicesPage({ orgId }: ServicesPageProps) {
           correctingPayment && {
             amountCents: correctingPayment.amountCents,
             paymentMethod: correctingPayment.paymentMethod,
+            installments: correctingPayment.installments,
             dateISO: correctingPayment.performedAt,
           }
         }

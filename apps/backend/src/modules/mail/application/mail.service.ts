@@ -16,6 +16,7 @@ import { CustomerUpdateLinkEmail } from "../templates/customer-update-link-email
 import { InviteEmail } from "../templates/invite-email";
 import { NotificationEmail } from "../templates/notification-email";
 import { PasswordResetEmail } from "../templates/password-reset-email";
+import { ProductUpdateEmail } from "../templates/product-update-email";
 import { WelcomeEmail } from "../templates/welcome-email";
 import { TicketCreatedEmail } from "../templates/ticket-created";
 import { TicketResponseAddedEmail } from "../templates/ticket-response-added";
@@ -67,6 +68,15 @@ export interface SendWelcomeInput {
   to: string;
   name: string;
   appUrl?: string;
+}
+
+export interface SendProductUpdateInput {
+  to: string;
+  name: string;
+  semver: string;
+  title: string;
+  summary: string;
+  highlights?: readonly string[];
 }
 
 export interface SendNotificationInput {
@@ -128,17 +138,20 @@ export interface SendCampaignByTriggerInput {
   customerName: string;
   orgName: string;
   unsubscribeUrl: string;
+  tags?: Record<string, string>;
 }
 
 @Injectable()
 export class MailService {
   private readonly supportEmail: string | undefined;
+  private readonly frontendUrl: string | undefined;
 
   constructor(
     @Inject(EMAIL_SENDER) private readonly sender: IEmailSender,
     config: ConfigService,
   ) {
     this.supportEmail = config.get<string>("SUPPORT_EMAIL");
+    this.frontendUrl = config.get<string>("FRONTEND_URL");
   }
 
   async sendOrgInvite(input: SendOrgInviteInput): Promise<boolean> {
@@ -227,6 +240,24 @@ export class MailService {
       WelcomeEmail({
         name: input.name,
         appUrl: input.appUrl,
+        supportEmail: this.supportEmail,
+      }),
+    );
+  }
+
+  async sendProductUpdate(input: SendProductUpdateInput): Promise<boolean> {
+    const baseUrl = this.frontendUrl?.replace(/\/+$/, "");
+    return this.dispatch(
+      input.to,
+      `Novidades do ASO ${input.semver}: ${input.title}`,
+      ProductUpdateEmail({
+        name: input.name,
+        semver: input.semver,
+        title: input.title,
+        summary: input.summary,
+        highlights: input.highlights,
+        appUrl: baseUrl,
+        accountUrl: baseUrl ? `${baseUrl}/dashboard/account` : undefined,
         supportEmail: this.supportEmail,
       }),
     );
@@ -328,6 +359,8 @@ export class MailService {
       input.to,
       input.subject,
       this.renderCampaignTemplate(input),
+      undefined,
+      input.tags,
     );
   }
 
@@ -358,6 +391,7 @@ export class MailService {
     subject: string,
     element: ReactElement,
     replyTo?: string,
+    tags?: Record<string, string>,
   ): Promise<boolean> {
     const [html, text] = await Promise.all([
       render(element),
@@ -369,6 +403,7 @@ export class MailService {
       html,
       text,
       ...(replyTo ? { replyTo } : {}),
+      ...(tags ? { tags } : {}),
     });
   }
 }

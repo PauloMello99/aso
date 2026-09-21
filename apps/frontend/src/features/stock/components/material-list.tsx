@@ -142,7 +142,9 @@ function MaterialCard({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           {low && <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-primary" />}
-          <span className="truncate font-medium text-foreground">{material.name}</span>
+          <span className="min-w-0 max-w-full truncate font-medium text-foreground">
+            {material.name}
+          </span>
           {material.shareable && (
             <span className="inline-flex items-center rounded-full bg-info/10 px-2 py-0.5 text-xs font-medium text-info">
               Compartilhável
@@ -213,7 +215,12 @@ function MaterialRow({
       <TableCell className="pl-4">
         <div className="flex items-center gap-2">
           {low && <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-primary" />}
-          <span className="font-medium text-foreground">{material.name}</span>
+          <span
+            title={material.name}
+            className="block max-w-[16rem] truncate font-medium text-foreground"
+          >
+            {material.name}
+          </span>
         </div>
       </TableCell>
       <TableCell>
@@ -299,7 +306,7 @@ export function MaterialList({
 
   return (
     <>
-      <div className="grid gap-3 sm:hidden">
+      <div className="grid grid-cols-1 gap-3 sm:hidden">
         {materials.map((m) => (
           <MaterialCard
             key={m.id}

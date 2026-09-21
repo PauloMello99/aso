@@ -38,6 +38,7 @@ import {
 import { formatBRL, parseReaisToCents } from "../lib/money"
 import { previewNet } from "../lib/fees"
 import {
+  MAX_INSTALLMENTS,
   PAYMENT_METHOD_LABELS,
   TRANSACTION_TYPE_LABELS,
   type PaymentFee,
@@ -55,6 +56,13 @@ const METHOD_ORDER: PaymentMethod[] = [
   "credit_card",
   "debit_card",
 ]
+
+// Faixas de parcelamento oferecidas no seletor — só exibido quando o método
+// selecionado é credit_card (mesmo teto de payment-fees-form.tsx).
+const INSTALLMENT_OPTIONS = Array.from(
+  { length: MAX_INSTALLMENTS },
+  (_, i) => i + 1,
+)
 
 interface TransactionFormProps {
   open: boolean
@@ -82,6 +90,7 @@ export function TransactionForm({
       type: "income",
       amount: "",
       paymentMethod: "cash",
+      installments: undefined,
       categoryId: "",
       createdBy: "",
       transactedAt: "",
@@ -95,6 +104,7 @@ export function TransactionForm({
         type: "income",
         amount: "",
         paymentMethod: "cash",
+        installments: undefined,
         categoryId: "",
         createdBy: "",
         transactedAt: "",
@@ -111,11 +121,12 @@ export function TransactionForm({
 
   const amount = form.watch("amount")
   const method = form.watch("paymentMethod")
+  const installments = form.watch("installments")
   const type = form.watch("type")
   const grossCents = amount ? parseReaisToCents(amount) : Number.NaN
   const preview =
     !Number.isNaN(grossCents) && grossCents > 0
-      ? previewNet(grossCents, method, type, fees)
+      ? previewNet(grossCents, method, type, fees, installments ?? 1)
       : null
 
   return (
@@ -214,7 +225,19 @@ export function TransactionForm({
                   <FormItem>
                     <FormLabel>Método de pagamento</FormLabel>
                     <Select
-                      onValueChange={field.onChange}
+                      onValueChange={(v) => {
+                        field.onChange(v)
+                        // Parcelamento só existe em cartão de crédito (CHECK
+                        // do banco) — trocar de método fora do crédito não
+                        // deve deixar um valor de parcela "fantasma" no form
+                        // state. Feito no handler (não num useEffect que
+                        // observa o watch) para não correr atrás de um
+                        // form.reset feito no mesmo commit.
+                        form.setValue(
+                          "installments",
+                          v === "credit_card" ? 1 : undefined,
+                        )
+                      }}
                       value={field.value}
                     >
                       <FormControl>
@@ -234,6 +257,36 @@ export function TransactionForm({
                   </FormItem>
                 )}
               />
+
+              {method === "credit_card" && (
+                <FormField
+                  control={form.control}
+                  name="installments"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Parcelas</FormLabel>
+                      <Select
+                        onValueChange={(v) => field.onChange(Number(v))}
+                        value={String(field.value ?? 1)}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {INSTALLMENT_OPTIONS.map((n) => (
+                            <SelectItem key={n} value={String(n)}>
+                              {n === 1 ? "1x (à vista)" : `${n}x`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <FormField
                 control={form.control}
