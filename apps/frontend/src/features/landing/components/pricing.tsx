@@ -5,6 +5,7 @@ import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 import { formatBRL } from "@/features/cashier/lib/money";
+import { TRIAL_DAYS } from "../constants/trial";
 import type {
   BillingInterval,
   PublicBillingPlan,
@@ -183,12 +184,12 @@ export function Pricing({ plans }: PricingProps) {
                       asChild
                       className="w-full border border-foreground/10 bg-transparent text-foreground transition-transform duration-150 hover:bg-foreground/5 active:scale-[0.98]"
                     >
-                      <Link href="/auth/signup">Testar 60 dias grátis</Link>
+                      <Link href="/auth/signup">Testar {TRIAL_DAYS} dias grátis</Link>
                     </Button>
 
                     {price && (
                       <p className="mt-3 text-center text-xs text-foreground/40">
-                        60 dias grátis · depois {formatBRL(price.amountCents)}
+                        {TRIAL_DAYS} dias grátis · depois {formatBRL(price.amountCents)}
                         {INTERVAL_LABELS[price.interval]}
                       </p>
                     )}

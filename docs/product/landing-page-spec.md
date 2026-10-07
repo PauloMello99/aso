@@ -16,8 +16,11 @@
 | Posicionamento | **Vertical de tatuagem, explícito.** Nada de "estúdios criativos". A copy fala de estúdio de tatuagem, tatuador, sessão, anamnese. |
 | Prova social | **Dogfooding da Ink House** (estúdio real operando dentro da plataforma) + **contagem agregada de pilotos**, sem nomes nem logos. |
 | Integrações | Seção **removida**. O espaço vira **Segurança & LGPD**. |
-| CTA primário | **"Testar 60 dias grátis"** + microcopy `Cartão necessário · cancele quando quiser`. |
+| CTA primário | **"Testar 45 dias grátis"** + microcopy `Cartão necessário · cancele quando quiser`. |
 | Tema | Landing permanece **dark-only** (`className="dark"` em `landing-page.tsx`) — decisão deliberada do THEME-1, não re-litigar. |
+
+> **Trial reduzido de 60 para 45 dias em 2026-10-07** (ADR-0016, addendum). Menções a "60 dias"
+> nas seções 8–10 são registro histórico da auditoria/correção de agosto.
 
 Por que a verticalização importa: anamnese versionada com assinatura, consumo de material por
 sessão e taxa de cartão virando líquido no caixa são coisas que **nenhum CRM horizontal faz**.
@@ -66,9 +69,9 @@ cards idênticos. Sequência de fundos: `bg` · `surface-1` · `bg` · `bg` · `
 | Eyebrow | `Feito por um estúdio de tatuagem, para estúdios de tatuagem` |
 | H1 | **Seu estúdio inteiro** / *em um só lugar.* (segunda linha em `text-primary`) |
 | Sub | Agenda, clientes, anamnese assinada, materiais e caixa — sem planilha, sem caderno, sem "depois eu lanço". |
-| CTA primário | `Testar 60 dias grátis` → `/auth/signup` |
+| CTA primário | `Testar 45 dias grátis` → `/auth/signup` |
 | CTA secundário | `Ver como funciona` → âncora `#recursos` (**precisa de destino real** — hoje o botão "Ver demonstração" não tem `href` nem handler) |
-| Microcopy | `60 dias grátis · cartão necessário · cancele quando quiser` |
+| Microcopy | `45 dias grátis · cartão necessário · cancele quando quiser` |
 | Visual | **Screenshot real do Overview**, não o wireframe falso atual |
 
 **Ação obrigatória:** o mock de hero atual (`hero.tsx:41-107`) inventa "24 agendamentos / 142
@@ -171,7 +174,7 @@ Mantém `PublicBillingPlan[]` via `getStaticProps` + ISR (ADR-0024). Evoluções
 2. **Destaque de plano recomendado.** Requer um campo no catálogo (`highlighted` /
    `popular`) — hoje `PublicBillingPlan` não tem. Sem esse campo, não inventar destaque no
    frontend por índice do array.
-3. **Trial explícito no card:** `60 dias grátis · depois R$X/mês`.
+3. **Trial explícito no card:** `45 dias grátis · depois R$X/mês`.
 4. **Lista de features por plano.** Cards hoje mostram só nome, preço e descrição — muito
    pouco para decidir. Depende de `features[]` no catálogo público.
 5. Estado vazio já existe e está correto; manter.
@@ -183,7 +186,7 @@ Mantém `PublicBillingPlan[]` via `getStaticProps` + ISR (ADR-0024). Evoluções
 
 Accordion. Seis perguntas, todas escolhidas por serem objeções reais deste produto:
 
-1. **Preciso colocar cartão para testar?** Sim. O teste é de 60 dias, cobrado só ao final se
+1. **Preciso colocar cartão para testar?** Sim. O teste é de 45 dias, cobrado só ao final se
    você não cancelar. **§10.1 resolvido em 2026-08-17** — a ressalva anterior (trial
    queimado ao *abrir* o checkout, não ao concluí-lo) não se aplica mais; a resposta acima
    já é verdadeira sem ajuste.
@@ -200,7 +203,7 @@ Accordion. Seis perguntas, todas escolhidas por serem objeções reais deste pro
 
 ### 10. CTA final (nova)
 
-Faixa com fundo `primary-subtle`, centralizada. H2 curto (`Comece hoje. Leve 60 dias para
+Faixa com fundo `primary-subtle`, centralizada. H2 curto (`Comece hoje. Leve 45 dias para
 decidir.`), CTA primário + microcopy do cartão, e uma linha secundária de suporte: `Precisa
 de ajuda para migrar seus dados ou só quer tirar uma dúvida antes? Fale com a gente` →
 canal de suporte. A disponibilidade do time — inclusive para migração de dados — é mensagem

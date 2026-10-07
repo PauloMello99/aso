@@ -30,6 +30,10 @@ import { SubscriptionNotFoundException } from "../../domain/exceptions/subscript
 import { PlanNotAvailableException } from "../../domain/exceptions/plan-not-available.exception";
 import { PlanIntervalNotEnabledException } from "../../domain/exceptions/plan-interval-not-enabled.exception";
 
+// Duração do trial self-serve (ADR-0016). A landing espelha este valor em
+// apps/frontend/src/features/landing/constants/trial.ts — mudar os dois juntos.
+const TRIAL_PERIOD_DAYS = 45;
+
 @Injectable()
 export class CreateCheckoutSessionUseCase {
   constructor(
@@ -110,7 +114,7 @@ export class CreateCheckoutSessionUseCase {
       successUrl,
       cancelUrl,
       ...(grantTrial
-        ? { trialPeriodDays: 60, paymentMethodCollection: "always" as const }
+        ? { trialPeriodDays: TRIAL_PERIOD_DAYS, paymentMethodCollection: "always" as const }
         : {}),
     });
 

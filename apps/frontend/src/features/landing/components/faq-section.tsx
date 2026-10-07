@@ -5,12 +5,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/shared/components/ui/accordion"
+import { TRIAL_DAYS } from "../constants/trial"
 
 const FAQ_ITEMS = [
   {
     question: "Preciso colocar cartão para testar?",
     answer:
-      "Sim. O teste de 60 dias é concedido uma vez por estúdio e começa quando você inicia o checkout. O cartão só é cobrado ao final, se você não cancelar antes.",
+      `Sim. O teste de ${TRIAL_DAYS} dias é concedido uma vez por estúdio e começa quando você inicia o checkout. O cartão só é cobrado ao final, se você não cancelar antes.`,
   },
   {
     question: "Meus tatuadores vão ver o faturamento do estúdio?",

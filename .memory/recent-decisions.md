@@ -41,6 +41,11 @@
 
 ## Decisões/registros recentes (sem ADR)
 
+- **2026-10-07 — Trial self-serve reduzido de 60 para 45 dias** (addendum no ADR-0016):
+  `TRIAL_PERIOD_DAYS` (backend, `create-checkout-session.use-case.ts`) + `TRIAL_DAYS`
+  (landing, `features/landing/constants/trial.ts`) — mudar os dois juntos. Só afeta checkouts
+  novos; trials em andamento mantêm 60 dias.
+
 - **2026-09-15 → registrado em 2026-09-16 — REVERSÃO de escopo (reunião 15/09)**: o item 3
   de `docs/planning/2026-08-19-meeting-backlog.md` (*"Nao criar um fluxo de pagamento real
   ao profissional dentro do ASO nesta fatia"*) está **SUPERADO**. Passa a existir pagamento

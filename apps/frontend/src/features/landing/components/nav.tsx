@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { Menu, X } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
+import { TRIAL_DAYS } from "../constants/trial"
 import { BrandWordmark } from "@/shared/components/brand-wordmark"
 import { cn } from "@/shared/lib/utils"
 
@@ -77,7 +78,7 @@ export function Nav() {
             asChild
             className="hidden bg-primary text-primary-foreground hover:bg-primary/90 sm:flex"
           >
-            <Link href="/auth/signup">Testar 60 dias grátis</Link>
+            <Link href="/auth/signup">Testar {TRIAL_DAYS} dias grátis</Link>
           </Button>
 
           <button
@@ -119,7 +120,7 @@ export function Nav() {
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={closeMenu}
             >
-              <Link href="/auth/signup">Testar 60 dias grátis</Link>
+              <Link href="/auth/signup">Testar {TRIAL_DAYS} dias grátis</Link>
             </Button>
           </div>
         </div>
