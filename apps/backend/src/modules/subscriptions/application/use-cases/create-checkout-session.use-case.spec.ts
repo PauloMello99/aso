@@ -548,7 +548,7 @@ describe("CreateCheckoutSessionUseCase", () => {
     expect(subscriptionRepo.update).not.toHaveBeenCalled();
     expect(paymentGateway.createCheckoutSession).toHaveBeenCalledWith(
       expect.objectContaining({
-        trialPeriodDays: 60,
+        trialPeriodDays: 45,
         paymentMethodCollection: "always",
       }),
     );

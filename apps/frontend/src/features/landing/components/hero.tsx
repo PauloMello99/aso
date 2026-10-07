@@ -2,6 +2,7 @@ import * as React from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/shared/components/ui/button"
+import { TRIAL_DAYS } from "../constants/trial"
 import { BackgroundGrid } from "./background-grid"
 import { ConstellationGrid } from "./constellation-grid"
 
@@ -38,7 +39,7 @@ export function Hero() {
               asChild
               className="w-full bg-primary px-8 text-primary-foreground transition-transform duration-150 hover:bg-primary/90 active:scale-[0.98] sm:w-auto"
             >
-              <Link href="/auth/signup">Testar 60 dias grátis</Link>
+              <Link href="/auth/signup">Testar {TRIAL_DAYS} dias grátis</Link>
             </Button>
             <Button
               size="lg"

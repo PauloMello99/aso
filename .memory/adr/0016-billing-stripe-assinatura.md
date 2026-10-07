@@ -842,6 +842,22 @@ medium aplicados (o high é a razão de `backfillOrgIdFromResolvedSiblings` exis
   aberto (herdado do Bloco A, fora do escopo do Bloco B).
 - **`listInvoices` sem paginação** (`limit: 100` fixo) — segue aberto (herdado do Bloco A).
 
+## Addendum (2026-10-07): trial reduzido de 60 para 45 dias
+
+Decisão de produto: o trial self-serve (item 2 da Decisão, "2 meses") passa a ser de
+**45 dias**. Fonte única no backend: `TRIAL_PERIOD_DAYS` em
+`create-checkout-session.use-case.ts` (enviado como `trial_period_days` ao Checkout). A
+landing espelha o número em `apps/frontend/src/features/landing/constants/trial.ts`
+(`TRIAL_DAYS`) — os dois precisam mudar juntos (não há endpoint público que exponha o valor).
+
+- **Só vale para checkouts criados após o deploy.** Subscriptions já em `trialing` mantêm o
+  `trial_end` gravado no Stripe (60 dias); Checkout Sessions abertas antes do deploy também.
+  Nenhum backfill — encurtar trial em andamento seria quebra de promessa ao cliente.
+- Menções a "60 dias" nos addenda acima (2026-08-17, 2026-08-24) e na migration 0050 são
+  registro histórico e ficam como estão.
+- Trials configurados **fora do repo** (Payment Links / trial no Price, dentro do Dashboard
+  Stripe, ex. links de piloto) não são afetados por esta mudança e precisam de revisão manual.
+
 ## Relacionado
 
 - Larmony `.memory/adr/0026-billing-stripe-entitlements.md` — mecanismo original
