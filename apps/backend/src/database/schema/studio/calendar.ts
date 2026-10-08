@@ -7,8 +7,9 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
+  calendarEventConfirmationStatusEnum,
   calendarEventTypeEnum,
   calendarEventStatusEnum,
   calendarEventVisibilityEnum,
@@ -45,6 +46,23 @@ export const calendarEvents = pgTable(
     visibility: calendarEventVisibilityEnum("visibility")
       .notNull()
       .default("private"),
+    customerEmail: text("customer_email"),
+    confirmationStatus: calendarEventConfirmationStatusEnum(
+      "confirmation_status",
+    ),
+    confirmationTokenHash: text("confirmation_token_hash"),
+    confirmationRequestedAt: timestamp("confirmation_requested_at", {
+      withTimezone: true,
+    }),
+    confirmationSentAt: timestamp("confirmation_sent_at", {
+      withTimezone: true,
+    }),
+    confirmationRespondedAt: timestamp("confirmation_responded_at", {
+      withTimezone: true,
+    }),
+    customerReminderSentAt: timestamp("customer_reminder_sent_at", {
+      withTimezone: true,
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -58,6 +76,14 @@ export const calendarEvents = pgTable(
       t.assignedTo,
       t.startsAt,
     ),
+    uniqueIndex("calendar_events_confirmation_token_hash_uq")
+      .on(t.confirmationTokenHash)
+      .where(sql`${t.confirmationTokenHash} IS NOT NULL`),
+    index("calendar_events_customer_reminder_due_idx")
+      .on(t.startsAt)
+      .where(
+        sql`${t.confirmationStatus} = 'pending' AND ${t.customerReminderSentAt} IS NULL`,
+      ),
   ],
 );
 

@@ -303,3 +303,9 @@
   leitura em `useEffect`). Pagamento: rosca + lista com % (maior resto, soma 100,0).
   Item de changelog `overview-month-filter` (version 5, semver 1.1.0); o spec
   `getNotifiableEntries` passou a esperar esse item (primeiro release minor acima do corte).
+- **2026-10-08 — Confirmação de agendamento por link (Bloco B, ADR-0035).** `appointment` reaproveitado
+  (sem tipo novo); colunas de confirmação em `calendar_events` (0086) + valor de notificação (0085); status
+  separado de `calendar_events.status`; token 256 bits com só o sha256 na linha (um token por evento; lembrete
+  e reagendamento rotacionam); envio best-effort **pós-commit** (`registerPostCommit`); cron
+  `customer-confirmation-reminders` com claim preso ao ciclo + CAS; rota pública atrás de
+  `APPOINTMENT_CONFIRMATION_ENABLED` (default off). Detalhes e pendências (LGPD, token em logs) no ADR-0035.

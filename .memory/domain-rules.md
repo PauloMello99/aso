@@ -1718,3 +1718,13 @@ OR is_org_member(org_id)))`; as de INSERT exigem `org_id IS NOT NULL AND (...)` 
   `apps/frontend/.next` e o dev server passa a quebrar (`hasLocalMatch is not a function` em
   `next/image`, 404 de chunks). Correção: parar o preview, `rm -rf apps/frontend/.next`, subir
   de novo. O build também altera `apps/frontend/next-env.d.ts` (restaurar com `git checkout`).
+- **Efeito externo (e-mail) nunca dentro da transação do request** (2026-10-08): `RlsContext.runWithClaims`
+  faz COMMIT sem checar resultado; um erro de banco engolido por try/catch dentro do request deixa a transação
+  abortada e o COMMIT vira ROLLBACK silencioso (201 com evento perdido). Use `registerPostCommit` e, no hook,
+  releia por conexão admin antes de enviar (confirma commit e ciclo vigente). Padrão: `AppointmentConfirmationDispatcher`.
+- **Migrator**: `drizzle migrate` aplica TODAS as pendentes numa única transação — valor novo de enum
+  (`ADD VALUE`) não pode ser usado por outra migration do mesmo lote. `NotificationType` existe em 4 lugares
+  (`schema/enums.ts`, `notification.entity.ts`, `features/notifications/types`, `features/admin/types`) + `types_db.ts`.
+- **CRLF**: parte dos arquivos do repo está em CRLF no índice (`git ls-files --eol`). Ferramentas de escrita
+  gravam LF; após editar, converta de volta (`sed -i 's/$/\r/'`) os arquivos `i/crlf w/lf` para não inflar o diff.
+- **Nunca `taskkill /IM node.exe`** em testes: mata todos os node da máquina (dev servers, MCPs). Encerre por PID/porta.

@@ -2,6 +2,11 @@ export type CalendarEventType = "appointment" | "unavailability";
 export type CalendarEventStatus = "scheduled" | "canceled";
 export type CalendarEventVisibility = "private" | "shared";
 
+export type CalendarEventConfirmationStatus =
+  | "pending"
+  | "confirmed"
+  | "canceled_by_customer";
+
 export interface CalendarEventProps {
   id: string;
   orgId: string;
@@ -16,8 +21,27 @@ export interface CalendarEventProps {
   endsAt: Date;
   allDay: boolean;
   visibility: CalendarEventVisibility;
+  customerEmail: string | null;
+  confirmationStatus: CalendarEventConfirmationStatus | null;
+  confirmationRequestedAt: Date | null;
+  confirmationSentAt: Date | null;
+  confirmationRespondedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/**
+ * Bloco de persistência do ciclo de confirmação. Cada campo aceita `null`
+ * (limpa a coluna); `undefined` = não mexe. O hash do token e o carimbo do
+ * lembrete ao cliente ficam fora da entity (nunca saem do backend).
+ */
+export interface CalendarEventConfirmationData {
+  status?: CalendarEventConfirmationStatus | null;
+  tokenHash?: string | null;
+  requestedAt?: Date | null;
+  sentAt?: Date | null;
+  respondedAt?: Date | null;
+  customerReminderSentAt?: Date | null;
 }
 
 export interface CreateCalendarEventData {
@@ -32,6 +56,8 @@ export interface CreateCalendarEventData {
   endsAt: Date;
   allDay?: boolean;
   visibility?: CalendarEventVisibility;
+  customerEmail?: string | null;
+  confirmation?: CalendarEventConfirmationData;
 }
 
 export interface UpdateCalendarEventData {
@@ -44,6 +70,8 @@ export interface UpdateCalendarEventData {
   endsAt?: Date;
   allDay?: boolean;
   visibility?: CalendarEventVisibility;
+  customerEmail?: string | null;
+  confirmation?: CalendarEventConfirmationData;
 }
 
 export class CalendarEventEntity {
@@ -60,6 +88,11 @@ export class CalendarEventEntity {
   readonly endsAt: Date;
   readonly allDay: boolean;
   readonly visibility: CalendarEventVisibility;
+  readonly customerEmail: string | null;
+  readonly confirmationStatus: CalendarEventConfirmationStatus | null;
+  readonly confirmationRequestedAt: Date | null;
+  readonly confirmationSentAt: Date | null;
+  readonly confirmationRespondedAt: Date | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 
@@ -77,11 +110,28 @@ export class CalendarEventEntity {
     this.endsAt = props.endsAt;
     this.allDay = props.allDay;
     this.visibility = props.visibility;
+    this.customerEmail = props.customerEmail;
+    this.confirmationStatus = props.confirmationStatus;
+    this.confirmationRequestedAt = props.confirmationRequestedAt;
+    this.confirmationSentAt = props.confirmationSentAt;
+    this.confirmationRespondedAt = props.confirmationRespondedAt;
     this.createdAt = props.createdAt;
     this.updatedAt = props.updatedAt;
   }
 
   static create(props: CalendarEventProps): CalendarEventEntity {
     return new CalendarEventEntity(props);
+  }
+
+  /** Cópia sem o e-mail do cliente nem o estado de confirmação (PII para quem não é dono do evento). */
+  withoutCustomerEmail(): CalendarEventEntity {
+    return new CalendarEventEntity({
+      ...this,
+      customerEmail: null,
+      confirmationStatus: null,
+      confirmationRequestedAt: null,
+      confirmationSentAt: null,
+      confirmationRespondedAt: null,
+    });
   }
 }

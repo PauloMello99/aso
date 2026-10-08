@@ -2,7 +2,8 @@ export type NotificationType =
   | "agenda_reminder"
   | "member_unavailability"
   | "stock_check_reminder"
-  | "low_stock";
+  | "low_stock"
+  | "appointment_confirmation_response";
 
 export interface NotificationProps {
   id: string;

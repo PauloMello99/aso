@@ -39,7 +39,10 @@ import type { CustomerOption } from "@/features/clients/types"
 import { AsyncCombobox } from "@/shared/components/ui/async-combobox"
 import { useDebouncedValue } from "@/shared/hooks/use-debounced-value"
 import { useStickyOption } from "@/shared/hooks/use-async-options"
+import { ptBR } from "date-fns/locale"
+import { cn } from "@/shared/lib/utils"
 import { eventFormSchema, type EventFormValues } from "../schemas/agenda.schemas"
+import { getConfirmationStatusText } from "../lib/confirmation-status"
 import type { CalendarEvent } from "../types"
 import type { CalendarEventBody } from "../hooks/use-calendar-events"
 import { DatePicker } from "@/shared/components/ui/date-picker"
@@ -75,6 +78,7 @@ function emptyValues(slot?: EventFormProps["defaultSlot"]): EventFormValues {
     type: "appointment",
     title: "",
     customerId: "",
+    customerEmail: "",
     date: slot?.date ?? format(new Date(), "yyyy-MM-dd"),
     startTime: slot?.startTime ?? "09:00",
     endTime: slot?.endTime ?? "10:00",
@@ -119,6 +123,16 @@ export function EventForm({
     defaultValues: emptyValues(defaultSlot),
   })
 
+  const confirmationText = event ? getConfirmationStatusText(event) : null
+  const confirmationDateIso = event
+    ? event.confirmationStatus === "pending"
+      ? event.confirmationSentAt
+      : event.confirmationRespondedAt
+    : null
+  const confirmationDate = confirmationDateIso
+    ? format(parseISO(confirmationDateIso), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+    : null
+
   const type = form.watch("type")
   const allDay = form.watch("allDay")
   const watchedCustomerId = form.watch("customerId")
@@ -161,6 +175,7 @@ export function EventForm({
         type: event.type,
         title: event.title,
         customerId: event.customerId ?? "",
+        customerEmail: event.customerEmail ?? "",
         date: format(s, "yyyy-MM-dd"),
         startTime: format(s, "HH:mm"),
         endTime: format(e, "HH:mm"),
@@ -190,6 +205,8 @@ export function EventForm({
         v.type === "appointment" && v.customerId && v.customerId !== NO_CUSTOMER
           ? v.customerId
           : null,
+      customerEmail:
+        v.type === "appointment" && v.customerEmail ? v.customerEmail : null,
       startsAt: startsAt.toISOString(),
       endsAt: endsAt.toISOString(),
       allDay: v.allDay ?? false,
@@ -337,6 +354,54 @@ export function EventForm({
                         />
                       </FormControl>
                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {type === "appointment" && (
+                <FormField
+                  control={form.control}
+                  name="customerEmail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        E-mail do cliente{" "}
+                        <span className="text-xs text-foreground/30">(opcional)</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          inputMode="email"
+                          autoComplete="off"
+                          placeholder="cliente@email.com"
+                          {...field}
+                          value={field.value ?? ""}
+                        />
+                      </FormControl>
+                      <p className="text-xs text-foreground/40">
+                        O cliente recebe um link para confirmar presença quando a
+                        confirmação por e-mail estiver ativa no seu estúdio. Sem
+                        e-mail, nada é enviado.
+                      </p>
+                      <FormMessage />
+                      {confirmationText && (
+                        <p
+                          className={cn(
+                            "text-xs font-medium",
+                            event?.confirmationStatus === "confirmed" && "text-success",
+                            event?.confirmationStatus === "canceled_by_customer" &&
+                              "text-destructive",
+                            event?.confirmationStatus === "pending" &&
+                              (event.confirmationSentAt
+                                ? "text-warning"
+                                : "text-foreground/50"),
+                          )}
+                        >
+                          {confirmationText}
+                          {confirmationDate && ` — ${confirmationDate}`}
+                        </p>
+                      )}
                     </FormItem>
                   )}
                 />

@@ -5,6 +5,13 @@ export const eventFormSchema = z
     type: z.enum(["appointment", "unavailability"]),
     title: z.string().min(1, "Título obrigatório").max(200, "Máximo 200 caracteres"),
     customerId: z.string().optional(),
+    customerEmail: z
+      .string()
+      .trim()
+      .email("E-mail inválido")
+      .max(254)
+      .optional()
+      .or(z.literal("")),
     date: z.string().min(1, "Data obrigatória"),
     startTime: z.string().min(1, "Início obrigatório"),
     endTime: z.string().min(1, "Fim obrigatório"),

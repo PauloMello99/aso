@@ -111,6 +111,7 @@ describe("getNotifiableEntries", () => {
   it("contém apenas releases minor/major acima do corte", () => {
     expect(getNotifiableEntries().map((entry) => entry.id)).toEqual([
       "overview-month-filter",
+      "appointment-confirmation",
     ]);
   });
 });

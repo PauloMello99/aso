@@ -1,6 +1,21 @@
 export type CalendarEventType = "appointment" | "unavailability"
 export type CalendarEventStatus = "scheduled" | "canceled"
 export type CalendarEventVisibility = "private" | "shared"
+export type CalendarEventConfirmationStatus =
+  | "pending"
+  | "confirmed"
+  | "canceled_by_customer"
+
+export type AppointmentConfirmationResponse = "confirmed" | "canceled_by_customer"
+
+export interface PublicAppointmentConfirmation {
+  orgName: string
+  startsAt: string
+  endsAt: string
+  allDay: boolean
+  confirmationStatus: CalendarEventConfirmationStatus
+  state: "open" | "event_canceled"
+}
 
 export interface CalendarEvent {
   id: string
@@ -16,6 +31,11 @@ export interface CalendarEvent {
   endsAt: string
   allDay: boolean
   visibility: CalendarEventVisibility
+  customerEmail: string | null
+  confirmationStatus: CalendarEventConfirmationStatus | null
+  confirmationRequestedAt: string | null
+  confirmationSentAt: string | null
+  confirmationRespondedAt: string | null
   createdAt: string
   updatedAt: string
 }
