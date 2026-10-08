@@ -1728,3 +1728,15 @@ OR is_org_member(org_id)))`; as de INSERT exigem `org_id IS NOT NULL AND (...)` 
 - **CRLF**: parte dos arquivos do repo está em CRLF no índice (`git ls-files --eol`). Ferramentas de escrita
   gravam LF; após editar, converta de volta (`sed -i 's/$/\r/'`) os arquivos `i/crlf w/lf` para não inflar o diff.
 - **Nunca `taskkill /IM node.exe`** em testes: mata todos os node da máquina (dev servers, MCPs). Encerre por PID/porta.
+- **Rota pública multipart com captcha** (2026-10-08, ADR-0036): o Nest roda **guards antes de interceptors**;
+  para "captcha antes do upload" valide o Turnstile em um guard de método via header `x-turnstile-token`
+  (o `FilesInterceptor` só roda depois). O throttler global roda antes e conta requisições rejeitadas.
+- **Erros do drizzle contêm PII**: `DrizzleQueryError.message = "Failed query: <sql> params: <params>"`. Em rota que
+  grava dados pessoais anônimos, capture no repositório e relance erro sem `cause/params` (só SQLSTATE); o
+  `AllExceptionsFilter` envia `message`/stack ao logger e à telemetria em 5xx.
+- **Class-transformer não executa `@Transform` para chave AUSENTE** (multipart): use inicializador/`@IsOptional`
+  para booleanos opcionais.
+- **Storage local quebrado (`42P10`)**: o container `storage-api` pode retornar 500 "no unique or exclusion
+  constraint matching the ON CONFLICT" em todo upload quando `storage.objects` só tem índices únicos parciais
+  (restore de backup). Não é bug do app; testar upload real exige `supabase db reset` (destrutivo no local) ou um
+  índice único completo `(bucket_id, name)` criado como `supabase_admin`.

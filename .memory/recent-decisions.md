@@ -309,3 +309,8 @@
   e reagendamento rotacionam); envio best-effort **pós-commit** (`registerPostCommit`); cron
   `customer-confirmation-reminders` com claim preso ao ciclo + CAS; rota pública atrás de
   `APPOINTMENT_CONFIRMATION_ENABLED` (default off). Detalhes e pendências (LGPD, token em logs) no ADR-0035.
+- **2026-10-08 — Formulário público de orçamento, fundação C1 (ADR-0036).** Entidade própria
+  (`quote_forms`/`quote_requests`/`quote_request_images`, migrations 0087/0088), slug global por profissional,
+  opt-in, flag `PUBLIC_QUOTE_FORM_ENABLED` (off), Turnstile por header em guard antes do multer, magic bytes,
+  storage→banco com compensação, retenção 30d gravada (cron em C3), consentimento versionado (minuta pendente).
+  Flag só liga em produção com C2+C3. Gotcha: erros do drizzle carregam params (PII) — sanitizar no repositório.

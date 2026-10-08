@@ -196,4 +196,13 @@ export const queryKeys = {
   publicBilling: {
     plans: () => ["public-billing", "plans"] as const,
   },
+
+  publicQuoteForm: {
+    bySlug: (slug: string) => ["public-quote-form", "by-slug", slug] as const,
+  },
+
+  quoteForms: {
+    all: (orgId: string) => ["quote-forms", orgId] as const,
+    mine: (orgId: string) => ["quote-forms", orgId, "mine"] as const,
+  },
 } as const

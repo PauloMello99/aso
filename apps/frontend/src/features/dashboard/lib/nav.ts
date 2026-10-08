@@ -11,6 +11,7 @@ import {
   ClipboardList,
   LifeBuoy,
   Megaphone,
+  FileText,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
@@ -85,6 +86,7 @@ export const ORG_NAV_SECTIONS: NavSection[] = [
 export const SETTINGS_NAV: NavItem[] = [
   { label: "Geral", href: "settings/general", icon: Settings, roles: ["owner"] },
   { label: "Agenda", href: "settings/agenda", icon: CalendarDays },
+  { label: "Orçamento", href: "settings/quote-form", icon: FileText },
   { label: "Estoque", href: "settings/stock", icon: Archive, roles: ["owner"] },
   { label: "Caixa", href: "settings/cashier", icon: Wallet, roles: ["owner"] },
   { label: "Assinatura", href: "settings/subscription", icon: CreditCard, roles: ["owner"] },
@@ -124,6 +126,7 @@ export const PAGE_LABELS: Record<string, string> = {
   billing: "Cobrança",
   general: "Geral",
   agenda: "Agenda",
+  "quote-form": "Formulário de orçamento",
   anamnesis: "Anamnese",
   subscription: "Assinatura",
   organizations: "Organizações",
