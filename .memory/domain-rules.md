@@ -1714,3 +1714,7 @@ OR is_org_member(org_id)))`; as de INSERT exigem `org_id IS NOT NULL AND (...)` 
 - Sistema de créditos do cliente (manter da v1 ou reprojetar?)
 - Permissões granulares do `employee` (owner configura ou é fixo por role?)
 - Cobrança de múltiplas orgs (por org? escalonado? por contrato?)
+- **Não rode `pnpm build` do frontend com o dev server de pé** (2026-10-08): o build reescreve
+  `apps/frontend/.next` e o dev server passa a quebrar (`hasLocalMatch is not a function` em
+  `next/image`, 404 de chunks). Correção: parar o preview, `rm -rf apps/frontend/.next`, subir
+  de novo. O build também altera `apps/frontend/next-env.d.ts` (restaurar com `git checkout`).

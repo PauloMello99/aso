@@ -288,3 +288,18 @@
   de recurso org-scoped nasce paginada"). Validado: check-types + lint + test + build
   verdes em cada um dos 22 passos de implementação (backend e frontend intercalados por
   domínio). 23 commits numa única branch/PR (`features/lucid-volta-axvjyd`).
+- **2026-10-08 — Overview por mês (v1.1.0, Bloco A da reunião de 07/10).** Seletor de mês
+  global no `overview-page.tsx`: o estado é `MonthRef` (chave estável `YYYY-MM` nas query
+  keys `overview.detail/analytics`); `from/to` são calculados no `queryFn` (mês corrente vai
+  até "agora", passado até 23:59:59.999, fuso do navegador). `GET /orgs/:id/overview` e
+  `/overview/analytics` validam `from/to` (`parseOverviewPeriod`, 400 `OVERVIEW_INVALID_PERIOD`).
+  Operações filtra serviços/transações/clientes pelo mês; estoque baixo, próximos eventos e
+  saldo são "estado atual" (selo AGORA). 30d/90d removidos. "Materiais mais gastos"
+  (`IStockMovementRepository.topConsumedByPeriod`): `service_consumption` de serviços não
+  cancelados, por `services.performed_at`, `-SUM(quantity_delta)`; `manual_adjustment` (devolução
+  por cancelamento) NÃO entra; sem unidade (materials não tem coluna). `incomeExpenseSeries`
+  saiu do analytics (método do repo de transações ficou sem chamador). Personalização de
+  gráficos só em `localStorage` (`inkops_overview_view_<orgId>`, validada por lista permitida,
+  leitura em `useEffect`). Pagamento: rosca + lista com % (maior resto, soma 100,0).
+  Item de changelog `overview-month-filter` (version 5, semver 1.1.0); o spec
+  `getNotifiableEntries` passou a esperar esse item (primeiro release minor acima do corte).

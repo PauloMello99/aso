@@ -108,8 +108,10 @@ describe("getLatestVersion", () => {
 });
 
 describe("getNotifiableEntries", () => {
-  it("é vazio com o seed atual", () => {
-    expect(getNotifiableEntries()).toEqual([]);
+  it("contém apenas releases minor/major acima do corte", () => {
+    expect(getNotifiableEntries().map((entry) => entry.id)).toEqual([
+      "overview-month-filter",
+    ]);
   });
 });
 

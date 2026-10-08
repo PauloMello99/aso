@@ -12,6 +12,8 @@ import {
   ArrowDownRight,
   Loader2,
   Landmark,
+  ChevronLeft,
+  ChevronRight,
   Eye,
   EyeOff,
   type LucideIcon,
@@ -28,12 +30,16 @@ import { BalanceCards } from "@/features/cashier/components/balance-cards"
 import { useOverview } from "../hooks/use-overview"
 import { useOverviewAnalytics } from "../hooks/use-overview-analytics"
 import { overviewVisibility } from "../lib/overview-visibility"
+import { useViewPreferences } from "../hooks/use-view-preferences"
 import {
-  PerformanceSection,
-  EmployeePerformance,
-  periodRange,
-  type PeriodKey,
-} from "./performance-section"
+  canGoNext,
+  currentMonth,
+  formatMonthLabel,
+  shiftMonth,
+  type MonthRef,
+} from "../lib/month-range"
+import { ViewToggle } from "./charts"
+import { PerformanceSection, EmployeePerformance } from "./performance-section"
 import {
   serviceStatus,
   SERVICE_STATUS_LABELS,
@@ -132,7 +138,7 @@ function RecentServicesSection({
       ) : services.length === 0 ? (
         <EmptyState
           icon={Package}
-          title="Nenhum serviço ainda"
+          title="Nenhum serviço no período"
           action={{ label: "Registrar atendimento", href: `${basePath}/services` }}
         />
       ) : (
@@ -207,7 +213,7 @@ function RecentTransactionsSection({
       ) : transactions.length === 0 ? (
         <EmptyState
           icon={Wallet}
-          title="Nenhuma transação ainda"
+          title="Nenhuma transação no período"
           action={{ label: "Abrir o caixa", href: `${basePath}/cashier` }}
         />
       ) : (
@@ -298,7 +304,12 @@ function LowStockSection({
   const { totalCents, missingCost } = restockEstimate(materials)
 
   return (
-    <SectionCard title="Estoque baixo" icon={Archive} href={`${basePath}/stock`}>
+    <SectionCard
+      title="Estoque baixo"
+      icon={Archive}
+      href={`${basePath}/stock`}
+      badge="agora"
+    >
       {loading ? (
         <Loading />
       ) : materials.length === 0 ? (
@@ -366,6 +377,7 @@ function UpcomingEventsSection({
       title="Próximos eventos"
       icon={CalendarDays}
       href={`${basePath}/schedule`}
+      badge="agora"
     >
       {loading ? (
         <Loading />
@@ -416,7 +428,7 @@ function RecentCustomersSection({
       ) : customers.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="Nenhum cliente ainda"
+          title="Nenhum cliente no período"
           action={{ label: "Cadastrar cliente", href: `${basePath}/clients` }}
         />
       ) : (
@@ -463,7 +475,12 @@ function CashBalanceSection({
   const { balance, loading } = useBalance(orgId)
   const money = useMoneyFormatter()
   return (
-    <SectionCard title="Saldo do caixa" icon={Landmark} href={`${basePath}/cashier`}>
+    <SectionCard
+      title="Saldo do caixa"
+      icon={Landmark}
+      href={`${basePath}/cashier`}
+      badge="agora"
+    >
       {loading ? (
         <Loading />
       ) : (
@@ -482,13 +499,57 @@ function CashBalanceSection({
   )
 }
 
-function BandLabel({ children }: { children: React.ReactNode }) {
+function BandLabel({
+  children,
+  actions,
+}: {
+  children: React.ReactNode
+  actions?: React.ReactNode
+}) {
   return (
     <div className="flex items-center gap-3">
       <span className="text-[11px] font-semibold uppercase tracking-widest text-foreground/30">
         {children}
       </span>
       <span className="h-px flex-1 bg-foreground/[0.06]" />
+      {actions}
+    </div>
+  )
+}
+
+function MonthSelector({
+  month,
+  onChange,
+}: {
+  month: MonthRef
+  onChange: (m: MonthRef) => void
+}) {
+  const now = new Date()
+  const next = canGoNext(month, now)
+  return (
+    <div className="flex items-center gap-1" role="group" aria-label="Mês">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => onChange(shiftMonth(month, -1))}
+        aria-label="Mês anterior"
+        className="h-8 w-8"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+      <span className="min-w-[10rem] text-center text-sm font-medium text-foreground first-letter:uppercase">
+        {formatMonthLabel(month)}
+      </span>
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => onChange(shiftMonth(month, 1))}
+        disabled={!next}
+        aria-label="Próximo mês"
+        className="h-8 w-8"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </Button>
     </div>
   )
 }
@@ -499,13 +560,15 @@ export function OverviewPage() {
   const vis = overviewVisibility(org.role, org.permissions)
   const basePath = `/dashboard/org/${org.slug}`
 
-  const [periodKey, setPeriodKey] = React.useState<PeriodKey>("month")
-  const range = React.useMemo(() => periodRange(periodKey), [periodKey])
+  const [month, setMonth] = React.useState<MonthRef>(() =>
+    currentMonth(new Date()),
+  )
+  const { prefs, setPreference } = useViewPreferences(orgId)
 
-  const { data, loading } = useOverview(orgId)
+  const { data, loading } = useOverview(orgId, month)
   const { data: analytics, loading: analyticsLoading } = useOverviewAnalytics(
     orgId,
-    range,
+    month,
     { enabled: vis.services },
   )
   const { balance, loading: balanceLoading } = useBalance(orgId, {
@@ -544,10 +607,33 @@ export function OverviewPage() {
         <BalanceCards balance={balance} loading={balanceLoading} />
       )}
 
+      <div className="flex justify-center sm:justify-start">
+        <MonthSelector month={month} onChange={setMonth} />
+      </div>
+
       {vis.hasAnyCard ? (
         <section className="space-y-3">
-          <BandLabel>Operações</BandLabel>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <BandLabel
+            actions={
+              <ViewToggle
+                label="Disposição das operações"
+                value={prefs.operationsLayout}
+                onChange={(v) => setPreference("operationsLayout", v)}
+                options={[
+                  { value: "grid", label: "Grade" },
+                  { value: "list", label: "Lista" },
+                ]}
+              />
+            }
+          >
+            Operações
+          </BandLabel>
+          <div
+            className={cn(
+              "grid grid-cols-1 gap-4",
+              prefs.operationsLayout === "grid" && "sm:grid-cols-2 xl:grid-cols-3",
+            )}
+          >
             {vis.services && (
               <RecentServicesSection
                 services={(data?.recentServices ?? []).slice(0, 5)}
@@ -603,17 +689,12 @@ export function OverviewPage() {
         <PerformanceSection
           data={analytics}
           loading={analyticsLoading}
-          periodKey={periodKey}
-          onPeriodChange={setPeriodKey}
+          prefs={prefs}
+          onPreferenceChange={setPreference}
         />
       ) : (
         vis.services && (
-          <EmployeePerformance
-            data={analytics}
-            loading={analyticsLoading}
-            periodKey={periodKey}
-            onPeriodChange={setPeriodKey}
-          />
+          <EmployeePerformance data={analytics} loading={analyticsLoading} />
         )
       )}
     </div>
