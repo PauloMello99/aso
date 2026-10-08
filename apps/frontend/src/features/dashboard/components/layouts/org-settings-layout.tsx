@@ -6,6 +6,9 @@ import { useRouter } from "next/router"
 import { cn } from "@/shared/lib/utils"
 import { useCurrentOrg } from "@/features/dashboard/components/org-context"
 import { SETTINGS_NAV } from "@/features/dashboard/lib/nav"
+import { useMyQuoteForm } from "@/features/quotes/hooks/use-my-quote-form"
+
+const QUOTE_FORM_NAV_HREF = "settings/quote-form"
 
 interface OrgSettingsLayoutProps {
   children: React.ReactNode
@@ -13,11 +16,16 @@ interface OrgSettingsLayoutProps {
 
 export function OrgSettingsLayout({ children }: OrgSettingsLayoutProps) {
   const router = useRouter()
-  const { org } = useCurrentOrg()
+  const { org, orgId } = useCurrentOrg()
+  const { available: quoteFormAvailable } = useMyQuoteForm(orgId)
   const basePath = `/dashboard/org/${org.slug}`
 
+  // 404 da API = recurso desligado (flag não exposta ao frontend): item oculto
+  // até a disponibilidade ser confirmada.
   const navItems = SETTINGS_NAV.filter(
-    (item) => !item.roles || item.roles.includes(org.role),
+    (item) =>
+      (!item.roles || item.roles.includes(org.role)) &&
+      (item.href !== QUOTE_FORM_NAV_HREF || quoteFormAvailable),
   )
 
   const isActive = (href: string) => router.pathname.endsWith("/" + href)

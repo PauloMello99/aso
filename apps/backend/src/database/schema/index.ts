@@ -30,6 +30,7 @@ export * from "./studio/audit";
 export * from "./studio/anamnesis";
 export * from "./studio/customer-self-service";
 export * from "./studio/campaigns";
+export * from "./studio/quotes";
 export * from "./support/ticket-categories";
 export * from "./support/tickets";
 export * from "./support/inbound-emails";
