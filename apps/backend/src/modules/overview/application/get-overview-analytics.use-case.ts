@@ -17,9 +17,13 @@ import {
   ITransactionRepository,
   TRANSACTION_REPOSITORY,
   type DailyBalancePoint,
-  type IncomeExpensePoint,
   type PaymentMethodTotal,
 } from "../../cashier/domain/transaction.repository.interface";
+import {
+  IStockMovementRepository,
+  STOCK_MOVEMENT_REPOSITORY,
+  type MaterialConsumptionRow,
+} from "../../materials/domain/stock-movement.repository.interface";
 import type { ServiceEntity } from "../../services/domain/service.entity";
 
 export interface KpiWithDelta {
@@ -49,9 +53,11 @@ export interface OverviewAnalytics {
   servicesByType?: ServiceGroupRow[];
   revenueByProfessional?: ServiceGroupRow[];
   paymentMethods?: PaymentMethodTotal[];
-  incomeExpenseSeries?: IncomeExpensePoint[];
+  materialsConsumption?: MaterialConsumptionRow[];
   commissionCents?: KpiWithDelta;
 }
+
+const MATERIALS_CONSUMPTION_LIMIT = 6;
 
 interface CoreMetrics {
   receitaCents: number;
@@ -102,6 +108,8 @@ export class GetOverviewAnalyticsUseCase {
     private readonly listServices: ListServicesUseCase,
     private readonly listCustomers: ListCustomersUseCase,
     private readonly getBalanceHistory: GetBalanceHistoryUseCase,
+    @Inject(STOCK_MOVEMENT_REPOSITORY)
+    private readonly stockMovementRepo: IStockMovementRepository,
   ) {}
 
   async execute(
@@ -161,7 +169,7 @@ export class GetOverviewAnalyticsUseCase {
       byType,
       byProfessional,
       paymentMethods,
-      incExp,
+      materialsConsumption,
       curCommissionCents,
       prevCommissionCents,
     ] = await Promise.all([
@@ -171,7 +179,12 @@ export class GetOverviewAnalyticsUseCase {
       this.serviceRepo.countAndRevenueByType(orgId, from, to),
       this.serviceRepo.countAndRevenueByProfessional(orgId, from, to),
       this.transactionRepo.incomeByPaymentMethod(orgId, from, to),
-      this.transactionRepo.incomeExpenseSeries(orgId, from, to),
+      this.stockMovementRepo.topConsumedByPeriod(
+        orgId,
+        from,
+        to,
+        MATERIALS_CONSUMPTION_LIMIT,
+      ),
       this.serviceRepo.commissionCentsByPeriod(orgId, from, to, null),
       this.serviceRepo.commissionCentsByPeriod(orgId, prevFrom, prevTo, null),
     ]);
@@ -196,7 +209,7 @@ export class GetOverviewAnalyticsUseCase {
       servicesByType: byType,
       revenueByProfessional: byProfessional,
       paymentMethods,
-      incomeExpenseSeries: incExp,
+      materialsConsumption,
       commissionCents: kpi(curCommissionCents, prevCommissionCents),
     };
   }

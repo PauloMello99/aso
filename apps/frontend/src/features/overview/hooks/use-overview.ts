@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { apiRequest } from "@/infrastructure/api/client"
 import { queryKeys } from "@/infrastructure/query/query-keys"
+import { monthKey, monthRange, type MonthRef } from "../lib/month-range"
 import type { Service } from "@/features/services/types"
 import type { CalendarEvent } from "@/features/agenda/types"
 import type { Material } from "@/features/stock/types"
@@ -18,10 +19,18 @@ export interface OverviewData {
   recentCustomers?: Customer[]
 }
 
-export function useOverview(orgId: string) {
+export function useOverview(orgId: string, month: MonthRef) {
+  const key = monthKey(month)
   const { data, isLoading, error } = useQuery({
-    queryKey: queryKeys.overview.detail(orgId),
-    queryFn: () => apiRequest<OverviewData>(`/orgs/${orgId}/overview`),
+    queryKey: queryKeys.overview.detail(orgId, key),
+    // from/to calculados no fetch (mês corrente termina em "agora"); a key é só YYYY-MM.
+    queryFn: () => {
+      const { from, to } = monthRange(month, new Date())
+      const params = new URLSearchParams({ from, to })
+      return apiRequest<OverviewData>(
+        `/orgs/${orgId}/overview?${params.toString()}`,
+      )
+    },
     enabled: !!orgId,
   })
 

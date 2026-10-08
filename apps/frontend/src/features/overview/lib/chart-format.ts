@@ -32,6 +32,15 @@ export function seriesLabel(name: string | undefined): string {
   return SERIES_LABELS[name] ?? name
 }
 
+const quantityFormatter = new Intl.NumberFormat("pt-BR", {
+  maximumFractionDigits: 3,
+})
+
+/** Quantidade em pt-BR, sem unidade (ex.: 1234.5 -> "1.234,5"). */
+export function formatQuantity(value: number): string {
+  return quantityFormatter.format(value)
+}
+
 /** Trunca rótulo de categoria longo para caber no eixo, com reticências. */
 export function truncateTick(label: string, max = 12): string {
   if (label.length <= max) return label

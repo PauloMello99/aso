@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   formatAxisMoney,
+  formatQuantity,
   HIDDEN_AXIS_TICK,
   seriesLabel,
   truncateTick,
@@ -30,6 +31,14 @@ describe("formatAxisMoney", () => {
 
   it("keeps the sign for negative balances", () => {
     expect(formatAxisMoney(-15_000_000, false)).toMatch(/^[-−]/)
+  })
+})
+
+describe("formatQuantity", () => {
+  it("formats pt-BR without unit", () => {
+    expect(formatQuantity(1234.5)).toBe("1.234,5")
+    expect(formatQuantity(3)).toBe("3")
+    expect(formatQuantity(0.25)).toBe("0,25")
   })
 })
 

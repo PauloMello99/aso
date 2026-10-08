@@ -20,9 +20,13 @@ export const queryKeys = {
   },
 
   overview: {
-    detail: (orgId: string) => ["overview", orgId] as const,
-    analytics: (orgId: string, from?: string, to?: string) =>
-      ["overview", orgId, "analytics", from ?? "", to ?? ""] as const,
+    // Sem `month` é o prefixo (invalidação); com `month` ("YYYY-MM") é a key do mês.
+    detail: (orgId: string, month?: string) =>
+      month
+        ? (["overview", orgId, "detail", month] as const)
+        : (["overview", orgId] as const),
+    analytics: (orgId: string, month?: string) =>
+      ["overview", orgId, "analytics", month ?? ""] as const,
   },
 
   members: {

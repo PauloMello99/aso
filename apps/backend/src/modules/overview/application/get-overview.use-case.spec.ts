@@ -218,6 +218,66 @@ describe("GetOverviewUseCase", () => {
     expect(result).toEqual({});
   });
 
+  it("com período: filtra serviços/transações pelo período e clientes por createdAt; estoque e agenda não recebem período", async () => {
+    const memberRepo = buildFakeMemberRepo({
+      findByAuthId: jest.fn().mockResolvedValue(buildMember({ role: "owner" })),
+    });
+    const { useCase, listServices, listTransactions, listMaterials, listCustomers } =
+      buildUseCase(memberRepo);
+    const from = new Date("2026-07-01T00:00:00Z");
+    const to = new Date("2026-07-31T23:59:59Z");
+    const inside = { createdAt: new Date("2026-07-10T00:00:00Z") };
+    const before = { createdAt: new Date("2026-06-30T23:59:59Z") };
+    const after = { createdAt: new Date("2026-08-01T00:00:00Z") };
+    listCustomers.execute.mockResolvedValue([
+      before,
+      inside,
+      after,
+    ] as unknown as Awaited<ReturnType<ListCustomersUseCase["execute"]>>);
+
+    const result = await useCase.execute("org-1", "auth-1", { from, to });
+
+    expect(listServices.execute).toHaveBeenCalledWith({
+      orgId: "org-1",
+      authId: "auth-1",
+      filter: { from, to },
+    });
+    expect(listTransactions.execute).toHaveBeenCalledWith({
+      orgId: "org-1",
+      authId: "auth-1",
+      filter: { from, to },
+    });
+    expect(listMaterials.execute).toHaveBeenCalledWith(
+      "org-1",
+      { lowStockOnly: true },
+      "auth-1",
+    );
+    expect(result.recentCustomers).toEqual([inside]);
+  });
+
+  it("sem período: mantém comportamento atual (filtro vazio, todos os clientes)", async () => {
+    const memberRepo = buildFakeMemberRepo({
+      findByAuthId: jest.fn().mockResolvedValue(buildMember({ role: "owner" })),
+    });
+    const { useCase, listServices, listCustomers } = buildUseCase(memberRepo);
+    const customers = [
+      { createdAt: new Date("2020-01-01T00:00:00Z") },
+      { createdAt: new Date("2026-01-01T00:00:00Z") },
+    ];
+    listCustomers.execute.mockResolvedValue(
+      customers as unknown as Awaited<ReturnType<ListCustomersUseCase["execute"]>>,
+    );
+
+    const result = await useCase.execute("org-1", "auth-1");
+
+    expect(listServices.execute).toHaveBeenCalledWith({
+      orgId: "org-1",
+      authId: "auth-1",
+      filter: {},
+    });
+    expect(result.recentCustomers).toHaveLength(2);
+  });
+
   it("lança OrgForbiddenException quando não há membership", async () => {
     const memberRepo = buildFakeMemberRepo({
       findByAuthId: jest.fn().mockResolvedValue(null),

@@ -17,6 +17,7 @@ import {
 } from "../../materials/application/use-cases/list-materials.use-case";
 import { ListCalendarEventsUseCase } from "../../calendar/application/use-cases/list-calendar-events.use-case";
 import { ListCustomersUseCase } from "../../customers/application/use-cases/list-customers.use-case";
+import type { OverviewPeriod } from "../domain/overview-period";
 import type { ServiceEntity } from "../../services/domain/service.entity";
 import type { CalendarEventEntity } from "../../calendar/domain/calendar-event.entity";
 import type { CustomerEntity } from "../../customers/domain/customer.entity";
@@ -54,7 +55,11 @@ export class GetOverviewUseCase {
     private readonly listCustomers: ListCustomersUseCase,
   ) {}
 
-  async execute(orgId: string, authId: string): Promise<OverviewResult> {
+  async execute(
+    orgId: string,
+    authId: string,
+    period: OverviewPeriod = {},
+  ): Promise<OverviewResult> {
     const member = await this.memberRepo.findByAuthId(orgId, authId);
     if (!member) throw new OrgForbiddenException();
 
@@ -68,13 +73,20 @@ export class GetOverviewUseCase {
     const now = new Date();
     const windowEnd = new Date(now.getTime() + UPCOMING_WINDOW_DAYS * DAY_MS);
     const nowMs = now.getTime();
+    // Só serviços, transações e clientes novos seguem o período; estoque baixo,
+    // saldo e próximos eventos continuam "estado atual".
+    const periodFilter: { from?: Date; to?: Date } = {};
+    if (period.from) periodFilter.from = period.from;
+    if (period.to) periodFilter.to = period.to;
 
     const result: OverviewResult = {};
     const tasks: Promise<void>[] = [];
 
     if (canServices) {
       tasks.push(
-        this.listServices.execute({ orgId, authId }).then((services) => {
+        this.listServices
+          .execute({ orgId, authId, filter: periodFilter })
+          .then((services) => {
           result.recentServices = [...services]
             .sort((a, b) => +b.performedAt - +a.performedAt)
             .slice(0, LIMITS.services);
@@ -107,11 +119,13 @@ export class GetOverviewUseCase {
 
     if (canCashier) {
       tasks.push(
-        this.listTransactions.execute({ orgId, authId }).then((transactions) => {
-          result.recentTransactions = [...transactions]
-            .sort((a, b) => +b.entity.transactedAt - +a.entity.transactedAt)
-            .slice(0, LIMITS.transactions);
-        }),
+        this.listTransactions
+          .execute({ orgId, authId, filter: periodFilter })
+          .then((transactions) => {
+            result.recentTransactions = [...transactions]
+              .sort((a, b) => +b.entity.transactedAt - +a.entity.transactedAt)
+              .slice(0, LIMITS.transactions);
+          }),
       );
       tasks.push(
         this.listCategories.execute(orgId).then((categories) => {
@@ -123,7 +137,12 @@ export class GetOverviewUseCase {
     if (canClients) {
       tasks.push(
         this.listCustomers.execute(orgId).then((customers) => {
-          result.recentCustomers = [...customers]
+          result.recentCustomers = customers
+            .filter(
+              (c) =>
+                (!period.from || +c.createdAt >= +period.from) &&
+                (!period.to || +c.createdAt <= +period.to),
+            )
             .sort((a, b) => +b.createdAt - +a.createdAt)
             .slice(0, LIMITS.customers);
         }),
