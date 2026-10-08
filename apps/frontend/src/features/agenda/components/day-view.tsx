@@ -4,6 +4,7 @@ import * as React from "react"
 import { format, isSameDay, parseISO } from "date-fns"
 import { cn } from "@/shared/lib/utils"
 import type { CalendarEvent } from "../types"
+import { ConfirmationBadge } from "./confirmation-badge"
 
 const START_HOUR = 0
 const END_HOUR = 24
@@ -67,6 +68,7 @@ export function DayView({
               )}
             >
               {ev.title}
+              <ConfirmationBadge event={ev} className="ml-2 align-middle" />
             </button>
           ))}
         </div>
@@ -125,6 +127,7 @@ export function DayView({
                     {format(s, "HH:mm")}–{format(e, "HH:mm")}
                   </span>
                 )}
+                <ConfirmationBadge event={ev} />
               </button>
             )
           })}

@@ -16,6 +16,7 @@ export const CRON_JOBS = {
   BILLING_REFUND_RECONCILIATION: "billing-refund-reconciliation",
   CAMPAIGN_TRIGGERS: "campaign-triggers",
   CHANGELOG_ANNOUNCEMENTS: "changelog-announcements",
+  CUSTOMER_CONFIRMATION_REMINDERS: "customer-confirmation-reminders",
 } as const;
 
 export type CronJobName = (typeof CRON_JOBS)[keyof typeof CRON_JOBS];

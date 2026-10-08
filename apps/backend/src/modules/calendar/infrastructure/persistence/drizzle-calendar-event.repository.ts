@@ -6,7 +6,9 @@ import {
   type DrizzleDB,
 } from "../../../../database/database.module";
 import * as schema from "../../../../database/schema";
+import type { NewCalendarEvent } from "../../../../database/schema/studio/calendar";
 import {
+  CalendarEventConfirmationData,
   CalendarEventEntity,
   CreateCalendarEventData,
   UpdateCalendarEventData,
@@ -20,6 +22,33 @@ import type {
   OrgOwner,
 } from "../../domain/calendar-event.repository.interface";
 import { CalendarEventMapper } from "./calendar-event.mapper";
+
+// `undefined` = não mexe na coluna; `null` = limpa.
+function confirmationColumns(
+  confirmation: CalendarEventConfirmationData | undefined,
+): Partial<NewCalendarEvent> {
+  if (!confirmation) return {};
+  return {
+    ...(confirmation.status !== undefined && {
+      confirmationStatus: confirmation.status,
+    }),
+    ...(confirmation.tokenHash !== undefined && {
+      confirmationTokenHash: confirmation.tokenHash,
+    }),
+    ...(confirmation.requestedAt !== undefined && {
+      confirmationRequestedAt: confirmation.requestedAt,
+    }),
+    ...(confirmation.sentAt !== undefined && {
+      confirmationSentAt: confirmation.sentAt,
+    }),
+    ...(confirmation.respondedAt !== undefined && {
+      confirmationRespondedAt: confirmation.respondedAt,
+    }),
+    ...(confirmation.customerReminderSentAt !== undefined && {
+      customerReminderSentAt: confirmation.customerReminderSentAt,
+    }),
+  };
+}
 
 @Injectable()
 export class DrizzleCalendarEventRepository implements ICalendarEventRepository {
@@ -164,6 +193,8 @@ export class DrizzleCalendarEventRepository implements ICalendarEventRepository 
         endsAt: data.endsAt,
         allDay: data.allDay ?? false,
         visibility: data.visibility ?? "private",
+        customerEmail: data.customerEmail ?? null,
+        ...confirmationColumns(data.confirmation),
       })
       .returning();
     return CalendarEventMapper.toDomain(row!);
@@ -185,6 +216,10 @@ export class DrizzleCalendarEventRepository implements ICalendarEventRepository 
         ...(data.endsAt !== undefined && { endsAt: data.endsAt }),
         ...(data.allDay !== undefined && { allDay: data.allDay }),
         ...(data.visibility !== undefined && { visibility: data.visibility }),
+        ...(data.customerEmail !== undefined && {
+          customerEmail: data.customerEmail,
+        }),
+        ...confirmationColumns(data.confirmation),
         updatedAt: new Date(),
       })
       .where(eq(schema.calendarEvents.id, id))

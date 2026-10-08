@@ -216,6 +216,55 @@ describe("MailService.sendProductUpdate", () => {
   });
 });
 
+describe("MailService.sendAppointmentConfirmation", () => {
+  const input = {
+    to: "cliente@example.com",
+    orgName: "Studio Helena",
+    whenLabel: "terça-feira, 20/10 às 14:00",
+    confirmUrl: "https://app.example.com/confirmar-agendamento/tok-abc",
+  };
+
+  it("confirmação: assunto, CTA único para a página e retorno do sender", async () => {
+    const sender = buildSender();
+    const service = new MailService(sender, buildConfig());
+
+    const result = await service.sendAppointmentConfirmation({
+      ...input,
+      kind: "confirmation",
+    });
+
+    expect(result).toBe(true);
+    const sent = firstSendArg(sender);
+    expect(sent.to).toBe("cliente@example.com");
+    expect(sent.subject).toBe("Confirme seu horário em Studio Helena");
+    expect(sent.html).toContain(input.confirmUrl);
+    expect(sent.html).toContain("terça-feira, 20/10 às 14:00");
+    expect(sent.html).toContain("Não responda este e-mail");
+    expect(sent.html).not.toContain("possui uma conta no ASO");
+  });
+
+  it("lembrete: assunto próprio", async () => {
+    const sender = buildSender();
+    const service = new MailService(sender, buildConfig());
+
+    await service.sendAppointmentConfirmation({ ...input, kind: "reminder" });
+
+    const sent = firstSendArg(sender);
+    expect(sent.subject).toBe("Lembrete: seu horário em Studio Helena é amanhã");
+    expect(sent.html).toContain("Seu horário é amanhã");
+  });
+
+  it("retorna false quando o sender não envia (canal desligado)", async () => {
+    const sender = buildSender();
+    sender.send.mockResolvedValue(false);
+    const service = new MailService(sender, buildConfig());
+
+    await expect(
+      service.sendAppointmentConfirmation({ ...input, kind: "confirmation" }),
+    ).resolves.toBe(false);
+  });
+});
+
 describe("MailService — rodapé padrão dos e-mails transacionais", () => {
   it("mantém o rodapé fixo ('possui uma conta no ASO') em e-mail transacional", async () => {
     const sender = buildSender();

@@ -13,6 +13,7 @@ import {
 } from "date-fns"
 import { cn } from "@/shared/lib/utils"
 import type { CalendarEvent } from "../types"
+import { ConfirmationBadge } from "./confirmation-badge"
 
 const WEEK_OPTS = { weekStartsOn: 1 } as const
 const WEEKDAYS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"]
@@ -94,6 +95,7 @@ export function MonthView({
                       ev.status === "canceled" && "line-through opacity-40",
                     )}
                   >
+                    <ConfirmationBadge event={ev} dotOnly className="mr-1 align-middle" />
                     {!ev.allDay && `${format(parseISO(ev.startsAt), "HH:mm")} `}
                     {ev.title}
                   </span>

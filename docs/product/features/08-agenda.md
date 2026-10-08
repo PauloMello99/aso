@@ -13,6 +13,7 @@ indisponibilidade, sem sobreposição. Visões dia/semana/mês. Visibilidade por
   + `reminder_sent_at` (idempotência do lembrete de agenda — spec 14).
 - **Frontend** `features/agenda/**` + `[orgSlug]/schedule.tsx`: context (view/range), visões
   custom CSS-grid (Semana/Mês/Dia), `EventForm` (Sheet), filtro de membro (owner), modo leitura.
+- **Confirmação do cliente (2026-10-08, ADR-0035)**: `appointment` aceita `customer_email`; link público de confirmação (flag `APPOINTMENT_CONFIRMATION_ENABLED`, off por padrão), status pendente/confirmado/cancelado pelo cliente no evento, lembrete 24h pelo cron `customer-confirmation-reminders`, notificação in-app ao profissional.
 - **Integração externa**: placeholder em `/dashboard/preferences` (Google/Outlook/Apple — em breve).
 
 ## Legado a portar (ink-house-studio)

@@ -1,5 +1,6 @@
 import {
   IsBoolean,
+  IsEmail,
   IsIn,
   IsISO8601,
   IsOptional,
@@ -32,6 +33,11 @@ export class UpdateCalendarEventDto {
   @IsUUID()
   @IsOptional()
   customerId?: string | null;
+
+  @IsEmail()
+  @IsOptional()
+  @MaxLength(254)
+  customerEmail?: string | null;
 
   @IsISO8601()
   @IsOptional()

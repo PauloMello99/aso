@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
+  CalendarEventConfirmationData,
   CalendarEventEntity,
   CalendarEventStatus,
   CalendarEventType,
@@ -13,6 +14,14 @@ import { EventForbiddenException } from "../../domain/exceptions/event-forbidden
 import { EventInvalidRangeException } from "../../domain/exceptions/event-invalid-range.exception";
 import { EventNotFoundException } from "../../domain/exceptions/event-not-found.exception";
 import { EventOverlapException } from "../../domain/exceptions/event-overlap.exception";
+import {
+  normalizeCustomerEmail,
+  planConfirmationChange,
+} from "../../domain/plan-confirmation-change";
+import {
+  AppointmentConfirmationDispatcher,
+  type ConfirmationCycle,
+} from "../appointment-confirmation-dispatcher";
 
 export interface UpdateCalendarEventInput {
   id: string;
@@ -23,17 +32,28 @@ export interface UpdateCalendarEventInput {
   title?: string;
   description?: string | null;
   customerId?: string | null;
+  customerEmail?: string | null;
   startsAt?: Date;
   endsAt?: Date;
   allDay?: boolean;
   visibility?: CalendarEventVisibility;
 }
 
+const CLEARED_CONFIRMATION: CalendarEventConfirmationData = {
+  status: null,
+  tokenHash: null,
+  requestedAt: null,
+  sentAt: null,
+  respondedAt: null,
+  customerReminderSentAt: null,
+};
+
 @Injectable()
 export class UpdateCalendarEventUseCase {
   constructor(
     @Inject(CALENDAR_EVENT_REPOSITORY)
     private readonly repo: ICalendarEventRepository,
+    private readonly confirmation: AppointmentConfirmationDispatcher,
   ) {}
 
   async execute(input: UpdateCalendarEventInput): Promise<CalendarEventEntity> {
@@ -63,7 +83,48 @@ export class UpdateCalendarEventUseCase {
       throw new EventOverlapException();
     }
 
-    return this.repo.update(input.id, {
+    const nextType = input.type ?? existing.type;
+    const nextEmail =
+      nextType !== "appointment"
+        ? null
+        : input.customerEmail !== undefined
+          ? normalizeCustomerEmail(input.customerEmail)
+          : existing.customerEmail;
+    const now = new Date();
+    const plan = planConfirmationChange(
+      existing,
+      {
+        type: nextType,
+        status: input.status ?? existing.status,
+        startsAt,
+        customerEmail: nextEmail,
+      },
+      now,
+    );
+
+    let cycle: ConfirmationCycle | null = null;
+    let customerEmail: string | null | undefined;
+    let confirmation: CalendarEventConfirmationData | undefined;
+    if (plan === "clear") {
+      customerEmail = null;
+      confirmation = CLEARED_CONFIRMATION;
+    } else {
+      if (input.customerEmail !== undefined || nextType !== "appointment") {
+        customerEmail = nextEmail;
+      }
+      if (plan === "start_cycle") {
+        if (this.confirmation.isEnabled()) {
+          cycle = this.confirmation.buildCycle(now);
+          confirmation = cycle.confirmation;
+        } else {
+          // Flag desligada: não deixa token/status do ciclo antigo vivos para
+          // um horário/e-mail que mudou.
+          confirmation = CLEARED_CONFIRMATION;
+        }
+      }
+    }
+
+    const updated = await this.repo.update(input.id, {
       type: input.type,
       status: input.status,
       title: input.title,
@@ -73,6 +134,16 @@ export class UpdateCalendarEventUseCase {
       endsAt: input.endsAt,
       allDay: input.allDay,
       visibility: input.visibility,
+      customerEmail,
+      confirmation,
     });
+
+    // O envio só acontece DEPOIS do COMMIT (hook do dispatcher, que relê o
+    // evento e a org por hash); nada de e-mail nem leitura extra no request.
+    if (cycle) {
+      this.confirmation.scheduleConfirmation(updated.id, cycle.token);
+    }
+
+    return updated;
   }
 }

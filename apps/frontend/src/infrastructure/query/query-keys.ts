@@ -188,6 +188,11 @@ export const queryKeys = {
     list: () => ["changelog", "list"] as const,
   },
 
+  publicAppointmentConfirmation: {
+    detail: (token: string) =>
+      ["public-appointment-confirmation", "detail", token] as const,
+  },
+
   publicBilling: {
     plans: () => ["public-billing", "plans"] as const,
   },

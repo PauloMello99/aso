@@ -10,6 +10,7 @@ export interface CalendarEventBody {
   title: string
   description?: string | null
   customerId?: string | null
+  customerEmail?: string | null
   assignedTo?: string | null
   startsAt: string
   endsAt: string

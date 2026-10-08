@@ -2,6 +2,7 @@ import { Controller, HttpCode, Post, UseGuards } from "@nestjs/common";
 import { CronSecretGuard } from "../../common/guards/cron-secret.guard";
 import { CRON_JOBS } from "../../common/cron/cron-jobs";
 import { SendAgendaRemindersUseCase } from "../calendar/application/use-cases/send-agenda-reminders.use-case";
+import { SendCustomerConfirmationRemindersUseCase } from "../calendar/application/use-cases/send-customer-confirmation-reminders.use-case";
 import { SendStockCheckRemindersUseCase } from "../materials/application/use-cases/send-stock-check-reminders.use-case";
 import { ReconcileSubscriptionsUseCase } from "../subscriptions/application/use-cases/reconcile-subscriptions.use-case";
 import { ExpireSubscriptionsUseCase } from "../subscriptions/application/use-cases/expire-subscriptions.use-case";
@@ -31,6 +32,7 @@ export class InternalCronController {
     private readonly runCampaignTriggers: RunCampaignTriggersUseCase,
     private readonly sweepTicketSla: SweepTicketSlaUseCase,
     private readonly sendChangelogAnnouncements: SendChangelogAnnouncementsUseCase,
+    private readonly sendCustomerConfirmationReminders: SendCustomerConfirmationRemindersUseCase,
   ) {}
 
   @Post("tick")
@@ -85,6 +87,13 @@ export class InternalCronController {
         // Kill-switch/channel gates run before the claim.
         name: CRON_JOBS.CHANGELOG_ANNOUNCEMENTS,
         run: () => this.sendChangelogAnnouncements.execute(),
+      },
+      {
+        // Kill-switch (APPOINTMENT_CONFIRMATION_ENABLED) checked inside the
+        // use-case; per-row idempotency via the atomic claim of
+        // customer_reminder_sent_at.
+        name: CRON_JOBS.CUSTOMER_CONFIRMATION_REMINDERS,
+        run: () => this.sendCustomerConfirmationReminders.execute(),
       },
     ];
 

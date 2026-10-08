@@ -74,6 +74,11 @@ export const calendarEventVisibilityEnum = pgEnum(
   ["private", "shared"],
 );
 
+export const calendarEventConfirmationStatusEnum = pgEnum(
+  "calendar_event_confirmation_status",
+  ["pending", "confirmed", "canceled_by_customer"],
+);
+
 export const calendarAttendeeStatusEnum = pgEnum("calendar_attendee_status", [
   "going",
   "not_going",
@@ -84,6 +89,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "member_unavailability",
   "stock_check_reminder",
   "low_stock",
+  "appointment_confirmation_response",
 ]);
 
 export const stockMovementTypeEnum = pgEnum("stock_movement_type", [

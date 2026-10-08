@@ -137,6 +137,7 @@ export type AdminNotificationType =
   | "member_unavailability"
   | "stock_check_reminder"
   | "low_stock"
+  | "appointment_confirmation_response"
 
 export interface AdminOrgNotification {
   id: string

@@ -620,9 +620,18 @@ export type Database = {
         Row: {
           all_day: boolean
           assigned_to: string
+          confirmation_requested_at: string | null
+          confirmation_responded_at: string | null
+          confirmation_sent_at: string | null
+          confirmation_status:
+            | Database["public"]["Enums"]["calendar_event_confirmation_status"]
+            | null
+          confirmation_token_hash: string | null
           created_at: string
           created_by: string | null
+          customer_email: string | null
           customer_id: string | null
+          customer_reminder_sent_at: string | null
           description: string | null
           ends_at: string
           id: string
@@ -638,9 +647,18 @@ export type Database = {
         Insert: {
           all_day?: boolean
           assigned_to: string
+          confirmation_requested_at?: string | null
+          confirmation_responded_at?: string | null
+          confirmation_sent_at?: string | null
+          confirmation_status?:
+            | Database["public"]["Enums"]["calendar_event_confirmation_status"]
+            | null
+          confirmation_token_hash?: string | null
           created_at?: string
           created_by?: string | null
+          customer_email?: string | null
           customer_id?: string | null
+          customer_reminder_sent_at?: string | null
           description?: string | null
           ends_at: string
           id?: string
@@ -656,9 +674,18 @@ export type Database = {
         Update: {
           all_day?: boolean
           assigned_to?: string
+          confirmation_requested_at?: string | null
+          confirmation_responded_at?: string | null
+          confirmation_sent_at?: string | null
+          confirmation_status?:
+            | Database["public"]["Enums"]["calendar_event_confirmation_status"]
+            | null
+          confirmation_token_hash?: string | null
           created_at?: string
           created_by?: string | null
+          customer_email?: string | null
           customer_id?: string | null
+          customer_reminder_sent_at?: string | null
           description?: string | null
           ends_at?: string
           id?: string
@@ -2735,6 +2762,10 @@ export type Database = {
         | "failed"
         | "canceled"
       calendar_attendee_status: "going" | "not_going"
+      calendar_event_confirmation_status:
+        | "pending"
+        | "confirmed"
+        | "canceled_by_customer"
       calendar_event_status: "scheduled" | "canceled"
       calendar_event_type: "appointment" | "unavailability"
       calendar_event_visibility: "private" | "shared"
@@ -2750,6 +2781,7 @@ export type Database = {
         | "member_unavailability"
         | "stock_check_reminder"
         | "low_stock"
+        | "appointment_confirmation_response"
       org_role: "owner" | "employee"
       payment_method: "cash" | "bank_transfer" | "credit_card" | "debit_card"
       platform_role: "super_admin" | "user"
@@ -2930,6 +2962,11 @@ export const Constants = {
         "canceled",
       ],
       calendar_attendee_status: ["going", "not_going"],
+      calendar_event_confirmation_status: [
+        "pending",
+        "confirmed",
+        "canceled_by_customer",
+      ],
       calendar_event_status: ["scheduled", "canceled"],
       calendar_event_type: ["appointment", "unavailability"],
       calendar_event_visibility: ["private", "shared"],
@@ -2945,6 +2982,7 @@ export const Constants = {
         "member_unavailability",
         "stock_check_reminder",
         "low_stock",
+        "appointment_confirmation_response",
       ],
       org_role: ["owner", "employee"],
       payment_method: ["cash", "bank_transfer", "credit_card", "debit_card"],
