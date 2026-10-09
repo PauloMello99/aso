@@ -27,9 +27,17 @@ describe("audit-labels", () => {
     expect(AUDIT_ACTION_VARIANTS.campaign_email_bounced).toBe("secondary")
   })
 
-  it("cobre os 19 valores de auditActionEnum nos dois mapas", () => {
-    expect(Object.keys(AUDIT_ACTION_LABELS)).toHaveLength(19)
-    expect(Object.keys(AUDIT_ACTION_VARIANTS)).toHaveLength(19)
+  it("rotula a ação quote_request_closed emitida ao responder um pedido de orçamento", () => {
+    expect(AUDIT_ACTION_LABELS.quote_request_closed).toBe(
+      "Orçamento: pedido respondido",
+    )
+    expect(AUDIT_ACTION_VARIANTS.quote_request_closed).toBe("secondary")
+    expect(AUDIT_ACTION_OPTIONS).toContain("quote_request_closed")
+  })
+
+  it("cobre os 20 valores de auditActionEnum nos dois mapas", () => {
+    expect(Object.keys(AUDIT_ACTION_LABELS)).toHaveLength(20)
+    expect(Object.keys(AUDIT_ACTION_VARIANTS)).toHaveLength(20)
     for (const action of AUDIT_ACTION_OPTIONS) {
       expect(AUDIT_ACTION_LABELS[action]).toBeTruthy()
       expect(AUDIT_ACTION_VARIANTS[action]).toBeTruthy()

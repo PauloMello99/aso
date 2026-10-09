@@ -206,6 +206,13 @@ export const queryKeys = {
     mine: (orgId: string) => ["quote-forms", orgId, "mine"] as const,
   },
 
+  // Mesmo prefixo da key inline de features/agenda/hooks/use-calendar-events
+  // (["calendar", orgId, ...]); o hook da agenda não foi refatorado — esta
+  // entrada existe só para invalidar a agenda por prefixo.
+  calendar: {
+    all: (orgId: string) => ["calendar", orgId] as const,
+  },
+
   quoteRequests: {
     all: (orgId: string) => ["quote-requests", orgId] as const,
     lists: (orgId: string) => ["quote-requests", orgId, "list"] as const,

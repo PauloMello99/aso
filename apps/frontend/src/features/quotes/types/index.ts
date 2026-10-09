@@ -46,6 +46,22 @@ export interface QuoteRequestDetail {
   imagesUnavailable: boolean
 }
 
+export interface ScheduleQuoteRequestBody {
+  startsAt: string
+  durationMinutes: number
+}
+
+export interface ScheduleQuoteRequestResult {
+  eventId: string
+  startsAt: string
+  endsAt: string
+  alreadyScheduled: boolean
+}
+
+export interface DeclineQuoteRequestResult {
+  contactRetained: boolean
+}
+
 export interface UnreadQuoteCount {
   unread: number
 }

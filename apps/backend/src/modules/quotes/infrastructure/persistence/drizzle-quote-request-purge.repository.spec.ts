@@ -167,6 +167,130 @@ describe("DrizzleQuoteRequestPurgeRepository", () => {
     });
   });
 
+  describe("closeAndClaim", () => {
+    const EVENT_ID = "11111111-1111-4111-8111-111111111111";
+    const TARGET_ID = "user-9";
+    const claimRow = {
+      id: REQUEST_ID,
+      org_id: ORG_ID,
+      purge_scope: "all",
+      purge_attempts: 1,
+      purge_last_attempt_at: "2026-10-08T12:00:00.000Z",
+    };
+
+    it("encerra e reivindica em UM statement, filtrando org, id, alvo, status new e prazo", async () => {
+      const { admin, executed } = buildFakeAdmin([], [claimRow]);
+      const repo = new DrizzleQuoteRequestPurgeRepository(admin);
+
+      const claim = await repo.closeAndClaim({
+        orgId: ORG_ID,
+        id: REQUEST_ID,
+        targetUserId: TARGET_ID,
+        outcome: "not_scheduled",
+        now: NOW,
+      });
+
+      expect(executed).toHaveLength(1);
+      const { sql, params } = render(executed[0]);
+      expect(sql).toContain("update quote_requests q set");
+      expect(sql).toContain("q.status = 'new'");
+      expect(sql).toContain("q.purge_requested_at is null");
+      expect(sql).toContain("q.org_id =");
+      expect(sql).toContain("q.target_user_id =");
+      expect(sql).toContain("q.expires_at >");
+      expect(sql).toContain("purge_attempts = q.purge_attempts + 1");
+      expect(sql).toContain("purge_last_attempt_at =");
+      expect(sql).toContain("purge_last_error = null");
+      expect(sql).toContain("greatest(");
+      expect(sql).toContain("interval '720 hours'");
+      expect(sql).toContain("then 'images'");
+      expect(sql).toContain("else 'all'");
+      expect(sql).toContain("q.contact_retention_consent_accepted_at is not null");
+      expect(sql).not.toContain("calendar_events");
+      expect(params).toEqual(
+        expect.arrayContaining([ORG_ID, REQUEST_ID, TARGET_ID, NOW.toISOString()]),
+      );
+      expect(claim).toEqual({
+        id: REQUEST_ID,
+        orgId: ORG_ID,
+        scope: "all",
+        attempts: 1,
+        claimedAt: CLAIMED_AT,
+      });
+    });
+
+    it("no 'scheduled' exige a prova do evento commitado (EXISTS em calendar_events)", async () => {
+      const { admin, executed } = buildFakeAdmin([], [claimRow]);
+
+      await new DrizzleQuoteRequestPurgeRepository(admin).closeAndClaim({
+        orgId: ORG_ID,
+        id: REQUEST_ID,
+        targetUserId: TARGET_ID,
+        outcome: "scheduled",
+        now: NOW,
+        requiredEventId: EVENT_ID,
+      });
+
+      const { sql, params } = render(executed[0]);
+      expect(sql).toContain("exists ( select 1 from calendar_events e");
+      expect(sql).toContain("e.org_id = q.org_id");
+      expect(sql).toContain("e.source_quote_request_id = q.id");
+      expect(params).toContain(EVENT_ID);
+    });
+
+    it("0 linhas => null (ja respondido, expirado, fora do alvo ou evento nao commitado)", async () => {
+      const { admin } = buildFakeAdmin([], []);
+
+      await expect(
+        new DrizzleQuoteRequestPurgeRepository(admin).closeAndClaim({
+          orgId: ORG_ID,
+          id: REQUEST_ID,
+          targetUserId: TARGET_ID,
+          outcome: "scheduled",
+          now: NOW,
+          requiredEventId: EVENT_ID,
+        }),
+      ).resolves.toBeNull();
+    });
+
+    it("'scheduled' sem requiredEventId lanca sem executar", async () => {
+      const { admin, executed } = buildFakeAdmin();
+
+      await expect(
+        new DrizzleQuoteRequestPurgeRepository(admin).closeAndClaim({
+          orgId: ORG_ID,
+          id: REQUEST_ID,
+          targetUserId: TARGET_ID,
+          outcome: "scheduled",
+          now: NOW,
+        }),
+      ).rejects.toThrow("requiredEventId");
+      expect(executed).toHaveLength(0);
+    });
+
+    it("erro do driver sobe sanitizado (sem params)", async () => {
+      const admin = {
+        execute: jest.fn().mockRejectedValue(buildDrizzleLikeError()),
+      } as unknown as DrizzleDB;
+
+      const error = await new DrizzleQuoteRequestPurgeRepository(admin)
+        .closeAndClaim({
+          orgId: ORG_ID,
+          id: REQUEST_ID,
+          targetUserId: TARGET_ID,
+          outcome: "not_scheduled",
+          now: NOW,
+        })
+        .catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(QuoteRequestPersistenceError);
+      const sanitized = error as QuoteRequestPersistenceError;
+      expect(sanitized.sqlState).toBe("40P01");
+      expect(sanitized.cause).toBeUndefined();
+      expect(`${sanitized.message}\n${sanitized.stack ?? ""}`).not.toContain(REQUEST_ID);
+    });
+  });
+
   describe("listImagePaths", () => {
     it("filtra por org e pedido", async () => {
       const { admin, wheres } = buildFakeAdmin([[{ storagePath: "org-1/req-1/a.png" }]]);

@@ -2,7 +2,7 @@ import type { AuditAction } from "../types"
 
 type AuditActionVariant = "default" | "secondary" | "destructive" | "outline"
 
-// Espelha os 19 valores de `auditActionEnum` (apps/backend/src/database/schema/enums.ts).
+// Espelha os 20 valores de `auditActionEnum` (apps/backend/src/database/schema/enums.ts).
 // Ao adicionar um valor no enum do backend, sincronizar a union `AuditAction` e estes
 // dois mapas — o `check-types` cobra exaustividade por serem `Record<AuditAction, ...>`.
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
@@ -25,6 +25,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   org_admin_access: "Admin: acesso à org",
   campaign_settings_updated: "Configuração de campanhas atualizada",
   campaign_email_bounced: "Campanha: e-mail rejeitado",
+  quote_request_closed: "Orçamento: pedido respondido",
 }
 
 export const AUDIT_ACTION_VARIANTS: Record<AuditAction, AuditActionVariant> = {
@@ -47,6 +48,7 @@ export const AUDIT_ACTION_VARIANTS: Record<AuditAction, AuditActionVariant> = {
   org_admin_access: "secondary",
   campaign_settings_updated: "secondary",
   campaign_email_bounced: "secondary",
+  quote_request_closed: "secondary",
 }
 
 // Deriva as opções de filtro do próprio mapa — assim um novo valor de enum entra

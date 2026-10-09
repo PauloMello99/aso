@@ -10,6 +10,11 @@ import { QUOTE_REQUEST_REPOSITORY } from "./domain/quote-request.repository.inte
 import { QUOTE_REQUEST_PURGE_REPOSITORY } from "./domain/quote-request-purge.repository.interface";
 import { DrizzleQuoteRequestPurgeRepository } from "./infrastructure/persistence/drizzle-quote-request-purge.repository";
 import { QuoteRequestPurger } from "./application/quote-request-purger";
+import { QuoteRequestCloser } from "./application/quote-request-closer";
+import { CalendarModule } from "../calendar/calendar.module";
+import { SubscriptionsModule } from "../subscriptions/subscriptions.module";
+import { ScheduleQuoteRequestUseCase } from "./application/use-cases/schedule-quote-request.use-case";
+import { DeclineQuoteRequestUseCase } from "./application/use-cases/decline-quote-request.use-case";
 import { DrizzleQuoteFormRepository } from "./infrastructure/persistence/drizzle-quote-form.repository";
 import { DrizzleQuoteRequestRepository } from "./infrastructure/persistence/drizzle-quote-request.repository";
 import { GetMyQuoteFormUseCase } from "./application/use-cases/get-my-quote-form.use-case";
@@ -34,6 +39,11 @@ import { QuoteCaptchaGuard } from "./interface/quote-captcha.guard";
     CronJobStateModule,
     NotificationsModule,
     OrgsInfrastructureModule,
+    // "Agendou": CreateCalendarEventUseCase + CALENDAR_EVENT_REPOSITORY. Sem ciclo:
+    // CalendarModule nao importa QuotesModule.
+    CalendarModule,
+    // ActiveSubscriptionGuard (endpoint schedule).
+    SubscriptionsModule,
   ],
   controllers: [
     PublicQuoteFormsController,
@@ -61,6 +71,9 @@ import { QuoteCaptchaGuard } from "./interface/quote-captcha.guard";
       useClass: DrizzleQuoteRequestPurgeRepository,
     },
     QuoteRequestPurger,
+    QuoteRequestCloser,
+    ScheduleQuoteRequestUseCase,
+    DeclineQuoteRequestUseCase,
     PurgeExpiredQuoteRequestsUseCase,
     SweepOrphanQuoteObjectsUseCase,
     // Verifier reaproveitado de support/ (sem importar o SupportInfrastructureModule inteiro).

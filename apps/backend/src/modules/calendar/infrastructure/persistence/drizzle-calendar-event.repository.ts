@@ -21,7 +21,27 @@ import type {
   OrgMembershipInfo,
   OrgOwner,
 } from "../../domain/calendar-event.repository.interface";
+import { CalendarEventSourceConflictException } from "../../domain/exceptions/calendar-event-source-conflict.exception";
 import { CalendarEventMapper } from "./calendar-event.mapper";
+
+const SOURCE_QUOTE_UNIQUE_INDEX = "calendar_events_source_quote_request_uq";
+
+// O driver pode entregar o erro do pg direto ou embrulhado em `cause`. Só a
+// violação de unicidade do índice de origem é mapeada; qualquer outro erro
+// (inclusive outro 23505) segue propagando.
+function isSourceQuoteUniqueViolation(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const candidates: unknown[] = [error];
+  if ("cause" in error) candidates.push((error as { cause?: unknown }).cause);
+  return candidates.some((candidate) => {
+    if (typeof candidate !== "object" || candidate === null) return false;
+    const { code, constraint } = candidate as {
+      code?: unknown;
+      constraint?: unknown;
+    };
+    return code === "23505" && constraint === SOURCE_QUOTE_UNIQUE_INDEX;
+  });
+}
 
 // `undefined` = não mexe na coluna; `null` = limpa.
 function confirmationColumns(
@@ -178,26 +198,58 @@ export class DrizzleCalendarEventRepository implements ICalendarEventRepository 
     return !!row;
   }
 
-  async create(data: CreateCalendarEventData): Promise<CalendarEventEntity> {
+  async findBySourceQuoteRequest(
+    orgId: string,
+    quoteRequestId: string,
+  ): Promise<{ id: string; assignedTo: string; startsAt: Date; endsAt: Date } | null> {
     const [row] = await this.db
-      .insert(schema.calendarEvents)
-      .values({
-        orgId: data.orgId,
-        assignedTo: data.assignedTo,
-        createdBy: data.createdBy ?? null,
-        customerId: data.customerId ?? null,
-        type: data.type,
-        title: data.title,
-        description: data.description ?? null,
-        startsAt: data.startsAt,
-        endsAt: data.endsAt,
-        allDay: data.allDay ?? false,
-        visibility: data.visibility ?? "private",
-        customerEmail: data.customerEmail ?? null,
-        ...confirmationColumns(data.confirmation),
+      .select({
+        id: schema.calendarEvents.id,
+        assignedTo: schema.calendarEvents.assignedTo,
+        startsAt: schema.calendarEvents.startsAt,
+        endsAt: schema.calendarEvents.endsAt,
       })
-      .returning();
-    return CalendarEventMapper.toDomain(row!);
+      .from(schema.calendarEvents)
+      .where(
+        and(
+          eq(schema.calendarEvents.orgId, orgId),
+          eq(schema.calendarEvents.sourceQuoteRequestId, quoteRequestId),
+        ),
+      )
+      .limit(1);
+    return row ?? null;
+  }
+
+  async create(data: CreateCalendarEventData): Promise<CalendarEventEntity> {
+    try {
+      const [row] = await this.db
+        .insert(schema.calendarEvents)
+        .values({
+          orgId: data.orgId,
+          assignedTo: data.assignedTo,
+          createdBy: data.createdBy ?? null,
+          customerId: data.customerId ?? null,
+          type: data.type,
+          title: data.title,
+          description: data.description ?? null,
+          startsAt: data.startsAt,
+          endsAt: data.endsAt,
+          allDay: data.allDay ?? false,
+          visibility: data.visibility ?? "private",
+          customerEmail: data.customerEmail ?? null,
+          sourceQuoteRequestId: data.sourceQuoteRequestId ?? null,
+          ...confirmationColumns(data.confirmation),
+        })
+        .returning();
+      return CalendarEventMapper.toDomain(row!);
+    } catch (error) {
+      // Relançar é obrigatório: engolir o erro deixaria a transação do request
+      // abortada (ROLLBACK silencioso). Só a unique de origem vira 409.
+      if (isSourceQuoteUniqueViolation(error)) {
+        throw new CalendarEventSourceConflictException();
+      }
+      throw error;
+    }
   }
 
   async update(

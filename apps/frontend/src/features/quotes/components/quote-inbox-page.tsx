@@ -11,14 +11,21 @@ interface QuoteInboxPageProps {
   orgId: string
   orgSlug: string
   role: "owner" | "employee"
+  canSchedule: boolean
 }
 
 // Evita um 400 do ParseUUIDPipe quando o ?id= da URL é lixo.
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export function QuoteInboxPage({ orgId, orgSlug, role }: QuoteInboxPageProps) {
+export function QuoteInboxPage({
+  orgId,
+  orgSlug,
+  role,
+  canSchedule,
+}: QuoteInboxPageProps) {
   const router = useRouter()
+  const [outcomeMessage, setOutcomeMessage] = React.useState<string | null>(null)
   const isOwner = role === "owner"
   const settingsHref = `/dashboard/org/${orgSlug}/settings/quote-form`
 
@@ -40,6 +47,12 @@ export function QuoteInboxPage({ orgId, orgSlug, role }: QuoteInboxPageProps) {
     [router],
   )
 
+  // Remove só o ?id (preserva ?page etc.) e mostra o resultado na página.
+  function handleResolved(message: string) {
+    updateIdParam(null)
+    setOutcomeMessage(message)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -60,6 +73,23 @@ export function QuoteInboxPage({ orgId, orgSlug, role }: QuoteInboxPageProps) {
         </Button>
       </div>
 
+      <div role="status" aria-live="polite">
+        {outcomeMessage && (
+          <div className="flex flex-col gap-2 rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] p-4 text-sm text-foreground/90 sm:flex-row sm:items-center sm:justify-between">
+            <p>{outcomeMessage}</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-11 sm:h-9"
+              onClick={() => setOutcomeMessage(null)}
+            >
+              Dispensar
+            </Button>
+          </div>
+        )}
+      </div>
+
       <QuoteRequestList
         orgId={orgId}
         orgSlug={orgSlug}
@@ -72,7 +102,9 @@ export function QuoteInboxPage({ orgId, orgSlug, role }: QuoteInboxPageProps) {
         orgId={orgId}
         id={selectedId}
         isOwner={isOwner}
+        canSchedule={canSchedule}
         onClose={() => updateIdParam(null)}
+        onResolved={handleResolved}
       />
     </div>
   )

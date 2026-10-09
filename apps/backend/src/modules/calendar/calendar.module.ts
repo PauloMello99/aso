@@ -53,6 +53,8 @@ import { AppointmentConfirmationFeatureFlagGuard } from "./interface/appointment
   ],
   exports: [
     CalendarInfrastructureModule,
+    // Consumido por QuotesModule ("Agendou"); CalendarModule não importa QuotesModule (sem ciclo).
+    CreateCalendarEventUseCase,
     SendAgendaRemindersUseCase,
     SendCustomerConfirmationRemindersUseCase,
   ],
