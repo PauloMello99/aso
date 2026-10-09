@@ -90,6 +90,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "stock_check_reminder",
   "low_stock",
   "appointment_confirmation_response",
+  "quote_request_received",
 ]);
 
 export const stockMovementTypeEnum = pgEnum("stock_movement_type", [

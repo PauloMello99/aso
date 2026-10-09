@@ -4,11 +4,16 @@ export const MODULE_KEYS = [
   "schedule",
   "stock",
   "cashier",
+  "quotes",
 ] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 
-export const DEFAULT_EMPLOYEE_PERMISSIONS: ModuleKey[] = ["services", "schedule"];
+export const DEFAULT_EMPLOYEE_PERMISSIONS: ModuleKey[] = [
+  "services",
+  "schedule",
+  "quotes",
+];
 
 export function isModuleKey(value: string): value is ModuleKey {
   return (MODULE_KEYS as readonly string[]).includes(value);

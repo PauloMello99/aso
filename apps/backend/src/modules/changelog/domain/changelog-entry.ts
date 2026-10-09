@@ -11,6 +11,7 @@ export const CHANGELOG_MODULE_HREFS = [
   "cashier",
   "members",
   "campaigns",
+  "quotes",
   "settings",
   "support",
 ] as const;

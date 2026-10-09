@@ -1,5 +1,7 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
+import { NotificationsModule } from "../notifications/notifications.module";
+import { OrgsInfrastructureModule } from "../organizations/infrastructure/orgs-infrastructure.module";
 import { CAPTCHA_VERIFIER } from "../support/domain/ports/captcha-verifier.port";
 import { TurnstileCaptchaVerifier } from "../support/infrastructure/turnstile-captcha-verifier";
 import { QUOTE_FORM_REPOSITORY } from "./domain/quote-form.repository.interface";
@@ -10,15 +12,28 @@ import { GetMyQuoteFormUseCase } from "./application/use-cases/get-my-quote-form
 import { UpsertMyQuoteFormUseCase } from "./application/use-cases/upsert-my-quote-form.use-case";
 import { GetPublicQuoteFormUseCase } from "./application/use-cases/get-public-quote-form.use-case";
 import { SubmitQuoteRequestUseCase } from "./application/use-cases/submit-quote-request.use-case";
+import { ListQuoteRequestsUseCase } from "./application/use-cases/list-quote-requests.use-case";
+import { GetQuoteRequestUseCase } from "./application/use-cases/get-quote-request.use-case";
+import { CountUnreadQuoteRequestsUseCase } from "./application/use-cases/count-unread-quote-requests.use-case";
+import { MarkQuoteRequestViewedUseCase } from "./application/use-cases/mark-quote-request-viewed.use-case";
+import { QuoteRequestsController } from "./interface/quote-requests.controller";
 import { PublicQuoteFormsController } from "./interface/public-quote-forms.controller";
 import { QuoteFormsController } from "./interface/quote-forms.controller";
 import { PublicQuoteFormFeatureFlagGuard } from "./interface/public-quote-form-feature-flag.guard";
 import { QuoteCaptchaGuard } from "./interface/quote-captcha.guard";
 
 @Module({
-  imports: [AuthModule],
-  controllers: [PublicQuoteFormsController, QuoteFormsController],
+  imports: [AuthModule, NotificationsModule, OrgsInfrastructureModule],
+  controllers: [
+    PublicQuoteFormsController,
+    QuoteFormsController,
+    QuoteRequestsController,
+  ],
   providers: [
+    ListQuoteRequestsUseCase,
+    GetQuoteRequestUseCase,
+    CountUnreadQuoteRequestsUseCase,
+    MarkQuoteRequestViewedUseCase,
     GetMyQuoteFormUseCase,
     UpsertMyQuoteFormUseCase,
     GetPublicQuoteFormUseCase,

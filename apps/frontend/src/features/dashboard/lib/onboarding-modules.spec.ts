@@ -36,7 +36,7 @@ describe("getPendingOnboardingModules", () => {
   it("has nothing pending for a legacy user who completed after introduction", () => {
     const pending = getPendingOnboardingModules(owner, {
       onboardingSeen: {},
-      onboardingCompletedAt: "2026-08-01T10:00:00.000Z",
+      onboardingCompletedAt: "2026-11-01T10:00:00.000Z",
     })
     expect(pending).toEqual([])
   })
@@ -53,13 +53,13 @@ describe("getPendingOnboardingModules", () => {
     const newModule: OnboardingModule = {
       id: "novo-modulo",
       version: 1,
-      introducedAt: "2026-09-20T12:00:00Z",
+      introducedAt: "2026-12-01T12:00:00Z",
       steps: [{ selector: null, title: "Novo", description: "Novo modulo" }],
     }
     const modules = [...ONBOARDING_MODULES, newModule]
     const pending = getPendingOnboardingModules(
       owner,
-      { onboardingSeen: {}, onboardingCompletedAt: "2026-08-01T10:00:00.000Z" },
+      { onboardingSeen: {}, onboardingCompletedAt: "2026-11-01T10:00:00.000Z" },
       modules,
     )
     expect(ids(pending)).toEqual(["novo-modulo"])
@@ -102,6 +102,35 @@ describe("getPendingOnboardingModules", () => {
     expect(pending).not.toContain("stock")
     expect(pending).not.toContain("cashier")
     expect(pending).not.toContain("campaigns")
+  })
+
+  it("never returns a module listed as unavailable", () => {
+    const pending = ids(
+      getPendingOnboardingModules(
+        owner,
+        { onboardingSeen: {}, onboardingCompletedAt: null },
+        undefined,
+        new Set(["quotes"]),
+      ),
+    )
+    expect(pending).not.toContain("quotes")
+    expect(pending).toContain("schedule")
+  })
+
+  it("lists quotes as pending for an owner when it is available", () => {
+    const pending = getPendingOnboardingModules(owner, {
+      onboardingSeen: {},
+      onboardingCompletedAt: null,
+    })
+    expect(ids(pending)).toContain("quotes")
+  })
+
+  it("treats quotes as pending for a legacy user who completed the tour before it existed", () => {
+    const pending = getPendingOnboardingModules(owner, {
+      onboardingSeen: {},
+      onboardingCompletedAt: "2026-08-01T10:00:00.000Z",
+    })
+    expect(ids(pending)).toEqual(["quotes"])
   })
 
   it("ignores unknown keys in onboardingSeen", () => {
@@ -178,8 +207,18 @@ describe("getPendingTourSteps", () => {
     expect(
       getPendingTourSteps(owner, {
         onboardingSeen: {},
-        onboardingCompletedAt: "2026-08-01T10:00:00.000Z",
+        onboardingCompletedAt: "2026-11-01T10:00:00.000Z",
       }),
+    ).toEqual([])
+  })
+
+  it("returns no steps when the only pending module is unavailable", () => {
+    expect(
+      getPendingTourSteps(
+        owner,
+        { onboardingSeen: {}, onboardingCompletedAt: "2026-08-01T10:00:00.000Z" },
+        new Set(["quotes"]),
+      ),
     ).toEqual([])
   })
 })

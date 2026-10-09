@@ -4,7 +4,11 @@ import { useEffect, useRef } from "react"
 import { useRouter } from "next/router"
 import { driver, type DriveStep } from "driver.js"
 import { useMe } from "@/features/auth/hooks/use-me"
-import { getPendingOnboardingModules } from "@/features/dashboard/lib/onboarding-modules"
+import {
+  getPendingOnboardingModules,
+  NO_UNAVAILABLE_MODULES,
+  type UnavailableModuleIds,
+} from "@/features/dashboard/lib/onboarding-modules"
 import { getPendingTourSteps, getTourSteps } from "@/features/dashboard/lib/onboarding-tour"
 import type { OrgSummary } from "@/features/dashboard/hooks/use-orgs"
 import type { Me } from "@/features/auth/types"
@@ -16,13 +20,20 @@ interface UseOnboardingTourParams {
   me: Me | null
   org: OrgSummary | undefined
   setMobileOpen: (open: boolean) => void
+  /** Modulos indisponiveis na org; `null` = ainda carregando (nao inicia o tour). */
+  unavailableModuleIds: UnavailableModuleIds | null
 }
 
 function isSidebarStep(step: DriveStep): boolean {
   return typeof step.element === "string" && step.element.startsWith('[data-tour="nav-')
 }
 
-export function useOnboardingTour({ me, org, setMobileOpen }: UseOnboardingTourParams) {
+export function useOnboardingTour({
+  me,
+  org,
+  setMobileOpen,
+  unavailableModuleIds,
+}: UseOnboardingTourParams) {
   const router = useRouter()
   const { updateMe } = useMe()
 
@@ -39,8 +50,11 @@ export function useOnboardingTour({ me, org, setMobileOpen }: UseOnboardingTourP
   routerRef.current = router
 
   const isReplay = router.query.tour === "1"
+  const unavailable = unavailableModuleIds ?? NO_UNAVAILABLE_MODULES
   const shouldAutoStart =
-    !!me && !!org && getPendingOnboardingModules(org, me).length > 0
+    !!me &&
+    !!org &&
+    getPendingOnboardingModules(org, me, undefined, unavailable).length > 0
 
   useEffect(() => {
     return () => {
@@ -65,6 +79,9 @@ export function useOnboardingTour({ me, org, setMobileOpen }: UseOnboardingTourP
     }
     if (startedRef.current) return
     if (!org) return
+    // Disponibilidade dos modulos ainda carregando: espera para nao ofertar (nem
+    // marcar como visto) um modulo que pode estar desligado.
+    if (unavailableModuleIds === null) return
     if (!shouldAutoStart && !isReplay) return
 
     const resolvedOrg = org
@@ -72,7 +89,7 @@ export function useOnboardingTour({ me, org, setMobileOpen }: UseOnboardingTourP
     const shouldMarkComplete = !wasReplay && me?.onboardingCompletedAt == null
     const offeredModules = wasReplay
       ? []
-      : getPendingOnboardingModules(resolvedOrg, me ?? {})
+      : getPendingOnboardingModules(resolvedOrg, me ?? {}, undefined, unavailable)
     let finished = false
 
     const timer = window.setTimeout(() => {
@@ -82,8 +99,8 @@ export function useOnboardingTour({ me, org, setMobileOpen }: UseOnboardingTourP
       const isMobile = window.matchMedia(MOBILE_QUERY).matches
 
       const tourSteps = wasReplay
-        ? getTourSteps(resolvedOrg)
-        : getPendingTourSteps(resolvedOrg, me ?? {})
+        ? getTourSteps(resolvedOrg, unavailable)
+        : getPendingTourSteps(resolvedOrg, me ?? {}, unavailable)
       if (tourSteps.length === 0) {
         startedRef.current = false
         return
@@ -154,5 +171,5 @@ export function useOnboardingTour({ me, org, setMobileOpen }: UseOnboardingTourP
     }, 0)
 
     return () => window.clearTimeout(timer)
-  }, [org, shouldAutoStart, isReplay, me])
+  }, [org, shouldAutoStart, isReplay, me, unavailableModuleIds, unavailable])
 }

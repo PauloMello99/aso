@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, or, sql } from "drizzle-orm";
 import {
   DRIZZLE,
   DRIZZLE_ADMIN,
@@ -127,7 +127,9 @@ export class DrizzleQuoteFormRepository implements IQuoteFormRepository {
    * RlsInterceptor nao abre transacao com claims (excecao deliberada, ADR-0021/
    * ADR-0035). O org_id e o profissional-alvo sao DERIVADOS do slug aqui no
    * servidor, nunca do cliente. Org suspensa, membro desabilitado ou formulario
-   * desativado resultam em null (indistinguivel de slug inexistente).
+   * desativado resultam em null (indistinguivel de slug inexistente). O mesmo vale
+   * para funcionario SEM o modulo 'quotes' (owner sempre tem acesso): sem isso o
+   * pedido entraria numa caixa de entrada que ele nao consegue abrir.
    */
   async findPublicBySlugAsAdmin(
     slug: string,
@@ -159,6 +161,10 @@ export class DrizzleQuoteFormRepository implements IQuoteFormRepository {
             eq(schema.quoteForms.enabled, true),
             isNull(schema.organizations.suspendedAt),
             eq(schema.orgMemberships.enabled, true),
+            or(
+              eq(schema.orgMemberships.role, "owner"),
+              sql`'quotes' = ANY(${schema.orgMemberships.permissions})`,
+            ),
           ),
         )
         .limit(1);

@@ -13,6 +13,7 @@ import {
   IStorageProvider,
   STORAGE_PROVIDER,
 } from "../../../auth/application/ports/storage-provider.interface";
+import { NotificationService } from "../../../notifications/application/notification.service";
 import {
   MAX_QUOTE_IMAGES,
   MAX_QUOTE_IMAGE_BYTES,
@@ -64,6 +65,7 @@ export class SubmitQuoteRequestUseCase {
     private readonly requests: IQuoteRequestRepository,
     @Inject(STORAGE_PROVIDER)
     private readonly storage: IStorageProvider,
+    private readonly notifications: NotificationService,
   ) {}
 
   // O captcha ja foi verificado no QuoteCaptchaGuard (antes do multer).
@@ -155,6 +157,34 @@ export class SubmitQuoteRequestUseCase {
         `Failed to store quote request ${quoteRequestId} (org ${target.orgId}, images ${input.files.length}, error ${failureName})`,
       );
       throw error;
+    }
+
+    // Fora do try/catch acima de proposito: o pedido ja esta gravado, entao uma
+    // falha aqui NUNCA pode acionar o cleanup das imagens (apagaria anexos de um
+    // pedido valido) nem fazer o solicitante ver erro.
+    await this.notifyTarget(quoteRequestId, target);
+  }
+
+  // Best-effort e sem PII: so o profissional destino, in-app (sem e-mail).
+  private async notifyTarget(
+    quoteRequestId: string,
+    target: { orgId: string; targetUserId: string },
+  ): Promise<void> {
+    try {
+      await this.notifications.notify({
+        userId: target.targetUserId,
+        orgId: target.orgId,
+        type: "quote_request_received",
+        title: "Novo pedido de orçamento",
+        body: "Abra Orçamentos para ver os detalhes.",
+        data: { quoteRequestId },
+        email: false,
+      });
+    } catch (error) {
+      const name = error instanceof Error ? error.name : "unknown";
+      this.logger.warn(
+        `Falha ao notificar novo pedido de orcamento ${quoteRequestId} (org ${target.orgId}): ${name}`,
+      );
     }
   }
 

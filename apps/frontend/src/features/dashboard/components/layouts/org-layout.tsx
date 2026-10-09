@@ -12,6 +12,11 @@ import { HideValuesProvider } from "@/shared/components/hide-values-provider"
 import { useOrgs, useResolveOrgBySlug } from "@/features/dashboard/hooks/use-orgs"
 import { useOnboardingTour } from "@/features/dashboard/hooks/use-onboarding-tour"
 import { useMe } from "@/features/auth/hooks/use-me"
+import { useQuotesAvailability } from "@/features/quotes/hooks/use-quotes-availability"
+import {
+  NO_UNAVAILABLE_MODULES,
+  type UnavailableModuleIds,
+} from "@/features/dashboard/lib/onboarding-modules"
 import { resolveOrgAccess } from "@/features/dashboard/lib/org-access"
 import {
   PAGE_LABELS,
@@ -120,7 +125,15 @@ export function OrgLayout({ children }: OrgLayoutProps) {
     setMobileOpen(false)
   }, [router.pathname])
 
-  useOnboardingTour({ me, org, setMobileOpen })
+  const { available: quotesAvailable, settled: quotesSettled } =
+    useQuotesAvailability(org?.id ?? "")
+  // `null` = ainda carregando: o tour espera para nao ofertar um modulo desligado.
+  const unavailableModuleIds = React.useMemo<UnavailableModuleIds | null>(() => {
+    if (!quotesSettled) return null
+    return quotesAvailable ? NO_UNAVAILABLE_MODULES : new Set(["quotes"])
+  }, [quotesSettled, quotesAvailable])
+
+  useOnboardingTour({ me, org, setMobileOpen, unavailableModuleIds })
 
   if (!org) return null
 

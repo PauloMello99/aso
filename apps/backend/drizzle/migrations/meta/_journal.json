@@ -624,6 +624,20 @@
       "when": 1782007700000,
       "tag": "0088_quote_request_images_bucket",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1782007800000,
+      "tag": "0089_quote_requests_inbox",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1782007900000,
+      "tag": "0090_notification_quote_request_received",
+      "breakpoints": true
     }
   ]
 }

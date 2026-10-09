@@ -205,4 +205,15 @@ export const queryKeys = {
     all: (orgId: string) => ["quote-forms", orgId] as const,
     mine: (orgId: string) => ["quote-forms", orgId, "mine"] as const,
   },
+
+  quoteRequests: {
+    all: (orgId: string) => ["quote-requests", orgId] as const,
+    lists: (orgId: string) => ["quote-requests", orgId, "list"] as const,
+    list: (orgId: string, page: number) =>
+      ["quote-requests", orgId, "list", page] as const,
+    detail: (orgId: string, id: string) =>
+      ["quote-requests", orgId, "detail", id] as const,
+    unreadCount: (orgId: string) =>
+      ["quote-requests", orgId, "unread-count"] as const,
+  },
 } as const

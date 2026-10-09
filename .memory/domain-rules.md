@@ -1740,3 +1740,11 @@ OR is_org_member(org_id)))`; as de INSERT exigem `org_id IS NOT NULL AND (...)` 
   constraint matching the ON CONFLICT" em todo upload quando `storage.objects` só tem índices únicos parciais
   (restore de backup). Não é bug do app; testar upload real exige `supabase db reset` (destrutivo no local) ou um
   índice único completo `(bucket_id, name)` criado como `supabase_admin`.
+- **Privilégio de coluna como defesa de UPDATE pela sessão** (2026-10-09, ADR-0037): `REVOKE UPDATE ON t FROM
+  app_user; GRANT UPDATE (col) TO app_user` + policy de UPDATE. Toda coluna nova que a sessão precise atualizar
+  deve entrar no GRANT, senão 42501. Escritas privilegiadas continuam por `DRIZZLE_ADMIN` escopado.
+- **Módulo atrás de flag + tour**: `ONBOARDING_MODULE_META.<mod>.introducedAt` deve ser o instante do go-live;
+  com a flag off o tour exclui o módulo (`unavailable`), senão usuários que concluem o tour antes ficam com o
+  módulo marcado como "visto" pelo fallback de data.
+- **`next dev` + `next build` no mesmo `.next`**: o build do tester deixa um manifesto de rotas que faz o dev
+  server devolver 404 para páginas novas; pare o dev, `rm -rf apps/frontend/.next` e suba de novo.

@@ -104,6 +104,7 @@ export function FilePreviewDialog({
             <img
               src={file.url}
               alt={file.fileName}
+              referrerPolicy="no-referrer"
               className="h-full w-full object-contain"
             />
           ) : isPdf ? (
