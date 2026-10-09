@@ -637,6 +637,7 @@ export type Database = {
           id: string
           org_id: string
           reminder_sent_at: string | null
+          source_quote_request_id: string | null
           starts_at: string
           status: Database["public"]["Enums"]["calendar_event_status"]
           title: string
@@ -664,6 +665,7 @@ export type Database = {
           id?: string
           org_id: string
           reminder_sent_at?: string | null
+          source_quote_request_id?: string | null
           starts_at: string
           status?: Database["public"]["Enums"]["calendar_event_status"]
           title: string
@@ -691,6 +693,7 @@ export type Database = {
           id?: string
           org_id?: string
           reminder_sent_at?: string | null
+          source_quote_request_id?: string | null
           starts_at?: string
           status?: Database["public"]["Enums"]["calendar_event_status"]
           title?: string
@@ -2753,6 +2756,7 @@ export type Database = {
         | "org_admin_access"
         | "campaign_settings_updated"
         | "campaign_email_bounced"
+        | "quote_request_closed"
       billing_interval: "monthly" | "semiannual" | "annual"
       billing_invoice_event_type: "paid" | "payment_failed"
       billing_refund_event_status:
@@ -2952,6 +2956,7 @@ export const Constants = {
         "org_admin_access",
         "campaign_settings_updated",
         "campaign_email_bounced",
+        "quote_request_closed",
       ],
       billing_interval: ["monthly", "semiannual", "annual"],
       billing_invoice_event_type: ["paid", "payment_failed"],

@@ -7,11 +7,14 @@ import {
 import * as schema from "../../../../database/schema";
 import { toPersistenceError } from "./quote-persistence.error";
 import type {
+  CloseQuoteRequestInput,
   IQuoteRequestPurgeRepository,
   QuoteRequestPurgeClaim,
 } from "../../domain/quote-request-purge.repository.interface";
 import {
+  QUOTE_CONTACT_RETENTION_HOURS,
   QUOTE_PURGE_SCOPE,
+  QUOTE_REQUEST_STATUS,
   type QuotePurgeScope,
 } from "../../domain/quote-request-lifecycle";
 
@@ -89,6 +92,73 @@ export class DrizzleQuoteRequestPurgeRepository
         attempts: Number(row.purge_attempts),
         claimedAt: new Date(row.purge_last_attempt_at),
       }));
+    });
+  }
+
+  closeAndClaim(
+    input: CloseQuoteRequestInput,
+  ): Promise<QuoteRequestPurgeClaim | null> {
+    if (input.outcome === QUOTE_REQUEST_STATUS.SCHEDULED && !input.requiredEventId) {
+      return Promise.reject(
+        new Error("closeAndClaim: requiredEventId e obrigatorio para 'scheduled'"),
+      );
+    }
+
+    return sanitized(async () => {
+      const nowIso = input.now.toISOString();
+      const retentionHours = sql.raw(String(QUOTE_CONTACT_RETENTION_HOURS));
+      // Prova de commit: o evento criado pela sessao precisa ser visivel a este
+      // statement (outra conexao, autocommit). Sem commit => 0 linhas.
+      const eventProof =
+        input.outcome === QUOTE_REQUEST_STATUS.SCHEDULED
+          ? sql`AND EXISTS (
+              SELECT 1 FROM calendar_events e
+              WHERE e.org_id = q.org_id
+                AND e.id = ${input.requiredEventId}::uuid
+                AND e.source_quote_request_id = q.id
+            )`
+          : sql``;
+
+      // Um unico statement: status/closed_at/expires_at/purge_* juntos (CHECKs da
+      // 0091) e o lease do claim. O escopo vem da propria linha: so 'Nao agendou'
+      // COM consentimento preserva o contato (escopo 'images', retencao de 720h).
+      const { rows } = await this.admin.execute<ClaimRow>(sql`
+        UPDATE quote_requests q SET
+          status = ${input.outcome}::text,
+          closed_at = GREATEST(${nowIso}::timestamptz, q.created_at),
+          expires_at = CASE
+            WHEN ${input.outcome}::text = 'not_scheduled' AND q.contact_retention_consent_accepted_at IS NOT NULL
+              THEN GREATEST(${nowIso}::timestamptz, q.created_at) + interval '${retentionHours} hours'
+            ELSE q.expires_at
+          END,
+          purge_requested_at = ${nowIso}::timestamptz,
+          purge_scope = CASE
+            WHEN ${input.outcome}::text = 'not_scheduled' AND q.contact_retention_consent_accepted_at IS NOT NULL
+              THEN 'images'
+            ELSE 'all'
+          END,
+          purge_attempts = q.purge_attempts + 1,
+          purge_last_attempt_at = ${nowIso}::timestamptz,
+          purge_last_error = NULL
+        WHERE q.org_id = ${input.orgId}
+          AND q.id = ${input.id}
+          AND q.target_user_id = ${input.targetUserId}
+          AND q.status = 'new'
+          AND q.purge_requested_at IS NULL
+          AND q.expires_at > ${nowIso}::timestamptz
+          ${eventProof}
+        RETURNING q.id, q.org_id, q.purge_scope, q.purge_attempts, q.purge_last_attempt_at
+      `);
+
+      const row = rows[0];
+      if (!row) return null;
+      return {
+        id: row.id,
+        orgId: row.org_id,
+        scope: toScope(row.purge_scope),
+        attempts: Number(row.purge_attempts),
+        claimedAt: new Date(row.purge_last_attempt_at),
+      };
     });
   }
 

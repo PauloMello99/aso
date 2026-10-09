@@ -7,6 +7,15 @@ export const QUOTE_REQUEST_STATUS = {
 export type QuoteRequestStatus =
   (typeof QUOTE_REQUEST_STATUS)[keyof typeof QUOTE_REQUEST_STATUS];
 
+/** Resposta do profissional ao pedido (todo status que nao e 'new'). */
+export type QuoteRequestOutcome = Exclude<QuoteRequestStatus, "new">;
+
+/**
+ * Retencao do contato apos 'Nao agendou' com consentimento, em HORAS (espelha o
+ * CHECK quote_requests_retention_window_check da 0091: interval '720 hours').
+ */
+export const QUOTE_CONTACT_RETENTION_HOURS = 720;
+
 export const QUOTE_PURGE_SCOPE = {
   ALL: "all",
   IMAGES: "images",

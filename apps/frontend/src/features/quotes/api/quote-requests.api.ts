@@ -1,7 +1,10 @@
 import { apiRequest } from "@/infrastructure/api/client"
 import type {
+  DeclineQuoteRequestResult,
   QuoteRequestDetail,
   QuoteRequestsPage,
+  ScheduleQuoteRequestBody,
+  ScheduleQuoteRequestResult,
   UnreadQuoteCount,
 } from "../types"
 
@@ -27,6 +30,27 @@ export function getQuoteRequest(
 
 export function getUnreadQuoteCount(orgId: string): Promise<UnreadQuoteCount> {
   return apiRequest<UnreadQuoteCount>(`/orgs/${orgId}/quotes/unread-count`)
+}
+
+export function scheduleQuoteRequest(
+  orgId: string,
+  id: string,
+  body: ScheduleQuoteRequestBody,
+): Promise<ScheduleQuoteRequestResult> {
+  return apiRequest<ScheduleQuoteRequestResult>(
+    `/orgs/${orgId}/quotes/${id}/schedule`,
+    { method: "POST", body: JSON.stringify(body) },
+  )
+}
+
+export function declineQuoteRequest(
+  orgId: string,
+  id: string,
+): Promise<DeclineQuoteRequestResult> {
+  return apiRequest<DeclineQuoteRequestResult>(
+    `/orgs/${orgId}/quotes/${id}/decline`,
+    { method: "POST" },
+  )
 }
 
 export function markQuoteRequestViewed(

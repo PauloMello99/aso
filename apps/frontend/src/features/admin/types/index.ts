@@ -102,6 +102,7 @@ export type AuditAction =
   | "org_admin_access"
   | "campaign_settings_updated"
   | "campaign_email_bounced"
+  | "quote_request_closed"
 
 export interface AuditLogEntry {
   id: string

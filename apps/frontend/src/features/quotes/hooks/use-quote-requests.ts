@@ -9,12 +9,18 @@ import {
 import { ApiError } from "@/infrastructure/api/client"
 import { queryKeys } from "@/infrastructure/query/query-keys"
 import {
+  declineQuoteRequest,
   getQuoteRequest,
   getUnreadQuoteCount,
   listQuoteRequests,
   markQuoteRequestViewed,
+  scheduleQuoteRequest,
 } from "../api/quote-requests.api"
-import type { QuoteRequestsPage, UnreadQuoteCount } from "../types"
+import type {
+  QuoteRequestsPage,
+  ScheduleQuoteRequestBody,
+  UnreadQuoteCount,
+} from "../types"
 
 const POLL_INTERVAL_MS = 60_000
 // URLs assinadas do detalhe valem 300s: reaproveita o cache só enquanto ainda
@@ -26,6 +32,18 @@ const DETAIL_STALE_TIME_MS = 240_000
 function isNotFound(error: unknown): boolean {
   return (
     error instanceof ApiError && (error.status === 404 || error.status === 403)
+  )
+}
+
+/**
+ * Pedido já respondido/expirado/fora de escopo (404) ou evento já criado para o
+ * pedido por outra requisição (409 CALENDAR_EVENT_SOURCE_CONFLICT).
+ */
+export function isQuoteAlreadyResolvedError(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    (error.status === 404 ||
+      (error.status === 409 && error.code === "CALENDAR_EVENT_SOURCE_CONFLICT"))
   )
 }
 
@@ -87,6 +105,80 @@ export function useUnreadQuoteCount(orgId: string, enabled: boolean) {
   })
 
   return { unread: data?.unread ?? 0 }
+}
+
+export function useScheduleQuoteRequest(orgId: string) {
+  const queryClient = useQueryClient()
+
+  const mutation = useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string
+      body: ScheduleQuoteRequestBody
+    }) => scheduleQuoteRequest(orgId, id, body),
+    onSuccess: (_result, { id }) => {
+      queryClient.removeQueries({
+        queryKey: queryKeys.quoteRequests.detail(orgId, id),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.quoteRequests.all(orgId),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.calendar.all(orgId),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.overview.detail(orgId),
+      })
+    },
+    onError: (error, { id }) => {
+      if (!isQuoteAlreadyResolvedError(error)) return
+      queryClient.removeQueries({
+        queryKey: queryKeys.quoteRequests.detail(orgId, id),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.quoteRequests.all(orgId),
+      })
+    },
+  })
+
+  return {
+    schedule: mutation.mutateAsync,
+    isPending: mutation.isPending,
+    reset: mutation.reset,
+  }
+}
+
+export function useDeclineQuoteRequest(orgId: string) {
+  const queryClient = useQueryClient()
+
+  const mutation = useMutation({
+    mutationFn: (id: string) => declineQuoteRequest(orgId, id),
+    onSuccess: (_result, id) => {
+      queryClient.removeQueries({
+        queryKey: queryKeys.quoteRequests.detail(orgId, id),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.quoteRequests.all(orgId),
+      })
+    },
+    onError: (error, id) => {
+      if (!isQuoteAlreadyResolvedError(error)) return
+      queryClient.removeQueries({
+        queryKey: queryKeys.quoteRequests.detail(orgId, id),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.quoteRequests.all(orgId),
+      })
+    },
+  })
+
+  return {
+    decline: mutation.mutateAsync,
+    isPending: mutation.isPending,
+    reset: mutation.reset,
+  }
 }
 
 export function useMarkQuoteRequestViewed(orgId: string) {

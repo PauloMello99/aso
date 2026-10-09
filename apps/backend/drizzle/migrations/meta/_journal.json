@@ -645,6 +645,20 @@
       "when": 1782008000000,
       "tag": "0091_quote_requests_purge_state",
       "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1782008100000,
+      "tag": "0092_quote_request_responses",
+      "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1782008200000,
+      "tag": "0093_audit_action_quote_request_closed",
+      "breakpoints": true
     }
   ]
 }

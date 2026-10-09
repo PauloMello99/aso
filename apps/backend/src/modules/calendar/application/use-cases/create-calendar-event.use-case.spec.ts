@@ -173,4 +173,19 @@ describe("CreateCalendarEventUseCase — confirmação de agendamento", () => {
     expect(dispatcher.scheduleConfirmation).not.toHaveBeenCalled();
   });
 
+  it("repassa sourceQuoteRequestId ao repositório", async () => {
+    const { useCase, repo } = build(true);
+
+    await useCase.execute(buildFakeInput({ sourceQuoteRequestId: "quote-1" }));
+
+    expect(repo.create.mock.calls[0]?.[0].sourceQuoteRequestId).toBe("quote-1");
+  });
+
+  it("sem origem grava sourceQuoteRequestId null", async () => {
+    const { useCase, repo } = build(true);
+
+    await useCase.execute(buildFakeInput());
+
+    expect(repo.create.mock.calls[0]?.[0].sourceQuoteRequestId).toBeNull();
+  });
 });

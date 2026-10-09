@@ -36,6 +36,8 @@ export interface CreateCalendarEventInput {
   endsAt: Date;
   allDay?: boolean;
   visibility?: CalendarEventVisibility;
+  /** Só uso interno (ex.: QuotesModule); nunca vindo de DTO HTTP. */
+  sourceQuoteRequestId?: string | null;
 }
 
 @Injectable()
@@ -104,6 +106,7 @@ export class CreateCalendarEventUseCase {
       allDay: input.allDay ?? false,
       visibility: input.visibility ?? "private",
       customerEmail,
+      sourceQuoteRequestId: input.sourceQuoteRequestId ?? null,
       ...(cycle && { confirmation: cycle.confirmation }),
     });
 

@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   Header,
@@ -25,7 +26,17 @@ import {
 } from "../application/use-cases/get-quote-request.use-case";
 import { CountUnreadQuoteRequestsUseCase } from "../application/use-cases/count-unread-quote-requests.use-case";
 import { MarkQuoteRequestViewedUseCase } from "../application/use-cases/mark-quote-request-viewed.use-case";
+import {
+  ScheduleQuoteRequestOutput,
+  ScheduleQuoteRequestUseCase,
+} from "../application/use-cases/schedule-quote-request.use-case";
+import {
+  DeclineQuoteRequestOutput,
+  DeclineQuoteRequestUseCase,
+} from "../application/use-cases/decline-quote-request.use-case";
+import { ActiveSubscriptionGuard } from "../../subscriptions/interface/guards/active-subscription.guard";
 import { ListQuoteRequestsQueryDto } from "./dto/list-quote-requests-query.dto";
+import { ScheduleQuoteRequestDto } from "./dto/schedule-quote-request.dto";
 import { PublicQuoteFormFeatureFlagGuard } from "./public-quote-form-feature-flag.guard";
 
 // Caixa de entrada: org do path + OrgMembershipGuard; o escopo (owner x proprio
@@ -45,6 +56,8 @@ export class QuoteRequestsController {
     private readonly countUnread: CountUnreadQuoteRequestsUseCase,
     private readonly getRequest: GetQuoteRequestUseCase,
     private readonly markViewed: MarkQuoteRequestViewedUseCase,
+    private readonly scheduleRequest: ScheduleQuoteRequestUseCase,
+    private readonly declineRequest: DeclineQuoteRequestUseCase,
   ) {}
 
   @Get()
@@ -81,6 +94,40 @@ export class QuoteRequestsController {
     @CurrentUser() user: AuthUser,
   ): Promise<QuoteRequestDetailView> {
     return this.getRequest.execute({ orgId, authId: user.id, id });
+  }
+
+  // "Agendou": ActiveSubscriptionGuard em paridade com POST /calendar. Responde so
+  // ids/horarios (nunca a entidade: titulo e e-mail do evento sao PII).
+  @Post(":id/schedule")
+  @HttpCode(200)
+  @UseGuards(ActiveSubscriptionGuard)
+  @Header("Cache-Control", "no-store")
+  schedule(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: ScheduleQuoteRequestDto,
+  ): Promise<ScheduleQuoteRequestOutput> {
+    return this.scheduleRequest.execute({
+      orgId,
+      authId: user.id,
+      id,
+      startsAt: new Date(dto.startsAt),
+      durationMinutes: dto.durationMinutes,
+    });
+  }
+
+  // "Nao agendou": SEM ActiveSubscriptionGuard de proposito. So remove dados
+  // pessoais; a minimizacao (LGPD) nao pode ser bloqueada por assinatura.
+  @Post(":id/decline")
+  @HttpCode(200)
+  @Header("Cache-Control", "no-store")
+  decline(
+    @Param("orgId", ParseUUIDPipe) orgId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ): Promise<DeclineQuoteRequestOutput> {
+    return this.declineRequest.execute({ orgId, authId: user.id, id });
   }
 
   @Post(":id/viewed")

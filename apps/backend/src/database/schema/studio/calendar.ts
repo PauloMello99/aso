@@ -63,6 +63,8 @@ export const calendarEvents = pgTable(
     customerReminderSentAt: timestamp("customer_reminder_sent_at", {
       withTimezone: true,
     }),
+    // Origem opaca (pedido de orçamento purgado depois): sem FK de propósito.
+    sourceQuoteRequestId: uuid("source_quote_request_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -71,6 +73,9 @@ export const calendarEvents = pgTable(
       .defaultNow(),
   },
   (t) => [
+    uniqueIndex("calendar_events_source_quote_request_uq")
+      .on(t.orgId, t.sourceQuoteRequestId)
+      .where(sql`${t.sourceQuoteRequestId} IS NOT NULL`),
     index("calendar_events_org_member_starts_idx").on(
       t.orgId,
       t.assignedTo,

@@ -58,6 +58,8 @@ export interface CreateCalendarEventData {
   visibility?: CalendarEventVisibility;
   customerEmail?: string | null;
   confirmation?: CalendarEventConfirmationData;
+  /** Origem opaca (ex.: pedido de orçamento). Só gravação; não vai à entidade. */
+  sourceQuoteRequestId?: string | null;
 }
 
 export interface UpdateCalendarEventData {

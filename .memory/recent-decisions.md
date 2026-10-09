@@ -324,3 +324,8 @@
   linha, sweep de órfãos (24 h, 6 h, UUID estrito, erro de DB aborta a org), `removeFiles`/`listObjects` verificados
   (`removeFile` legado intacto), jobs sem kill-switch, sem auditoria na C3a. C3b: encerramento via `DRIZZLE_ADMIN`
   escopado (nunca no GRANT de coluna) — corrige a nota do ADR-0037.
+- **2026-10-09 — Respostas Agendou/Não agendou dos orçamentos, C3b (ADR-0039).** Encerramento = UPDATE único via
+  `DRIZZLE_ADMIN` escopado (`closeAndClaim`; nunca no GRANT de coluna), evento criado pela sessão + hook pós-commit com
+  prova de commit (`EXISTS`), idempotência por `calendar_events.source_quote_request_id` (sem FK), policies da 0089 recriadas
+  + REVOKE INSERT/DELETE, `audit_action quote_request_closed`. Contato retido 720 h **sem leitor** foi aceito
+  explicitamente pelo usuário (dívida LGPD registrada). Checklist de go-live no ADR-0039.

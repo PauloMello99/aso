@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { ApiError } from "@/infrastructure/api/client"
 import { Button } from "@/shared/components/ui/button"
 import { Badge } from "@/shared/components/ui/badge"
 import {
@@ -12,8 +13,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/shared/components/ui/sheet"
+import { ConfirmDialog } from "@/shared/components/ui/confirm-dialog"
 import { cn } from "@/shared/lib/utils"
 import {
+  isQuoteAlreadyResolvedError,
+  useDeclineQuoteRequest,
   useMarkQuoteRequestViewed,
   useQuoteRequest,
 } from "../hooks/use-quote-requests"
@@ -23,13 +27,21 @@ import type { QuoteRequestDetail } from "../types"
 import { CopyableContact } from "./copyable-contact"
 import { NO_PROFESSIONAL_LABEL } from "./quote-request-card"
 import { QuoteImageGallery } from "./quote-image-gallery"
+import {
+  QUOTE_ALREADY_RESOLVED_MESSAGE,
+  ScheduleQuoteDialog,
+} from "./schedule-quote-dialog"
 
 interface QuoteRequestSheetProps {
   orgId: string
   /** `null` = fechado. */
   id: string | null
   isOwner: boolean
+  /** Usuário tem o módulo 'schedule' (o backend revalida). */
+  canSchedule: boolean
   onClose: () => void
+  /** Pedido respondido: a página fecha o Sheet e exibe a mensagem. */
+  onResolved: (message: string) => void
 }
 
 const SECTION_LABEL_CLASS =
@@ -71,14 +83,126 @@ function WhatsappAction({ phone }: { phone: string | null }) {
   )
 }
 
-function DetailContent({
+function describeDeclineError(error: unknown): string {
+  if (error instanceof ApiError && error.status === 403) {
+    return "Você não pode responder este pedido."
+  }
+  return "Não foi possível encerrar o pedido. Tente novamente."
+}
+
+function ResponseActions({
+  orgId,
   detail,
   isOwner,
-  onRefetch,
+  canSchedule,
+  onResolved,
 }: {
+  orgId: string
   detail: QuoteRequestDetail
   isOwner: boolean
+  canSchedule: boolean
+  onResolved: (message: string) => void
+}) {
+  const [scheduleOpen, setScheduleOpen] = React.useState(false)
+  const [declineOpen, setDeclineOpen] = React.useState(false)
+  const [declineError, setDeclineError] = React.useState<string | null>(null)
+  const { decline, isPending, reset } = useDeclineQuoteRequest(orgId)
+
+  function handleDeclineOpenChange(open: boolean) {
+    setDeclineOpen(open)
+    if (open) {
+      setDeclineError(null)
+      reset()
+    }
+  }
+
+  async function handleDecline() {
+    setDeclineError(null)
+    try {
+      await decline(detail.id)
+      setDeclineOpen(false)
+      onResolved("Pedido encerrado sem agendamento.")
+    } catch (error) {
+      if (isQuoteAlreadyResolvedError(error)) {
+        setDeclineOpen(false)
+        onResolved(QUOTE_ALREADY_RESOLVED_MESSAGE)
+        return
+      }
+      setDeclineError(describeDeclineError(error))
+    }
+  }
+
+  // Owner sem profissional-alvo identificado: não há agenda a nomear.
+  const showSchedule = canSchedule && !(isOwner && !detail.targetDisplayName)
+
+  const declineDescription =detail.contactRetentionAccepted
+    ? "O pedido sai da caixa de entrada e as imagens são apagadas agora. Como o cliente autorizou, nome, telefone, e-mail e a descrição do pedido ficam retidos por até 30 dias e depois apagados automaticamente. Esta ação não pode ser desfeita."
+    : "O pedido e as imagens são apagados agora. Esta ação não pode ser desfeita."
+
+  return (
+    <section className="space-y-2">
+      <h3 className={SECTION_LABEL_CLASS}>Resultado do contato</h3>
+      <p className="text-xs text-foreground/40">
+        Depois de conversar com o cliente, registre o resultado.
+      </p>
+      <div className={cn("grid gap-2", showSchedule ? "grid-cols-2" : "grid-cols-1")}>
+        {showSchedule && (
+          <Button
+            type="button"
+            className="h-11 sm:h-9"
+            onClick={() => setScheduleOpen(true)}
+          >
+            Agendou
+          </Button>
+        )}
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 sm:h-9"
+          onClick={() => handleDeclineOpenChange(true)}
+        >
+          Não agendou
+        </Button>
+      </div>
+
+      <ScheduleQuoteDialog
+        open={scheduleOpen}
+        onOpenChange={setScheduleOpen}
+        orgId={orgId}
+        requestId={detail.id}
+        assigneeName={isOwner ? detail.targetDisplayName : null}
+        onResolved={onResolved}
+      />
+
+      <ConfirmDialog
+        open={declineOpen}
+        onOpenChange={handleDeclineOpenChange}
+        title="Encerrar sem agendamento?"
+        description={declineDescription}
+        confirmLabel="Encerrar pedido"
+        destructive
+        loading={isPending}
+        error={declineError}
+        onConfirm={() => void handleDecline()}
+      />
+    </section>
+  )
+}
+
+function DetailContent({
+  orgId,
+  detail,
+  isOwner,
+  canSchedule,
+  onRefetch,
+  onResolved,
+}: {
+  orgId: string
+  detail: QuoteRequestDetail
+  isOwner: boolean
+  canSchedule: boolean
   onRefetch: () => void
+  onResolved: (message: string) => void
 }) {
   const expiry = describeExpiry(detail.expiresAt)
   const professional = detail.targetDisplayName ?? NO_PROFESSIONAL_LABEL
@@ -127,6 +251,14 @@ function DetailContent({
           a expiração.
         </p>
       </section>
+
+      <ResponseActions
+        orgId={orgId}
+        detail={detail}
+        isOwner={isOwner}
+        canSchedule={canSchedule}
+        onResolved={onResolved}
+      />
     </div>
   )
 }
@@ -135,7 +267,9 @@ export function QuoteRequestSheet({
   orgId,
   id,
   isOwner,
+  canSchedule,
   onClose,
+  onResolved,
 }: QuoteRequestSheetProps) {
   const { data, loading, notFound, error, refetch } = useQuoteRequest(orgId, id)
   const { markViewed } = useMarkQuoteRequestViewed(orgId)
@@ -195,9 +329,12 @@ export function QuoteRequestSheet({
             </div>
           ) : data ? (
             <DetailContent
+              orgId={orgId}
               detail={data}
               isOwner={isOwner}
+              canSchedule={canSchedule}
               onRefetch={handleRefetch}
+              onResolved={onResolved}
             />
           ) : null}
         </SheetBody>
