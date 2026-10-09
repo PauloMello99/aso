@@ -183,7 +183,10 @@ describe("DrizzleQuoteRequestRepository (leitura da caixa de entrada)", () => {
       expect(sql).not.toContain("target_user_id");
       expect(sql).not.toContain("viewed_at");
       expect(sql).toContain('"expires_at" > now()');
-      expect(params).toEqual(["org-1"]);
+      // C3a: so pedidos 'new' e sem purga pendente aparecem na caixa.
+      expect(sql).toContain('"status" =');
+      expect(sql).toContain('"purge_requested_at" is null');
+      expect(params).toEqual(["org-1", "new"]);
       const join = render(joins[0]);
       expect(join.sql).toContain('"quote_forms"."org_id" = "quote_requests"."org_id"');
       expect(join.sql).toContain(
@@ -218,7 +221,7 @@ describe("DrizzleQuoteRequestRepository (leitura da caixa de entrada)", () => {
       expect(sql).toContain('"org_id" =');
       expect(sql).toContain('"target_user_id" =');
       expect(sql).toContain('"viewed_at" is null');
-      expect(params).toEqual(["org-1", "user-1"]);
+      expect(params).toEqual(["org-1", "new", "user-1"]);
       // O total usa o MESMO filtro da pagina.
       expect(render(wheres[1])).toEqual(render(wheres[0]));
     });
@@ -246,9 +249,10 @@ describe("DrizzleQuoteRequestRepository (leitura da caixa de entrada)", () => {
       await expect(repo.countUnreadForViewer("org-1", OWN)).resolves.toBe(4);
 
       const { sql, params } = render(wheres[0]);
+      expect(sql).toContain('"purge_requested_at" is null');
       expect(sql).toContain('"target_user_id" =');
       expect(sql).toContain('"viewed_at" is null');
-      expect(params).toEqual(["org-1", "user-1"]);
+      expect(params).toEqual(["org-1", "new", "user-1"]);
     });
   });
 
@@ -263,9 +267,10 @@ describe("DrizzleQuoteRequestRepository (leitura da caixa de entrada)", () => {
       const detail = await repo.findDetailForViewer("org-1", OWN, "r-1");
 
       const { sql, params } = render(wheres[0]);
+      expect(sql).toContain('"purge_requested_at" is null');
       expect(sql).toContain('"target_user_id" =');
       expect(sql).toContain('"id" =');
-      expect(params).toEqual(["org-1", "user-1", "r-1"]);
+      expect(params).toEqual(["org-1", "new", "user-1", "r-1"]);
       expect(render(joins[0]).sql).toContain(
         '"quote_forms"."user_id" = "quote_requests"."target_user_id"',
       );
@@ -295,10 +300,11 @@ describe("DrizzleQuoteRequestRepository (leitura da caixa de entrada)", () => {
 
       expect(chain.set).toHaveBeenCalledWith({ viewedAt: VIEWED_AT });
       const { sql, params } = render(wheres[0]);
+      expect(sql).toContain('"purge_requested_at" is null');
       expect(sql).toContain('"id" =');
       expect(sql).toContain('"target_user_id" =');
       expect(sql).toContain('"viewed_at" is null');
-      expect(params).toEqual(["org-1", "user-1", "r-1"]);
+      expect(params).toEqual(["org-1", "new", "user-1", "r-1"]);
     });
   });
 

@@ -11,6 +11,8 @@ import { ReconcileRefundsUseCase } from "../subscriptions/application/use-cases/
 import { RunCampaignTriggersUseCase } from "../campaigns/application/use-cases/run-campaign-triggers.use-case";
 import { SendChangelogAnnouncementsUseCase } from "../changelog/application/use-cases/send-changelog-announcements.use-case";
 import { SweepTicketSlaUseCase } from "../support/application/use-cases/sweep-ticket-sla.use-case";
+import { PurgeExpiredQuoteRequestsUseCase } from "../quotes/application/use-cases/purge-expired-quote-requests.use-case";
+import { SweepOrphanQuoteObjectsUseCase } from "../quotes/application/use-cases/sweep-orphan-quote-objects.use-case";
 
 interface JobResult {
   name: string;
@@ -33,6 +35,8 @@ export class InternalCronController {
     private readonly sweepTicketSla: SweepTicketSlaUseCase,
     private readonly sendChangelogAnnouncements: SendChangelogAnnouncementsUseCase,
     private readonly sendCustomerConfirmationReminders: SendCustomerConfirmationRemindersUseCase,
+    private readonly purgeExpiredQuoteRequests: PurgeExpiredQuoteRequestsUseCase,
+    private readonly sweepOrphanQuoteObjects: SweepOrphanQuoteObjectsUseCase,
   ) {}
 
   @Post("tick")
@@ -94,6 +98,21 @@ export class InternalCronController {
         // customer_reminder_sent_at.
         name: CRON_JOBS.CUSTOMER_CONFIRMATION_REMINDERS,
         run: () => this.sendCustomerConfirmationReminders.execute(),
+      },
+      {
+        // NOT gated by PUBLIC_QUOTE_FORM_ENABLED (or any kill-switch): data
+        // collected while the flag was on must still be purged after it is
+        // turned off. Serialization is the row-level claim (FOR UPDATE SKIP
+        // LOCKED + 10-minute lease) inside the use-case.
+        name: CRON_JOBS.QUOTE_REQUEST_PURGE,
+        run: () => this.purgeExpiredQuoteRequests.execute(),
+      },
+      {
+        // Self-throttled via claimRun inside the use-case (runs at most once
+        // every 6 hours); most calls are a cheap no-op claim check. Also NOT
+        // gated by PUBLIC_QUOTE_FORM_ENABLED.
+        name: CRON_JOBS.QUOTE_ORPHAN_SWEEP,
+        run: () => this.sweepOrphanQuoteObjects.execute(),
       },
     ];
 

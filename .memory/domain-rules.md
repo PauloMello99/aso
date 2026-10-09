@@ -1748,3 +1748,8 @@ OR is_org_member(org_id)))`; as de INSERT exigem `org_id IS NOT NULL AND (...)` 
   módulo marcado como "visto" pelo fallback de data.
 - **`next dev` + `next build` no mesmo `.next`**: o build do tester deixa um manifesto de rotas que faz o dev
   server devolver 404 para páginas novas; pare o dev, `rm -rf apps/frontend/.next` e suba de novo.
+- **Remoção no Storage em código novo = `removeFiles`/`listObjects`** (ADR-0038): verificam erro; `removeFile`
+  legado ignora `{error}`. Cron que decide "órfão" por ausência de linha deve consultar via `DRIZZLE_ADMIN` e abortar em
+  erro (sob `DRIZZLE` sem sessão o RLS devolve vazio e apagaria tudo). Retenção em horas (`interval '720 hours'`), não
+  dias. `list()` do supabase-js é de um nível, paginado, pasta = `id` nulo: listar o nível inteiro antes de remover.
+  CHECK com coluna NULL passa: use `IS NOT DISTINCT FROM`.

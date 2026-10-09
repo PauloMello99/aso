@@ -74,12 +74,25 @@ export const quoteRequests = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     // Migration 0089: null = nao lido. O tenant (app_user) so pode UPDATE desta coluna.
     viewedAt: timestamp("viewed_at", { withTimezone: true }),
+    // Migration 0091: encerramento + fila de purga (so DRIZZLE_ADMIN escreve purge_*).
+    // closed_at e NULL sse status = 'new'.
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    purgeRequestedAt: timestamp("purge_requested_at", { withTimezone: true }),
+    purgeScope: text("purge_scope"),
+    purgeAttempts: integer("purge_attempts").notNull().default(0),
+    purgeLastAttemptAt: timestamp("purge_last_attempt_at", {
+      withTimezone: true,
+    }),
+    purgeLastError: text("purge_last_error"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (t) => [
     unique("quote_requests_id_org_id_uq").on(t.id, t.orgId),
+    index("quote_requests_purge_pending_idx")
+      .on(t.purgeAttempts, t.purgeLastAttemptAt)
+      .where(sql`${t.purgeRequestedAt} IS NOT NULL`),
     index("quote_requests_org_created_idx").on(t.orgId, t.createdAt.desc()),
     index("quote_requests_unread_idx")
       .on(t.orgId, t.targetUserId)
@@ -106,10 +119,45 @@ export const quoteRequests = pgTable(
       "quote_requests_idea_check",
       sql`char_length(${t.idea}) BETWEEN 1 AND 2000`,
     ),
-    check("quote_requests_status_check", sql`${t.status} IN ('new')`),
+    check(
+      "quote_requests_status_check",
+      sql`${t.status} IN ('new','scheduled','not_scheduled')`,
+    ),
     check(
       "quote_requests_expires_after_created_check",
       sql`${t.expiresAt} > ${t.createdAt}`,
+    ),
+    check(
+      "quote_requests_closed_at_check",
+      sql`(${t.status} = 'new') = (${t.closedAt} IS NULL) AND (${t.closedAt} IS NULL OR ${t.closedAt} >= ${t.createdAt})`,
+    ),
+    check(
+      "quote_requests_retention_window_check",
+      sql`${t.expiresAt} <= COALESCE(${t.closedAt}, ${t.createdAt}) + interval '720 hours'`,
+    ),
+    check(
+      "quote_requests_purge_scope_check",
+      sql`(${t.purgeRequestedAt} IS NULL) = (${t.purgeScope} IS NULL) AND (${t.purgeScope} IS NULL OR ${t.purgeScope} IN ('all','images'))`,
+    ),
+    check(
+      "quote_requests_purge_images_scope_check",
+      sql`${t.purgeScope} IS DISTINCT FROM 'images' OR ${t.status} = 'not_scheduled'`,
+    ),
+    check(
+      "quote_requests_scheduled_purge_check",
+      sql`${t.status} <> 'scheduled' OR ${t.purgeScope} IS NOT DISTINCT FROM 'all'`,
+    ),
+    check(
+      "quote_requests_not_scheduled_consent_check",
+      sql`${t.status} <> 'not_scheduled' OR ${t.contactRetentionConsentAcceptedAt} IS NOT NULL OR ${t.purgeScope} IS NOT DISTINCT FROM 'all'`,
+    ),
+    check(
+      "quote_requests_purge_attempts_check",
+      sql`${t.purgeAttempts} >= 0`,
+    ),
+    check(
+      "quote_requests_purge_last_error_check",
+      sql`${t.purgeLastError} IS NULL OR ${t.purgeLastError} ~ '^[A-Za-z0-9_.:-]{1,80}$'`,
     ),
   ],
 );

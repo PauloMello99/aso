@@ -27,14 +27,18 @@ import type {
   QuoteRequestListPage,
 } from "../../domain/quote-request.repository.interface";
 import type { QuoteRequestViewerScope } from "../../domain/quote-request-viewer-scope";
+import { QUOTE_REQUEST_STATUS } from "../../domain/quote-request-lifecycle";
 
 // Filtro explicito de org + escopo do leitor. O RLS (0089) impoe o mesmo recorte
 // no banco; aqui e o filtro de aplicacao (org_id da sessao, nunca do cliente).
-// Pedidos expirados (expires_at <= now) ficam invisiveis mesmo antes do sweep da C3.
+// Pedidos expirados (expires_at <= now), encerrados (status <> 'new') ou com purga
+// pendente (purge_requested_at nao nulo) ficam invisiveis, mesmo antes da purga.
 function visibleTo(orgId: string, scope: QuoteRequestViewerScope): SQL | undefined {
   return and(
     eq(schema.quoteRequests.orgId, orgId),
     gt(schema.quoteRequests.expiresAt, sql`now()`),
+    eq(schema.quoteRequests.status, QUOTE_REQUEST_STATUS.NEW),
+    isNull(schema.quoteRequests.purgeRequestedAt),
     scope.kind === "own"
       ? eq(schema.quoteRequests.targetUserId, scope.userId)
       : undefined,

@@ -17,6 +17,8 @@ export const CRON_JOBS = {
   CAMPAIGN_TRIGGERS: "campaign-triggers",
   CHANGELOG_ANNOUNCEMENTS: "changelog-announcements",
   CUSTOMER_CONFIRMATION_REMINDERS: "customer-confirmation-reminders",
+  QUOTE_REQUEST_PURGE: "quote-request-purge",
+  QUOTE_ORPHAN_SWEEP: "quote-orphan-sweep",
 } as const;
 
 export type CronJobName = (typeof CRON_JOBS)[keyof typeof CRON_JOBS];

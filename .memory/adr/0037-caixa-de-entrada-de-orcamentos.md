@@ -21,8 +21,9 @@ Tudo continua atrás de `PUBLIC_QUOTE_FORM_ENABLED` (default off).
   notificação). Alternativa futura: tabela de leitura por usuário.
 - **Privilégio de coluna** (alternativa sancionada ao trigger/allowlist rejeitados no ADR-0021): `REVOKE UPDATE
   ON quote_requests FROM app_user` + `GRANT UPDATE (viewed_at) TO app_user` + policy de UPDATE no mesmo escopo.
-  Sem GRANT a `anon`/`authenticated` (o `REVOKE` da 0087 permanece). **Gotcha para a C3**: novas colunas
-  atualizáveis pela sessão (ex.: `status`) precisam ser incluídas no GRANT de coluna, senão 42501.
+  Sem GRANT a `anon`/`authenticated` (o `REVOKE` da 0087 permanece). **Corrigido pelo ADR-0038**:
+  `status`/`closed_at`/`purge_*` NUNCA entram no GRANT de coluna (o tenant passaria a controlar a fila de purga);
+  o encerramento é escrita privilegiada via `DRIZZLE_ADMIN` escopado. Só colunas realmente seguras entram no GRANT.
 - **Permissão `quotes`** (`MODULE_KEYS`; funcionário liberado por padrão): backfill na `0089` para funcionários
   existentes, `DEFAULT_EMPLOYEE_PERMISSIONS` inclui `quotes`, owner liga/desliga por pessoa. O lookup público
   (`findPublicBySlugAsAdmin`) passou a exigir `role='owner' OR 'quotes' = ANY(permissions)`: sem o módulo o

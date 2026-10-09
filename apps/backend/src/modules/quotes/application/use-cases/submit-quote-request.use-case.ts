@@ -148,7 +148,10 @@ export class SubmitQuoteRequestUseCase {
         images,
       );
     } catch (error) {
-      await this.cleanupUploads(uploadedPaths);
+      await this.cleanupUploads(uploadedPaths, {
+        orgId: target.orgId,
+        quoteRequestId,
+      });
       if (failureName === "unknown" && error instanceof Error) {
         failureName = error.name;
       }
@@ -202,14 +205,21 @@ export class SubmitQuoteRequestUseCase {
     });
   }
 
-  // Best-effort: cada remocao tem seu try/catch.
-  private async cleanupUploads(paths: string[]): Promise<void> {
-    for (const path of paths) {
-      try {
-        await this.storage.removeFile(QUOTE_REQUEST_IMAGES_BUCKET, path);
-      } catch {
-        // Orfao detectavel pelo prefixo {orgId}/{quoteRequestId}/; sweep em C3.
-      }
+  // Best-effort: uma unica chamada em lote; falha vira warn (sem PII) e nunca
+  // mascara o erro original. O que sobrar e orfao detectavel pelo prefixo
+  // {orgId}/{quoteRequestId}/ e removido pelo SweepOrphanQuoteObjectsUseCase.
+  private async cleanupUploads(
+    paths: string[],
+    ids: { orgId: string; quoteRequestId: string },
+  ): Promise<void> {
+    if (paths.length === 0) return;
+    try {
+      await this.storage.removeFiles(QUOTE_REQUEST_IMAGES_BUCKET, paths);
+    } catch (error) {
+      const name = error instanceof Error ? error.name : "unknown";
+      this.logger.warn(
+        `Falha ao limpar uploads do pedido ${ids.quoteRequestId} (org ${ids.orgId}, arquivos ${paths.length}): ${name}`,
+      );
     }
   }
 }

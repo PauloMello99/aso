@@ -319,3 +319,8 @@
   backfill + lookup público exigindo o módulo, signed URL 300s + no-store, notificação só ao destino (in-app),
   disponibilidade pelo 404 do `quote-forms/me`, tour com gating. Bump/changelog e `introducedAt` do tour adiados
   para o go-live (junto da C3). C3 deve estender o GRANT de coluna.
+- **2026-10-09 — Ciclo de vida e purga de orçamentos, C3a (ADR-0038).** Estados `new|scheduled|not_scheduled` +
+  fila de purga (`purge_*`, só `DRIZZLE_ADMIN`), `expires_at` = prazo final da linha (720 h), purga arquivo → re-listagem →
+  linha, sweep de órfãos (24 h, 6 h, UUID estrito, erro de DB aborta a org), `removeFiles`/`listObjects` verificados
+  (`removeFile` legado intacto), jobs sem kill-switch, sem auditoria na C3a. C3b: encerramento via `DRIZZLE_ADMIN`
+  escopado (nunca no GRANT de coluna) — corrige a nota do ADR-0037.
