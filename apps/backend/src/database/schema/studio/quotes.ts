@@ -72,12 +72,18 @@ export const quoteRequests = pgTable(
       { withTimezone: true },
     ),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    // Migration 0089: null = nao lido. O tenant (app_user) so pode UPDATE desta coluna.
+    viewedAt: timestamp("viewed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (t) => [
     unique("quote_requests_id_org_id_uq").on(t.id, t.orgId),
+    index("quote_requests_org_created_idx").on(t.orgId, t.createdAt.desc()),
+    index("quote_requests_unread_idx")
+      .on(t.orgId, t.targetUserId)
+      .where(sql`${t.viewedAt} IS NULL`),
     index("quote_requests_org_target_created_idx").on(
       t.orgId,
       t.targetUserId,

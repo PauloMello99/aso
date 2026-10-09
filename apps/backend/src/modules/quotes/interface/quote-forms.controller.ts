@@ -20,7 +20,9 @@ import { QuoteFormRecord } from "../domain/quote-form.repository.interface";
 import { UpsertMyQuoteFormDto } from "./dto/upsert-my-quote-form.dto";
 import { PublicQuoteFormFeatureFlagGuard } from "./public-quote-form-feature-flag.guard";
 
-// Sem OrgModuleGuard: a permissao de modulo ('quotes') e escopo de C2.
+// Sem OrgModuleGuard DE PROPOSITO: "me" serve de probe de disponibilidade (flag) e
+// de configuracao do PROPRIO formulario; a caixa de entrada (modulo 'quotes') fica
+// em QuoteRequestsController.
 @Controller("orgs/:orgId/quote-forms")
 // Flag primeiro: com a flag off, 404 uniforme antes de qualquer auth.
 @UseGuards(PublicQuoteFormFeatureFlagGuard, AuthGuard, OrgMembershipGuard)

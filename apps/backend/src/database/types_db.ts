@@ -2782,6 +2782,7 @@ export type Database = {
         | "stock_check_reminder"
         | "low_stock"
         | "appointment_confirmation_response"
+        | "quote_request_received"
       org_role: "owner" | "employee"
       payment_method: "cash" | "bank_transfer" | "credit_card" | "debit_card"
       platform_role: "super_admin" | "user"
@@ -2983,6 +2984,7 @@ export const Constants = {
         "stock_check_reminder",
         "low_stock",
         "appointment_confirmation_response",
+        "quote_request_received",
       ],
       org_role: ["owner", "employee"],
       payment_method: ["cash", "bank_transfer", "credit_card", "debit_card"],

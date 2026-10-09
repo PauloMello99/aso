@@ -1,3 +1,5 @@
+import { PgDialect } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
 import {
   DrizzleQuoteFormRepository,
   findUniqueViolationConstraint,
@@ -90,6 +92,33 @@ describe("DrizzleQuoteFormRepository error handling", () => {
     expect(thrown).toBeInstanceOf(QuoteRequestPersistenceError);
     expect((thrown as Error).message).not.toContain("maria-secreta");
     expect((thrown as QuoteRequestPersistenceError).sqlState).toBe("08006");
+  });
+
+  it("findPublicBySlugAsAdmin exige owner OU o modulo quotes nas permissions", async () => {
+    let captured: SQL | undefined;
+    const terminal = Promise.resolve([]);
+    const chain: Record<string, unknown> = {
+      from: () => chain,
+      innerJoin: () => chain,
+      where: (condition: SQL) => {
+        captured = condition;
+        return { limit: () => terminal };
+      },
+    };
+    const admin = { select: () => chain } as unknown as DrizzleDB;
+    const repo = new DrizzleQuoteFormRepository(admin, admin);
+
+    await expect(repo.findPublicBySlugAsAdmin("maria")).resolves.toBeNull();
+
+    const query = new PgDialect().sqlToQuery(captured!);
+    const rendered = query.sql.toLowerCase();
+    expect(rendered).toContain('"org_memberships"."enabled" =');
+    expect(rendered).toMatch(
+      /\("org_memberships"\."role" = \$\d+ or 'quotes' = any\("org_memberships"\."permissions"\)\)/,
+    );
+    expect(query.params).toEqual(
+      expect.arrayContaining(["maria", true, "owner"]),
+    );
   });
 
   it("sanitizes errors from findPublicBySlugAsAdmin", async () => {

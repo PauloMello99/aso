@@ -8,6 +8,9 @@ import { cn } from "@/shared/lib/utils"
 import { Tooltip } from "@/shared/components/ui/tooltip"
 import { ORG_NAV_SECTIONS, canAccessModule } from "@/features/dashboard/lib/nav"
 import type { OrgSummary } from "@/features/dashboard/hooks/use-orgs"
+import { useQuotesAvailability } from "@/features/quotes/hooks/use-quotes-availability"
+import { useUnreadQuoteCount } from "@/features/quotes/hooks/use-quote-requests"
+import { QuoteNavBadge } from "@/features/quotes/components/quote-nav-badge"
 
 interface OrgSidebarProps {
   org: OrgSummary
@@ -20,6 +23,14 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
   const [collapsed, setCollapsed] = React.useState(false)
 
   const basePath = `/dashboard/org/${org.slug}`
+
+  // Orçamentos: item só existe com o recurso disponível (flag ligada) e permissão.
+  const { available: quotesAvailable } = useQuotesAvailability(org.id)
+  const canQuotes = canAccessModule(org.role, org.permissions, "quotes")
+  const { unread: unreadQuotes } = useUnreadQuoteCount(
+    org.id,
+    quotesAvailable && canQuotes,
+  )
 
   const afterOrg = router.pathname.split("/[orgSlug]/")[1] ?? ""
   const currentBase = afterOrg.split("/")[0]
@@ -95,7 +106,8 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
             const visibleItems = section.items.filter(
               (item) =>
                 (!item.roles || item.roles.includes(org.role)) &&
-                canAccessModule(org.role, org.permissions, item.module),
+                canAccessModule(org.role, org.permissions, item.module) &&
+                (item.module !== "quotes" || quotesAvailable),
             )
             if (visibleItems.length === 0) return null
             return (
@@ -118,11 +130,14 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
                 {visibleItems.map((item) => {
                   const Icon = item.icon
                   const active = isActive(item.href)
+                  const unreadCount = item.module === "quotes" ? unreadQuotes : 0
+                  const tooltipLabel =
+                    unreadCount > 0 ? `${item.label} (${unreadCount})` : item.label
 
                   return (
                     <li key={item.href}>
                       <Tooltip
-                        content={item.label}
+                        content={tooltipLabel}
                         side="right"
                         disabled={!collapsed}
                       >
@@ -131,7 +146,7 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
                           onClick={onMobileClose}
                           data-tour={`nav-${item.href}`}
                           className={cn(
-                            "flex items-center rounded-md py-2 text-sm transition-colors",
+                            "relative flex items-center rounded-md py-2 text-sm transition-colors",
                             collapsed ? "md:justify-center md:px-2" : "gap-3 px-3",
                             "gap-3 px-3 md:gap-0 md:px-0",
                             collapsed ? "md:px-2" : "md:gap-3 md:px-3",
@@ -149,6 +164,9 @@ export function OrgSidebar({ org, mobileOpen = false, onMobileClose }: OrgSideba
                           <span className={cn(collapsed && "md:hidden")}>
                             {item.label}
                           </span>
+                          {unreadCount > 0 && (
+                            <QuoteNavBadge count={unreadCount} collapsed={collapsed} />
+                          )}
                         </Link>
                       </Tooltip>
                     </li>

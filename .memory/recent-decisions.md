@@ -314,3 +314,8 @@
   opt-in, flag `PUBLIC_QUOTE_FORM_ENABLED` (off), Turnstile por header em guard antes do multer, magic bytes,
   storage→banco com compensação, retenção 30d gravada (cron em C3), consentimento versionado (minuta pendente).
   Flag só liga em produção com C2+C3. Gotcha: erros do drizzle carregam params (PII) — sanitizar no repositório.
+- **2026-10-09 — Caixa de entrada de orçamentos, C2 (ADR-0037).** Escopo por `target_user_id` (owner/super_admin
+  veem tudo), `viewed_at` único, GRANT de coluna (`UPDATE (viewed_at)`) para `app_user`, módulo `quotes` com
+  backfill + lookup público exigindo o módulo, signed URL 300s + no-store, notificação só ao destino (in-app),
+  disponibilidade pelo 404 do `quote-forms/me`, tour com gating. Bump/changelog e `introducedAt` do tour adiados
+  para o go-live (junto da C3). C3 deve estender o GRANT de coluna.

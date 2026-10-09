@@ -12,6 +12,7 @@ import {
   LifeBuoy,
   Megaphone,
   FileText,
+  Inbox,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
@@ -21,6 +22,7 @@ export const MODULE_KEYS = [
   "schedule",
   "stock",
   "cashier",
+  "quotes",
 ] as const
 export type ModuleKey = (typeof MODULE_KEYS)[number]
 
@@ -63,6 +65,7 @@ export const ORG_NAV_SECTIONS: NavSection[] = [
       },
       { label: "Clientes", href: "clients", icon: Users, module: "clients" },
       { label: "Agenda", href: "schedule", icon: CalendarDays, module: "schedule" },
+      { label: "Orçamentos", href: "quotes", icon: Inbox, module: "quotes" },
       { label: "Estoque", href: "stock", icon: Archive, module: "stock" },
       { label: "Caixa", href: "cashier", icon: Wallet, module: "cashier" },
       { label: "Membros", href: "members", icon: UsersRound },
@@ -122,6 +125,7 @@ export const PAGE_LABELS: Record<string, string> = {
   stock: "Estoque",
   cashier: "Caixa",
   campaigns: "Campanhas",
+  quotes: "Orçamentos",
   settings: "Configurações",
   billing: "Cobrança",
   general: "Geral",

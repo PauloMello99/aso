@@ -7,6 +7,7 @@ import {
 import { IQuoteFormRepository } from "../../domain/quote-form.repository.interface";
 import { IQuoteRequestRepository } from "../../domain/quote-request.repository.interface";
 import { IStorageProvider } from "../../../auth/application/ports/storage-provider.interface";
+import { NotificationService } from "../../../notifications/application/notification.service";
 import { QuoteFormNotFoundException } from "../../domain/exceptions/quote-form-not-found.exception";
 import { QUOTE_CONSENT_VERSION } from "../../domain/build-quote-consent-text";
 
@@ -66,6 +67,15 @@ function buildFakeStorage(
   } as unknown as jest.Mocked<IStorageProvider>;
 }
 
+function buildFakeNotifications(
+  overrides: Partial<jest.Mocked<NotificationService>> = {},
+): jest.Mocked<NotificationService> {
+  return {
+    notify: jest.fn().mockResolvedValue({}),
+    ...overrides,
+  } as unknown as jest.Mocked<NotificationService>;
+}
+
 function buildInput(
   overrides: Partial<SubmitQuoteRequestInput> = {},
 ): SubmitQuoteRequestInput {
@@ -87,12 +97,19 @@ function build(
   forms = buildFakeFormRepo(),
   requests = buildFakeRequestRepo(),
   storage = buildFakeStorage(),
+  notifications = buildFakeNotifications(),
 ) {
   return {
     forms,
     requests,
     storage,
-    useCase: new SubmitQuoteRequestUseCase(forms, requests, storage),
+    notifications,
+    useCase: new SubmitQuoteRequestUseCase(
+      forms,
+      requests,
+      storage,
+      notifications,
+    ),
   };
 }
 
@@ -281,6 +298,57 @@ describe("SubmitQuoteRequestUseCase", () => {
     const [request] = requests.createWithImagesAsAdmin.mock.calls[0]!;
     expect(request.contactRetentionConsentAcceptedAt).toBeInstanceOf(Date);
     expect(request.consentTextSnapshot).toContain("Retenção de contato");
+  });
+
+  it("notifies only the target professional once, in-app and without PII", async () => {
+    const { useCase, notifications } = build();
+    await useCase.execute(
+      buildInput({ contactRetentionConsent: true, files: [file(jpegBuffer())] }),
+    );
+    expect(notifications.notify).toHaveBeenCalledTimes(1);
+    const input = notifications.notify.mock.calls[0]![0];
+    expect(input).toMatchObject({
+      userId: "user-1",
+      orgId: "org-1",
+      type: "quote_request_received",
+      email: false,
+    });
+    const data = input.data as { quoteRequestId: string };
+    expect(data.quoteRequestId).toMatch(/^[0-9a-f-]{36}$/);
+    const serialized = JSON.stringify(input);
+    for (const secret of ["Joao", "example.com", "5511999998888", "leao"]) {
+      expect(serialized).not.toContain(secret);
+    }
+  });
+
+  it("does not notify when the insert fails", async () => {
+    const requests = buildFakeRequestRepo({
+      createWithImagesAsAdmin: jest.fn().mockRejectedValue(new Error("db")),
+    });
+    const { useCase, notifications } = build(undefined, requests);
+    await expect(useCase.execute(buildInput())).rejects.toThrow("db");
+    expect(notifications.notify).not.toHaveBeenCalled();
+  });
+
+  it("swallows a notification failure without cleaning up the saved images", async () => {
+    const warnSpy = jest
+      .spyOn(Logger.prototype, "warn")
+      .mockImplementation(() => undefined);
+    const notifications = buildFakeNotifications({
+      notify: jest.fn().mockRejectedValue(new Error("falha com joao@example.com")),
+    });
+    const { useCase, storage } = build(
+      undefined,
+      undefined,
+      undefined,
+      notifications,
+    );
+    await expect(
+      useCase.execute(buildInput({ files: [file(jpegBuffer())] })),
+    ).resolves.toBeUndefined();
+    expect(storage.removeFile).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(warnSpy.mock.calls)).not.toContain("example.com");
   });
 
   it("never logs requester PII on failure", async () => {
