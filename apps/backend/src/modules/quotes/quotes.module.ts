@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { CronJobStateModule } from "../../common/cron/cron-job-state.module";
 import { AuthModule } from "../auth/auth.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { OrgsInfrastructureModule } from "../organizations/infrastructure/orgs-infrastructure.module";
@@ -6,6 +7,9 @@ import { CAPTCHA_VERIFIER } from "../support/domain/ports/captcha-verifier.port"
 import { TurnstileCaptchaVerifier } from "../support/infrastructure/turnstile-captcha-verifier";
 import { QUOTE_FORM_REPOSITORY } from "./domain/quote-form.repository.interface";
 import { QUOTE_REQUEST_REPOSITORY } from "./domain/quote-request.repository.interface";
+import { QUOTE_REQUEST_PURGE_REPOSITORY } from "./domain/quote-request-purge.repository.interface";
+import { DrizzleQuoteRequestPurgeRepository } from "./infrastructure/persistence/drizzle-quote-request-purge.repository";
+import { QuoteRequestPurger } from "./application/quote-request-purger";
 import { DrizzleQuoteFormRepository } from "./infrastructure/persistence/drizzle-quote-form.repository";
 import { DrizzleQuoteRequestRepository } from "./infrastructure/persistence/drizzle-quote-request.repository";
 import { GetMyQuoteFormUseCase } from "./application/use-cases/get-my-quote-form.use-case";
@@ -16,6 +20,8 @@ import { ListQuoteRequestsUseCase } from "./application/use-cases/list-quote-req
 import { GetQuoteRequestUseCase } from "./application/use-cases/get-quote-request.use-case";
 import { CountUnreadQuoteRequestsUseCase } from "./application/use-cases/count-unread-quote-requests.use-case";
 import { MarkQuoteRequestViewedUseCase } from "./application/use-cases/mark-quote-request-viewed.use-case";
+import { PurgeExpiredQuoteRequestsUseCase } from "./application/use-cases/purge-expired-quote-requests.use-case";
+import { SweepOrphanQuoteObjectsUseCase } from "./application/use-cases/sweep-orphan-quote-objects.use-case";
 import { QuoteRequestsController } from "./interface/quote-requests.controller";
 import { PublicQuoteFormsController } from "./interface/public-quote-forms.controller";
 import { QuoteFormsController } from "./interface/quote-forms.controller";
@@ -23,7 +29,12 @@ import { PublicQuoteFormFeatureFlagGuard } from "./interface/public-quote-form-f
 import { QuoteCaptchaGuard } from "./interface/quote-captcha.guard";
 
 @Module({
-  imports: [AuthModule, NotificationsModule, OrgsInfrastructureModule],
+  imports: [
+    AuthModule,
+    CronJobStateModule,
+    NotificationsModule,
+    OrgsInfrastructureModule,
+  ],
   controllers: [
     PublicQuoteFormsController,
     QuoteFormsController,
@@ -45,8 +56,17 @@ import { QuoteCaptchaGuard } from "./interface/quote-captcha.guard";
       provide: QUOTE_REQUEST_REPOSITORY,
       useClass: DrizzleQuoteRequestRepository,
     },
+    {
+      provide: QUOTE_REQUEST_PURGE_REPOSITORY,
+      useClass: DrizzleQuoteRequestPurgeRepository,
+    },
+    QuoteRequestPurger,
+    PurgeExpiredQuoteRequestsUseCase,
+    SweepOrphanQuoteObjectsUseCase,
     // Verifier reaproveitado de support/ (sem importar o SupportInfrastructureModule inteiro).
     { provide: CAPTCHA_VERIFIER, useClass: TurnstileCaptchaVerifier },
   ],
+  // Consumidos pelo POST /internal/cron/tick (InternalCronModule).
+  exports: [PurgeExpiredQuoteRequestsUseCase, SweepOrphanQuoteObjectsUseCase],
 })
 export class QuotesModule {}

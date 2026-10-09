@@ -63,6 +63,7 @@ function buildFakeStorage(
   return {
     uploadFile: jest.fn().mockResolvedValue("path"),
     removeFile: jest.fn().mockResolvedValue(undefined),
+    removeFiles: jest.fn().mockResolvedValue(undefined),
     ...overrides,
   } as unknown as jest.Mocked<IStorageProvider>;
 }
@@ -235,10 +236,13 @@ describe("SubmitQuoteRequestUseCase", () => {
         buildInput({ files: [file(jpegBuffer()), file(pngBuffer())] }),
       ),
     ).rejects.toMatchObject({ code: "QUOTE_IMAGE_UPLOAD_FAILED" });
-    expect(storage.removeFile).toHaveBeenCalledTimes(1);
-    expect(storage.removeFile.mock.calls[0]![1]).toBe(
-      storage.uploadFile.mock.calls[0]![1],
+    expect(storage.removeFiles).toHaveBeenCalledTimes(1);
+    expect(storage.removeFiles.mock.calls[0]![0]).toBe(
+      QUOTE_REQUEST_IMAGES_BUCKET,
     );
+    expect(storage.removeFiles.mock.calls[0]![1]).toEqual([
+      storage.uploadFile.mock.calls[0]![1],
+    ]);
     expect(requests.createWithImagesAsAdmin).not.toHaveBeenCalled();
   });
 
@@ -253,12 +257,20 @@ describe("SubmitQuoteRequestUseCase", () => {
         buildInput({ files: [file(jpegBuffer()), file(pngBuffer())] }),
       ),
     ).rejects.toBe(boom);
-    expect(storage.removeFile).toHaveBeenCalledTimes(2);
+    // Uma unica chamada em lote com os 2 paths enviados.
+    expect(storage.removeFiles).toHaveBeenCalledTimes(1);
+    expect(storage.removeFiles.mock.calls[0]![1]).toEqual(
+      storage.uploadFile.mock.calls.map((call) => call[1]),
+    );
+    expect(storage.removeFile).not.toHaveBeenCalled();
   });
 
-  it("keeps cleaning up when a removal fails", async () => {
+  it("propagates the original error and only warns (no PII) when the batch removal rejects", async () => {
+    const warnSpy = jest
+      .spyOn(Logger.prototype, "warn")
+      .mockImplementation(() => undefined);
     const storage = buildFakeStorage({
-      removeFile: jest.fn().mockRejectedValue(new Error("rm failed")),
+      removeFiles: jest.fn().mockRejectedValue(new Error("rm failed joao@example.com")),
     });
     const requests = buildFakeRequestRepo({
       createWithImagesAsAdmin: jest.fn().mockRejectedValue(new Error("db")),
@@ -269,7 +281,22 @@ describe("SubmitQuoteRequestUseCase", () => {
         buildInput({ files: [file(jpegBuffer()), file(pngBuffer())] }),
       ),
     ).rejects.toThrow("db");
-    expect(storage.removeFile).toHaveBeenCalledTimes(2);
+    expect(storage.removeFiles).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const warned = JSON.stringify(warnSpy.mock.calls);
+    expect(warned).toContain("arquivos 2");
+    expect(warned).not.toContain("example.com");
+  });
+
+  it("does not call removeFiles when nothing was uploaded", async () => {
+    const requests = buildFakeRequestRepo({
+      createWithImagesAsAdmin: jest.fn().mockRejectedValue(new Error("db")),
+    });
+    const { useCase, storage } = build(undefined, requests);
+    await expect(
+      useCase.execute(buildInput({ files: [] })),
+    ).rejects.toThrow("db");
+    expect(storage.removeFiles).not.toHaveBeenCalled();
   });
 
   it("sets expiresAt to now + 30 days", async () => {
@@ -346,7 +373,7 @@ describe("SubmitQuoteRequestUseCase", () => {
     await expect(
       useCase.execute(buildInput({ files: [file(jpegBuffer())] })),
     ).resolves.toBeUndefined();
-    expect(storage.removeFile).not.toHaveBeenCalled();
+    expect(storage.removeFiles).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(warnSpy.mock.calls)).not.toContain("example.com");
   });
