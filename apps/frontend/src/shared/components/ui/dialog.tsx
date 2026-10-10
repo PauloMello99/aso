@@ -51,6 +51,9 @@ function DialogContent({
       <DialogPrimitive.Content
         className={cn(
           "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-foreground/[0.08] bg-popover p-6 shadow-2xl duration-200 outline-none",
+          // Conteúdo maior que a tela (formulários longos no celular) rola dentro
+          // do modal em vez de estourar o viewport e esconder os botões.
+          "max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain",
           "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
           "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
           "sm:max-w-lg",
