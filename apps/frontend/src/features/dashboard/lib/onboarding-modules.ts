@@ -28,6 +28,8 @@ const NAV_STEP_DESCRIPTIONS: Record<string, string> = {
   services: "Registre atendimentos e acompanhe pagamentos.",
   clients: "Gerencie o cadastro e o histórico dos seus clientes.",
   schedule: "Organize horários e compromissos da equipe.",
+  quotes:
+    "Veja os pedidos de orçamento enviados pelo seu formulário e responda pelo WhatsApp.",
   stock: "Controle materiais e itens disponíveis no estoque.",
   cashier: "Acompanhe entradas, saídas e saldo do caixa.",
   members: "Veja e gerencie os membros da organização.",
@@ -61,6 +63,7 @@ export const ONBOARDING_MODULE_META: Record<
   anamnesis: { version: 1, introducedAt: "2026-07-17T00:00:00Z" },
   clients: { version: 1, introducedAt: "2026-07-17T00:00:00Z" },
   schedule: { version: 1, introducedAt: "2026-07-17T00:00:00Z" },
+  quotes: { version: 1, introducedAt: "2026-10-08T18:00:00Z" },
   stock: { version: 1, introducedAt: "2026-07-17T00:00:00Z" },
   cashier: { version: 1, introducedAt: "2026-07-17T00:00:00Z" },
   members: { version: 1, introducedAt: "2026-07-17T00:00:00Z" },
@@ -113,11 +116,18 @@ export const TOUR_CLOSING_STEP: TourStep = {
   description: 'Você pode rever este tour a qualquer momento em "Minha Conta".',
 }
 
+/** Ids de modulo sem uso para o usuario (ex.: recurso atras de flag desligada). */
+export type UnavailableModuleIds = ReadonlySet<string>
+
+export const NO_UNAVAILABLE_MODULES: UnavailableModuleIds = new Set<string>()
+
 export function isOnboardingModuleVisible(
   module: OnboardingModule,
   org: OrgSummary,
+  unavailable: UnavailableModuleIds = NO_UNAVAILABLE_MODULES,
 ): boolean {
   return (
+    !unavailable.has(module.id) &&
     (!module.roles || module.roles.includes(org.role)) &&
     canAccessModule(org.role, org.permissions, module.requiredModule)
   )
@@ -141,9 +151,11 @@ export function getPendingOnboardingModules(
   org: OrgSummary,
   progress: OnboardingProgress,
   modules: readonly OnboardingModule[] = ONBOARDING_MODULES,
+  unavailable: UnavailableModuleIds = NO_UNAVAILABLE_MODULES,
 ): OnboardingModule[] {
   return modules.filter(
     (module) =>
-      isOnboardingModuleVisible(module, org) && !isModuleSeen(module, progress),
+      isOnboardingModuleVisible(module, org, unavailable) &&
+      !isModuleSeen(module, progress),
   )
 }

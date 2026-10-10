@@ -596,6 +596,76 @@
       "when": 1782007300000,
       "tag": "0084_backfill_installment_fee_tiers",
       "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1782007400000,
+      "tag": "0085_notification_appointment_confirmation_response",
+      "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1782007500000,
+      "tag": "0086_calendar_event_confirmation",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1782007600000,
+      "tag": "0087_quote_forms_and_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1782007700000,
+      "tag": "0088_quote_request_images_bucket",
+      "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1782007800000,
+      "tag": "0089_quote_requests_inbox",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1782007900000,
+      "tag": "0090_notification_quote_request_received",
+      "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1782008000000,
+      "tag": "0091_quote_requests_purge_state",
+      "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1782008100000,
+      "tag": "0092_quote_request_responses",
+      "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1782008200000,
+      "tag": "0093_audit_action_quote_request_closed",
+      "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1782008300000,
+      "tag": "0094_billing_coupons_code_unique_active",
+      "breakpoints": true
     }
   ]
 }

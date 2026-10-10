@@ -1,8 +1,15 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { IStorageProvider } from "../../application/ports/storage-provider.interface";
+import {
+  IStorageProvider,
+  StorageObjectEntry,
+} from "../../application/ports/storage-provider.interface";
 import { AvatarUploadFailedException } from "../../domain/exceptions/avatar-upload-failed.exception";
+import { StorageOperationFailedException } from "../../domain/exceptions/storage-operation-failed.exception";
+
+const REMOVE_BATCH_SIZE = 100;
+const LIST_PAGE_SIZE = 100;
 
 const EXT_BY_MIME: Record<string, string> = {
   "image/png": "png",
@@ -132,5 +139,65 @@ export class SupabaseStorageProvider implements IStorageProvider {
 
   async removeFile(bucket: string, path: string): Promise<void> {
     await this.admin.storage.from(bucket).remove([path]);
+  }
+
+  async removeFiles(bucket: string, paths: string[]): Promise<void> {
+    const unique = [...new Set(paths)];
+    if (unique.length === 0) return;
+
+    for (let i = 0; i < unique.length; i += REMOVE_BATCH_SIZE) {
+      const batch = unique.slice(i, i + REMOVE_BATCH_SIZE);
+      try {
+        const { error } = await this.admin.storage.from(bucket).remove(batch);
+        if (error) throw new StorageOperationFailedException("remove");
+      } catch (error) {
+        // Mensagem fixa: o texto do provider pode conter paths/PII.
+        if (error instanceof StorageOperationFailedException) throw error;
+        throw new StorageOperationFailedException("remove");
+      }
+    }
+  }
+
+  async listObjects(
+    bucket: string,
+    prefix: string,
+    opts?: { maxEntries?: number },
+  ): Promise<StorageObjectEntry[]> {
+    const maxEntries = opts?.maxEntries ?? Number.POSITIVE_INFINITY;
+    const normalizedPrefix = prefix.replace(/^\/+|\/+$/g, "");
+    const entries: StorageObjectEntry[] = [];
+
+    try {
+      let offset = 0;
+      while (entries.length < maxEntries) {
+        const { data, error } = await this.admin.storage
+          .from(bucket)
+          .list(normalizedPrefix, {
+            limit: LIST_PAGE_SIZE,
+            offset,
+            sortBy: { column: "name", order: "asc" },
+          });
+        if (error || !data) throw new StorageOperationFailedException("list");
+
+        for (const item of data) {
+          if (entries.length >= maxEntries) break;
+          entries.push({
+            name: item.name,
+            path: normalizedPrefix
+              ? `${normalizedPrefix}/${item.name}`
+              : item.name,
+            kind: item.id === null ? "folder" : "file",
+            createdAt: item.created_at ? new Date(item.created_at) : null,
+          });
+        }
+
+        if (data.length < LIST_PAGE_SIZE) break;
+        offset += LIST_PAGE_SIZE;
+      }
+    } catch (error) {
+      if (error instanceof StorageOperationFailedException) throw error;
+      throw new StorageOperationFailedException("list");
+    }
+    return entries;
   }
 }

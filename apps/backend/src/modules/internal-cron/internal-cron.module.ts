@@ -3,6 +3,7 @@ import { CalendarModule } from "../calendar/calendar.module";
 import { CampaignsModule } from "../campaigns/campaigns.module";
 import { ChangelogModule } from "../changelog/changelog.module";
 import { MaterialsModule } from "../materials/materials.module";
+import { QuotesModule } from "../quotes/quotes.module";
 import { SubscriptionsModule } from "../subscriptions/subscriptions.module";
 import { SupportInfrastructureModule } from "../support/infrastructure/support-infrastructure.module";
 import { SweepTicketSlaUseCase } from "../support/application/use-cases/sweep-ticket-sla.use-case";
@@ -21,6 +22,7 @@ import { InternalCronController } from "./internal-cron.controller";
     CampaignsModule,
     ChangelogModule,
     MaterialsModule,
+    QuotesModule,
     SubscriptionsModule,
     SupportInfrastructureModule,
   ],

@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { apiRequest } from "@/infrastructure/api/client"
 import { queryKeys } from "@/infrastructure/query/query-keys"
+import { monthKey, monthRange, type MonthRef } from "../lib/month-range"
 
 export interface DailyBalancePoint {
   day: string
@@ -29,10 +30,11 @@ export interface PaymentMethodTotal {
   netCents: number
 }
 
-export interface IncomeExpensePoint {
-  day: string
-  incomeCents: number
-  expenseCents: number
+export interface MaterialConsumption {
+  materialId: string
+  name: string
+  quantity: number
+  costCents: number | null
 }
 
 export interface OverviewAnalytics {
@@ -57,12 +59,7 @@ export interface OverviewAnalytics {
   servicesByType?: ServiceGroupRow[]
   revenueByProfessional?: ServiceGroupRow[]
   paymentMethods?: PaymentMethodTotal[]
-  incomeExpenseSeries?: IncomeExpensePoint[]
-}
-
-export interface AnalyticsPeriod {
-  from?: string
-  to?: string
+  materialsConsumption?: MaterialConsumption[]
 }
 
 interface UseOverviewAnalyticsOptions {
@@ -71,18 +68,17 @@ interface UseOverviewAnalyticsOptions {
 
 export function useOverviewAnalytics(
   orgId: string,
-  period: AnalyticsPeriod,
+  month: MonthRef,
   options?: UseOverviewAnalyticsOptions,
 ) {
   const { data, isLoading, error } = useQuery({
-    queryKey: queryKeys.overview.analytics(orgId, period.from, period.to),
+    queryKey: queryKeys.overview.analytics(orgId, monthKey(month)),
+    // from/to calculados no fetch (mês corrente termina em "agora"); a key é só YYYY-MM.
     queryFn: () => {
-      const params = new URLSearchParams()
-      if (period.from) params.set("from", period.from)
-      if (period.to) params.set("to", period.to)
-      const qs = params.toString() ? `?${params.toString()}` : ""
+      const { from, to } = monthRange(month, new Date())
+      const params = new URLSearchParams({ from, to })
       return apiRequest<OverviewAnalytics>(
-        `/orgs/${orgId}/overview/analytics${qs}`,
+        `/orgs/${orgId}/overview/analytics?${params.toString()}`,
       )
     },
     enabled: !!orgId && (options?.enabled ?? true),

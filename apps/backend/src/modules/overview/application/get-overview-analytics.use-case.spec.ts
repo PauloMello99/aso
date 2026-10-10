@@ -8,6 +8,7 @@ import { ListCustomersUseCase } from "../../customers/application/use-cases/list
 import { GetBalanceHistoryUseCase } from "../../cashier/application/use-cases/get-balance-history.use-case";
 import { IServiceRepository } from "../../services/domain/service.repository.interface";
 import { ITransactionRepository } from "../../cashier/domain/transaction.repository.interface";
+import { IStockMovementRepository } from "../../materials/domain/stock-movement.repository.interface";
 
 function buildMember(
   overrides: Partial<Parameters<typeof MemberEntity.create>[0]> = {},
@@ -84,11 +85,23 @@ function buildFakeTransactionRepo(
   } as unknown as jest.Mocked<ITransactionRepository>;
 }
 
+function buildFakeStockMovementRepo(
+  overrides: Partial<jest.Mocked<IStockMovementRepository>> = {},
+): jest.Mocked<IStockMovementRepository> {
+  return {
+    findPageByMaterial: jest.fn(),
+    create: jest.fn(),
+    topConsumedByPeriod: jest.fn().mockResolvedValue([]),
+    ...overrides,
+  } as unknown as jest.Mocked<IStockMovementRepository>;
+}
+
 describe("GetOverviewAnalyticsUseCase", () => {
   function buildUseCase(
     memberRepo: jest.Mocked<IMemberRepository>,
     serviceRepo: jest.Mocked<IServiceRepository>,
     transactionRepo: jest.Mocked<ITransactionRepository>,
+    stockMovementRepo: jest.Mocked<IStockMovementRepository> = buildFakeStockMovementRepo(),
   ) {
     const listTransactions = {
       execute: jest.fn().mockResolvedValue([]),
@@ -111,6 +124,7 @@ describe("GetOverviewAnalyticsUseCase", () => {
       listServices,
       listCustomers,
       getBalanceHistory,
+      stockMovementRepo,
     );
 
     return {
@@ -222,6 +236,58 @@ describe("GetOverviewAnalyticsUseCase", () => {
     expect(result.revenueByProfessional).toEqual([
       { name: "Fulano", count: 3, revenueCents: 30000, commissionCents: 4500 },
     ]);
+  });
+
+  it("owner: retorna materialsConsumption (top 6) e não retorna incomeExpenseSeries", async () => {
+    const memberRepo = buildFakeMemberRepo({
+      findByAuthId: jest.fn().mockResolvedValue(buildMember({ role: "owner" })),
+    });
+    const rows = [
+      { materialId: "m-1", name: "Tinta preta", quantity: 12.5, costCents: 3750 },
+      { materialId: "m-2", name: "Agulha", quantity: 4, costCents: null },
+    ];
+    const stockMovementRepo = buildFakeStockMovementRepo({
+      topConsumedByPeriod: jest.fn().mockResolvedValue(rows),
+    });
+    const transactionRepo = buildFakeTransactionRepo();
+    const { useCase } = buildUseCase(
+      memberRepo,
+      buildFakeServiceRepo(),
+      transactionRepo,
+      stockMovementRepo,
+    );
+
+    const result = await useCase.execute("org-1", "auth-1", from, to);
+
+    expect(stockMovementRepo.topConsumedByPeriod).toHaveBeenCalledWith(
+      "org-1",
+      from,
+      to,
+      6,
+    );
+    expect(result.materialsConsumption).toEqual(rows);
+    expect("incomeExpenseSeries" in result).toBe(false);
+    expect(transactionRepo.incomeExpenseSeries).not.toHaveBeenCalled();
+  });
+
+  it("employee: não consulta nem retorna materialsConsumption", async () => {
+    const memberRepo = buildFakeMemberRepo({
+      findByAuthId: jest
+        .fn()
+        .mockResolvedValue(buildMember({ role: "employee" })),
+    });
+    const stockMovementRepo = buildFakeStockMovementRepo();
+    const { useCase } = buildUseCase(
+      memberRepo,
+      buildFakeServiceRepo(),
+      buildFakeTransactionRepo(),
+      stockMovementRepo,
+    );
+
+    const result = await useCase.execute("org-1", "auth-1", from, to);
+
+    expect(stockMovementRepo.topConsumedByPeriod).not.toHaveBeenCalled();
+    expect("materialsConsumption" in result).toBe(false);
   });
 
   it("lança OrgForbiddenException quando não há membership", async () => {

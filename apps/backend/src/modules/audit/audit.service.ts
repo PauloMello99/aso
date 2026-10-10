@@ -30,7 +30,8 @@ export type AuditAction =
   | "cashier_commissions_updated"
   | "org_admin_access"
   | "campaign_settings_updated"
-  | "campaign_email_bounced";
+  | "campaign_email_bounced"
+  | "quote_request_closed";
 
 export interface AuditEntry {
   actorId: string | null;

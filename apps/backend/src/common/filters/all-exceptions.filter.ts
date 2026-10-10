@@ -10,6 +10,7 @@ import type { Request, Response } from "express";
 import { DomainException } from "../exceptions/domain.exception";
 import { DOMAIN_CODE_TO_STATUS } from "../exceptions/domain-status.map";
 import { TelemetryService } from "../telemetry/telemetry.service";
+import { redactPublicPath } from "./redact-public-path";
 
 interface AuthedRequest extends Request {
   user?: { id?: string; authId?: string; sub?: string };
@@ -77,10 +78,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
     code?: string,
   ): void {
     const module = this.moduleFromPath(request.url);
+    const safePath = redactPublicPath(request.url);
 
     if (status < HttpStatus.INTERNAL_SERVER_ERROR) {
       this.logger.debug(
-        `[${module}] ${status} ${request.method} ${request.url}${
+        `[${module}] ${status} ${request.method} ${safePath}${
           code ? ` (${code})` : ""
         }`,
       );
@@ -90,7 +92,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const message =
       exception instanceof Error ? exception.message : String(exception);
     this.logger.error(
-      `[${module}] ${status} ${request.method} ${request.url}: ${message}`,
+      `[${module}] ${status} ${request.method} ${safePath}: ${message}`,
       exception instanceof Error ? exception.stack : undefined,
     );
 
@@ -98,7 +100,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       module,
       code: code ?? null,
       statusCode: status,
-      path: request.url,
+      path: safePath,
       method: request.method,
       userId: request.user?.id ?? request.user?.sub ?? null,
     });

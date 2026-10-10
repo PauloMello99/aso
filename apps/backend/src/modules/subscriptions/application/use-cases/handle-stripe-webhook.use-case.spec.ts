@@ -1,6 +1,8 @@
 import type Stripe from "stripe";
 import { HandleStripeWebhookUseCase } from "./handle-stripe-webhook.use-case";
 import {
+  GatewayCoupon,
+  GatewayPromotionCode,
   GatewayRefund,
   IPaymentGateway,
 } from "../../domain/ports/payment-gateway.port";
@@ -264,6 +266,39 @@ function buildBillingCoupon(
   };
 }
 
+function buildGatewayCoupon(overrides: Partial<GatewayCoupon> = {}): GatewayCoupon {
+  return {
+    couponId: "coupon_stripe_1",
+    name: "10% OFF",
+    percentOff: 10,
+    amountOffCents: null,
+    currency: null,
+    duration: "once",
+    durationInMonths: null,
+    valid: true,
+    maxRedemptions: null,
+    redeemBy: null,
+    timesRedeemed: 0,
+    metadata: {},
+    ...overrides,
+  };
+}
+
+function buildGatewayPromotionCode(
+  overrides: Partial<GatewayPromotionCode> = {},
+): GatewayPromotionCode {
+  return {
+    promotionCodeId: "promo_1",
+    couponId: "coupon_stripe_1",
+    code: "PROMO10",
+    active: true,
+    maxRedemptions: null,
+    timesRedeemed: 0,
+    expiresAt: null,
+    ...overrides,
+  };
+}
+
 function buildFakeTelemetry(
   overrides: Partial<jest.Mocked<TelemetryService>> = {},
 ): jest.Mocked<TelemetryService> {
@@ -306,6 +341,29 @@ function buildBillingPlan(
     features: [],
     ...overrides,
   };
+}
+
+function buildCouponWebhookUseCase(deps: {
+  paymentGateway: jest.Mocked<IPaymentGateway>;
+  billingCouponRepo: jest.Mocked<IBillingCouponRepository>;
+  telemetry?: jest.Mocked<TelemetryService>;
+}) {
+  const webhookEventRepo = buildFakeWebhookEventRepo();
+  const telemetry = deps.telemetry ?? buildFakeTelemetry();
+  const useCase = new HandleStripeWebhookUseCase(
+    deps.paymentGateway,
+    buildFakeSubscriptionRepo(),
+    webhookEventRepo,
+    buildFakeInvoiceEventRepo(),
+    buildFakeBillingPlanRepo(),
+    deps.billingCouponRepo,
+    buildFakeBillingPlanPriceRepo(),
+    telemetry,
+    buildFakeRevalidationClient(),
+    buildFakeRefundEventRepo(),
+    buildFakeRefundOrgResolver(),
+  );
+  return { useCase, webhookEventRepo, telemetry };
 }
 
 function buildEvent(overrides: Partial<Stripe.Event> = {}): Stripe.Event {
@@ -1547,7 +1605,7 @@ describe("HandleStripeWebhookUseCase", () => {
   });
 
   describe("coupon.created / coupon.updated", () => {
-    it("creates the local row when the coupon does not exist locally (created outside the platform)", async () => {
+    it("does NOT insert a local row for a coupon that has no local row (a coupon without promotion code is not mirrored)", async () => {
       const event = buildEvent({
         id: "evt_coupon_created",
         type: "coupon.created",
@@ -1588,16 +1646,42 @@ describe("HandleStripeWebhookUseCase", () => {
 
       await useCase.execute("raw", "sig");
 
-      expect(billingCouponRepo.upsertFromStripe).toHaveBeenCalledWith(
-        expect.objectContaining({
-          stripeCouponId: "coupon_stripe_new",
-          name: "Dashboard coupon",
-          percentOff: 15,
-          duration: "once",
-        }),
-      );
+      expect(billingCouponRepo.upsertFromStripe).not.toHaveBeenCalled();
+      expect(billingCouponRepo.create).not.toHaveBeenCalled();
+      expect(billingCouponRepo.update).not.toHaveBeenCalled();
       expect(webhookEventRepo.markProcessed).toHaveBeenCalledWith(
         "evt_coupon_created",
+      );
+    });
+
+    it("does not insert the ad hoc coupon that ApplyDiscount creates (coupon.created with no local row)", async () => {
+      const event = buildEvent({
+        id: "evt_coupon_adhoc",
+        type: "coupon.created",
+        data: { object: { id: "coupon_adhoc" } },
+      });
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest.fn().mockReturnValue(event),
+        retrieveCoupon: jest.fn().mockResolvedValue(
+          buildGatewayCoupon({
+            couponId: "coupon_adhoc",
+            name: "Desconto administrativo",
+            percentOff: 20,
+          }),
+        ),
+      });
+      const billingCouponRepo = buildFakeBillingCouponRepo();
+      const { useCase, webhookEventRepo } = buildCouponWebhookUseCase({
+        paymentGateway,
+        billingCouponRepo,
+      });
+
+      await useCase.execute("raw", "sig");
+
+      expect(billingCouponRepo.upsertFromStripe).not.toHaveBeenCalled();
+      expect(billingCouponRepo.update).not.toHaveBeenCalled();
+      expect(webhookEventRepo.markProcessed).toHaveBeenCalledWith(
+        "evt_coupon_adhoc",
       );
     });
 
@@ -1620,8 +1704,10 @@ describe("HandleStripeWebhookUseCase", () => {
           valid: true,
         }),
       });
+      const local = buildBillingCoupon();
       const billingCouponRepo = buildFakeBillingCouponRepo({
-        upsertFromStripe: jest
+        findByStripeCouponId: jest.fn().mockResolvedValue(local),
+        update: jest
           .fn()
           .mockResolvedValue(buildBillingCoupon({ name: "10% OFF (renamed)" })),
       });
@@ -1643,11 +1729,130 @@ describe("HandleStripeWebhookUseCase", () => {
 
       await useCase.execute("raw", "sig");
 
-      expect(billingCouponRepo.upsertFromStripe).toHaveBeenCalledWith(
+      expect(billingCouponRepo.update).toHaveBeenCalledWith(
+        local.id,
+        expect.objectContaining({ name: "10% OFF (renamed)" }),
+      );
+      expect(billingCouponRepo.upsertFromStripe).not.toHaveBeenCalled();
+    });
+
+    it("recomputes the effective limit from the Coupon when the promotion code has none (limit set on the Coupon only)", async () => {
+      const event = buildEvent({
+        id: "evt_coupon_limit",
+        type: "coupon.updated",
+        data: { object: { id: "coupon_stripe_1" } },
+      });
+      const local = buildBillingCoupon({
+        stripePromotionCodeId: "promo_1",
+        code: "PROMO7",
+        maxRedemptions: null,
+      });
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest.fn().mockReturnValue(event),
+        retrieveCoupon: jest.fn().mockResolvedValue(
+          buildGatewayCoupon({
+            couponId: "coupon_stripe_1",
+            maxRedemptions: 7,
+            timesRedeemed: 2,
+          }),
+        ),
+        retrievePromotionCode: jest.fn().mockResolvedValue(
+          buildGatewayPromotionCode({
+            maxRedemptions: null,
+            timesRedeemed: 1,
+          }),
+        ),
+      });
+      const billingCouponRepo = buildFakeBillingCouponRepo({
+        findByStripeCouponId: jest.fn().mockResolvedValue(local),
+      });
+      const { useCase } = buildCouponWebhookUseCase({
+        paymentGateway,
+        billingCouponRepo,
+      });
+
+      await useCase.execute("raw", "sig");
+
+      expect(paymentGateway.retrievePromotionCode).toHaveBeenCalledWith(
+        "promo_1",
+      );
+      expect(billingCouponRepo.update).toHaveBeenCalledWith(
+        local.id,
         expect.objectContaining({
-          stripeCouponId: "coupon_stripe_1",
-          name: "10% OFF (renamed)",
+          maxRedemptions: 7,
+          timesRedeemed: 2,
+          active: true,
         }),
+      );
+    });
+
+    it("marks the local row inactive when the Coupon is no longer valid (exhausted/expired), even if the code is still flagged active", async () => {
+      const event = buildEvent({
+        id: "evt_coupon_exhausted",
+        type: "coupon.updated",
+        data: { object: { id: "coupon_stripe_1" } },
+      });
+      const local = buildBillingCoupon({
+        stripePromotionCodeId: "promo_1",
+        code: "PROMO7",
+      });
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest.fn().mockReturnValue(event),
+        retrieveCoupon: jest.fn().mockResolvedValue(
+          buildGatewayCoupon({
+            couponId: "coupon_stripe_1",
+            valid: false,
+            maxRedemptions: 7,
+            timesRedeemed: 7,
+          }),
+        ),
+        retrievePromotionCode: jest
+          .fn()
+          .mockResolvedValue(buildGatewayPromotionCode({ active: true })),
+      });
+      const billingCouponRepo = buildFakeBillingCouponRepo({
+        findByStripeCouponId: jest.fn().mockResolvedValue(local),
+      });
+      const { useCase } = buildCouponWebhookUseCase({
+        paymentGateway,
+        billingCouponRepo,
+      });
+
+      await useCase.execute("raw", "sig");
+
+      expect(billingCouponRepo.update).toHaveBeenCalledWith(
+        local.id,
+        expect.objectContaining({ active: false, timesRedeemed: 7 }),
+      );
+    });
+
+    it("deactivates a legacy row without promotion code when the Coupon is no longer valid, without calling retrievePromotionCode", async () => {
+      const event = buildEvent({
+        id: "evt_coupon_legacy_invalid",
+        type: "coupon.updated",
+        data: { object: { id: "coupon_stripe_1" } },
+      });
+      const local = buildBillingCoupon({ stripePromotionCodeId: null });
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest.fn().mockReturnValue(event),
+        retrieveCoupon: jest.fn().mockResolvedValue(
+          buildGatewayCoupon({ couponId: "coupon_stripe_1", valid: false }),
+        ),
+      });
+      const billingCouponRepo = buildFakeBillingCouponRepo({
+        findByStripeCouponId: jest.fn().mockResolvedValue(local),
+      });
+      const { useCase } = buildCouponWebhookUseCase({
+        paymentGateway,
+        billingCouponRepo,
+      });
+
+      await useCase.execute("raw", "sig");
+
+      expect(paymentGateway.retrievePromotionCode).not.toHaveBeenCalled();
+      expect(billingCouponRepo.update).toHaveBeenCalledWith(
+        local.id,
+        expect.objectContaining({ active: false }),
       );
     });
 
@@ -1807,6 +2012,7 @@ describe("HandleStripeWebhookUseCase", () => {
           timesRedeemed: 4,
           expiresAt: null,
         }),
+        retrieveCoupon: jest.fn().mockResolvedValue(buildGatewayCoupon()),
       });
       const billingCouponRepo = buildFakeBillingCouponRepo({
         findByStripeCouponId: jest.fn().mockResolvedValue(coupon),
@@ -1886,6 +2092,466 @@ describe("HandleStripeWebhookUseCase", () => {
       expect(webhookEventRepo.markProcessed).toHaveBeenCalledWith(
         "evt_promo_orphan",
       );
+    });
+
+    function promotionCodeEvent(id: string, promoId: string): Stripe.Event {
+      return buildEvent({
+        id,
+        type: "promotion_code.created",
+        data: { object: { id: promoId } },
+      });
+    }
+
+    it("mirrors a Dashboard coupon when its promotion code arrives and there is no local row, using the coupon's limit as the effective one", async () => {
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest
+          .fn()
+          .mockReturnValue(promotionCodeEvent("evt_promo_new", "promo_new")),
+        retrievePromotionCode: jest.fn().mockResolvedValue(
+          buildGatewayPromotionCode({
+            promotionCodeId: "promo_new",
+            couponId: "coupon_dash",
+            code: "DASH7",
+            maxRedemptions: null,
+            timesRedeemed: 1,
+          }),
+        ),
+        retrieveCoupon: jest.fn().mockResolvedValue(
+          buildGatewayCoupon({
+            couponId: "coupon_dash",
+            name: "Dashboard coupon",
+            percentOff: 15,
+            maxRedemptions: 7,
+            timesRedeemed: 3,
+          }),
+        ),
+      });
+      const billingCouponRepo = buildFakeBillingCouponRepo({
+        findByStripeCouponId: jest.fn().mockResolvedValue(null),
+        findByCode: jest.fn().mockResolvedValue(null),
+        upsertFromStripe: jest.fn().mockResolvedValue(buildBillingCoupon()),
+      });
+      const { useCase, webhookEventRepo } = buildCouponWebhookUseCase({
+        paymentGateway,
+        billingCouponRepo,
+      });
+
+      await useCase.execute("raw", "sig");
+
+      expect(paymentGateway.retrieveCoupon).toHaveBeenCalledWith("coupon_dash");
+      expect(billingCouponRepo.upsertFromStripe).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stripeCouponId: "coupon_dash",
+          stripePromotionCodeId: "promo_new",
+          code: "DASH7",
+          name: "Dashboard coupon",
+          percentOff: 15,
+          duration: "once",
+          maxRedemptions: 7,
+          timesRedeemed: 3,
+          active: true,
+        }),
+      );
+      expect(webhookEventRepo.markProcessed).toHaveBeenCalledWith(
+        "evt_promo_new",
+      );
+    });
+
+    it("prefers the promotion code's own limit over the coupon's and keeps its own counter", async () => {
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest
+          .fn()
+          .mockReturnValue(promotionCodeEvent("evt_promo_own", "promo_own")),
+        retrievePromotionCode: jest.fn().mockResolvedValue(
+          buildGatewayPromotionCode({
+            promotionCodeId: "promo_own",
+            couponId: "coupon_dash",
+            maxRedemptions: 3,
+            timesRedeemed: 1,
+          }),
+        ),
+        retrieveCoupon: jest.fn().mockResolvedValue(
+          buildGatewayCoupon({
+            couponId: "coupon_dash",
+            maxRedemptions: 10,
+            timesRedeemed: 5,
+          }),
+        ),
+      });
+      const billingCouponRepo = buildFakeBillingCouponRepo({
+        findByCode: jest.fn().mockResolvedValue(null),
+        upsertFromStripe: jest.fn().mockResolvedValue(buildBillingCoupon()),
+      });
+      const { useCase } = buildCouponWebhookUseCase({
+        paymentGateway,
+        billingCouponRepo,
+      });
+
+      await useCase.execute("raw", "sig");
+
+      expect(billingCouponRepo.upsertFromStripe).toHaveBeenCalledWith(
+        expect.objectContaining({ maxRedemptions: 3, timesRedeemed: 1 }),
+      );
+    });
+
+    it("uses the earliest of the code's expires_at and the coupon's redeem_by", async () => {
+      const codeExpiry = new Date("2026-12-31T00:00:00Z");
+      const couponRedeemBy = new Date("2026-11-30T00:00:00Z");
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest
+          .fn()
+          .mockReturnValue(promotionCodeEvent("evt_promo_exp", "promo_exp")),
+        retrievePromotionCode: jest.fn().mockResolvedValue(
+          buildGatewayPromotionCode({
+            promotionCodeId: "promo_exp",
+            couponId: "coupon_dash",
+            expiresAt: codeExpiry,
+          }),
+        ),
+        retrieveCoupon: jest.fn().mockResolvedValue(
+          buildGatewayCoupon({
+            couponId: "coupon_dash",
+            redeemBy: couponRedeemBy,
+          }),
+        ),
+      });
+      const billingCouponRepo = buildFakeBillingCouponRepo({
+        findByCode: jest.fn().mockResolvedValue(null),
+        upsertFromStripe: jest.fn().mockResolvedValue(buildBillingCoupon()),
+      });
+      const { useCase } = buildCouponWebhookUseCase({
+        paymentGateway,
+        billingCouponRepo,
+      });
+
+      await useCase.execute("raw", "sig");
+
+      expect(billingCouponRepo.upsertFromStripe).toHaveBeenCalledWith(
+        expect.objectContaining({ expiresAt: couponRedeemBy }),
+      );
+    });
+
+    it("mirrors the new row as inactive when the coupon is not valid", async () => {
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest
+          .fn()
+          .mockReturnValue(promotionCodeEvent("evt_promo_inv", "promo_inv")),
+        retrievePromotionCode: jest.fn().mockResolvedValue(
+          buildGatewayPromotionCode({
+            promotionCodeId: "promo_inv",
+            couponId: "coupon_dash",
+            active: true,
+          }),
+        ),
+        retrieveCoupon: jest.fn().mockResolvedValue(
+          buildGatewayCoupon({ couponId: "coupon_dash", valid: false }),
+        ),
+      });
+      const billingCouponRepo = buildFakeBillingCouponRepo({
+        findByCode: jest.fn().mockResolvedValue(null),
+        upsertFromStripe: jest.fn().mockResolvedValue(buildBillingCoupon()),
+      });
+      const { useCase } = buildCouponWebhookUseCase({
+        paymentGateway,
+        billingCouponRepo,
+      });
+
+      await useCase.execute("raw", "sig");
+
+      expect(billingCouponRepo.upsertFromStripe).toHaveBeenCalledWith(
+        expect.objectContaining({ active: false }),
+      );
+    });
+
+    it("does not mirror a promotion code whose coupon has a fractional percent_off (telemetry, no write)", async () => {
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest
+          .fn()
+          .mockReturnValue(promotionCodeEvent("evt_promo_frac", "promo_frac")),
+        retrievePromotionCode: jest.fn().mockResolvedValue(
+          buildGatewayPromotionCode({
+            promotionCodeId: "promo_frac",
+            couponId: "coupon_frac",
+          }),
+        ),
+        retrieveCoupon: jest.fn().mockResolvedValue(
+          buildGatewayCoupon({ couponId: "coupon_frac", percentOff: 33.33 }),
+        ),
+      });
+      const billingCouponRepo = buildFakeBillingCouponRepo();
+      const { useCase, telemetry, webhookEventRepo } =
+        buildCouponWebhookUseCase({ paymentGateway, billingCouponRepo });
+
+      await useCase.execute("raw", "sig");
+
+      expect(billingCouponRepo.upsertFromStripe).not.toHaveBeenCalled();
+      expect(billingCouponRepo.update).not.toHaveBeenCalled();
+      expect(telemetry.captureMessage).toHaveBeenCalledWith(
+        expect.stringContaining("coupon_frac"),
+        "warn",
+        expect.objectContaining({
+          code: "BILLING_COUPON_FRACTIONAL_PERCENT_OFF_UNSUPPORTED",
+        }),
+      );
+      expect(webhookEventRepo.markProcessed).toHaveBeenCalledWith(
+        "evt_promo_frac",
+      );
+    });
+
+    it("does not mirror when the parent coupon no longer exists in Stripe", async () => {
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest
+          .fn()
+          .mockReturnValue(promotionCodeEvent("evt_promo_gone", "promo_gone")),
+        retrievePromotionCode: jest.fn().mockResolvedValue(
+          buildGatewayPromotionCode({
+            promotionCodeId: "promo_gone",
+            couponId: "coupon_gone",
+          }),
+        ),
+        retrieveCoupon: jest.fn().mockResolvedValue(null),
+      });
+      const billingCouponRepo = buildFakeBillingCouponRepo();
+      const { useCase } = buildCouponWebhookUseCase({
+        paymentGateway,
+        billingCouponRepo,
+      });
+
+      await useCase.execute("raw", "sig");
+
+      expect(billingCouponRepo.upsertFromStripe).not.toHaveBeenCalled();
+    });
+
+    it("mirrors an INACTIVE incoming promotion code without a collision check (the partial unique index only covers active rows)", async () => {
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest
+          .fn()
+          .mockReturnValue(promotionCodeEvent("evt_promo_old", "promo_old")),
+        retrievePromotionCode: jest.fn().mockResolvedValue(
+          buildGatewayPromotionCode({
+            promotionCodeId: "promo_old",
+            couponId: "coupon_dash",
+            code: "TAKEN",
+            active: false,
+          }),
+        ),
+        retrieveCoupon: jest
+          .fn()
+          .mockResolvedValue(buildGatewayCoupon({ couponId: "coupon_dash" })),
+      });
+      const billingCouponRepo = buildFakeBillingCouponRepo({
+        findByStripeCouponId: jest.fn().mockResolvedValue(null),
+        findByCode: jest.fn().mockResolvedValue(
+          buildBillingCoupon({ stripeCouponId: "coupon_other", code: "TAKEN" }),
+        ),
+        upsertFromStripe: jest.fn().mockResolvedValue(buildBillingCoupon()),
+      });
+      const { useCase, telemetry } = buildCouponWebhookUseCase({
+        paymentGateway,
+        billingCouponRepo,
+      });
+
+      await useCase.execute("raw", "sig");
+
+      expect(billingCouponRepo.findByCode).not.toHaveBeenCalled();
+      expect(billingCouponRepo.upsertFromStripe).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stripeCouponId: "coupon_dash",
+          code: "TAKEN",
+          active: false,
+        }),
+      );
+      expect(telemetry.captureMessage).not.toHaveBeenCalled();
+    });
+
+    it("skips mirroring when the code is already held by an ACTIVE row of another coupon (the partial unique index would loop the webhook)", async () => {
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest
+          .fn()
+          .mockReturnValue(promotionCodeEvent("evt_promo_dup", "promo_dup")),
+        retrievePromotionCode: jest.fn().mockResolvedValue(
+          buildGatewayPromotionCode({
+            promotionCodeId: "promo_dup",
+            couponId: "coupon_dash",
+            code: "TAKEN",
+          }),
+        ),
+        retrieveCoupon: jest
+          .fn()
+          .mockResolvedValue(buildGatewayCoupon({ couponId: "coupon_dash" })),
+      });
+      const billingCouponRepo = buildFakeBillingCouponRepo({
+        findByStripeCouponId: jest.fn().mockResolvedValue(null),
+        findByCode: jest.fn().mockResolvedValue(
+          buildBillingCoupon({
+            stripeCouponId: "coupon_other",
+            code: "TAKEN",
+          }),
+        ),
+      });
+      const { useCase, telemetry } = buildCouponWebhookUseCase({
+        paymentGateway,
+        billingCouponRepo,
+      });
+
+      await useCase.execute("raw", "sig");
+
+      expect(billingCouponRepo.upsertFromStripe).not.toHaveBeenCalled();
+      expect(telemetry.captureMessage).toHaveBeenCalledWith(
+        expect.stringContaining("promo_dup"),
+        "warn",
+        expect.objectContaining({
+          code: "BILLING_COUPON_CODE_COLLISION_IGNORED",
+          stripeCouponId: "coupon_dash",
+          stripePromotionCodeId: "promo_dup",
+          conflictingStripeCouponId: "coupon_other",
+        }),
+      );
+      // The code text itself must never reach telemetry.
+      const [message, , context] = telemetry.captureMessage.mock.calls[0]!;
+      expect(message).not.toContain("TAKEN");
+      expect(JSON.stringify(context)).not.toContain("TAKEN");
+    });
+
+    it("persists active=false on an existing row when the parent coupon was deleted in Stripe (out-of-order promotion_code.updated)", async () => {
+      const local = buildBillingCoupon({
+        stripePromotionCodeId: "promo_1",
+        code: "PROMO10",
+        active: false,
+      });
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest.fn().mockReturnValue(
+          buildEvent({
+            id: "evt_promo_after_delete",
+            type: "promotion_code.updated",
+            data: { object: { id: "promo_1" } },
+          }),
+        ),
+        retrievePromotionCode: jest.fn().mockResolvedValue(
+          buildGatewayPromotionCode({
+            promotionCodeId: "promo_1",
+            couponId: "coupon_stripe_1",
+            active: true,
+            maxRedemptions: 9,
+            timesRedeemed: 2,
+          }),
+        ),
+        retrieveCoupon: jest.fn().mockResolvedValue(null),
+      });
+      const billingCouponRepo = buildFakeBillingCouponRepo({
+        findByStripeCouponId: jest.fn().mockResolvedValue(local),
+      });
+      const { useCase } = buildCouponWebhookUseCase({
+        paymentGateway,
+        billingCouponRepo,
+      });
+
+      await useCase.execute("raw", "sig");
+
+      expect(billingCouponRepo.update).toHaveBeenCalledWith(
+        local.id,
+        expect.objectContaining({
+          active: false,
+          maxRedemptions: 9,
+          timesRedeemed: 2,
+        }),
+      );
+    });
+
+    it("applies the effective state (inactive when the coupon is invalid) to an existing row", async () => {
+      const local = buildBillingCoupon({
+        stripePromotionCodeId: "promo_1",
+        code: "PROMO10",
+      });
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest.fn().mockReturnValue(
+          buildEvent({
+            id: "evt_promo_exhausted",
+            type: "promotion_code.updated",
+            data: { object: { id: "promo_1" } },
+          }),
+        ),
+        retrievePromotionCode: jest.fn().mockResolvedValue(
+          buildGatewayPromotionCode({
+            promotionCodeId: "promo_1",
+            couponId: "coupon_stripe_1",
+            active: true,
+            timesRedeemed: 7,
+          }),
+        ),
+        retrieveCoupon: jest.fn().mockResolvedValue(
+          buildGatewayCoupon({
+            couponId: "coupon_stripe_1",
+            valid: false,
+            maxRedemptions: 7,
+            timesRedeemed: 7,
+          }),
+        ),
+      });
+      const billingCouponRepo = buildFakeBillingCouponRepo({
+        findByStripeCouponId: jest.fn().mockResolvedValue(local),
+      });
+      const { useCase } = buildCouponWebhookUseCase({
+        paymentGateway,
+        billingCouponRepo,
+      });
+
+      await useCase.execute("raw", "sig");
+
+      expect(billingCouponRepo.update).toHaveBeenCalledWith(
+        local.id,
+        expect.objectContaining({
+          active: false,
+          maxRedemptions: 7,
+          timesRedeemed: 7,
+        }),
+      );
+      expect(billingCouponRepo.upsertFromStripe).not.toHaveBeenCalled();
+    });
+
+    it("ignores a second promotion code created for a coupon already mirrored with another code", async () => {
+      const local = buildBillingCoupon({
+        stripePromotionCodeId: "promo_managed",
+        code: "MANAGED",
+      });
+      const paymentGateway = buildFakePaymentGateway({
+        constructWebhookEvent: jest
+          .fn()
+          .mockReturnValue(promotionCodeEvent("evt_promo_2nd", "promo_second")),
+        retrievePromotionCode: jest.fn().mockResolvedValue(
+          buildGatewayPromotionCode({
+            promotionCodeId: "promo_second",
+            couponId: "coupon_stripe_1",
+            code: "LEAKCHECK9",
+          }),
+        ),
+        retrieveCoupon: jest.fn().mockResolvedValue(buildGatewayCoupon()),
+      });
+      const billingCouponRepo = buildFakeBillingCouponRepo({
+        findByStripeCouponId: jest.fn().mockResolvedValue(local),
+      });
+      const { useCase, telemetry } = buildCouponWebhookUseCase({
+        paymentGateway,
+        billingCouponRepo,
+      });
+
+      await useCase.execute("raw", "sig");
+
+      expect(billingCouponRepo.update).not.toHaveBeenCalled();
+      expect(billingCouponRepo.upsertFromStripe).not.toHaveBeenCalled();
+      expect(telemetry.captureMessage).toHaveBeenCalledWith(
+        expect.stringContaining("promo_second"),
+        "warn",
+        expect.objectContaining({
+          code: "BILLING_COUPON_SECOND_PROMOTION_CODE_IGNORED",
+          stripeCouponId: "coupon_stripe_1",
+          stripePromotionCodeId: "promo_second",
+          mirroredStripePromotionCodeId: "promo_managed",
+        }),
+      );
+      const [message, , context] = telemetry.captureMessage.mock.calls[0]!;
+      expect(message).not.toContain("LEAKCHECK9");
+      expect(JSON.stringify(context)).not.toContain("LEAKCHECK9");
     });
   });
 

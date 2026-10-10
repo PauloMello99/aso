@@ -2,6 +2,7 @@ import { Controller, HttpCode, Post, UseGuards } from "@nestjs/common";
 import { CronSecretGuard } from "../../common/guards/cron-secret.guard";
 import { CRON_JOBS } from "../../common/cron/cron-jobs";
 import { SendAgendaRemindersUseCase } from "../calendar/application/use-cases/send-agenda-reminders.use-case";
+import { SendCustomerConfirmationRemindersUseCase } from "../calendar/application/use-cases/send-customer-confirmation-reminders.use-case";
 import { SendStockCheckRemindersUseCase } from "../materials/application/use-cases/send-stock-check-reminders.use-case";
 import { ReconcileSubscriptionsUseCase } from "../subscriptions/application/use-cases/reconcile-subscriptions.use-case";
 import { ExpireSubscriptionsUseCase } from "../subscriptions/application/use-cases/expire-subscriptions.use-case";
@@ -10,6 +11,8 @@ import { ReconcileRefundsUseCase } from "../subscriptions/application/use-cases/
 import { RunCampaignTriggersUseCase } from "../campaigns/application/use-cases/run-campaign-triggers.use-case";
 import { SendChangelogAnnouncementsUseCase } from "../changelog/application/use-cases/send-changelog-announcements.use-case";
 import { SweepTicketSlaUseCase } from "../support/application/use-cases/sweep-ticket-sla.use-case";
+import { PurgeExpiredQuoteRequestsUseCase } from "../quotes/application/use-cases/purge-expired-quote-requests.use-case";
+import { SweepOrphanQuoteObjectsUseCase } from "../quotes/application/use-cases/sweep-orphan-quote-objects.use-case";
 
 interface JobResult {
   name: string;
@@ -31,6 +34,9 @@ export class InternalCronController {
     private readonly runCampaignTriggers: RunCampaignTriggersUseCase,
     private readonly sweepTicketSla: SweepTicketSlaUseCase,
     private readonly sendChangelogAnnouncements: SendChangelogAnnouncementsUseCase,
+    private readonly sendCustomerConfirmationReminders: SendCustomerConfirmationRemindersUseCase,
+    private readonly purgeExpiredQuoteRequests: PurgeExpiredQuoteRequestsUseCase,
+    private readonly sweepOrphanQuoteObjects: SweepOrphanQuoteObjectsUseCase,
   ) {}
 
   @Post("tick")
@@ -85,6 +91,28 @@ export class InternalCronController {
         // Kill-switch/channel gates run before the claim.
         name: CRON_JOBS.CHANGELOG_ANNOUNCEMENTS,
         run: () => this.sendChangelogAnnouncements.execute(),
+      },
+      {
+        // Kill-switch (APPOINTMENT_CONFIRMATION_ENABLED) checked inside the
+        // use-case; per-row idempotency via the atomic claim of
+        // customer_reminder_sent_at.
+        name: CRON_JOBS.CUSTOMER_CONFIRMATION_REMINDERS,
+        run: () => this.sendCustomerConfirmationReminders.execute(),
+      },
+      {
+        // NOT gated by PUBLIC_QUOTE_FORM_ENABLED (or any kill-switch): data
+        // collected while the flag was on must still be purged after it is
+        // turned off. Serialization is the row-level claim (FOR UPDATE SKIP
+        // LOCKED + 10-minute lease) inside the use-case.
+        name: CRON_JOBS.QUOTE_REQUEST_PURGE,
+        run: () => this.purgeExpiredQuoteRequests.execute(),
+      },
+      {
+        // Self-throttled via claimRun inside the use-case (runs at most once
+        // every 6 hours); most calls are a cheap no-op claim check. Also NOT
+        // gated by PUBLIC_QUOTE_FORM_ENABLED.
+        name: CRON_JOBS.QUOTE_ORPHAN_SWEEP,
+        run: () => this.sweepOrphanQuoteObjects.execute(),
       },
     ];
 

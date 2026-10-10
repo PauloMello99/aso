@@ -20,9 +20,13 @@ export const queryKeys = {
   },
 
   overview: {
-    detail: (orgId: string) => ["overview", orgId] as const,
-    analytics: (orgId: string, from?: string, to?: string) =>
-      ["overview", orgId, "analytics", from ?? "", to ?? ""] as const,
+    // Sem `month` é o prefixo (invalidação); com `month` ("YYYY-MM") é a key do mês.
+    detail: (orgId: string, month?: string) =>
+      month
+        ? (["overview", orgId, "detail", month] as const)
+        : (["overview", orgId] as const),
+    analytics: (orgId: string, month?: string) =>
+      ["overview", orgId, "analytics", month ?? ""] as const,
   },
 
   members: {
@@ -184,7 +188,39 @@ export const queryKeys = {
     list: () => ["changelog", "list"] as const,
   },
 
+  publicAppointmentConfirmation: {
+    detail: (token: string) =>
+      ["public-appointment-confirmation", "detail", token] as const,
+  },
+
   publicBilling: {
     plans: () => ["public-billing", "plans"] as const,
+  },
+
+  publicQuoteForm: {
+    bySlug: (slug: string) => ["public-quote-form", "by-slug", slug] as const,
+  },
+
+  quoteForms: {
+    all: (orgId: string) => ["quote-forms", orgId] as const,
+    mine: (orgId: string) => ["quote-forms", orgId, "mine"] as const,
+  },
+
+  // Mesmo prefixo da key inline de features/agenda/hooks/use-calendar-events
+  // (["calendar", orgId, ...]); o hook da agenda não foi refatorado — esta
+  // entrada existe só para invalidar a agenda por prefixo.
+  calendar: {
+    all: (orgId: string) => ["calendar", orgId] as const,
+  },
+
+  quoteRequests: {
+    all: (orgId: string) => ["quote-requests", orgId] as const,
+    lists: (orgId: string) => ["quote-requests", orgId, "list"] as const,
+    list: (orgId: string, page: number) =>
+      ["quote-requests", orgId, "list", page] as const,
+    detail: (orgId: string, id: string) =>
+      ["quote-requests", orgId, "detail", id] as const,
+    unreadCount: (orgId: string) =>
+      ["quote-requests", orgId, "unread-count"] as const,
   },
 } as const

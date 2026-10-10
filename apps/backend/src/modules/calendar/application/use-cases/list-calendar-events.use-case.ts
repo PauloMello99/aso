@@ -33,10 +33,14 @@ export class ListCalendarEventsUseCase {
       });
     }
 
-    return this.repo.findInRange(input.orgId, {
+    const events = await this.repo.findInRange(input.orgId, {
       start: input.start,
       end: input.end,
       includeSharedForUserId: membership.userId,
     });
+    // E-mail do cliente é PII: funcionário só vê o dos próprios eventos.
+    return events.map((e) =>
+      e.assignedTo === membership.userId ? e : e.withoutCustomerEmail(),
+    );
   }
 }

@@ -19,7 +19,7 @@ describe("getTourSteps", () => {
     const org = makeOrg({ role: "owner", permissions: [] })
     const steps = getTourSteps(org)
 
-    expect(steps).toHaveLength(13)
+    expect(steps).toHaveLength(14)
     expect(steps.map((s) => s.selector)).toEqual([
       null,
       '[data-tour="nav-overview"]',
@@ -27,6 +27,7 @@ describe("getTourSteps", () => {
       '[data-tour="nav-anamnesis"]',
       '[data-tour="nav-clients"]',
       '[data-tour="nav-schedule"]',
+      '[data-tour="nav-quotes"]',
       '[data-tour="nav-stock"]',
       '[data-tour="nav-cashier"]',
       '[data-tour="nav-members"]',
@@ -35,6 +36,29 @@ describe("getTourSteps", () => {
       '[data-tour="nav-support"]',
       '[data-tour="user-menu"]',
     ])
+  })
+
+  it("omits modules listed as unavailable (quotes behind a disabled flag)", () => {
+    const org = makeOrg({ role: "owner", permissions: [] })
+    const selectors = getTourSteps(org, new Set(["quotes"])).map(
+      (s) => s.selector,
+    )
+
+    expect(selectors).not.toContain('[data-tour="nav-quotes"]')
+    expect(selectors).toContain('[data-tour="nav-schedule"]')
+    expect(selectors).toHaveLength(13)
+  })
+
+  it("shows the quotes step to an employee only with the quotes permission", () => {
+    const withPermission = getTourSteps(
+      makeOrg({ role: "employee", permissions: ["quotes"] }),
+    ).map((s) => s.selector)
+    const without = getTourSteps(
+      makeOrg({ role: "employee", permissions: [] }),
+    ).map((s) => s.selector)
+
+    expect(withPermission).toContain('[data-tour="nav-quotes"]')
+    expect(without).not.toContain('[data-tour="nav-quotes"]')
   })
 
   it("shows only the modules an employee has permission for", () => {

@@ -14,72 +14,34 @@ import {
   ArrowUp,
   ArrowDown,
   HandCoins,
-  Users,
-  Loader2,
 } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { useMoneyFormatter } from "@/shared/hooks/use-money-formatter"
 import type {
   KpiWithDelta,
   OverviewAnalytics,
-  ServiceGroupRow,
 } from "../hooks/use-overview-analytics"
+import type {
+  ViewId,
+  ViewOption,
+  ViewPreferences,
+} from "../lib/view-preferences"
 import {
   BalanceAreaChart,
   ChartCard,
-  HorizontalRevenueChart,
-  IncomeExpenseChart,
-  PaymentMethodsChart,
+  MaterialsBarChart,
+  MaterialsList,
+  PaymentMethodsView,
+  RevenueBarChart,
+  ViewToggle,
 } from "./charts"
 
-export type PeriodKey = "month" | "30d" | "90d"
+type PreferenceChange = <K extends ViewId>(id: K, value: ViewOption<K>) => void
 
-const PERIOD_LABELS: Record<PeriodKey, string> = {
-  month: "Mês atual",
-  "30d": "30 dias",
-  "90d": "90 dias",
-}
-
-export function periodRange(key: PeriodKey): { from: string; to: string } {
-  const now = new Date()
-  const to = now.toISOString()
-  if (key === "month") {
-    return {
-      from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
-      to,
-    }
-  }
-  const days = key === "90d" ? 90 : 30
-  return { from: new Date(now.getTime() - days * 86400000).toISOString(), to }
-}
-
-function PeriodSelector({
-  value,
-  onChange,
-}: {
-  value: PeriodKey
-  onChange: (k: PeriodKey) => void
-}) {
-  return (
-    <div className="flex gap-1 rounded-lg border border-foreground/[0.06] p-0.5">
-      {(Object.keys(PERIOD_LABELS) as PeriodKey[]).map((k) => (
-        <button
-          key={k}
-          type="button"
-          onClick={() => onChange(k)}
-          className={cn(
-            "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-            value === k
-              ? "bg-foreground/[0.08] text-foreground"
-              : "text-foreground/50 hover:text-foreground",
-          )}
-        >
-          {PERIOD_LABELS[k]}
-        </button>
-      ))}
-    </div>
-  )
-}
+const ORIENTATION_OPTIONS = [
+  { value: "bars-h", label: "Horizontal" },
+  { value: "bars-v", label: "Vertical" },
+] as const
 
 function Delta({
   kpi,
@@ -151,21 +113,13 @@ function Kpi({
   )
 }
 
-function BandHeader({
-  periodKey,
-  onPeriodChange,
-}: {
-  periodKey: PeriodKey
-  onPeriodChange: (k: PeriodKey) => void
-}) {
+function BandHeader() {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex items-center gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-widest text-foreground/30">
-          Desempenho
-        </span>
-      </div>
-      <PeriodSelector value={periodKey} onChange={onPeriodChange} />
+    <div className="flex items-center gap-3">
+      <span className="text-[11px] font-semibold uppercase tracking-widest text-foreground/30">
+        Desempenho
+      </span>
+      <span className="h-px flex-1 bg-foreground/[0.06]" />
     </div>
   )
 }
@@ -173,22 +127,23 @@ function BandHeader({
 export function PerformanceSection({
   data,
   loading,
-  periodKey,
-  onPeriodChange,
+  prefs,
+  onPreferenceChange,
 }: {
   data?: OverviewAnalytics
   loading: boolean
-  periodKey: PeriodKey
-  onPeriodChange: (k: PeriodKey) => void
+  prefs: ViewPreferences
+  onPreferenceChange: PreferenceChange
 }) {
   const money = useMoneyFormatter()
   const m = data?.margin
   const resultado = data?.resultadoCents?.current ?? 0
   const profit = m?.profitCents ?? 0
+  const materials = data?.materialsConsumption ?? []
 
   return (
     <section className="grid gap-4">
-      <BandHeader periodKey={periodKey} onPeriodChange={onPeriodChange} />
+      <BandHeader />
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(11rem,100%),1fr))] gap-3">
         <Kpi
@@ -279,24 +234,65 @@ export function PerformanceSection({
           title="Saldo no período"
           loading={loading}
           isEmpty={!data?.series || data.series.length === 0}
-        >
-          <BalanceAreaChart series={data?.series ?? []} />
-        </ChartCard>
-        <ChartCard
-          title="Entradas × Saídas"
-          loading={loading}
-          isEmpty={
-            !data?.incomeExpenseSeries || data.incomeExpenseSeries.length === 0
+          actions={
+            <ViewToggle
+              label="Exibição do saldo"
+              value={prefs.balance}
+              onChange={(v) => onPreferenceChange("balance", v)}
+              options={[
+                { value: "area", label: "Área" },
+                { value: "line", label: "Linha" },
+              ]}
+            />
           }
         >
-          <IncomeExpenseChart data={data?.incomeExpenseSeries ?? []} />
+          <BalanceAreaChart
+            series={data?.series ?? []}
+            variant={prefs.balance}
+          />
+        </ChartCard>
+        <ChartCard
+          title="Materiais mais gastos"
+          loading={loading}
+          isEmpty={materials.length === 0}
+          emptyLabel="Nenhum material consumido no período."
+          actions={
+            <ViewToggle
+              label="Exibição dos materiais"
+              value={prefs.materials}
+              onChange={(v) => onPreferenceChange("materials", v)}
+              options={[
+                { value: "bars-h", label: "Barras" },
+                { value: "list", label: "Lista" },
+              ]}
+            />
+          }
+        >
+          {prefs.materials === "list" ? (
+            <MaterialsList data={materials} />
+          ) : (
+            <MaterialsBarChart data={materials} />
+          )}
         </ChartCard>
         <ChartCard
           title="Serviços por tipo"
           loading={loading}
           isEmpty={!data?.servicesByType || data.servicesByType.length === 0}
+          actions={
+            <ViewToggle
+              label="Orientação de serviços por tipo"
+              value={prefs.servicesByType}
+              onChange={(v) => onPreferenceChange("servicesByType", v)}
+              options={ORIENTATION_OPTIONS}
+            />
+          }
         >
-          <HorizontalRevenueChart data={data?.servicesByType ?? []} />
+          <RevenueBarChart
+            data={data?.servicesByType ?? []}
+            orientation={
+              prefs.servicesByType === "bars-v" ? "vertical" : "horizontal"
+            }
+          />
         </ChartCard>
         <ChartCard
           title="Receita por profissional"
@@ -305,84 +301,50 @@ export function PerformanceSection({
             !data?.revenueByProfessional ||
             data.revenueByProfessional.length === 0
           }
+          actions={
+            <ViewToggle
+              label="Orientação de receita por profissional"
+              value={prefs.revenueByProfessional}
+              onChange={(v) => onPreferenceChange("revenueByProfessional", v)}
+              options={ORIENTATION_OPTIONS}
+            />
+          }
         >
-          <HorizontalRevenueChart data={data?.revenueByProfessional ?? []} />
+          <RevenueBarChart
+            data={data?.revenueByProfessional ?? []}
+            orientation={
+              prefs.revenueByProfessional === "bars-v"
+                ? "vertical"
+                : "horizontal"
+            }
+          />
         </ChartCard>
         <ChartCard
           title="Métodos de pagamento"
           loading={loading}
           isEmpty={!data?.paymentMethods || data.paymentMethods.length === 0}
           className="lg:col-span-2"
+          contentClassName={prefs.paymentMethods === "both" ? "h-auto" : undefined}
+          actions={
+            <ViewToggle
+              label="Exibição dos métodos de pagamento"
+              value={prefs.paymentMethods}
+              onChange={(v) => onPreferenceChange("paymentMethods", v)}
+              options={[
+                { value: "both", label: "Ambos" },
+                { value: "donut", label: "Rosca" },
+                { value: "list", label: "Lista" },
+              ]}
+            />
+          }
         >
-          <PaymentMethodsChart data={data?.paymentMethods ?? []} />
+          <PaymentMethodsView
+            data={data?.paymentMethods ?? []}
+            view={prefs.paymentMethods}
+          />
         </ChartCard>
       </div>
-
-      <CommissionByProfessional
-        rows={data?.revenueByProfessional ?? []}
-        loading={loading}
-      />
     </section>
-  )
-}
-
-function CommissionByProfessional({
-  rows,
-  loading,
-}: {
-  rows: ServiceGroupRow[]
-  loading: boolean
-}) {
-  const money = useMoneyFormatter()
-  return (
-    <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-5">
-      <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
-        <Users className="h-4 w-4 text-primary" />
-        Repasse por profissional
-      </h3>
-      {loading ? (
-        <div className="flex h-24 items-center justify-center text-foreground/30">
-          <Loader2 className="h-4 w-4 animate-spin" />
-        </div>
-      ) : rows.length === 0 ? (
-        <p className="flex h-24 items-center justify-center text-center text-sm text-foreground/30">
-          Sem dados no período.
-        </p>
-      ) : (
-        <ul className="divide-y divide-foreground/[0.05]">
-          {rows.map((row) => {
-            const percent =
-              row.revenueCents > 0
-                ? Math.round((row.commissionCents / row.revenueCents) * 100)
-                : null
-            return (
-              <li
-                key={row.name}
-                className="flex flex-col gap-1 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-foreground">{row.name}</p>
-                  <p className="mt-0.5 text-xs text-foreground/40">
-                    {row.count} {row.count === 1 ? "serviço" : "serviços"} ·
-                    Movimentou {money(row.revenueCents)}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">
-                  <span className="font-medium tabular-nums text-foreground">
-                    {money(row.commissionCents)}
-                  </span>
-                  {percent !== null && (
-                    <span className="text-xs tabular-nums text-foreground/40">
-                      {percent}%
-                    </span>
-                  )}
-                </div>
-              </li>
-            )
-          })}
-        </ul>
-      )}
-    </div>
   )
 }
 
@@ -419,18 +381,14 @@ function MiniStat({
 
 export function EmployeePerformance({
   data,
-  periodKey,
-  onPeriodChange,
 }: {
   data?: OverviewAnalytics
   loading: boolean
-  periodKey: PeriodKey
-  onPeriodChange: (k: PeriodKey) => void
 }) {
   const money = useMoneyFormatter()
   return (
     <section className="grid gap-4">
-      <BandHeader periodKey={periodKey} onPeriodChange={onPeriodChange} />
+      <BandHeader />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi
           label="Meus serviços"

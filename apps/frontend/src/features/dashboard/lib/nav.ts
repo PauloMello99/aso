@@ -11,6 +11,8 @@ import {
   ClipboardList,
   LifeBuoy,
   Megaphone,
+  FileText,
+  Inbox,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
@@ -20,6 +22,7 @@ export const MODULE_KEYS = [
   "schedule",
   "stock",
   "cashier",
+  "quotes",
 ] as const
 export type ModuleKey = (typeof MODULE_KEYS)[number]
 
@@ -62,6 +65,7 @@ export const ORG_NAV_SECTIONS: NavSection[] = [
       },
       { label: "Clientes", href: "clients", icon: Users, module: "clients" },
       { label: "Agenda", href: "schedule", icon: CalendarDays, module: "schedule" },
+      { label: "Orçamentos", href: "quotes", icon: Inbox, module: "quotes" },
       { label: "Estoque", href: "stock", icon: Archive, module: "stock" },
       { label: "Caixa", href: "cashier", icon: Wallet, module: "cashier" },
       { label: "Membros", href: "members", icon: UsersRound },
@@ -85,6 +89,7 @@ export const ORG_NAV_SECTIONS: NavSection[] = [
 export const SETTINGS_NAV: NavItem[] = [
   { label: "Geral", href: "settings/general", icon: Settings, roles: ["owner"] },
   { label: "Agenda", href: "settings/agenda", icon: CalendarDays },
+  { label: "Orçamento", href: "settings/quote-form", icon: FileText },
   { label: "Estoque", href: "settings/stock", icon: Archive, roles: ["owner"] },
   { label: "Caixa", href: "settings/cashier", icon: Wallet, roles: ["owner"] },
   { label: "Assinatura", href: "settings/subscription", icon: CreditCard, roles: ["owner"] },
@@ -120,10 +125,12 @@ export const PAGE_LABELS: Record<string, string> = {
   stock: "Estoque",
   cashier: "Caixa",
   campaigns: "Campanhas",
+  quotes: "Orçamentos",
   settings: "Configurações",
   billing: "Cobrança",
   general: "Geral",
   agenda: "Agenda",
+  "quote-form": "Formulário de orçamento",
   anamnesis: "Anamnese",
   subscription: "Assinatura",
   organizations: "Organizações",

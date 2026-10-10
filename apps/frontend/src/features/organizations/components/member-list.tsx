@@ -47,6 +47,8 @@ import {
 } from "@/shared/components/ui/table";
 import { cn } from "@/shared/lib/utils";
 import { MODULE_KEYS, type ModuleKey } from "@/features/dashboard/lib/nav";
+import { useCurrentOrg } from "@/features/dashboard/components/org-context";
+import { useQuotesAvailability } from "@/features/quotes/hooks/use-quotes-availability";
 import {
   COMMISSION_MODE_LABELS,
   MAX_INSTALLMENTS,
@@ -85,6 +87,7 @@ const MODULE_LABEL: Record<ModuleKey, string> = {
   schedule: "Agenda",
   stock: "Estoque",
   cashier: "Caixa",
+  quotes: "Orçamentos",
 };
 
 interface MemberListProps {
@@ -325,6 +328,14 @@ export function MemberList({
   const [feesFieldError, setFeesFieldError] = useState<string | null>(null);
   const [feesSubmitError, setFeesSubmitError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // O toggle de Orçamentos some com o recurso desligado, mas permsDraft continua
+  // carregando 'quotes' (não é filtrado), então salvar não revoga a permissão.
+  const { orgId } = useCurrentOrg();
+  const { available: quotesAvailable } = useQuotesAvailability(orgId);
+  const toggleableModules = MODULE_KEYS.filter(
+    (module) => module !== "quotes" || quotesAvailable,
+  );
 
   function openPerms(member: Member) {
     setPermsDraft(member.permissions ?? []);
@@ -816,7 +827,7 @@ export function MemberList({
           </DialogHeader>
           <div className="grid max-h-[60vh] gap-5 overflow-y-auto pr-1">
             <div className="grid gap-1">
-              {MODULE_KEYS.map((module) => {
+              {toggleableModules.map((module) => {
                 const on = permsDraft.includes(module);
                 return (
                   <label

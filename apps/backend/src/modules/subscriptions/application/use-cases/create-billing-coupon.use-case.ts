@@ -9,6 +9,7 @@ import {
   PAYMENT_GATEWAY,
 } from "../../domain/ports/payment-gateway.port";
 import { InvalidCouponConfigException } from "../../domain/exceptions/invalid-coupon-config.exception";
+import { BillingCouponCodeAlreadyExistsException } from "../../domain/exceptions/billing-coupon-code-already-exists.exception";
 import { AuditService } from "../../../audit/audit.service";
 import {
   IUserRepository,
@@ -22,10 +23,12 @@ export interface CreateBillingCouponParams {
   currency?: string;
   duration: "once" | "repeating" | "forever";
   durationInMonths?: number;
-  code?: string;
+  code: string;
   maxRedemptions?: number;
   expiresAt?: Date;
 }
+
+const COUPON_CODE_PATTERN = /^[A-Z0-9_-]{3,64}$/;
 
 @Injectable()
 export class CreateBillingCouponUseCase {
@@ -47,6 +50,23 @@ export class CreateBillingCouponUseCase {
   ): Promise<BillingCouponEntity> {
     this.validate(params);
 
+    const code =
+      typeof params.code === "string" ? params.code.trim().toUpperCase() : "";
+    if (!COUPON_CODE_PATTERN.test(code)) {
+      throw new InvalidCouponConfigException(
+        "code é obrigatório e deve ter de 3 a 64 caracteres (letras, números, '_' ou '-')",
+      );
+    }
+
+    // `billing_coupons.code` is unique only among ACTIVE rows (migration
+    // 0094): an active holder would make the local write below fail after
+    // both Stripe objects exist, and Stripe itself rejects two active
+    // promotion codes with the same code. A deactivated/archived row does
+    // not block (`findByCode` returns active rows only). Reject before
+    // touching Stripe.
+    const existing = await this.billingCouponRepo.findByCode(code);
+    if (existing) throw new BillingCouponCodeAlreadyExistsException();
+
     const coupon = await this.paymentGateway.createCoupon({
       name: params.name,
       percentOff: params.percentOff,
@@ -60,7 +80,7 @@ export class CreateBillingCouponUseCase {
     try {
       promotionCode = await this.paymentGateway.createPromotionCode({
         couponId: coupon.couponId,
-        code: params.code,
+        code,
         maxRedemptions: params.maxRedemptions,
         expiresAt: params.expiresAt,
       });
@@ -70,13 +90,10 @@ export class CreateBillingCouponUseCase {
       // falhar, apenas logamos e propagamos o erro original abaixo.
       try {
         await this.paymentGateway.deleteCoupon(coupon.couponId);
-      } catch (compensationError) {
+      } catch {
+        // Intencionalmente sem a mensagem do provider: só o id do coupon.
         this.logger.warn(
-          `Failed to compensate orphaned Stripe coupon ${coupon.couponId} after promotion code creation failure: ${
-            compensationError instanceof Error
-              ? compensationError.message
-              : String(compensationError)
-          }`,
+          `Failed to compensate orphaned Stripe coupon ${coupon.couponId} after promotion code creation failure`,
         );
       }
       throw error;
@@ -85,9 +102,9 @@ export class CreateBillingCouponUseCase {
     const actor = await this.userRepo.findByAuthId(actorAuthId);
 
     // Upsert (não um insert puro) por `stripeCouponId`: o handler do webhook
-    // para `coupon.created` pode correr em paralelo com esta chamada e
+    // para `promotion_code.created` pode correr em paralelo com esta chamada e
     // inserir a linha local primeiro (ver
-    // HandleStripeWebhookUseCase.handleCouponUpserted). Um INSERT puro
+    // HandleStripeWebhookUseCase.handlePromotionCodeUpserted). Um INSERT puro
     // falharia contra `UNIQUE(stripe_coupon_id)`, devolvendo 500 ao admin
     // para uma operação que já teve sucesso no Stripe — a reação natural
     // (repetir a requisição) criaria um Coupon/Promotion Code duplicado no

@@ -1,6 +1,8 @@
 import { Module } from "@nestjs/common";
 import { CALENDAR_EVENT_REPOSITORY } from "../domain/calendar-event.repository.interface";
 import { CALENDAR_CONNECTION_REPOSITORY } from "../domain/calendar-connection.repository.interface";
+import { APPOINTMENT_CONFIRMATION_REPOSITORY } from "../domain/appointment-confirmation.repository.interface";
+import { DrizzleAppointmentConfirmationRepository } from "./persistence/drizzle-appointment-confirmation.repository";
 import { DrizzleCalendarEventRepository } from "./persistence/drizzle-calendar-event.repository";
 import { DrizzleCalendarConnectionRepository } from "./persistence/drizzle-calendar-connection.repository";
 
@@ -14,7 +16,15 @@ import { DrizzleCalendarConnectionRepository } from "./persistence/drizzle-calen
       provide: CALENDAR_CONNECTION_REPOSITORY,
       useClass: DrizzleCalendarConnectionRepository,
     },
+    {
+      provide: APPOINTMENT_CONFIRMATION_REPOSITORY,
+      useClass: DrizzleAppointmentConfirmationRepository,
+    },
   ],
-  exports: [CALENDAR_EVENT_REPOSITORY, CALENDAR_CONNECTION_REPOSITORY],
+  exports: [
+    CALENDAR_EVENT_REPOSITORY,
+    CALENDAR_CONNECTION_REPOSITORY,
+    APPOINTMENT_CONFIRMATION_REPOSITORY,
+  ],
 })
 export class CalendarInfrastructureModule {}
