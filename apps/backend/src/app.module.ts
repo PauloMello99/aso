@@ -23,6 +23,7 @@ import { AuditModule } from "./modules/audit/audit.module";
 import { InternalCronModule } from "./modules/internal-cron/internal-cron.module";
 import { SubscriptionsModule } from "./modules/subscriptions/subscriptions.module";
 import { SupportModule } from "./modules/support/support.module";
+import { QuotesModule } from "./modules/quotes/quotes.module";
 import { ChangelogModule } from "./modules/changelog/changelog.module";
 import { TelemetryModule } from "./common/telemetry/telemetry.module";
 
@@ -51,6 +52,7 @@ import { TelemetryModule } from "./common/telemetry/telemetry.module";
     InternalCronModule,
     SubscriptionsModule,
     SupportModule,
+    QuotesModule,
     ChangelogModule,
   ],
   providers: [

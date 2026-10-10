@@ -9,8 +9,12 @@ const CODE_MESSAGES: Record<string, string> = {
   INVALID_BILLING_PLAN_UPDATE:
     "Alteração inválida: o valor do plano só muda por rotação de preço, e ao menos um campo válido deve ser enviado.",
   INVALID_COUPON_CONFIG:
-    "Configuração de cupom inválida: informe percentual OU valor fixo, e duração em meses apenas para duração recorrente.",
+    "Configuração de cupom inválida: informe o código (3 a 64 caracteres: letras, números, - ou _), percentual OU valor fixo, e duração em meses apenas para duração recorrente.",
   BILLING_COUPON_NOT_FOUND: "Cupom não encontrado.",
+  BILLING_COUPON_CODE_ALREADY_EXISTS:
+    "Já existe um cupom ativo com esse código. Desative-o antes de reutilizar o código ou escolha outro.",
+  BILLING_COUPON_NOT_REDEEMABLE:
+    "Este cupom está esgotado, expirado ou foi removido no Stripe e não pode ser reativado. Crie um novo cupom com outro código.",
 }
 
 // Códigos cuja mensagem do backend já é específica e útil (pt-BR) — o backend

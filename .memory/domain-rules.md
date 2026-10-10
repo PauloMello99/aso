@@ -1714,3 +1714,51 @@ OR is_org_member(org_id)))`; as de INSERT exigem `org_id IS NOT NULL AND (...)` 
 - Sistema de créditos do cliente (manter da v1 ou reprojetar?)
 - Permissões granulares do `employee` (owner configura ou é fixo por role?)
 - Cobrança de múltiplas orgs (por org? escalonado? por contrato?)
+- **Não rode `pnpm build` do frontend com o dev server de pé** (2026-10-08): o build reescreve
+  `apps/frontend/.next` e o dev server passa a quebrar (`hasLocalMatch is not a function` em
+  `next/image`, 404 de chunks). Correção: parar o preview, `rm -rf apps/frontend/.next`, subir
+  de novo. O build também altera `apps/frontend/next-env.d.ts` (restaurar com `git checkout`).
+- **Efeito externo (e-mail) nunca dentro da transação do request** (2026-10-08): `RlsContext.runWithClaims`
+  faz COMMIT sem checar resultado; um erro de banco engolido por try/catch dentro do request deixa a transação
+  abortada e o COMMIT vira ROLLBACK silencioso (201 com evento perdido). Use `registerPostCommit` e, no hook,
+  releia por conexão admin antes de enviar (confirma commit e ciclo vigente). Padrão: `AppointmentConfirmationDispatcher`.
+- **Migrator**: `drizzle migrate` aplica TODAS as pendentes numa única transação — valor novo de enum
+  (`ADD VALUE`) não pode ser usado por outra migration do mesmo lote. `NotificationType` existe em 4 lugares
+  (`schema/enums.ts`, `notification.entity.ts`, `features/notifications/types`, `features/admin/types`) + `types_db.ts`.
+- **CRLF**: parte dos arquivos do repo está em CRLF no índice (`git ls-files --eol`). Ferramentas de escrita
+  gravam LF; após editar, converta de volta (`sed -i 's/$/\r/'`) os arquivos `i/crlf w/lf` para não inflar o diff.
+- **Nunca `taskkill /IM node.exe`** em testes: mata todos os node da máquina (dev servers, MCPs). Encerre por PID/porta.
+- **Rota pública multipart com captcha** (2026-10-08, ADR-0036): o Nest roda **guards antes de interceptors**;
+  para "captcha antes do upload" valide o Turnstile em um guard de método via header `x-turnstile-token`
+  (o `FilesInterceptor` só roda depois). O throttler global roda antes e conta requisições rejeitadas.
+- **Erros do drizzle contêm PII**: `DrizzleQueryError.message = "Failed query: <sql> params: <params>"`. Em rota que
+  grava dados pessoais anônimos, capture no repositório e relance erro sem `cause/params` (só SQLSTATE); o
+  `AllExceptionsFilter` envia `message`/stack ao logger e à telemetria em 5xx.
+- **Class-transformer não executa `@Transform` para chave AUSENTE** (multipart): use inicializador/`@IsOptional`
+  para booleanos opcionais.
+- **Storage local quebrado (`42P10`)**: o container `storage-api` pode retornar 500 "no unique or exclusion
+  constraint matching the ON CONFLICT" em todo upload quando `storage.objects` só tem índices únicos parciais
+  (restore de backup). Não é bug do app; testar upload real exige `supabase db reset` (destrutivo no local) ou um
+  índice único completo `(bucket_id, name)` criado como `supabase_admin`.
+- **Privilégio de coluna como defesa de UPDATE pela sessão** (2026-10-09, ADR-0037): `REVOKE UPDATE ON t FROM
+  app_user; GRANT UPDATE (col) TO app_user` + policy de UPDATE. Toda coluna nova que a sessão precise atualizar
+  deve entrar no GRANT, senão 42501. Escritas privilegiadas continuam por `DRIZZLE_ADMIN` escopado.
+- **Módulo atrás de flag + tour**: `ONBOARDING_MODULE_META.<mod>.introducedAt` deve ser o instante do go-live;
+  com a flag off o tour exclui o módulo (`unavailable`), senão usuários que concluem o tour antes ficam com o
+  módulo marcado como "visto" pelo fallback de data.
+- **`next dev` + `next build` no mesmo `.next`**: o build do tester deixa um manifesto de rotas que faz o dev
+  server devolver 404 para páginas novas; pare o dev, `rm -rf apps/frontend/.next` e suba de novo.
+- **Remoção no Storage em código novo = `removeFiles`/`listObjects`** (ADR-0038): verificam erro; `removeFile`
+  legado ignora `{error}`. Cron que decide "órfão" por ausência de linha deve consultar via `DRIZZLE_ADMIN` e abortar em
+  erro (sob `DRIZZLE` sem sessão o RLS devolve vazio e apagaria tudo). Retenção em horas (`interval '720 hours'`), não
+  dias. `list()` do supabase-js é de um nível, paginado, pasta = `id` nulo: listar o nível inteiro antes de remover.
+  CHECK com coluna NULL passa: use `IS NOT DISTINCT FROM`.
+
+## Cupons de billing (Stripe) — comportamento verificado em modo teste (2026-10-10)
+
+- Dois limites: `Coupon.max_redemptions` e `PromotionCode.max_redemptions`; limite do código maior que o do cupom e rejeitado (400). O ASO cria o Coupon sem limite e coloca o limite so no promotion code; o espelho usa `code.max ?? coupon.max`.
+- Código promocional duplicado ENQUANTO ATIVO: `StripeInvalidRequestError` sem `code`/`param`, mensagem 'An active promotion code with `code: X` already exists.' (detector: `isDuplicatePromotionCodeError`).
+- O Stripe PERMITE reutilizar um código depois de desativado. O espelho local acompanha: desde a migration 0094 (ADR-0040) o código é único só entre cupons ATIVOS (índice único parcial `billing_coupons_code_active_unique` ON (code) WHERE active AND code IS NOT NULL, no lugar do `UNIQUE(code)` da 0047). `findByCode` devolve apenas a linha ATIVA; linha inativa/arquivada com o mesmo código não bloqueia criar nem espelhar. Reativar um cupom cujo código já é de outro ativo => `BILLING_COUPON_CODE_ALREADY_EXISTS` (409, checado antes do Stripe); corrida => 23505 do índice mapeado para a mesma exceção no repositório.
+- Desativar o promotion code NAO invalida o Coupon (segue `valid`): arquivamento e so marcador `metadata.aso_archived`.
+- `coupon.created` de cupons ad hoc (ApplyDiscount) e do Dashboard sem promotion code NAO e espelhado (so `promotion_code.*` cria linha local).
+

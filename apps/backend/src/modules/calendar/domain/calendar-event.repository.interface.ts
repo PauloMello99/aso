@@ -59,6 +59,12 @@ export interface ICalendarEventRepository {
     excludeId?: string,
   ): Promise<boolean>;
 
+  /** Evento já criado a partir de um pedido de orçamento (idempotência do "Agendou"). */
+  findBySourceQuoteRequest(
+    orgId: string,
+    quoteRequestId: string,
+  ): Promise<{ id: string; assignedTo: string; startsAt: Date; endsAt: Date } | null>;
+
   create(data: CreateCalendarEventData): Promise<CalendarEventEntity>;
   update(id: string, data: UpdateCalendarEventData): Promise<CalendarEventEntity>;
   delete(id: string, orgId: string): Promise<void>;

@@ -7,12 +7,14 @@ export function SectionCard({
   title,
   icon: Icon,
   href,
+  badge,
   className,
   children,
 }: {
   title: string
   icon: LucideIcon
   href?: string
+  badge?: string
   className?: string
   children: React.ReactNode
 }) {
@@ -27,6 +29,11 @@ export function SectionCard({
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4 text-primary-text" />
           <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+          {badge && (
+            <span className="rounded-full bg-foreground/[0.06] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-text-muted">
+              {badge}
+            </span>
+          )}
         </div>
         {href && (
           <Link

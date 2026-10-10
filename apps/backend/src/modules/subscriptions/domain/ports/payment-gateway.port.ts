@@ -90,6 +90,16 @@ export interface GatewayCoupon {
   duration: "once" | "repeating" | "forever";
   durationInMonths: number | null;
   valid: boolean;
+  /**
+   * Limite no nível do Coupon (distinto do `maxRedemptions` do Promotion
+   * Code): o Stripe aplica os dois, e o do código não pode exceder o do cupom.
+   */
+  maxRedemptions: number | null;
+  /** `redeem_by` do Coupon: última data em que ele pode ser resgatado. */
+  redeemBy: Date | null;
+  /** Total de resgates do Coupon (somando todos os seus promotion codes). */
+  timesRedeemed: number;
+  metadata: Record<string, string>;
 }
 
 export interface GatewayPromotionCode {
@@ -237,10 +247,27 @@ export interface IPaymentGateway {
 
   deleteCoupon(couponId: string): Promise<void>;
 
+  /**
+   * Merges `metadata` into the Coupon (the Stripe API does not archive
+   * Coupons). Resolves `false` when the coupon no longer exists.
+   */
+  updateCouponMetadata(
+    couponId: string,
+    metadata: Record<string, string>,
+  ): Promise<boolean>;
+
+  /**
+   * Throws `BillingCouponCodeAlreadyExistsException` when Stripe rejects the
+   * code because an active promotion code already uses it.
+   */
   createPromotionCode(
     params: CreatePromotionCodeParams,
   ): Promise<{ promotionCodeId: string; code: string }>;
 
+  /**
+   * Same duplicate-code mapping as `createPromotionCode` (reactivating a code
+   * that another active promotion code now holds).
+   */
   updatePromotionCode(
     promotionCodeId: string,
     params: UpdatePromotionCodeParams,

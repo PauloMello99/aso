@@ -43,6 +43,7 @@ export function useCreateBillingCoupon() {
     createCoupon: mutation.mutateAsync,
     isPending: mutation.isPending,
     error: mutation.error ? billingErrorMessage(mutation.error) : null,
+    reset: mutation.reset,
   }
 }
 

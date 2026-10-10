@@ -14,6 +14,8 @@ import { RequireModule } from "../../auth/decorators/require-module.decorator";
 import type { AuthUser } from "../../auth/application/ports/auth-provider.interface";
 import { GetOverviewUseCase } from "../application/get-overview.use-case";
 import { GetOverviewAnalyticsUseCase } from "../application/get-overview-analytics.use-case";
+import { parseOverviewPeriod } from "../domain/overview-period";
+import { OverviewInvalidPeriodException } from "../domain/exceptions/overview-invalid-period.exception";
 
 function startOfCurrentMonth(): Date {
   const now = new Date();
@@ -32,8 +34,14 @@ export class OverviewController {
   get(
     @Param("orgId", ParseUUIDPipe) orgId: string,
     @CurrentUser() user: AuthUser,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
   ) {
-    return this.getOverview.execute(orgId, user.id);
+    return this.getOverview.execute(
+      orgId,
+      user.id,
+      parseOverviewPeriod(from, to),
+    );
   }
 
   @Get("analytics")
@@ -45,8 +53,14 @@ export class OverviewController {
     @Query("from") from?: string,
     @Query("to") to?: string,
   ) {
-    const fromDate = from ? new Date(from) : startOfCurrentMonth();
-    const toDate = to ? new Date(to) : new Date();
+    const period = parseOverviewPeriod(from, to);
+    const fromDate = period.from ?? startOfCurrentMonth();
+    const toDate = period.to ?? new Date();
+    if (fromDate.getTime() > toDate.getTime()) {
+      throw new OverviewInvalidPeriodException(
+        'O parâmetro "from" deve ser anterior ou igual a "to".',
+      );
+    }
     return this.getAnalytics.execute(orgId, user.id, fromDate, toDate);
   }
 }

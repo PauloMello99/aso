@@ -6,6 +6,10 @@ import {
   EMAIL_SENDER,
   IEmailSender,
 } from "../domain/ports/email-sender.port";
+import {
+  AppointmentConfirmationEmail,
+  type AppointmentConfirmationEmailKind,
+} from "../templates/appointment-confirmation-email";
 import { AnamnesisLinkEmail } from "../templates/anamnesis-link-email";
 import { AnamnesisSignedCopyEmail } from "../templates/anamnesis-signed-copy";
 import { CampaignBirthdayEmail } from "../templates/campaign-birthday";
@@ -37,6 +41,14 @@ export interface SendAnamnesisLinkInput {
   to: string;
   customerName: string;
   fillUrl: string;
+}
+
+export interface SendAppointmentConfirmationInput {
+  to: string;
+  kind: AppointmentConfirmationEmailKind;
+  orgName: string;
+  whenLabel: string;
+  confirmUrl: string;
 }
 
 export interface SendSignedAnamnesisResponseCopyInput {
@@ -173,6 +185,26 @@ export class MailService {
       AnamnesisLinkEmail({
         customerName: input.customerName,
         fillUrl: input.fillUrl,
+        supportEmail: this.supportEmail,
+      }),
+    );
+  }
+
+  async sendAppointmentConfirmation(
+    input: SendAppointmentConfirmationInput,
+  ): Promise<boolean> {
+    const subject =
+      input.kind === "reminder"
+        ? `Lembrete: seu horário em ${input.orgName} é amanhã`
+        : `Confirme seu horário em ${input.orgName}`;
+    return this.dispatch(
+      input.to,
+      subject,
+      AppointmentConfirmationEmail({
+        kind: input.kind,
+        orgName: input.orgName,
+        whenLabel: input.whenLabel,
+        confirmUrl: input.confirmUrl,
         supportEmail: this.supportEmail,
       }),
     );

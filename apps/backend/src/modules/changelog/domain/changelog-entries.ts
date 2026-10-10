@@ -6,6 +6,39 @@ import { shouldNotifyOwners } from "./changelog-semver";
 // pré-existente ao versionamento) e por isso compartilham "1.0.0".
 export const CHANGELOG_ENTRIES = [
   {
+    id: "appointment-confirmation",
+    version: 6,
+    title: "Confirmação de agendamento",
+    summary:
+      "Informe o e-mail do cliente no atendimento: ele recebe um link para confirmar presença e você acompanha o status na agenda.",
+    highlights: [
+      "E-mail de confirmação ao agendar",
+      "Lembrete um dia antes se ainda estiver pendente",
+      "Status na agenda e aviso quando o cliente responde",
+    ],
+    module: "schedule",
+    audience: "all",
+    publishedAt: "2026-10-08",
+    semver: "1.2.0",
+  },
+  {
+    id: "overview-month-filter",
+    version: 5,
+    title: "Overview por mês",
+    summary:
+      "Navegue o Overview mês a mês, veja os materiais mais gastos e escolha como cada gráfico é exibido.",
+    highlights: [
+      "Seletor de mês vale para todas as seções",
+      "Materiais mais gastos no período",
+      "Métodos de pagamento com valores e porcentagens",
+      "Gráficos personalizáveis, lembrados neste navegador",
+    ],
+    module: "overview",
+    audience: "owners",
+    publishedAt: "2026-10-08",
+    semver: "1.1.0",
+  },
+  {
     id: "low-stock-alert",
     version: 4,
     title: "Alerta de estoque baixo",

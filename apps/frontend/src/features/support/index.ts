@@ -42,6 +42,10 @@ export {
 } from "./hooks/use-public-ticket"
 
 export { PublicTicketForm } from "./components/public-ticket-form"
+export {
+  TurnstileWidget,
+  type TurnstileWidgetHandle,
+} from "./components/turnstile-widget"
 export { TicketsPage } from "./components/tickets-page"
 export { TicketDetailPage } from "./components/ticket-detail-page"
 export { AdminTicketQueue } from "./components/admin-ticket-queue"

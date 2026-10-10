@@ -288,3 +288,47 @@
   de recurso org-scoped nasce paginada"). Validado: check-types + lint + test + build
   verdes em cada um dos 22 passos de implementação (backend e frontend intercalados por
   domínio). 23 commits numa única branch/PR (`features/lucid-volta-axvjyd`).
+- **2026-10-08 — Overview por mês (v1.1.0, Bloco A da reunião de 07/10).** Seletor de mês
+  global no `overview-page.tsx`: o estado é `MonthRef` (chave estável `YYYY-MM` nas query
+  keys `overview.detail/analytics`); `from/to` são calculados no `queryFn` (mês corrente vai
+  até "agora", passado até 23:59:59.999, fuso do navegador). `GET /orgs/:id/overview` e
+  `/overview/analytics` validam `from/to` (`parseOverviewPeriod`, 400 `OVERVIEW_INVALID_PERIOD`).
+  Operações filtra serviços/transações/clientes pelo mês; estoque baixo, próximos eventos e
+  saldo são "estado atual" (selo AGORA). 30d/90d removidos. "Materiais mais gastos"
+  (`IStockMovementRepository.topConsumedByPeriod`): `service_consumption` de serviços não
+  cancelados, por `services.performed_at`, `-SUM(quantity_delta)`; `manual_adjustment` (devolução
+  por cancelamento) NÃO entra; sem unidade (materials não tem coluna). `incomeExpenseSeries`
+  saiu do analytics (método do repo de transações ficou sem chamador). Personalização de
+  gráficos só em `localStorage` (`inkops_overview_view_<orgId>`, validada por lista permitida,
+  leitura em `useEffect`). Pagamento: rosca + lista com % (maior resto, soma 100,0).
+  Item de changelog `overview-month-filter` (version 5, semver 1.1.0); o spec
+  `getNotifiableEntries` passou a esperar esse item (primeiro release minor acima do corte).
+- **2026-10-08 — Confirmação de agendamento por link (Bloco B, ADR-0035).** `appointment` reaproveitado
+  (sem tipo novo); colunas de confirmação em `calendar_events` (0086) + valor de notificação (0085); status
+  separado de `calendar_events.status`; token 256 bits com só o sha256 na linha (um token por evento; lembrete
+  e reagendamento rotacionam); envio best-effort **pós-commit** (`registerPostCommit`); cron
+  `customer-confirmation-reminders` com claim preso ao ciclo + CAS; rota pública atrás de
+  `APPOINTMENT_CONFIRMATION_ENABLED` (default off). Detalhes e pendências (LGPD, token em logs) no ADR-0035.
+- **2026-10-08 — Formulário público de orçamento, fundação C1 (ADR-0036).** Entidade própria
+  (`quote_forms`/`quote_requests`/`quote_request_images`, migrations 0087/0088), slug global por profissional,
+  opt-in, flag `PUBLIC_QUOTE_FORM_ENABLED` (off), Turnstile por header em guard antes do multer, magic bytes,
+  storage→banco com compensação, retenção 30d gravada (cron em C3), consentimento versionado (minuta pendente).
+  Flag só liga em produção com C2+C3. Gotcha: erros do drizzle carregam params (PII) — sanitizar no repositório.
+- **2026-10-09 — Caixa de entrada de orçamentos, C2 (ADR-0037).** Escopo por `target_user_id` (owner/super_admin
+  veem tudo), `viewed_at` único, GRANT de coluna (`UPDATE (viewed_at)`) para `app_user`, módulo `quotes` com
+  backfill + lookup público exigindo o módulo, signed URL 300s + no-store, notificação só ao destino (in-app),
+  disponibilidade pelo 404 do `quote-forms/me`, tour com gating. Bump/changelog e `introducedAt` do tour adiados
+  para o go-live (junto da C3). C3 deve estender o GRANT de coluna.
+- **2026-10-09 — Ciclo de vida e purga de orçamentos, C3a (ADR-0038).** Estados `new|scheduled|not_scheduled` +
+  fila de purga (`purge_*`, só `DRIZZLE_ADMIN`), `expires_at` = prazo final da linha (720 h), purga arquivo → re-listagem →
+  linha, sweep de órfãos (24 h, 6 h, UUID estrito, erro de DB aborta a org), `removeFiles`/`listObjects` verificados
+  (`removeFile` legado intacto), jobs sem kill-switch, sem auditoria na C3a. C3b: encerramento via `DRIZZLE_ADMIN`
+  escopado (nunca no GRANT de coluna) — corrige a nota do ADR-0037.
+- **2026-10-09 — Respostas Agendou/Não agendou dos orçamentos, C3b (ADR-0039).** Encerramento = UPDATE único via
+  `DRIZZLE_ADMIN` escopado (`closeAndClaim`; nunca no GRANT de coluna), evento criado pela sessão + hook pós-commit com
+  prova de commit (`EXISTS`), idempotência por `calendar_events.source_quote_request_id` (sem FK), policies da 0089 recriadas
+  + REVOKE INSERT/DELETE, `audit_action quote_request_closed`. Contato retido 720 h **sem leitor** foi aceito
+  explicitamente pelo usuário (dívida LGPD registrada). Checklist de go-live no ADR-0039.
+- **2026-10-10 — Código de cupom: unicidade apenas entre ativos (ADR-0040).** Migration 0094 troca o `UNIQUE(code)`
+  global por índice único parcial `WHERE active AND code IS NOT NULL` (o Stripe só proíbe dois ativos); `findByCode` devolve só
+  o ativo; reativar com código tomado => `BILLING_COUPON_CODE_ALREADY_EXISTS`; 23505 do índice mapeado no repositório.

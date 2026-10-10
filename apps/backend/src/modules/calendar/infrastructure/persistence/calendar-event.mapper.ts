@@ -17,6 +17,11 @@ export class CalendarEventMapper {
       endsAt: row.endsAt,
       allDay: row.allDay,
       visibility: row.visibility,
+      customerEmail: row.customerEmail ?? null,
+      confirmationStatus: row.confirmationStatus ?? null,
+      confirmationRequestedAt: row.confirmationRequestedAt ?? null,
+      confirmationSentAt: row.confirmationSentAt ?? null,
+      confirmationRespondedAt: row.confirmationRespondedAt ?? null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });
