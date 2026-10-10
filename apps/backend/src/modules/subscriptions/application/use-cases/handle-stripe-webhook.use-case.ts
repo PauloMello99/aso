@@ -24,6 +24,7 @@ import {
 import {
   IBillingCouponRepository,
   BILLING_COUPON_REPOSITORY,
+  BillingCouponEntity,
 } from "../../domain/billing-coupon.repository.interface";
 import {
   IBillingPlanPriceRepository,
@@ -31,7 +32,9 @@ import {
   BillingPlanPriceEntity,
 } from "../../domain/billing-plan-price.repository.interface";
 import {
+  GatewayCoupon,
   GatewayPrice,
+  GatewayPromotionCode,
   IPaymentGateway,
   PAYMENT_GATEWAY,
 } from "../../domain/ports/payment-gateway.port";
@@ -67,6 +70,53 @@ function trialEndsAtFromUnixSeconds(
   seconds: number | null | undefined,
 ): Date | null {
   return seconds ? new Date(seconds * 1000) : null;
+}
+
+/**
+ * Effective redemption state of a coupon row. Stripe enforces TWO limits (the
+ * Coupon's and the Promotion Code's; the code's cannot exceed the coupon's), so
+ * the mirror must expose the one that actually binds:
+ * - limit: the code's own `max_redemptions`, falling back to the Coupon's
+ *   (`code.max ?? coupon.max`). This relies on Stripe's invariant that a
+ *   code's limit can never exceed its Coupon's, so the code's limit, when
+ *   present, is always the tighter one. When the limit comes from the Coupon,
+ *   `timesRedeemed` is the Coupon's total (the code's counter would
+ *   understate how close the limit is);
+ * - expiry: the earliest of the code's `expires_at` and the Coupon's
+ *   `redeem_by`;
+ * - active: the code is active AND the Coupon is still valid (Stripe flips
+ *   `valid` to false when the Coupon is exhausted/expired/deleted).
+ * `coupon === null` (Coupon deleted in Stripe / not retrievable) yields
+ * `active: false` — a deleted Coupon can never be redeemed, and an
+ * out-of-order `promotion_code.updated` after `coupon.deleted` must not
+ * reactivate the row — while limit/expiry fall back to the code's own values.
+ */
+function resolveEffectiveCouponState(
+  promotionCode: GatewayPromotionCode,
+  coupon: GatewayCoupon | null,
+): {
+  maxRedemptions: number | null;
+  timesRedeemed: number;
+  expiresAt: Date | null;
+  active: boolean;
+} {
+  const codeLimit = promotionCode.maxRedemptions ?? null;
+  const couponLimit = coupon?.maxRedemptions ?? null;
+  const limitFromCoupon = codeLimit === null && couponLimit !== null;
+
+  const expiryCandidates = [promotionCode.expiresAt, coupon?.redeemBy ?? null]
+    .filter((date): date is Date => date !== null && date !== undefined)
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  return {
+    maxRedemptions: codeLimit ?? couponLimit,
+    timesRedeemed:
+      limitFromCoupon && coupon
+        ? coupon.timesRedeemed
+        : promotionCode.timesRedeemed,
+    expiresAt: expiryCandidates[0] ?? null,
+    active: promotionCode.active && coupon !== null && coupon.valid !== false,
+  };
 }
 
 @Injectable()
@@ -691,11 +741,13 @@ export class HandleStripeWebhookUseCase {
   }
 
   /**
-   * Mirrors a coupon created/edited directly in the Stripe Dashboard back
-   * into `billing_coupons`. Unlike `handleProductUpdated`, a coupon that
-   * does not yet exist locally is NOT ignored: `upsertFromStripe` creates
-   * the row in that case, so a coupon set up outside the platform still
-   * becomes visible to it (that is the whole point of this handler).
+   * Refreshes an EXISTING local coupon row from a `coupon.created`/
+   * `coupon.updated` event. It NEVER inserts: a Stripe Coupon without a
+   * promotion code is not a manageable coupon here (no code, no way to
+   * deactivate it) — this also covers the ad hoc coupons
+   * `ApplyDiscountUseCase` creates for every administrative discount. A row
+   * is only created by `handlePromotionCodeUpserted` (or by the platform's
+   * own create flow), once a promotion code exists.
    *
    * `billing_coupons.percent_off` is INTEGER — the platform only ever
    * creates coupons with an integer percentage (see
@@ -732,16 +784,33 @@ export class HandleStripeWebhookUseCase {
       return;
     }
 
-    await this.billingCouponRepo.upsertFromStripe({
-      stripeCouponId: remote.couponId,
-      name: remote.name,
-      percentOff: remote.percentOff,
-      amountOffCents: remote.amountOffCents,
-      currency: remote.currency,
-      duration: remote.duration,
-      durationInMonths: remote.durationInMonths,
+    const local = await this.billingCouponRepo.findByStripeCouponId(
+      remote.couponId,
+    );
+    if (!local) {
+      this.logger.debug(
+        `coupon.created/updated for ${remote.couponId} has no local row (no promotion code mirrored) — not mirroring`,
+      );
+      return;
+    }
+
+    const patch: Partial<Omit<BillingCouponEntity, "id" | "createdAt">> = {
       lastSyncedAt: new Date(),
-    });
+    };
+    if (remote.name) patch.name = remote.name;
+
+    const promotionCode = local.stripePromotionCodeId
+      ? await this.paymentGateway.retrievePromotionCode(
+          local.stripePromotionCodeId,
+        )
+      : null;
+    if (promotionCode) {
+      Object.assign(patch, resolveEffectiveCouponState(promotionCode, remote));
+    } else if (!remote.valid) {
+      patch.active = false;
+    }
+
+    await this.billingCouponRepo.update(local.id, patch);
   }
 
   /**
@@ -764,11 +833,12 @@ export class HandleStripeWebhookUseCase {
    * only source of truth for `timesRedeemed` — the platform never
    * increments it locally, it is only ever known via this webhook.
    *
-   * A Promotion Code without a matching local Coupon is an inconsistent
-   * state (we require the parent Coupon row to exist first, via
-   * `handleCouponUpserted` or platform-side creation): logged as a warning
-   * rather than treated as an error, since crashing here would defeat
-   * Stripe's retry semantics for no benefit.
+   * This is also the ONLY path that mirrors a coupon created outside the
+   * platform (Dashboard): a promotion code without a local row is mirrored
+   * from its parent Coupon (`retrieveCoupon`), so a Dashboard coupon appears
+   * here exactly when it gets a code. The limit/expiry/active state is
+   * always the EFFECTIVE one (see `resolveEffectiveCouponState`), because
+   * Stripe enforces both the Coupon-level and the code-level limits.
    */
   private async handlePromotionCodeUpserted(
     promotionCode: Stripe.PromotionCode,
@@ -783,23 +853,115 @@ export class HandleStripeWebhookUseCase {
       return;
     }
 
-    const coupon = await this.billingCouponRepo.findByStripeCouponId(
-      remote.couponId,
-    );
-    if (!coupon) {
+    const [local, remoteCoupon] = await Promise.all([
+      this.billingCouponRepo.findByStripeCouponId(remote.couponId),
+      this.paymentGateway.retrieveCoupon(remote.couponId),
+    ]);
+
+    if (!local) {
+      await this.mirrorNewPromotionCode(remote, remoteCoupon);
+      return;
+    }
+
+    // The mirror is one row per Coupon: a second promotion code on the same
+    // Coupon (created in the Dashboard) must not take over the row of the
+    // code the platform manages.
+    if (
+      local.stripePromotionCodeId !== null &&
+      local.stripePromotionCodeId !== remote.promotionCodeId
+    ) {
       this.logger.warn(
-        `promotion_code ${remote.promotionCodeId} references coupon ${remote.couponId}, which has no local billing_coupons row — ignoring`,
+        `promotion_code ${remote.promotionCodeId} is a second code for coupon ${remote.couponId}, already mirrored with promotion code ${local.stripePromotionCodeId} — ignoring`,
+      );
+      this.telemetry.captureMessage(
+        `Stripe promotion code ${remote.promotionCodeId} is a second code for coupon ${remote.couponId} and was not mirrored`,
+        "warn",
+        {
+          module: "subscriptions",
+          code: "BILLING_COUPON_SECOND_PROMOTION_CODE_IGNORED",
+          stripeCouponId: remote.couponId,
+          stripePromotionCodeId: remote.promotionCodeId,
+          mirroredStripePromotionCodeId: local.stripePromotionCodeId,
+        },
       );
       return;
     }
 
-    await this.billingCouponRepo.update(coupon.id, {
+    await this.billingCouponRepo.update(local.id, {
       stripePromotionCodeId: remote.promotionCodeId,
       code: remote.code,
-      active: remote.active,
-      maxRedemptions: remote.maxRedemptions,
-      timesRedeemed: remote.timesRedeemed,
-      expiresAt: remote.expiresAt,
+      ...resolveEffectiveCouponState(remote, remoteCoupon),
+      lastSyncedAt: new Date(),
+    });
+  }
+
+  private async mirrorNewPromotionCode(
+    promotionCode: GatewayPromotionCode,
+    coupon: GatewayCoupon | null,
+  ): Promise<void> {
+    if (!coupon) {
+      this.logger.warn(
+        `promotion_code ${promotionCode.promotionCodeId} references coupon ${promotionCode.couponId}, which no longer exists in Stripe — ignoring`,
+      );
+      return;
+    }
+
+    if (coupon.percentOff !== null && !Number.isInteger(coupon.percentOff)) {
+      this.logger.warn(
+        `promotion_code ${promotionCode.promotionCodeId} belongs to coupon ${coupon.couponId} with a fractional percent_off (${coupon.percentOff}), which is not supported — ignoring`,
+      );
+      this.telemetry.captureMessage(
+        `Stripe coupon ${coupon.couponId} has a fractional percent_off, which is not supported by the reverse sync`,
+        "warn",
+        {
+          module: "subscriptions",
+          code: "BILLING_COUPON_FRACTIONAL_PERCENT_OFF_UNSUPPORTED",
+          stripeCouponId: coupon.couponId,
+          percentOff: coupon.percentOff,
+        },
+      );
+      return;
+    }
+
+    // `billing_coupons.code` is unique among ACTIVE rows (migration 0094): an
+    // active row of another coupon holding the code would make the upsert
+    // throw and put the webhook in a retry loop. Inactive/archived rows with
+    // the same code do not collide (`findByCode` returns active rows only),
+    // and an incoming inactive promotion code never conflicts with the
+    // partial index, so it is mirrored regardless.
+    const incoming = resolveEffectiveCouponState(promotionCode, coupon);
+    const sameCode = incoming.active
+      ? await this.billingCouponRepo.findByCode(promotionCode.code)
+      : null;
+    if (sameCode && sameCode.stripeCouponId !== coupon.couponId) {
+      this.logger.warn(
+        `promotion_code ${promotionCode.promotionCodeId} uses a code already mirrored for coupon ${sameCode.stripeCouponId} — ignoring`,
+      );
+      this.telemetry.captureMessage(
+        `Stripe promotion code ${promotionCode.promotionCodeId} uses a code already mirrored for another coupon and was not mirrored`,
+        "warn",
+        {
+          module: "subscriptions",
+          code: "BILLING_COUPON_CODE_COLLISION_IGNORED",
+          stripeCouponId: coupon.couponId,
+          stripePromotionCodeId: promotionCode.promotionCodeId,
+          conflictingStripeCouponId: sameCode.stripeCouponId,
+        },
+      );
+      return;
+    }
+
+    await this.billingCouponRepo.upsertFromStripe({
+      stripeCouponId: coupon.couponId,
+      stripePromotionCodeId: promotionCode.promotionCodeId,
+      code: promotionCode.code,
+      name: coupon.name || promotionCode.code,
+      percentOff: coupon.percentOff,
+      amountOffCents: coupon.amountOffCents,
+      currency: coupon.currency,
+      duration: coupon.duration,
+      durationInMonths: coupon.durationInMonths,
+      ...resolveEffectiveCouponState(promotionCode, coupon),
       lastSyncedAt: new Date(),
     });
   }

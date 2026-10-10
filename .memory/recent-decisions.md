@@ -329,3 +329,6 @@
   prova de commit (`EXISTS`), idempotência por `calendar_events.source_quote_request_id` (sem FK), policies da 0089 recriadas
   + REVOKE INSERT/DELETE, `audit_action quote_request_closed`. Contato retido 720 h **sem leitor** foi aceito
   explicitamente pelo usuário (dívida LGPD registrada). Checklist de go-live no ADR-0039.
+- **2026-10-10 — Código de cupom: unicidade apenas entre ativos (ADR-0040).** Migration 0094 troca o `UNIQUE(code)`
+  global por índice único parcial `WHERE active AND code IS NOT NULL` (o Stripe só proíbe dois ativos); `findByCode` devolve só
+  o ativo; reativar com código tomado => `BILLING_COUPON_CODE_ALREADY_EXISTS`; 23505 do índice mapeado no repositório.

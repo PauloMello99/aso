@@ -38,8 +38,8 @@ export class CreateBillingCouponDto {
   durationInMonths?: number;
 
   @IsString()
-  @IsOptional()
-  code?: string;
+  @IsNotEmpty()
+  code!: string;
 
   @IsInt()
   @Min(1)

@@ -11,6 +11,7 @@ import { IUserRepository } from "../../../user/domain/user.repository.interface"
 import { UserEntity } from "../../../user/domain/user.entity";
 import { AuditService } from "../../../audit/audit.service";
 import { InvalidCouponConfigException } from "../../domain/exceptions/invalid-coupon-config.exception";
+import { BillingCouponCodeAlreadyExistsException } from "../../domain/exceptions/billing-coupon-code-already-exists.exception";
 
 function buildUser(
   overrides: Partial<Parameters<typeof UserEntity.create>[0]> = {},
@@ -364,5 +365,204 @@ describe("CreateBillingCouponUseCase", () => {
         entityType: "billing_coupon",
       }),
     );
+  });
+
+  describe("code", () => {
+    it.each([
+      ["missing", undefined],
+      ["empty", ""],
+      ["blank", "   "],
+      ["too short", "AB"],
+      ["with spaces inside", "PROMO 10"],
+      ["with invalid characters", "PROMO%10"],
+      ["too long", "A".repeat(65)],
+    ])(
+      "rejects a %s code without touching the gateway or the repository",
+      async (_label, code) => {
+        const { useCase, paymentGateway, billingCouponRepo } = buildUseCase();
+
+        await expect(
+          useCase.execute(
+            { ...validParams, code } as unknown as CreateBillingCouponParams,
+            "auth-1",
+          ),
+        ).rejects.toThrow(InvalidCouponConfigException);
+        expect(billingCouponRepo.findByCode).not.toHaveBeenCalled();
+        expect(paymentGateway.createCoupon).not.toHaveBeenCalled();
+        expect(paymentGateway.createPromotionCode).not.toHaveBeenCalled();
+      },
+    );
+
+    it("trims and uppercases the code before checking, sending and persisting it", async () => {
+      const paymentGateway = buildFakePaymentGateway({
+        createCoupon: jest.fn().mockResolvedValue({ couponId: "coupon_1" }),
+        createPromotionCode: jest
+          .fn()
+          .mockResolvedValue({ promotionCodeId: "promo_1", code: "PROMO-10" }),
+      });
+      const billingCouponRepo = buildFakeBillingCouponRepo({
+        findByCode: jest.fn().mockResolvedValue(null),
+        upsertFromStripe: jest.fn().mockResolvedValue(buildCoupon()),
+      });
+      const userRepo = buildFakeUserRepo({
+        findByAuthId: jest.fn().mockResolvedValue(buildUser()),
+      });
+      const { useCase } = buildUseCase({
+        paymentGateway,
+        billingCouponRepo,
+        userRepo,
+      });
+
+      await useCase.execute({ ...validParams, code: "  promo-10 " }, "auth-1");
+
+      expect(billingCouponRepo.findByCode).toHaveBeenCalledWith("PROMO-10");
+      expect(paymentGateway.createPromotionCode).toHaveBeenCalledWith(
+        expect.objectContaining({ couponId: "coupon_1", code: "PROMO-10" }),
+      );
+      expect(billingCouponRepo.upsertFromStripe).toHaveBeenCalledWith(
+        expect.objectContaining({ code: "PROMO-10" }),
+      );
+    });
+
+    it("rejects with BILLING_COUPON_CODE_ALREADY_EXISTS when an ACTIVE local row already holds the code, before creating anything in Stripe", async () => {
+      const billingCouponRepo = buildFakeBillingCouponRepo({
+        findByCode: jest.fn().mockResolvedValue(buildCoupon()),
+      });
+      const { useCase, paymentGateway } = buildUseCase({ billingCouponRepo });
+
+      await expect(useCase.execute(validParams, "auth-1")).rejects.toThrow(
+        BillingCouponCodeAlreadyExistsException,
+      );
+      expect(paymentGateway.createCoupon).not.toHaveBeenCalled();
+      expect(paymentGateway.createPromotionCode).not.toHaveBeenCalled();
+      expect(billingCouponRepo.upsertFromStripe).not.toHaveBeenCalled();
+    });
+
+    it("allows reusing a code that only deactivated/archived rows hold (findByCode returns ACTIVE holders only; unique is partial, migration 0094)", async () => {
+      const paymentGateway = buildFakePaymentGateway({
+        createCoupon: jest.fn().mockResolvedValue({ couponId: "coupon_2" }),
+        createPromotionCode: jest
+          .fn()
+          .mockResolvedValue({ promotionCodeId: "promo_2", code: "PROMO10" }),
+      });
+      const billingCouponRepo = buildFakeBillingCouponRepo({
+        findByCode: jest.fn().mockResolvedValue(null),
+        upsertFromStripe: jest.fn().mockResolvedValue(buildCoupon()),
+      });
+      const userRepo = buildFakeUserRepo({
+        findByAuthId: jest.fn().mockResolvedValue(buildUser()),
+      });
+      const { useCase } = buildUseCase({
+        paymentGateway,
+        billingCouponRepo,
+        userRepo,
+      });
+
+      await useCase.execute(validParams, "auth-1");
+
+      expect(paymentGateway.createPromotionCode).toHaveBeenCalledWith(
+        expect.objectContaining({ couponId: "coupon_2", code: "PROMO10" }),
+      );
+      expect(billingCouponRepo.upsertFromStripe).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stripeCouponId: "coupon_2",
+          code: "PROMO10",
+        }),
+      );
+    });
+
+    it("surfaces BILLING_COUPON_CODE_ALREADY_EXISTS when the local write loses the race for the active code (repository maps the partial-index violation)", async () => {
+      const duplicate = new BillingCouponCodeAlreadyExistsException();
+      const paymentGateway = buildFakePaymentGateway({
+        createCoupon: jest.fn().mockResolvedValue({ couponId: "coupon_2" }),
+        createPromotionCode: jest
+          .fn()
+          .mockResolvedValue({ promotionCodeId: "promo_2", code: "PROMO10" }),
+      });
+      const billingCouponRepo = buildFakeBillingCouponRepo({
+        findByCode: jest.fn().mockResolvedValue(null),
+        upsertFromStripe: jest.fn().mockRejectedValue(duplicate),
+      });
+      const userRepo = buildFakeUserRepo({
+        findByAuthId: jest.fn().mockResolvedValue(buildUser()),
+      });
+      const { useCase } = buildUseCase({
+        paymentGateway,
+        billingCouponRepo,
+        userRepo,
+      });
+
+      await expect(useCase.execute(validParams, "auth-1")).rejects.toBe(
+        duplicate,
+      );
+    });
+
+    it("compensates the Stripe coupon and surfaces the duplicate error when Stripe rejects the code", async () => {
+      const duplicate = new BillingCouponCodeAlreadyExistsException();
+      const paymentGateway = buildFakePaymentGateway({
+        createCoupon: jest.fn().mockResolvedValue({ couponId: "coupon_1" }),
+        createPromotionCode: jest.fn().mockRejectedValue(duplicate),
+        deleteCoupon: jest.fn().mockResolvedValue(undefined),
+      });
+      const billingCouponRepo = buildFakeBillingCouponRepo({
+        findByCode: jest.fn().mockResolvedValue(null),
+      });
+      const { useCase } = buildUseCase({ paymentGateway, billingCouponRepo });
+
+      await expect(useCase.execute(validParams, "auth-1")).rejects.toBe(
+        duplicate,
+      );
+      expect(paymentGateway.deleteCoupon).toHaveBeenCalledWith("coupon_1");
+      expect(billingCouponRepo.upsertFromStripe).not.toHaveBeenCalled();
+    });
+  });
+
+  it("forwards maxRedemptions and expiresAt to the promotion code and persists them locally", async () => {
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const paymentGateway = buildFakePaymentGateway({
+      createCoupon: jest.fn().mockResolvedValue({ couponId: "coupon_1" }),
+      createPromotionCode: jest
+        .fn()
+        .mockResolvedValue({ promotionCodeId: "promo_1", code: "PROMO10" }),
+    });
+    const billingCouponRepo = buildFakeBillingCouponRepo({
+      findByCode: jest.fn().mockResolvedValue(null),
+      upsertFromStripe: jest.fn().mockResolvedValue(buildCoupon()),
+    });
+    const userRepo = buildFakeUserRepo({
+      findByAuthId: jest.fn().mockResolvedValue(buildUser()),
+    });
+    const { useCase } = buildUseCase({
+      paymentGateway,
+      billingCouponRepo,
+      userRepo,
+    });
+
+    await useCase.execute(
+      { ...validParams, maxRedemptions: 7, expiresAt },
+      "auth-1",
+    );
+
+    expect(paymentGateway.createPromotionCode).toHaveBeenCalledWith({
+      couponId: "coupon_1",
+      code: "PROMO10",
+      maxRedemptions: 7,
+      expiresAt,
+    });
+    expect(billingCouponRepo.upsertFromStripe).toHaveBeenCalledWith(
+      expect.objectContaining({ maxRedemptions: 7, expiresAt }),
+    );
+  });
+
+  it("rejects a non-positive or fractional maxRedemptions without calling the gateway", async () => {
+    const { useCase, paymentGateway } = buildUseCase();
+
+    await expect(
+      useCase.execute({ ...validParams, maxRedemptions: 0 }, "auth-1"),
+    ).rejects.toThrow(InvalidCouponConfigException);
+    await expect(
+      useCase.execute({ ...validParams, maxRedemptions: 2.5 }, "auth-1"),
+    ).rejects.toThrow(InvalidCouponConfigException);
+    expect(paymentGateway.createCoupon).not.toHaveBeenCalled();
   });
 });

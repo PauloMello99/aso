@@ -45,6 +45,13 @@ export interface IBillingCouponRepository {
   findByStripePromotionCodeId(
     stripePromotionCodeId: string,
   ): Promise<BillingCouponEntity | null>;
+  /**
+   * Retorna o cupom ATIVO que detém o código (ou null). O código só é único
+   * entre ativos (índice parcial, migration 0094 / ADR-0040): linhas
+   * inativas/arquivadas com o mesmo código NÃO contam e podem coexistir.
+   * `create`/`update`/`upsertFromStripe` lançam
+   * `BillingCouponCodeAlreadyExistsException` se perderem a corrida pelo código.
+   */
   findByCode(code: string): Promise<BillingCouponEntity | null>;
   findAll(filters?: { active?: boolean }): Promise<BillingCouponEntity[]>;
   update(

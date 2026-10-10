@@ -27,6 +27,7 @@ import type {
 } from "../domain/ports/payment-gateway.port";
 import { mapStripeStatus } from "../domain/subscription-sync";
 import { SubscriptionStripeMissingException } from "../domain/exceptions/subscription-stripe-missing.exception";
+import { BillingCouponCodeAlreadyExistsException } from "../domain/exceptions/billing-coupon-code-already-exists.exception";
 import { TelemetryService } from "../../../common/telemetry/telemetry.service";
 
 /**
@@ -251,6 +252,36 @@ function isResourceMissing(error: unknown): boolean {
     "code" in error &&
     (error as { code?: unknown }).code === "resource_missing"
   );
+}
+
+/**
+ * Heuristic (stripe@22.3.2 types `code`/`param` as free `string`, with no enum
+ * of codes): Stripe rejects a promotion code that collides with an ACTIVE one
+ * as an invalid-request error that either carries `code:
+ * "resource_already_exists"` or says "... promotion code ... already exists".
+ * Duck-typed like `isResourceMissing`; the provider message is only
+ * inspected, never propagated.
+ */
+export function isDuplicatePromotionCodeError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const candidate = error as {
+    type?: unknown;
+    rawType?: unknown;
+    code?: unknown;
+    param?: unknown;
+    message?: unknown;
+  };
+  const isInvalidRequest =
+    candidate.type === "StripeInvalidRequestError" ||
+    candidate.rawType === "invalid_request_error";
+  if (!isInvalidRequest) return false;
+
+  if (candidate.code === "resource_already_exists") return true;
+
+  const message =
+    typeof candidate.message === "string" ? candidate.message : "";
+  if (!/already exists/i.test(message)) return false;
+  return candidate.param === "code" || /promotion code/i.test(message);
 }
 
 @Injectable()
@@ -703,6 +734,10 @@ export class StripePaymentGateway implements IPaymentGateway {
         duration: coupon.duration,
         durationInMonths: coupon.duration_in_months ?? null,
         valid: coupon.valid,
+        maxRedemptions: coupon.max_redemptions ?? null,
+        redeemBy: fromUnixSeconds(coupon.redeem_by),
+        timesRedeemed: coupon.times_redeemed,
+        metadata: coupon.metadata ?? {},
       };
     } catch (error) {
       if (isResourceMissing(error)) return null;
@@ -722,17 +757,38 @@ export class StripePaymentGateway implements IPaymentGateway {
     }
   }
 
+  async updateCouponMetadata(
+    couponId: string,
+    metadata: Record<string, string>,
+  ): Promise<boolean> {
+    try {
+      await this.stripe.coupons.update(couponId, { metadata });
+      return true;
+    } catch (error) {
+      if (isResourceMissing(error)) return false;
+      throw error;
+    }
+  }
+
   async createPromotionCode(
     params: CreatePromotionCodeParams,
   ): Promise<{ promotionCodeId: string; code: string }> {
-    const promotionCode = await this.stripe.promotionCodes.create({
-      promotion: { type: "coupon", coupon: params.couponId },
-      code: params.code,
-      max_redemptions: params.maxRedemptions,
-      expires_at: params.expiresAt
-        ? Math.floor(params.expiresAt.getTime() / 1000)
-        : undefined,
-    });
+    let promotionCode: Stripe.PromotionCode;
+    try {
+      promotionCode = await this.stripe.promotionCodes.create({
+        promotion: { type: "coupon", coupon: params.couponId },
+        code: params.code,
+        max_redemptions: params.maxRedemptions,
+        expires_at: params.expiresAt
+          ? Math.floor(params.expiresAt.getTime() / 1000)
+          : undefined,
+      });
+    } catch (error) {
+      if (isDuplicatePromotionCodeError(error)) {
+        throw new BillingCouponCodeAlreadyExistsException();
+      }
+      throw error;
+    }
     return { promotionCodeId: promotionCode.id, code: promotionCode.code };
   }
 
@@ -740,13 +796,21 @@ export class StripePaymentGateway implements IPaymentGateway {
     promotionCodeId: string,
     params: UpdatePromotionCodeParams,
   ): Promise<UpdatedGatewayPromotionCode> {
-    const promotionCode = await this.stripe.promotionCodes.update(
-      promotionCodeId,
-      {
-        active: params.active,
-        metadata: params.metadata,
-      },
-    );
+    let promotionCode: Stripe.PromotionCode;
+    try {
+      promotionCode = await this.stripe.promotionCodes.update(
+        promotionCodeId,
+        {
+          active: params.active,
+          metadata: params.metadata,
+        },
+      );
+    } catch (error) {
+      if (isDuplicatePromotionCodeError(error)) {
+        throw new BillingCouponCodeAlreadyExistsException();
+      }
+      throw error;
+    }
     return {
       promotionCodeId: promotionCode.id,
       active: promotionCode.active,

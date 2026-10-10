@@ -1753,3 +1753,12 @@ OR is_org_member(org_id)))`; as de INSERT exigem `org_id IS NOT NULL AND (...)` 
   erro (sob `DRIZZLE` sem sessão o RLS devolve vazio e apagaria tudo). Retenção em horas (`interval '720 hours'`), não
   dias. `list()` do supabase-js é de um nível, paginado, pasta = `id` nulo: listar o nível inteiro antes de remover.
   CHECK com coluna NULL passa: use `IS NOT DISTINCT FROM`.
+
+## Cupons de billing (Stripe) — comportamento verificado em modo teste (2026-10-10)
+
+- Dois limites: `Coupon.max_redemptions` e `PromotionCode.max_redemptions`; limite do código maior que o do cupom e rejeitado (400). O ASO cria o Coupon sem limite e coloca o limite so no promotion code; o espelho usa `code.max ?? coupon.max`.
+- Código promocional duplicado ENQUANTO ATIVO: `StripeInvalidRequestError` sem `code`/`param`, mensagem 'An active promotion code with `code: X` already exists.' (detector: `isDuplicatePromotionCodeError`).
+- O Stripe PERMITE reutilizar um código depois de desativado. O espelho local acompanha: desde a migration 0094 (ADR-0040) o código é único só entre cupons ATIVOS (índice único parcial `billing_coupons_code_active_unique` ON (code) WHERE active AND code IS NOT NULL, no lugar do `UNIQUE(code)` da 0047). `findByCode` devolve apenas a linha ATIVA; linha inativa/arquivada com o mesmo código não bloqueia criar nem espelhar. Reativar um cupom cujo código já é de outro ativo => `BILLING_COUPON_CODE_ALREADY_EXISTS` (409, checado antes do Stripe); corrida => 23505 do índice mapeado para a mesma exceção no repositório.
+- Desativar o promotion code NAO invalida o Coupon (segue `valid`): arquivamento e so marcador `metadata.aso_archived`.
+- `coupon.created` de cupons ad hoc (ApplyDiscount) e do Dashboard sem promotion code NAO e espelhado (so `promotion_code.*` cria linha local).
+
