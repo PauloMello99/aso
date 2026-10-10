@@ -47,6 +47,11 @@ RUN if grep -q '\[PREENCHER' apps/frontend/src/features/legal/constants/entity.t
 # NEXT_PUBLIC_* tem que existir no build (Next inlina no bundle)
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+# Sitekey publica do Cloudflare Turnstile (formularios publicos: suporte e orcamento).
+# Sem este ARG o Railway nao repassa a variavel ao build e o widget mostra
+# "Verificacao de seguranca indisponivel" (siteKey vazio). Par com TURNSTILE_SECRET_KEY no backend.
+ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
+ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
 RUN pnpm turbo run build --filter=frontend
 
 # ── 3. Runner (deps de produção + next start) ───────────────────────────
