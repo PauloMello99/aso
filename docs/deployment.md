@@ -101,6 +101,12 @@ Sem Redis. Sem Vercel/Render.
 **Frontend (serviço Railway):** `NEXT_PUBLIC_API_URL` = URL pública do backend Railway do ambiente
 (é build-time — ver tabela do frontend acima).
 
+> **`NEXT_PUBLIC_TURNSTILE_SITE_KEY` (frontend) + `TURNSTILE_SECRET_KEY` (backend)**: captcha dos
+> formulários públicos (suporte e orçamento). A sitekey é **build-time** e precisa de `ARG` no
+> `apps/frontend/Dockerfile` (já declarado); sem ela o widget exibe "Verificação de segurança
+> indisponível" e o formulário não envia. Depois de definir/alterar a variável, **redeploye o frontend**
+> (rebuild). O backend falha fechado sem `TURNSTILE_SECRET_KEY` (exceto `TURNSTILE_DEV_BYPASS=true`, só dev).
+
 ## Migrações (no boot — sem passo manual no Supabase)
 
 Com `RUN_MIGRATIONS=true`, o `entrypoint.sh` roda `node dist/database/migrator.js up` antes de subir
