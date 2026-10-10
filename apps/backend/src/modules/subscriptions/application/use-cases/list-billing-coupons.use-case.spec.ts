@@ -57,7 +57,29 @@ describe("ListBillingCouponsUseCase", () => {
     const result = await useCase.execute({ active: true });
 
     expect(billingCouponRepo.findAll).toHaveBeenCalledWith({ active: true });
-    expect(result).toBe(coupons);
+    expect(result).toEqual(coupons);
+  });
+
+  it("excludes rows without a promotion code (legacy/ad hoc mirrors) while keeping the managed ones in order", async () => {
+    const managedA = buildCoupon({ id: "coupon-row-a" });
+    const withoutCode = buildCoupon({
+      id: "coupon-row-legacy",
+      stripePromotionCodeId: null,
+      code: null,
+    });
+    const managedB = buildCoupon({
+      id: "coupon-row-b",
+      stripePromotionCodeId: "promo_b",
+      active: false,
+    });
+    const billingCouponRepo = buildFakeBillingCouponRepo({
+      findAll: jest.fn().mockResolvedValue([managedA, withoutCode, managedB]),
+    });
+    const useCase = new ListBillingCouponsUseCase(billingCouponRepo);
+
+    const result = await useCase.execute();
+
+    expect(result).toEqual([managedA, managedB]);
   });
 
   it("works without filters", async () => {

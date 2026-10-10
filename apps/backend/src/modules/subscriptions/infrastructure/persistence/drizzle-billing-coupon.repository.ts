@@ -10,8 +10,30 @@ import {
   CreateBillingCouponData,
   IBillingCouponRepository,
 } from "../../domain/billing-coupon.repository.interface";
+import { BillingCouponCodeAlreadyExistsException } from "../../domain/exceptions/billing-coupon-code-already-exists.exception";
 
 type BillingCouponRow = typeof schema.billingCoupons.$inferSelect;
+
+const CODE_ACTIVE_UNIQUE_INDEX = "billing_coupons_code_active_unique";
+
+// O driver pode entregar o erro do pg direto ou embrulhado em `cause`
+// (DrizzleQueryError). Só a violação do índice parcial de código ATIVO
+// (migration 0094) é mapeada — qualquer outro erro (inclusive outro 23505,
+// como o de stripe_promotion_code_id) segue propagando.
+function isActiveCodeUniqueViolation(error: unknown): boolean {
+  const candidates: unknown[] = [error];
+  if (typeof error === "object" && error !== null && "cause" in error) {
+    candidates.push((error as { cause?: unknown }).cause);
+  }
+  return candidates.some((candidate) => {
+    if (typeof candidate !== "object" || candidate === null) return false;
+    const { code, constraint } = candidate as {
+      code?: unknown;
+      constraint?: unknown;
+    };
+    return code === "23505" && constraint === CODE_ACTIVE_UNIQUE_INDEX;
+  });
+}
 
 function toDomain(row: BillingCouponRow): BillingCouponEntity {
   return {
@@ -36,6 +58,17 @@ function toDomain(row: BillingCouponRow): BillingCouponEntity {
   };
 }
 
+type UpsertFromStripeData = {
+  stripeCouponId: string;
+  name: string;
+  duration: string;
+} & Partial<
+  Omit<
+    BillingCouponEntity,
+    "id" | "createdAt" | "stripeCouponId" | "name" | "duration"
+  >
+>;
+
 function normalizeCode(code: string | null): string | null {
   return code === null ? null : code.toUpperCase();
 }
@@ -46,7 +79,13 @@ export class DrizzleBillingCouponRepository
 {
   constructor(@Inject(DRIZZLE_ADMIN) private readonly db: DrizzleDB) {}
 
-  async create(data: CreateBillingCouponData): Promise<BillingCouponEntity> {
+  create(data: CreateBillingCouponData): Promise<BillingCouponEntity> {
+    return this.mapCodeCollision(() => this.insertRow(data));
+  }
+
+  private async insertRow(
+    data: CreateBillingCouponData,
+  ): Promise<BillingCouponEntity> {
     const [row] = await this.db
       .insert(schema.billingCoupons)
       .values({
@@ -100,11 +139,21 @@ export class DrizzleBillingCouponRepository
     return row ? toDomain(row) : null;
   }
 
+  /**
+   * Retorna o cupom ATIVO que detém o código (o índice único parcial da
+   * migration 0094 garante no máximo um). Linhas inativas/arquivadas com o
+   * mesmo código não contam: o código pode ser reutilizado (ADR-0040).
+   */
   async findByCode(code: string): Promise<BillingCouponEntity | null> {
     const [row] = await this.db
       .select()
       .from(schema.billingCoupons)
-      .where(eq(schema.billingCoupons.code, code.toUpperCase()))
+      .where(
+        and(
+          eq(schema.billingCoupons.code, code.toUpperCase()),
+          eq(schema.billingCoupons.active, true),
+        ),
+      )
       .limit(1);
     return row ? toDomain(row) : null;
   }
@@ -121,7 +170,14 @@ export class DrizzleBillingCouponRepository
     return rows.map(toDomain);
   }
 
-  async update(
+  update(
+    id: string,
+    data: Partial<Omit<BillingCouponEntity, "id" | "createdAt">>,
+  ): Promise<BillingCouponEntity> {
+    return this.mapCodeCollision(() => this.updateRow(id, data));
+  }
+
+  private async updateRow(
     id: string,
     data: Partial<Omit<BillingCouponEntity, "id" | "createdAt">>,
   ): Promise<BillingCouponEntity> {
@@ -166,13 +222,25 @@ export class DrizzleBillingCouponRepository
     return toDomain(row!);
   }
 
-  async upsertFromStripe(
-    data: { stripeCouponId: string; name: string; duration: string } & Partial<
-      Omit<
-        BillingCouponEntity,
-        "id" | "createdAt" | "stripeCouponId" | "name" | "duration"
-      >
-    >,
+  upsertFromStripe(data: UpsertFromStripeData): Promise<BillingCouponEntity> {
+    return this.mapCodeCollision(() => this.upsertRow(data));
+  }
+
+  // Corrida entre dois ativos com o mesmo código (ex.: criação pelo admin x
+  // webhook): o índice parcial estoura 23505 — vira 409, não 500.
+  private async mapCodeCollision<T>(operation: () => Promise<T>): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      if (isActiveCodeUniqueViolation(error)) {
+        throw new BillingCouponCodeAlreadyExistsException();
+      }
+      throw error;
+    }
+  }
+
+  private async upsertRow(
+    data: UpsertFromStripeData,
   ): Promise<BillingCouponEntity> {
     const [row] = await this.db
       .insert(schema.billingCoupons)

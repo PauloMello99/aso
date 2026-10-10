@@ -31,17 +31,24 @@ import {
   TableRow,
 } from "@/shared/components/ui/table"
 import { ConfirmDialog } from "@/shared/components/ui/confirm-dialog"
-import { formatBRL, parseReaisToCents } from "@/features/cashier/lib/money"
-import type {
-  BillingCoupon,
-  CouponDuration,
-  CreateBillingCouponInput,
-} from "@/features/billing/types"
+import { cn } from "@/shared/lib/utils"
+import { formatBRL } from "@/features/cashier/lib/money"
+import type { BillingCoupon, CouponDuration } from "@/features/billing/types"
 import {
   useAdminBillingCoupons,
   useCreateBillingCoupon,
   useToggleBillingCoupon,
 } from "../hooks/use-admin-billing-coupons"
+import {
+  COUPON_CODE_ERROR_MESSAGES,
+  EMPTY_COUPON_FORM,
+  buildCouponSummary,
+  buildCreateCouponInput,
+  getCouponFormErrors,
+  parsePositiveInteger,
+  validateCouponCode,
+  type CouponFormValues,
+} from "../lib/billing-coupon-form"
 import { fmtDate } from "../lib/format"
 
 const DURATION_LABELS: Record<CouponDuration, string> = {
@@ -247,7 +254,7 @@ export function BillingCouponsPanel() {
         title="Desativar cupom"
         description={
           deactivating
-            ? `Desativar o cupom "${deactivating.code || deactivating.name}"? Ele deixará de poder ser resgatado por novos clientes; resgates já feitos não são afetados.`
+            ? `Desativar o cupom "${deactivating.code || deactivating.name}"? O código deixa de funcionar e o cupom é arquivado: ele continua existindo para referência, mas não pode mais ser resgatado por novos clientes. Resgates já feitos não são afetados.`
             : undefined
         }
         confirmLabel="Desativar"
@@ -260,8 +267,6 @@ export function BillingCouponsPanel() {
   )
 }
 
-type DiscountKind = "percent" | "amount"
-
 function CreateCouponDialog({
   open,
   onClose,
@@ -269,135 +274,112 @@ function CreateCouponDialog({
   open: boolean
   onClose: () => void
 }) {
-  const { createCoupon, isPending, error } = useCreateBillingCoupon()
+  const { createCoupon, isPending, error, reset } = useCreateBillingCoupon()
 
-  const [name, setName] = React.useState("")
-  const [discountKind, setDiscountKind] = React.useState<DiscountKind>("percent")
-  const [percentOff, setPercentOff] = React.useState("")
-  const [amountOff, setAmountOff] = React.useState("")
-  const [duration, setDuration] = React.useState<CouponDuration>("once")
-  const [durationInMonths, setDurationInMonths] = React.useState("")
-  const [code, setCode] = React.useState("")
-  const [maxRedemptions, setMaxRedemptions] = React.useState("")
-  const [expiresAt, setExpiresAt] = React.useState("")
+  const [values, setValues] = React.useState<CouponFormValues>(EMPTY_COUPON_FORM)
+  const [step, setStep] = React.useState<"form" | "review">("form")
 
   React.useEffect(() => {
     if (open) {
-      setName("")
-      setDiscountKind("percent")
-      setPercentOff("")
-      setAmountOff("")
-      setDuration("once")
-      setDurationInMonths("")
-      setCode("")
-      setMaxRedemptions("")
-      setExpiresAt("")
+      setValues(EMPTY_COUPON_FORM)
+      setStep("form")
+      reset()
     }
-  }, [open])
+  }, [open, reset])
 
-  const percentValue = Number(percentOff)
-  const amountCentsValue = amountOff ? parseReaisToCents(amountOff) : Number.NaN
-  const durationInMonthsNum = Number(durationInMonths)
-  const maxRedemptionsNumber = Number(maxRedemptions)
+  function setField<K extends keyof CouponFormValues>(
+    key: K,
+    value: CouponFormValues[K],
+  ) {
+    reset()
+    setValues((prev) => ({ ...prev, [key]: value }))
+  }
 
-  const hasValidDiscount =
-    discountKind === "percent"
-      ? percentOff.trim() !== "" &&
-        Number.isFinite(percentValue) &&
-        Number.isInteger(percentValue) &&
-        percentValue > 0 &&
-        percentValue <= 100
-      : amountOff.trim() !== "" &&
-        Number.isFinite(amountCentsValue) &&
-        amountCentsValue > 0
+  const {
+    name,
+    discountKind,
+    percentOff,
+    amountOff,
+    duration,
+    durationInMonths,
+    code,
+    maxRedemptions,
+    expiresAt,
+  } = values
+
+  const formErrors = getCouponFormErrors(values)
+  const canReview = formErrors.length === 0 && !isPending
+
+  const codeTouched = code.trim() !== ""
+  const codeError = codeTouched ? validateCouponCode(code) : null
 
   const percentNotInteger =
     discountKind === "percent" &&
     percentOff.trim() !== "" &&
-    Number.isFinite(percentValue) &&
-    !Number.isInteger(percentValue)
-
-  const durationInMonthsValid =
-    duration !== "repeating" ||
-    (durationInMonths.trim() !== "" &&
-      Number.isFinite(durationInMonthsNum) &&
-      Number.isInteger(durationInMonthsNum) &&
-      durationInMonthsNum > 0)
-
-  const durationInMonthsNotInteger =
+    formErrors.includes("discount")
+  const durationInMonthsInvalid =
     duration === "repeating" &&
     durationInMonths.trim() !== "" &&
-    Number.isFinite(durationInMonthsNum) &&
-    !Number.isInteger(durationInMonthsNum)
-
-  const maxRedemptionsValid =
-    maxRedemptions.trim() === "" ||
-    (Number.isFinite(maxRedemptionsNumber) &&
-      Number.isInteger(maxRedemptionsNumber) &&
-      maxRedemptionsNumber > 0)
-
-  const maxRedemptionsNotInteger =
-    maxRedemptions.trim() !== "" &&
-    Number.isFinite(maxRedemptionsNumber) &&
-    (!Number.isInteger(maxRedemptionsNumber) || maxRedemptionsNumber <= 0)
-
-  const canSubmit =
-    name.trim().length > 0 &&
-    hasValidDiscount &&
-    durationInMonthsValid &&
-    maxRedemptionsValid &&
-    !isPending
+    parsePositiveInteger(durationInMonths) === null
+  const maxRedemptionsInvalid = formErrors.includes("maxRedemptions")
 
   async function handleCreate() {
-    if (!canSubmit) return
+    const input = buildCreateCouponInput(values)
+    if (!input || isPending) return
 
-    const maxRedemptionsValue = maxRedemptions.trim()
-      ? Number(maxRedemptions)
-      : undefined
-    const durationInMonthsValue =
-      duration === "repeating" && durationInMonths.trim()
-        ? Number(durationInMonths)
-        : undefined
-
-    const input: CreateBillingCouponInput = {
-      name: name.trim(),
-      duration,
-      ...(discountKind === "percent"
-        ? { percentOff: percentValue }
-        : { amountOffCents: amountCentsValue, currency: "brl" }),
-      ...(durationInMonthsValue !== undefined && {
-        durationInMonths: durationInMonthsValue,
-      }),
-      ...(code.trim() && { code: code.trim() }),
-      ...(maxRedemptionsValue !== undefined && {
-        maxRedemptions: maxRedemptionsValue,
-      }),
-      ...(expiresAt && {
-        expiresAt: new Date(`${expiresAt}T00:00:00`).toISOString(),
-      }),
+    try {
+      await createCoupon(input)
+    } catch {
+      // Permanece no passo de revisão; a mensagem vem de `error` da mutation.
+      return
     }
-
-    await createCoupon(input)
     onClose()
   }
+
+  const summaryRows = step === "review" ? buildCouponSummary(values) : []
 
   return (
     <Dialog open={open} onOpenChange={(o) => !isPending && !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Criar cupom</DialogTitle>
+          <DialogTitle>
+            {step === "review" ? "Confirmar criação do cupom" : "Criar cupom"}
+          </DialogTitle>
           <DialogDescription>
-            Cria um cupom de desconto e sincroniza com o Stripe.
+            {step === "review"
+              ? "Confira os dados abaixo. Depois de criado, o código e o limite de resgates não podem ser corrigidos: será preciso desativar o cupom e criar outro (o código pode ser reutilizado depois de desativado)."
+              : "Cria um cupom de desconto e sincroniza com o Stripe."}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        {step === "review" && (
+          <dl className="divide-y divide-foreground/[0.06] rounded-lg border border-foreground/[0.06]">
+            {summaryRows.map((row) => (
+              <div
+                key={row.label}
+                className="flex items-center justify-between gap-4 px-3 py-2 text-sm"
+              >
+                <dt className="text-foreground/60">{row.label}</dt>
+                <dd
+                  className={cn(
+                    "text-right font-medium text-foreground",
+                    row.label === "Limite de resgates" && "text-base",
+                  )}
+                >
+                  {row.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        )}
+
+        <div className={cn("space-y-4", step === "review" && "hidden")}>
           <div className="space-y-1.5">
             <Label htmlFor="coupon-name">Nome</Label>
             <Input
               id="coupon-name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setField("name", e.target.value)}
               required
             />
           </div>
@@ -410,7 +392,7 @@ function CreateCouponDialog({
                 size="sm"
                 variant={discountKind === "percent" ? "default" : "outline"}
                 className="flex-1"
-                onClick={() => setDiscountKind("percent")}
+                onClick={() => setField("discountKind", "percent")}
               >
                 Percentual
               </Button>
@@ -419,7 +401,7 @@ function CreateCouponDialog({
                 size="sm"
                 variant={discountKind === "amount" ? "default" : "outline"}
                 className="flex-1"
-                onClick={() => setDiscountKind("amount")}
+                onClick={() => setField("discountKind", "amount")}
               >
                 Valor fixo
               </Button>
@@ -431,15 +413,15 @@ function CreateCouponDialog({
               <Label htmlFor="coupon-percent">Desconto (%)</Label>
               <Input
                 id="coupon-percent"
-                type="number"
-                min={1}
-                max={100}
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
                 value={percentOff}
-                onChange={(e) => setPercentOff(e.target.value)}
+                onChange={(e) => setField("percentOff", e.target.value)}
               />
               {percentNotInteger && (
                 <p className="text-sm text-destructive">
-                  Deve ser um número inteiro.
+                  Informe um número inteiro de 1 a 100.
                 </p>
               )}
             </div>
@@ -449,7 +431,7 @@ function CreateCouponDialog({
               <Input
                 id="coupon-amount"
                 value={amountOff}
-                onChange={(e) => setAmountOff(e.target.value)}
+                onChange={(e) => setField("amountOff", e.target.value)}
                 placeholder="0,00"
               />
             </div>
@@ -459,7 +441,7 @@ function CreateCouponDialog({
             <Label htmlFor="coupon-duration">Duração</Label>
             <Select
               value={duration}
-              onValueChange={(v) => setDuration(v as CouponDuration)}
+              onValueChange={(v) => setField("duration", v as CouponDuration)}
             >
               <SelectTrigger id="coupon-duration">
                 <SelectValue />
@@ -477,14 +459,15 @@ function CreateCouponDialog({
               <Label htmlFor="coupon-duration-months">Duração (meses)</Label>
               <Input
                 id="coupon-duration-months"
-                type="number"
-                min={1}
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
                 value={durationInMonths}
-                onChange={(e) => setDurationInMonths(e.target.value)}
+                onChange={(e) => setField("durationInMonths", e.target.value)}
               />
-              {durationInMonthsNotInteger && (
+              {durationInMonthsInvalid && (
                 <p className="text-sm text-destructive">
-                  Deve ser um número inteiro.
+                  Informe um número inteiro maior que zero.
                 </p>
               )}
             </div>
@@ -495,24 +478,37 @@ function CreateCouponDialog({
             <Input
               id="coupon-code"
               value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="gerado automaticamente se vazio"
+              onChange={(e) => setField("code", e.target.value.toUpperCase())}
+              placeholder="Ex.: LANCAMENTO20"
+              autoComplete="off"
+              required
             />
+            {codeError ? (
+              <p className="text-sm text-destructive">
+                {COUPON_CODE_ERROR_MESSAGES[codeError]}
+              </p>
+            ) : (
+              <p className="text-xs text-foreground/50">
+                Obrigatório. De 3 a 64 caracteres: letras, números, hífen ou
+                sublinhado. É o código que o cliente digita.
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="coupon-max-redemptions">Máximo de resgates</Label>
             <Input
               id="coupon-max-redemptions"
-              type="number"
-              min={1}
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
               value={maxRedemptions}
-              onChange={(e) => setMaxRedemptions(e.target.value)}
-              placeholder="Opcional"
+              onChange={(e) => setField("maxRedemptions", e.target.value)}
+              placeholder="Vazio = sem limite"
             />
-            {maxRedemptionsNotInteger && (
+            {maxRedemptionsInvalid && (
               <p className="text-sm text-destructive">
-                Deve ser um número inteiro.
+                Informe um número inteiro maior que zero.
               </p>
             )}
           </div>
@@ -522,28 +518,71 @@ function CreateCouponDialog({
             <DatePicker
               id="coupon-expires-at"
               value={expiresAt}
-              onChange={setExpiresAt}
+              onChange={(v) => setField("expiresAt", v)}
               placeholder="Sem expiração"
               startMonth={new Date()}
               endMonth={new Date(new Date().getFullYear() + 5, 11)}
             />
+            {formErrors.includes("expiresAt") && (
+              <p className="text-sm text-destructive">
+                Escolha uma data futura. O cupom vale até o fim do dia escolhido.
+              </p>
+            )}
           </div>
 
-          {error && (
-            <p className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
-            </p>
-          )}
         </div>
 
+        {error && (
+          <p
+            role="alert"
+            className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          >
+            {error}
+          </p>
+        )}
+
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
-            Cancelar
-          </Button>
-          <Button type="button" onClick={() => void handleCreate()} disabled={!canSubmit}>
-            {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Criar
-          </Button>
+          {step === "review" ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  reset()
+                  setStep("form")
+                }}
+                disabled={isPending}
+              >
+                Voltar e editar
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void handleCreate()}
+                disabled={isPending}
+              >
+                {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Confirmar e criar
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={isPending}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={() => setStep("review")}
+                disabled={!canReview}
+              >
+                Revisar
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

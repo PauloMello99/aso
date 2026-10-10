@@ -2,10 +2,12 @@ import type Stripe from "stripe";
 import type { ConfigService } from "@nestjs/config";
 import {
   extractSubscriptionDiscountRef,
+  isDuplicatePromotionCodeError,
   mapCouponToDiscount,
   StripePaymentGateway,
   toNormalizedSubscription,
 } from "./stripe-payment-gateway";
+import { BillingCouponCodeAlreadyExistsException } from "../domain/exceptions/billing-coupon-code-already-exists.exception";
 import type { TelemetryService } from "../../../common/telemetry/telemetry.service";
 
 // Unix seconds used by the `toNormalizedSubscription` fixtures. The item-level
@@ -353,5 +355,294 @@ describe("StripePaymentGateway.resolveSubscriptionDiscount (via getSubscription)
         code: "BILLING_SUBSCRIPTION_MULTIPLE_DISCOUNTS_UNSUPPORTED",
       }),
     );
+  });
+});
+
+describe("isDuplicatePromotionCodeError", () => {
+  it("recognizes the resource_already_exists code on an invalid-request error", () => {
+    expect(
+      isDuplicatePromotionCodeError({
+        type: "StripeInvalidRequestError",
+        code: "resource_already_exists",
+        message: "whatever",
+      }),
+    ).toBe(true);
+  });
+
+  it("recognizes the 'already exists' message on the `code` param (raw type only)", () => {
+    expect(
+      isDuplicatePromotionCodeError({
+        rawType: "invalid_request_error",
+        param: "code",
+        message: "An active promotion code with `code: X` already exists.",
+      }),
+    ).toBe(true);
+  });
+
+  it("recognizes the 'promotion code ... already exists' message without a param", () => {
+    expect(
+      isDuplicatePromotionCodeError({
+        type: "StripeInvalidRequestError",
+        message: "An active promotion code with `code: X` already exists.",
+      }),
+    ).toBe(true);
+  });
+
+  it.each([
+    ["a non-object", "boom"],
+    ["null", null],
+    ["a plain Error", new Error("An active promotion code already exists.")],
+    [
+      "an invalid-request error about something else",
+      { type: "StripeInvalidRequestError", message: "No such coupon: 'c1'" },
+    ],
+    [
+      "an 'already exists' message unrelated to promotion codes and not on `code`",
+      {
+        type: "StripeInvalidRequestError",
+        param: "id",
+        message: "A coupon with this id already exists.",
+      },
+    ],
+    [
+      "an 'already exists' message on another param of a different error type",
+      {
+        type: "StripeAPIError",
+        param: "customer",
+        message: "A customer with this email already exists.",
+      },
+    ],
+    [
+      "an 'already exists' message on the `code` param of a non-invalid-request error",
+      {
+        type: "StripeAPIError",
+        param: "code",
+        message: "An active promotion code with `code: X` already exists.",
+      },
+    ],
+    [
+      "an 'already exists' message on another param with a non-promotion-code subject",
+      {
+        rawType: "invalid_request_error",
+        param: "metadata",
+        message: "Metadata key already exists.",
+      },
+    ],
+    [
+      "resource_already_exists on a non-invalid-request error",
+      {
+        type: "StripeConnectionError",
+        code: "resource_already_exists",
+        message: "boom",
+      },
+    ],
+    [
+      "a rate limit error",
+      { type: "StripeRateLimitError", code: "rate_limit", message: "429" },
+    ],
+  ])("does not treat %s as a duplicate code", (_label, error) => {
+    expect(isDuplicatePromotionCodeError(error)).toBe(false);
+  });
+});
+
+describe("StripePaymentGateway coupon and promotion code calls", () => {
+  interface StripeClientFake {
+    coupons: { retrieve: jest.Mock; update: jest.Mock };
+    promotionCodes: { create: jest.Mock; update: jest.Mock };
+  }
+
+  function buildGateway(): {
+    gateway: StripePaymentGateway;
+    stripe: StripeClientFake;
+  } {
+    const config = {
+      getOrThrow: jest.fn((key: string) => {
+        if (key === "STRIPE_SECRET_KEY") return "sk_test_x";
+        throw new Error(`unexpected config key requested in test: ${key}`);
+      }),
+    } as unknown as ConfigService;
+    const telemetry = {
+      captureException: jest.fn(),
+      captureMessage: jest.fn(),
+      flush: jest.fn(),
+    } as unknown as TelemetryService;
+    const gateway = new StripePaymentGateway(config, telemetry);
+    const stripe: StripeClientFake = {
+      coupons: { retrieve: jest.fn(), update: jest.fn() },
+      promotionCodes: { create: jest.fn(), update: jest.fn() },
+    };
+    (gateway as unknown as { stripe: StripeClientFake }).stripe = stripe;
+    return { gateway, stripe };
+  }
+
+  function stripeInvalidRequest(
+    overrides: Record<string, unknown>,
+  ): Error {
+    return Object.assign(new Error("provider message with PII-ish detail"), {
+      type: "StripeInvalidRequestError",
+      ...overrides,
+    });
+  }
+
+  it("retrieveCoupon maps the Coupon-level limit, redeem_by, times_redeemed and metadata", async () => {
+    const { gateway, stripe } = buildGateway();
+    stripe.coupons.retrieve.mockResolvedValue({
+      id: "c1",
+      name: "Promo",
+      percent_off: 10,
+      amount_off: null,
+      currency: null,
+      duration: "once",
+      duration_in_months: null,
+      valid: true,
+      max_redemptions: 7,
+      redeem_by: 1_800_000_000,
+      times_redeemed: 3,
+      metadata: { aso_archived: "false" },
+    });
+
+    const result = await gateway.retrieveCoupon("c1");
+
+    expect(result).toEqual({
+      couponId: "c1",
+      name: "Promo",
+      percentOff: 10,
+      amountOffCents: null,
+      currency: null,
+      duration: "once",
+      durationInMonths: null,
+      valid: true,
+      maxRedemptions: 7,
+      redeemBy: new Date(1_800_000_000 * 1000),
+      timesRedeemed: 3,
+      metadata: { aso_archived: "false" },
+    });
+  });
+
+  it("retrieveCoupon maps an unlimited coupon without redeem_by/metadata to nulls and an empty object", async () => {
+    const { gateway, stripe } = buildGateway();
+    stripe.coupons.retrieve.mockResolvedValue({
+      id: "c1",
+      name: null,
+      percent_off: 10,
+      duration: "forever",
+      valid: true,
+      max_redemptions: null,
+      redeem_by: null,
+      times_redeemed: 0,
+      metadata: null,
+    });
+
+    const result = await gateway.retrieveCoupon("c1");
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        name: "",
+        maxRedemptions: null,
+        redeemBy: null,
+        timesRedeemed: 0,
+        metadata: {},
+      }),
+    );
+  });
+
+  it("updateCouponMetadata writes only the metadata and resolves true", async () => {
+    const { gateway, stripe } = buildGateway();
+    stripe.coupons.update.mockResolvedValue({ id: "c1" });
+
+    await expect(
+      gateway.updateCouponMetadata("c1", { aso_archived: "true" }),
+    ).resolves.toBe(true);
+    expect(stripe.coupons.update).toHaveBeenCalledWith("c1", {
+      metadata: { aso_archived: "true" },
+    });
+  });
+
+  it("updateCouponMetadata resolves false when the coupon is gone and rethrows other errors", async () => {
+    const { gateway, stripe } = buildGateway();
+    stripe.coupons.update.mockRejectedValueOnce(
+      Object.assign(new Error("missing"), { code: "resource_missing" }),
+    );
+    await expect(
+      gateway.updateCouponMetadata("c1", { aso_archived: "true" }),
+    ).resolves.toBe(false);
+
+    const failure = new Error("stripe 500");
+    stripe.coupons.update.mockRejectedValueOnce(failure);
+    await expect(
+      gateway.updateCouponMetadata("c1", { aso_archived: "true" }),
+    ).rejects.toBe(failure);
+  });
+
+  it("createPromotionCode maps a duplicate-code Stripe error to BillingCouponCodeAlreadyExistsException without leaking the provider message", async () => {
+    const { gateway, stripe } = buildGateway();
+    stripe.promotionCodes.create.mockRejectedValue(
+      stripeInvalidRequest({ code: "resource_already_exists", param: "code" }),
+    );
+
+    const attempt = gateway.createPromotionCode({
+      couponId: "c1",
+      code: "PROMO10",
+    });
+
+    await expect(attempt).rejects.toBeInstanceOf(
+      BillingCouponCodeAlreadyExistsException,
+    );
+    await expect(attempt).rejects.toHaveProperty(
+      "code",
+      "BILLING_COUPON_CODE_ALREADY_EXISTS",
+    );
+    await expect(attempt).rejects.not.toHaveProperty(
+      "message",
+      expect.stringContaining("PII-ish"),
+    );
+  });
+
+  it("createPromotionCode rethrows any other Stripe error untouched", async () => {
+    const { gateway, stripe } = buildGateway();
+    const failure = stripeInvalidRequest({ message: "No such coupon" });
+    stripe.promotionCodes.create.mockRejectedValue(failure);
+
+    await expect(
+      gateway.createPromotionCode({ couponId: "c1", code: "PROMO10" }),
+    ).rejects.toBe(failure);
+  });
+
+  it("createPromotionCode forwards the code, the limit and the expiry (unix seconds)", async () => {
+    const { gateway, stripe } = buildGateway();
+    stripe.promotionCodes.create.mockResolvedValue({
+      id: "promo_1",
+      code: "PROMO10",
+    });
+    const expiresAt = new Date("2027-01-01T00:00:00Z");
+
+    const result = await gateway.createPromotionCode({
+      couponId: "c1",
+      code: "PROMO10",
+      maxRedemptions: 7,
+      expiresAt,
+    });
+
+    expect(result).toEqual({ promotionCodeId: "promo_1", code: "PROMO10" });
+    expect(stripe.promotionCodes.create).toHaveBeenCalledWith({
+      promotion: { type: "coupon", coupon: "c1" },
+      code: "PROMO10",
+      max_redemptions: 7,
+      expires_at: Math.floor(expiresAt.getTime() / 1000),
+    });
+  });
+
+  it("updatePromotionCode maps a duplicate-code Stripe error (reactivation) to BillingCouponCodeAlreadyExistsException", async () => {
+    const { gateway, stripe } = buildGateway();
+    stripe.promotionCodes.update.mockRejectedValue(
+      stripeInvalidRequest({
+        message: "An active promotion code with `code: X` already exists.",
+        param: "code",
+      }),
+    );
+
+    await expect(
+      gateway.updatePromotionCode("promo_1", { active: true }),
+    ).rejects.toBeInstanceOf(BillingCouponCodeAlreadyExistsException);
   });
 });
